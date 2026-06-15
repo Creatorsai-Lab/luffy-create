@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useState, useMemo } from 'react'
-import { Plus, Play, Pause, SkipBack, ZoomIn, ZoomOut, ArrowLeftRight, Music, Trash2, Copy, Scissors, Split, X, Volume2, Bookmark, Shuffle } from 'lucide-react'
+import { Plus, Play, Pause, SkipBack, ZoomIn, ZoomOut, ArrowLeftRight, Music, Trash2, Copy, Scissors, Split, X, Volume2, Bookmark, Shuffle, Film } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { cn } from '../../utils/cn'
 import { toFileUrl } from '../../utils/pathUtils'
@@ -7,10 +7,12 @@ import { getWaveform } from '../../utils/waveform'
 import type { WaveformData } from '../../utils/waveform'
 import Tooltip from '../ui/Tooltip'
 import ContextMenu from '../ui/ContextMenu'
-import type { AudioElement } from '../../types/editor'
+import type { AudioElement, VideoElement } from '../../types/editor'
+import { maxVideoClipDuration } from '../../utils/videoClip'
 import { TRANS_COLOR } from '../../utils/transitions'
 
 const RULER_HEIGHT = 22
+const VIDEO_TRACK_HEIGHT = 16
 const SCENE_HEIGHT = 50
 const TRACK_HEIGHT = 32
 const PX_PER_SEC_BASE = 60
@@ -47,7 +49,7 @@ export default function Timeline() {
     getTotalDuration, setTimelineZoom, 
     updateElement, removeElement, addElementToScene,
     addAudioMarker, removeAudioMarker,
-    setActivePanel,
+    setActivePanel, selectElement,
   } = useEditorStore()
 
   const [editDurId, setEditDurId] = useState<string | null>(null)
@@ -61,6 +63,11 @@ export default function Timeline() {
   const [audioContextMenu, setAudioContextMenu] = useState<{
     x: number; y: number; audioId: string; clickTimeInAudio: number; sceneId: string; absoluteTime: number
   } | null>(null)
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null)
+  const [videoContextMenu, setVideoContextMenu] = useState<{
+    x: number; y: number; videoId: string; clickTimeInClip: number; sceneId: string
+  } | null>(null)
+  const [resizingVideo, setResizingVideo] = useState<{ id: string; edge: 'start' | 'end' } | null>(null)
   const [timelineContextMenu, setTimelineContextMenu] = useState<{ x: number; y: number; time: number } | null>(null)
   const [panelHeight, setPanelHeight] = useState(160)
   const [shiftHeld, setShiftHeld] = useState(false)
@@ -231,6 +238,12 @@ export default function Timeline() {
           if (e.ctrlKey || e.metaKey) { e.preventDefault(); setTimelineZoom(1) }
           break
         case 'Delete': case 'Backspace': {
+          if (selectedVideoId) {
+            e.preventDefault()
+            removeElement(selectedVideoId)
+            setSelectedVideoId(null)
+            break
+          }
           if (selectedAudioId) {
             e.preventDefault()
             removeElement(selectedAudioId)
@@ -323,7 +336,10 @@ export default function Timeline() {
     const pxPerSec    = PX_PER_SEC
     let moved         = false
 
-    if (!wasSelected) setSelectedAudioId(audioId)
+    if (!wasSelected) {
+      setSelectedAudioId(audioId)
+      setSelectedVideoId(null)
+    }
 
     const handleMouseMove = (mv: MouseEvent) => {
       if (!moved && Math.abs(mv.clientX - startMouseX) < 3) return
@@ -347,6 +363,7 @@ export default function Timeline() {
     e.preventDefault()
     setResizingAudio({ id: audioEl.id, edge })
     setSelectedAudioId(audioEl.id)
+    setSelectedVideoId(null)
 
     const startMouseX   = e.clientX
     const origX         = audioEl.x ?? 0
@@ -371,6 +388,86 @@ export default function Timeline() {
 
     const handleMouseUp = () => {
       setResizingAudio(null)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
+  function handleVideoMouseDown(e: React.MouseEvent, videoId: string, timelineX: number) {
+    e.stopPropagation()
+    const wasSelected = selectedVideoId === videoId
+    const startMouseX = e.clientX
+    const origTimelineX = timelineX
+    let moved = false
+
+    if (!wasSelected) {
+      setSelectedVideoId(videoId)
+      setSelectedAudioId(null)
+      selectElement(videoId, false)
+    }
+
+    const handleMouseMove = (mv: MouseEvent) => {
+      if (!moved && Math.abs(mv.clientX - startMouseX) < 3) return
+      moved = true
+      let elapsed = 0
+      for (const sc of project!.scenes) {
+        const video = sc.elements.find(el => el.id === videoId && el.type === 'video') as VideoElement | undefined
+        if (video) {
+          const clipDur = video.duration ?? video.sourceDuration ?? 10
+          const maxX = Math.max(0, sc.duration - clipDur)
+          const delta = (mv.clientX - startMouseX) / PX_PER_SEC
+          updateElement(videoId, { timelineX: Math.max(0, Math.min(maxX, origTimelineX + delta)) })
+          return
+        }
+        elapsed += sc.duration
+      }
+    }
+
+    const handleMouseUp = () => {
+      if (!moved && wasSelected) setSelectedVideoId(null)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
+  function handleVideoResizeMouseDown(e: React.MouseEvent, video: VideoElement, edge: 'start' | 'end') {
+    e.stopPropagation()
+    e.preventDefault()
+    setResizingVideo({ id: video.id, edge })
+    setSelectedVideoId(video.id)
+    setSelectedAudioId(null)
+    selectElement(video.id, false)
+
+    const startMouseX = e.clientX
+    const origTimelineX = video.timelineX ?? 0
+    const origDuration = video.duration ?? 10
+    const origStartTime = video.startTime ?? 0
+    const speed = video.playbackRate ?? 1
+    const maxDur = maxVideoClipDuration(video)
+
+    const handleMouseMove = (mv: MouseEvent) => {
+      const delta = (mv.clientX - startMouseX) / PX_PER_SEC
+      if (edge === 'end') {
+        updateElement(video.id, { duration: Math.max(0.1, Math.min(maxDur, origDuration + delta)) })
+      } else {
+        const newX = Math.max(0, origTimelineX + delta)
+        const actualDelta = newX - origTimelineX
+        updateElement(video.id, {
+          timelineX: newX,
+          startTime: Math.max(0, origStartTime + actualDelta * speed),
+          duration: Math.max(0.1, Math.min(maxDur, origDuration - actualDelta)),
+        })
+      }
+    }
+
+    const handleMouseUp = () => {
+      setResizingVideo(null)
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
@@ -416,6 +513,95 @@ export default function Timeline() {
       const found = sc.elements.find(e => e.id === selectedAudioId && e.type === 'audio') as AudioElement | undefined
       if (found) { selectedAudio = found; break }
     }
+  }
+
+  let selectedVideo: VideoElement | undefined
+  if (selectedVideoId) {
+    for (const sc of project.scenes) {
+      const found = sc.elements.find(e => e.id === selectedVideoId && e.type === 'video') as VideoElement | undefined
+      if (found) { selectedVideo = found; break }
+    }
+  }
+
+  function findVideoScene(videoId: string) {
+    let elapsed = 0
+    for (const sc of project!.scenes) {
+      const video = sc.elements.find(e => e.id === videoId && e.type === 'video') as VideoElement | undefined
+      if (video) return { video, scene: sc, sceneStart: elapsed }
+      elapsed += sc.duration
+    }
+    return null
+  }
+
+  function trimVideoAtPlayhead() {
+    if (!selectedVideo) return
+    const result = findVideoScene(selectedVideo.id)
+    if (!result) return
+    const clipTime = playhead - result.sceneStart - (selectedVideo.timelineX ?? 0)
+    if (clipTime <= 0.1) return
+    updateElement(selectedVideo.id, { duration: Math.max(0.1, clipTime) })
+  }
+
+  function splitVideoAtPlayhead() {
+    if (!selectedVideo) return
+    const result = findVideoScene(selectedVideo.id)
+    if (!result) return
+    const clipDur = selectedVideo.duration ?? 10
+    const clipTime = playhead - result.sceneStart - (selectedVideo.timelineX ?? 0)
+    if (clipTime <= 0.1 || clipTime >= clipDur - 0.1) return
+    const speed = selectedVideo.playbackRate ?? 1
+    updateElement(selectedVideo.id, { duration: clipTime })
+    addElementToScene(result.scene.id, {
+      ...JSON.parse(JSON.stringify(selectedVideo)),
+      id: crypto.randomUUID(),
+      timelineX: (selectedVideo.timelineX ?? 0) + clipTime,
+      startTime: (selectedVideo.startTime ?? 0) + clipTime * speed,
+      duration: clipDur - clipTime,
+    })
+  }
+
+  function trimVideoAfterAtContext() {
+    if (!videoContextMenu || !project) return
+    const { videoId, sceneId, clickTimeInClip } = videoContextMenu
+    const sc = project.scenes.find(s => s.id === sceneId)
+    const video = sc?.elements.find(e => e.id === videoId) as VideoElement | undefined
+    if (!video || clickTimeInClip <= 0.1) return
+    updateElement(videoId, { duration: Math.max(0.1, clickTimeInClip) })
+    setVideoContextMenu(null)
+  }
+
+  function trimVideoBeforeAtContext() {
+    if (!videoContextMenu || !project) return
+    const { videoId, sceneId, clickTimeInClip } = videoContextMenu
+    const sc = project.scenes.find(s => s.id === sceneId)
+    const video = sc?.elements.find(e => e.id === videoId) as VideoElement | undefined
+    if (!video || clickTimeInClip >= (video.duration ?? 0) - 0.1) return
+    const speed = video.playbackRate ?? 1
+    updateElement(videoId, {
+      timelineX: (video.timelineX ?? 0) + clickTimeInClip,
+      startTime: (video.startTime ?? 0) + clickTimeInClip * speed,
+      duration:  (video.duration ?? 0) - clickTimeInClip,
+    })
+    setVideoContextMenu(null)
+  }
+
+  function splitVideoAtContext() {
+    if (!videoContextMenu || !project) return
+    const { videoId, sceneId, clickTimeInClip } = videoContextMenu
+    const sc = project.scenes.find(s => s.id === sceneId)
+    const video = sc?.elements.find(e => e.id === videoId) as VideoElement | undefined
+    const clipDur = video?.duration ?? 0
+    if (!video || clickTimeInClip <= 0.1 || clickTimeInClip >= clipDur - 0.1) return
+    const speed = video.playbackRate ?? 1
+    updateElement(videoId, { duration: clickTimeInClip })
+    addElementToScene(sceneId, {
+      ...JSON.parse(JSON.stringify(video)),
+      id: crypto.randomUUID(),
+      timelineX: (video.timelineX ?? 0) + clickTimeInClip,
+      startTime: (video.startTime ?? 0) + clickTimeInClip * speed,
+      duration: clipDur - clickTimeInClip,
+    })
+    setVideoContextMenu(null)
   }
 
   function findAudioScene(audioId: string) {
@@ -503,6 +689,16 @@ export default function Timeline() {
       .map((el, idx) => ({ audio: el as AudioElement, sc, scStart, idx }))
   })
 
+  const allVideoClips = project.scenes.flatMap(sc => {
+    const scStart = sceneStarts[sc.id] ?? 0
+    return sc.elements
+      .filter(el => el.type === 'video')
+      .map(el => ({ video: el as VideoElement, sc, scStart }))
+  })
+
+  const SCENE_TOP = RULER_HEIGHT + VIDEO_TRACK_HEIGHT
+  const AUDIO_TOP = SCENE_TOP + SCENE_HEIGHT
+
   // ── Lane packing for audio clips ──────────────────────────────────────────
   // Explicit `lane` (set by Shift+click) is honored; the rest are greedily
   // packed into the lowest lane with no time overlap. So a split/new clip that
@@ -588,7 +784,66 @@ export default function Timeline() {
           </Tooltip>
         </div>
 
-        {selectedAudio ? (
+        {selectedVideo ? (
+          <>
+            <Film size={15} className="text-violet-400 flex-none" />
+
+            <div className="flex items-center gap-2 flex-none">
+              <Volume2 size={15} className="text-editor-text" />
+              <input
+                type="range" min={0} max={1} step={0.01}
+                value={selectedVideo.volume ?? 1}
+                onChange={e => updateElement(selectedVideo!.id, { volume: parseFloat(e.target.value) })}
+                className="w-20 text-editor-text h-1 accent-editor-accent"
+              />
+              <span className="text-xs text-editor-text w-10 flex-none">
+                {Math.round((selectedVideo.volume ?? 1) * 100)}%
+              </span>
+            </div>
+
+            <select
+              value={selectedVideo.playbackRate ?? 1}
+              onChange={e => {
+                const newRate = parseFloat(e.target.value)
+                const rawS = (selectedVideo!.duration ?? 10) * (selectedVideo!.playbackRate ?? 1)
+                updateElement(selectedVideo!.id, { playbackRate: newRate, duration: rawS / newRate })
+              }}
+              className="bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-1.5 py-1 flex-none"
+              title="Playback speed"
+            >
+              {SPEED_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+
+            <div className="w-px h-5 bg-editor-border mx-1 flex-none" />
+
+            <div className="flex items-center gap-2 flex-none">
+              <Tooltip text="Trim after playhead (cut end)">
+                <button
+                  onClick={trimVideoAtPlayhead}
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-editor-elevated border border-editor-border text-editor-text hover:border-editor-text/40 transition-colors flex-none"
+                >
+                  <Scissors size={13} /> Trim
+                </button>
+              </Tooltip>
+              <Tooltip text="Split at playhead">
+                <button
+                  onClick={splitVideoAtPlayhead}
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-editor-elevated border border-editor-border text-editor-text hover:border-editor-text/40 transition-colors flex-none"
+                >
+                  <Split size={13} /> Split
+                </button>
+              </Tooltip>
+            </div>
+
+            <button
+              onClick={() => setSelectedVideoId(null)}
+              className="text-editor-text hover:text-red-400 transition-colors ml-1 flex-none"
+              title="Deselect video"
+            >
+              <X size={12} />
+            </button>
+          </>
+        ) : selectedAudio ? (
           <>
             <Music size={15} className="text-editor-accent flex-none" />
 
@@ -705,8 +960,76 @@ export default function Timeline() {
             ))}
           </div>
 
+          {/* Video track — above scene blocks */}
+          <div className="absolute left-0 right-0" style={{ top: RULER_HEIGHT, height: VIDEO_TRACK_HEIGHT }}>
+            {allVideoClips.map(({ video, sc, scStart }) => {
+              const clipDur = video.duration ?? video.sourceDuration ?? 5
+              const startPx = (scStart + (video.timelineX ?? 0)) * PX_PER_SEC
+              const widthPx = clipDur * PX_PER_SEC
+              const isSelected = selectedVideoId === video.id
+              const isResizing = resizingVideo?.id === video.id
+              return (
+                <div
+                  key={video.id}
+                  className={cn(
+                    'absolute rounded overflow-hidden transition-shadow select-none cursor-grab',
+                    isSelected ? 'ring-2 ring-violet-300 shadow-lg shadow-violet-500/30' : 'hover:ring-1 hover:ring-violet-400/60',
+                    isResizing && 'ring-2 ring-white',
+                  )}
+                  style={{
+                    left: startPx,
+                    width: Math.max(widthPx, 40),
+                    top: 1,
+                    height: VIDEO_TRACK_HEIGHT - 2,
+                    background: '#1a1033',
+                    boxShadow: '0 1px 6px rgba(0,0,0,0.45)',
+                  }}
+                  title={`${video.name} — ${clipDur.toFixed(1)}s — drag · right-click for options`}
+                  onMouseDown={e => handleVideoMouseDown(e, video.id, video.timelineX ?? 0)}
+                  onContextMenu={e => {
+                    e.preventDefault(); e.stopPropagation()
+                    const barRect = e.currentTarget.getBoundingClientRect()
+                    const clickTimeInClip = Math.max(0, Math.min(clipDur, (e.clientX - barRect.left) / PX_PER_SEC))
+                    setVideoContextMenu({
+                      x: e.clientX, y: e.clientY,
+                      videoId: video.id,
+                      sceneId: sc.id,
+                      clickTimeInClip,
+                    })
+                    setSelectedVideoId(video.id)
+                    setSelectedAudioId(null)
+                    selectElement(video.id, false)
+                  }}
+                >
+                  <VideoClipFilmstrip
+                    src={video.src}
+                    startTime={video.startTime ?? 0}
+                    clipWidthPx={Math.max(widthPx, 40)}
+                    trackH={VIDEO_TRACK_HEIGHT - 2}
+                  />
+                  <div className="absolute inset-0 flex items-center px-1 pointer-events-none bg-gradient-to-r from-violet-900/40 via-transparent to-violet-900/40">
+                    <Film size={9} className="text-white/80 flex-none drop-shadow" />
+                    <span className="text-[9px] text-white/90 truncate ml-1 font-medium drop-shadow">
+                      {(video.playbackRate ?? 1) !== 1 ? `${video.playbackRate}× ` : ''}{clipDur.toFixed(1)}s
+                    </span>
+                  </div>
+                  <div
+                    className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 z-10"
+                    onMouseDown={e => handleVideoResizeMouseDown(e, video, 'start')}
+                    title="Drag to trim start"
+                  />
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 z-10"
+                    onMouseDown={e => handleVideoResizeMouseDown(e, video, 'end')}
+                    title="Drag to trim end"
+                  />
+                </div>
+              )
+            })}
+          </div>
+
           {/* Scene blocks */}
-          <div className="absolute left-0 right-0" style={{ top: RULER_HEIGHT, height: SCENE_HEIGHT }}>
+          <div className="absolute left-0 right-0" style={{ top: SCENE_TOP, height: SCENE_HEIGHT }}>
             {project.scenes.map((sc, index) => {
               const startPx    = sceneStarts[sc.id] * PX_PER_SEC
               const widthPx    = sc.duration * PX_PER_SEC
@@ -729,7 +1052,7 @@ export default function Timeline() {
                     if (draggedSceneIndex !== null && draggedSceneIndex !== index) reorderScenes(draggedSceneIndex, index)
                     setDraggedSceneIndex(null); setDropTargetIndex(null)
                   }}
-                  onClick={e => { e.stopPropagation(); setCurrentScene(sc.id); setSelectedAudioId(null) }}
+                  onClick={e => { e.stopPropagation(); setCurrentScene(sc.id); setSelectedAudioId(null); setSelectedVideoId(null) }}
                   onContextMenu={e => {
                     e.preventDefault(); e.stopPropagation()
                     setContextMenu({ x: e.clientX, y: e.clientY, sceneId: sc.id })
@@ -746,7 +1069,6 @@ export default function Timeline() {
                     height: SCENE_HEIGHT - 4, top: 2,
                     background: sceneColor, color: 'white',
                     fontWeight: isActive ? 600 : 400,
-                    paddingBottom: 14,
                     cursor: shiftHeld ? 'grab' : 'pointer',
                   }}
                   title={shiftHeld ? 'Shift+drag to reorder' : sc.name}
@@ -757,7 +1079,6 @@ export default function Timeline() {
                   />
 
                   <span className="truncate flex-1 pl-1 font-medium">{sc.name}</span>
-
 
                   <div
                     className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-white/30 rounded-r-md z-10"
@@ -778,7 +1099,7 @@ export default function Timeline() {
             const color   = TRANS_COLOR[sc.transition.type] ?? '#6366f1'
             const BLOCK_W = 20
             const BLOCK_H = 20
-            const BLOCK_TOP = RULER_HEIGHT + 2 + Math.round(((SCENE_HEIGHT - 4) - BLOCK_H) / 2)
+            const BLOCK_TOP = SCENE_TOP + 2 + Math.round(((SCENE_HEIGHT - 4) - BLOCK_H) / 2)
             return (
               <div
                 key={`trans-${sc.id}`}
@@ -802,7 +1123,7 @@ export default function Timeline() {
           })}
 
           {/* Audio tracks — lane-packed so non-overlapping clips share a row */}
-          <div className="absolute left-0 right-0" style={{ top: RULER_HEIGHT + SCENE_HEIGHT, height: (maxLane + 1) * TRACK_HEIGHT }}>
+          <div className="absolute left-0 right-0" style={{ top: AUDIO_TOP, height: (maxLane + 1) * TRACK_HEIGHT }}>
             {allAudioClips.map(({ audio, sc, scStart }) => {
               const audioDur     = audio.duration ?? 30
               const audioStartPx = (scStart + (audio.x ?? 0)) * PX_PER_SEC
@@ -838,6 +1159,7 @@ export default function Timeline() {
                         const cur = audioLaneOf(audio.id)
                         updateElement(audio.id, { lane: (cur + 1) % (maxLane + 2) })
                         setSelectedAudioId(audio.id)
+                      setSelectedVideoId(null)
                         return
                       }
                       handleAudioMouseDown(e, audio.id, audio.x ?? 0)
@@ -856,6 +1178,7 @@ export default function Timeline() {
                         absoluteTime,
                       })
                       setSelectedAudioId(audio.id)
+                      setSelectedVideoId(null)
                     }}
                   >
                     {/* Real waveform */}
@@ -914,7 +1237,7 @@ export default function Timeline() {
                 <div
                   key={marker.id}
                   className="absolute z-20 pointer-events-none"
-                  style={{ left: markerPx, top: RULER_HEIGHT + SCENE_HEIGHT, bottom: 0 }}
+                  style={{ left: markerPx, top: AUDIO_TOP, bottom: 0 }}
                 >
                   <div
                     className="absolute"
@@ -1045,6 +1368,63 @@ export default function Timeline() {
         onClose={() => setAudioContextMenu(null)}
       />
 
+      {/* Context Menu — video clips (inside scene blocks) */}
+      <ContextMenu
+        visible={videoContextMenu !== null}
+        x={videoContextMenu?.x ?? 0}
+        y={videoContextMenu?.y ?? 0}
+        items={[
+          {
+            label: 'Duplicate',
+            icon: <Copy size={14} />,
+            onClick: () => {
+              if (videoContextMenu) {
+                const sc = project.scenes.find(s => s.id === videoContextMenu.sceneId)
+                const video = sc?.elements.find(e => e.id === videoContextMenu.videoId) as VideoElement | undefined
+                if (video && sc) {
+                  addElementToScene(sc.id, {
+                    ...JSON.parse(JSON.stringify(video)),
+                    id: crypto.randomUUID(),
+                    timelineX: (video.timelineX ?? 0) + (video.duration ?? 0) + 0.1,
+                    x: video.x + 24,
+                    y: video.y + 24,
+                  })
+                }
+              }
+              setVideoContextMenu(null)
+            },
+          },
+          {
+            label: `Trim after (${videoContextMenu ? videoContextMenu.clickTimeInClip.toFixed(1) : 0}s)`,
+            icon: <Scissors size={14} />,
+            onClick: trimVideoAfterAtContext,
+          },
+          {
+            label: `Trim before (${videoContextMenu ? videoContextMenu.clickTimeInClip.toFixed(1) : 0}s)`,
+            icon: <Scissors size={14} />,
+            onClick: trimVideoBeforeAtContext,
+          },
+          {
+            label: `Split here (${videoContextMenu ? videoContextMenu.clickTimeInClip.toFixed(1) : 0}s)`,
+            icon: <Split size={14} />,
+            onClick: splitVideoAtContext,
+          },
+          {
+            label: 'Delete',
+            icon: <Trash2 size={14} />,
+            dangerous: true,
+            onClick: () => {
+              if (videoContextMenu) {
+                removeElement(videoContextMenu.videoId)
+                if (selectedVideoId === videoContextMenu.videoId) setSelectedVideoId(null)
+              }
+              setVideoContextMenu(null)
+            },
+          },
+        ]}
+        onClose={() => setVideoContextMenu(null)}
+      />
+
       {/* Context Menu — timeline (ruler / empty track area) */}
       <ContextMenu
         visible={timelineContextMenu !== null}
@@ -1063,6 +1443,41 @@ export default function Timeline() {
         onClose={() => setTimelineContextMenu(null)}
       />
     </div>
+  )
+}
+
+// ── Video clip filmstrip (timeline thumbnail) ─────────────────────────────────
+
+function VideoClipFilmstrip({ src, startTime, clipWidthPx, trackH }: {
+  src: string
+  startTime: number
+  clipWidthPx: number
+  trackH: number
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    const seek = () => {
+      if (v.duration && Number.isFinite(v.duration)) {
+        v.currentTime = Math.min(Math.max(0, startTime), Math.max(0, v.duration - 0.05))
+      }
+    }
+    v.addEventListener('loadeddata', seek)
+    if (v.readyState >= 2) seek()
+    return () => v.removeEventListener('loadeddata', seek)
+  }, [src, startTime])
+
+  return (
+    <video
+      ref={videoRef}
+      src={toFileUrl(src)}
+      muted
+      preload="auto"
+      className="absolute inset-0 w-full pointer-events-none object-cover"
+      style={{ height: trackH, minWidth: clipWidthPx, opacity: 0.92 }}
+    />
   )
 }
 

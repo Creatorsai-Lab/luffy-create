@@ -54,6 +54,24 @@ export default function MenuSideBar() {
   const preset = project ? CANVAS_PRESETS.find(p => p.width === project.width && p.height === project.height) : null
   const sizeLabel = project ? (preset?.label ?? `${project.width}x${project.height}`) : '—'
 
+  async function commitProjectName(raw: string) {
+    if (!project) return
+    const name = raw.trim()
+    if (!name || name === project.name) return
+    setProjectName(name)
+    if (project.id === 'default') return
+    try {
+      await window.api.projects.rename(project.id, name)
+      const latest = useEditorStore.getState().project
+      if (latest) {
+        await window.api.projects.save(latest.id, JSON.stringify(latest))
+        useEditorStore.getState().markClean()
+      }
+    } catch (e) {
+      console.error('Failed to rename project', e)
+    }
+  }
+
   return (
     <aside className="w-56 flex-none bg-[#171717] flex flex-col h-full overflow-y-auto no-scrollbar border-r border-editor-border">
       {/* Top Bar Actions */}
@@ -64,9 +82,9 @@ export default function MenuSideBar() {
             autoFocus
             className="border border-white text-[#f2f2f2] text-[0.78rem] px-2 py-1 rounded w-full"
             defaultValue={project.name}
-            onBlur={e => { setProjectName(e.target.value); setEditingName(false) }}
+            onBlur={e => { commitProjectName(e.target.value); setEditingName(false) }}
             onKeyDown={e => {
-              if (e.key === 'Enter') { setProjectName(e.currentTarget.value); setEditingName(false) }
+              if (e.key === 'Enter') { commitProjectName(e.currentTarget.value); setEditingName(false) }
               if (e.key === 'Escape') setEditingName(false)
             }}
           />

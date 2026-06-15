@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid'
 import type {
   Project, Scene, EditorElement, ElementAnimation,
   Background, SceneTransition, AssetMeta,
-  ActiveTool, ActivePanel, TimeMarker
+  ActiveTool, ActivePanel, TimeMarker, VideoElement
 } from '../types/editor'
 import { makeScene, makeProject } from '../utils/defaults'
 import { useHistoryStore } from './historyStore'
@@ -155,6 +155,17 @@ function reconcileUiAfterProjectRestore(s: EditorState, project: Project) {
   }
 }
 
+function fitSceneToVideoContent(sc: Scene) {
+  let maxEnd = 0
+  for (const el of sc.elements) {
+    if (el.type !== 'video') continue
+    const v = el as VideoElement
+    const end = (v.timelineX ?? 0) + (v.duration ?? v.sourceDuration ?? 0)
+    if (end > maxEnd) maxEnd = end
+  }
+  if (maxEnd > 0) sc.duration = Math.max(sc.duration, maxEnd)
+}
+
 export const useEditorStore = create<EditorState & EditorActions>()(
   subscribeWithSelector(
     immer((set, get) => ({
@@ -301,6 +312,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         const elem = { ...el, zIndex: sc.elements.length } as EditorElement
         sc.elements.push(elem)
         if (el.type !== 'audio') s.selectedIds = [el.id]
+        if (el.type === 'video') fitSceneToVideoContent(sc)
         s.isDirty = true
       }),
 
@@ -310,6 +322,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         if (!sc) return
         const elem = { ...el, zIndex: sc.elements.length } as EditorElement
         sc.elements.push(elem)
+        if (el.type === 'video') fitSceneToVideoContent(sc)
         s.isDirty = true
       }),
 

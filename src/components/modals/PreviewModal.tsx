@@ -6,8 +6,9 @@ import { useEditorStore } from '../../store/editorStore'
 import { getAnimatedProps } from '../../engine/animator'
 import { drawBackground } from '../../engine/backgroundRenderer'
 import CanvasElement from '../canvas/CanvasElement'
-import type { Background, TransitionType, SlideDir, AudioElement } from '../../types/editor'
+import type { Background, TransitionType, SlideDir, AudioElement, VideoElement } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
+import { getVideoClipState } from '../../utils/videoClip'
 
 export default function PreviewModal() {
   const { project, setPreviewOpen } = useEditorStore()
@@ -195,7 +196,11 @@ export default function PreviewModal() {
                 <BgShape bg={scene.background} w={project.width} h={project.height} time={playhead} />
               </Layer>
               <Layer>
-                {sorted.filter(e => e.visible).map(el => (
+                {sorted.filter(e => {
+                  if (!e.visible) return false
+                  if (e.type === 'video') return getVideoClipState(e as VideoElement, localTime).visible
+                  return true
+                }).map(el => (
                   <CanvasElement
                     key={el.id}
                     element={el}

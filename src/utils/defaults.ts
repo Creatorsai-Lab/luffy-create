@@ -188,7 +188,10 @@ export function makeChart(x: number, y: number): ChartElement {
   }
 }
 
-export function makeVideo(x: number, y: number, src: string, assetId: string, width = 640, height = 360): VideoElement {
+export function makeVideo(
+  x: number, y: number, src: string, assetId: string,
+  width = 640, height = 360, sourceDuration = 10,
+): VideoElement {
   return {
     id: uuid(), type: 'video', name: 'Video',
     x, y, width, height,
@@ -198,7 +201,11 @@ export function makeVideo(x: number, y: number, src: string, assetId: string, wi
     volume: 1,
     playbackRate: 1,
     loop: false,
-    muted: false
+    muted: false,
+    startTime: 0,
+    duration: sourceDuration,
+    timelineX: 0,
+    sourceDuration,
   }
 }
 

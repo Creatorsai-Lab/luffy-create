@@ -141,6 +141,10 @@ function registerIpcHandlers() {
     const record = idx.find(r => r.id === id)
     if (!record) throw new Error('Project not found')
     await writeFile(join(record.folder, 'project.json'), data, 'utf-8')
+    try {
+      const parsed = JSON.parse(data) as { name?: string }
+      if (parsed.name?.trim()) record.name = parsed.name.trim()
+    } catch { /* keep existing index name */ }
     record.updatedAt = Date.now()
     await writeIndex(idx)
   })

@@ -1,8 +1,9 @@
 import { useRef, useCallback } from 'react'
 import type Konva from 'konva'
 import { useEditorStore } from '../../store/editorStore'
-import type { EditorElement } from '../../types/editor'
+import type { EditorElement, VideoElement } from '../../types/editor'
 import type { AnimatedProps } from '../../engine/animator'
+import { getVideoClipState } from '../../utils/videoClip'
 import TextKonva   from './elements/TextKonva'
 import ShapeKonva  from './elements/ShapeKonva'
 import ArrowKonva  from './elements/ArrowKonva'
@@ -119,7 +120,17 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
     case 'image':  return <ImageKonva  el={element} konvaProps={props} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} />
     case 'table':  return <TableKonva  el={element} konvaProps={props} />
     case 'chart':  return <ChartKonva  el={element} konvaProps={props} animProgress={animProps?.chartAnimProgress ?? 1} />
-    case 'video':  return <VideoKonva  el={element} konvaProps={props} localTime={localTime} />
+    case 'video': {
+      const v = element as VideoElement
+      const inClip = getVideoClipState(v, localTime).visible
+      return (
+        <VideoKonva
+          el={v}
+          konvaProps={{ ...props, opacity: inClip ? props.opacity : 0, listening: inClip }}
+          localTime={localTime}
+        />
+      )
+    }
     case 'icon':   return <IconKonva   el={element as import('../../types/editor').IconElement} konvaProps={props} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} />
     case 'latex':  return <LatexKonva  el={element as import('../../types/editor').LatexElement} konvaProps={props} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} />
     case 'counter': return <CounterKonva el={element as import('../../types/editor').CounterElement} konvaProps={props} localTime={localTime} />

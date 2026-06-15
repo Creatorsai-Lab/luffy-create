@@ -3,6 +3,7 @@ import { Group, Rect, Shape } from 'react-konva'
 import type Konva from 'konva'
 import type { VideoElement } from '../../../types/editor'
 import { toFileUrl } from '../../../utils/pathUtils'
+import { getVideoClipState } from '../../../utils/videoClip'
 import { videoRegistry } from '../../../engine/videoRegistry'
 import { buildCssFilter, applyCanvasAdjustments } from '../../../engine/imageFilters'
 
@@ -93,26 +94,27 @@ export default function VideoKonva({ el, konvaProps, localTime = 0 }: Props) {
     }
   }, [loaded])
 
-  // Seek the video to the scene-local time. This is the single source of truth
-  // for the displayed frame, so it works identically in the editor timeline,
-  // the Preview modal, and frame-by-frame export — none of which rely on
-  // real-time play(). (The manual ▶ button still uses play() + the RAF loop above.)
+  // Seek the video to the clip-adjusted source time.
   useEffect(() => {
     const v = videoRef.current
-    if (!v || !loaded || !v.paused) return   // don't fight a manual real-time play
-    const dur = v.duration || 0
+    if (!v || !loaded || !v.paused) return
+
+    const clip = getVideoClipState(el, localTime)
+    if (!clip.visible) { redraw(); return }
+
+    const dur = v.duration || el.sourceDuration || 0
     if (!dur) { redraw(); return }
 
-    let target = localTime
-    if (el.loop) target = localTime % dur
+    let target = clip.sourceTime
+    if (el.loop) target = clip.sourceTime % dur
     target = Math.max(0, Math.min(target, dur - 0.03))
 
     if (Math.abs(v.currentTime - target) > 0.015) {
-      v.currentTime = target   // fires 'seeked' → redraw
+      v.currentTime = target
     } else {
       redraw()
     }
-  }, [localTime, loaded, el.loop])
+  }, [localTime, loaded, el.loop, el.startTime, el.duration, el.timelineX, el.playbackRate, el.sourceDuration])
 
   if (!loaded || !videoRef.current) {
     return (

@@ -10,6 +10,7 @@ import { videoRegistry } from '../../engine/videoRegistry'
 import { makeShape, makeArrow, makeCode, makeTable, makeChart, makeVideo, makeCounter } from '../../utils/defaults'
 import type { Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
+import { getVideoClipState } from '../../utils/videoClip'
 import CanvasElement from './CanvasElement'
 import PerspectiveHandles from './PerspectiveHandles'
 import CanvasGrid from './CanvasGrid'
@@ -147,13 +148,18 @@ export default function EditorCanvas() {
 
   // ── Sync Transformer to selected nodes ────────────────────────────────────────
   useEffect(() => {
-    if (!trRef.current || !stageRef.current) return
-    const nodes = selectedIds
-      .map(id => stageRef.current!.findOne(`#${id}`) as Konva.Node | null)
-      .filter((n): n is Konva.Node => n !== null)
-    trRef.current.nodes(nodes)
-    trRef.current.getLayer()?.batchDraw()
-  }, [selectedIds])
+    const sync = () => {
+      if (!trRef.current || !stageRef.current) return
+      const nodes = selectedIds
+        .map(id => stageRef.current!.findOne(`#${id}`))
+        .filter((n): n is Konva.Node => !!n && !!n.getStage?.())
+      trRef.current.nodes(nodes)
+      trRef.current.getLayer()?.batchDraw()
+    }
+    sync()
+    const raf = requestAnimationFrame(sync)
+    return () => cancelAnimationFrame(raf)
+  }, [selectedIds, currentSceneId, playhead])
 
   // ── Global keyboard shortcuts ──────────────────────────────────────────────────
   useEffect(() => {
@@ -795,7 +801,10 @@ export default function EditorCanvas() {
 
       {/* Video play/pause buttons — HTML overlay, not part of Konva, excluded from export */}
       {!isPlaying && sortedEls
-        .filter(el => el.type === 'video' && el.visible)
+        .filter(el => {
+          if (el.type !== 'video' || !el.visible) return false
+          return getVideoClipState(el as VideoElement, localTime).visible
+        })
         .map(el => {
           const v = el as VideoElement
           const isLocalPlaying = localPlayingIds.has(v.id)

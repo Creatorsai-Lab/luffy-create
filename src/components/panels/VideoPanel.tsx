@@ -146,7 +146,11 @@ export default function VideoPanel() {
               <Row label="Speed">
                 <select
                   value={el.playbackRate}
-                  onChange={e => upd({ playbackRate: Number(e.target.value) })}
+                  onChange={e => {
+                    const newRate = Number(e.target.value)
+                    const rawS = (el.duration ?? el.sourceDuration ?? 10) * (el.playbackRate ?? 1)
+                    upd({ playbackRate: newRate, duration: rawS / newRate })
+                  }}
                   className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
                   {PLAYBACK_RATES.map(r => (

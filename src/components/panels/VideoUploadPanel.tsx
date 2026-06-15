@@ -14,7 +14,7 @@ export default function VideoUploadPanel() {
   const [dragOver, setDragOver] = useState(false)
   const dropZoneRef = useRef<HTMLDivElement>(null)
 
-  function placeVideo(path: string, assetId: string, naturalW: number, naturalH: number) {
+  function placeVideo(path: string, assetId: string, naturalW: number, naturalH: number, sourceDuration: number) {
     if (!project) return
     const maxW  = Math.min(naturalW, project.width * 0.6, 960)
     const ratio = naturalW > 0 ? naturalW / naturalH : 16 / 9
@@ -22,7 +22,8 @@ export default function VideoUploadPanel() {
     const scaledH = Math.round(maxW / ratio)
     const x = Math.round(project.width  / 2 - scaledW / 2)
     const y = Math.round(project.height / 2 - scaledH / 2)
-    addElement(makeVideo(x, y, path, assetId, scaledW, scaledH))
+    const dur = Math.max(0.1, sourceDuration || 10)
+    addElement(makeVideo(x, y, path, assetId, scaledW, scaledH, dur))
   }
 
   async function handleUpload() {
@@ -112,7 +113,7 @@ export default function VideoUploadPanel() {
           <VideoThumb
             key={a.id}
             asset={a}
-            onAdd={(w, h) => placeVideo(a.path, a.id, w, h)}
+            onAdd={(w, h, dur) => placeVideo(a.path, a.id, w, h, dur)}
             onRemove={() => removeAsset(a.id)}
           />
         ))}
@@ -123,15 +124,15 @@ export default function VideoUploadPanel() {
 
 function VideoThumb({ asset, onAdd, onRemove }: {
   asset: AssetMeta
-  onAdd: (w: number, h: number) => void
+  onAdd: (w: number, h: number, duration: number) => void
   onRemove: () => void
 }) {
-  const [dims, setDims] = useState({ w: 640, h: 360 })
+  const [dims, setDims] = useState({ w: 640, h: 360, dur: 10 })
 
   return (
     <div
       className="group relative aspect-video bg-editor-elevated rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-editor-accent transition-all"
-      onClick={() => onAdd(dims.w, dims.h)}
+      onClick={() => onAdd(dims.w, dims.h, dims.dur)}
     >
       <video
         src={toFileUrl(asset.path)}
@@ -140,7 +141,13 @@ function VideoThumb({ asset, onAdd, onRemove }: {
         className="w-full h-full object-cover"
         onLoadedMetadata={e => {
           const v = e.currentTarget as HTMLVideoElement
-          if (v.videoWidth) setDims({ w: v.videoWidth, h: v.videoHeight })
+          if (v.videoWidth) {
+            setDims({
+              w: v.videoWidth,
+              h: v.videoHeight,
+              dur: Number.isFinite(v.duration) ? v.duration : 10,
+            })
+          }
           v.currentTime = 0.5
         }}
       />

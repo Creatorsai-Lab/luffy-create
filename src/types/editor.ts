@@ -207,6 +207,14 @@ export interface VideoElement extends BaseElement {
   playbackRate: number
   loop: boolean
   muted: boolean
+  /** Trim in-point in source file (seconds) */
+  startTime?: number
+  /** Clip length on scene timeline (seconds) */
+  duration?: number
+  /** When clip starts within the scene (seconds from scene start) */
+  timelineX?: number
+  /** Full source media length (seconds) — used for trim limits */
+  sourceDuration?: number
   // Adjustments (same as ImageElement)
   brightness?: number
   contrast?: number
