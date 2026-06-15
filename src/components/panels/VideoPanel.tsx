@@ -258,6 +258,112 @@ export default function VideoPanel() {
               </Row>
             </div>
 
+            {/* ── Cinematic & Effects ─────────────────────────────── */}
+            <div className="px-3 py-2 border-b border-editor-border flex flex-col gap-0.5">
+              <span className="text-xs font-medium text-editor-text block mb-1">Cinematic & Effects</span>
+              
+              {/* Color Grading Preset */}
+              <Row label="Color Grade">
+                <select
+                  value={el.colorGrading ?? 'none'}
+                  onChange={e => upd({ colorGrading: e.target.value as any })}
+                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                >
+                  <option value="none">Normal (None)</option>
+                  <option value="warm">Warm Preset</option>
+                  <option value="cool">Cool Preset</option>
+                  <option value="vintage">Vintage Sepia</option>
+                  <option value="cyberpunk">Cyberpunk Neon</option>
+                  <option value="cinematic">Cinematic Teal & Orange</option>
+                  <option value="monochrome">Grayscale (B&W)</option>
+                  <option value="noir">Noir High-Contrast</option>
+                  <option value="sunset">Sunset Glow</option>
+                </select>
+              </Row>
+
+              {/* Vignette */}
+              <Row label="Vignette">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => upd({ vignetteEnabled: !el.vignetteEnabled })}
+                    className={cn(
+                      'px-2 py-1 rounded text-[11px] transition-colors',
+                      el.vignetteEnabled
+                        ? 'bg-editor-accent text-white'
+                        : 'bg-editor-elevated border border-editor-border text-[#f2f2f2] hover:text-editor-text'
+                    )}
+                  >
+                    {el.vignetteEnabled ? 'On' : 'Off'}
+                  </button>
+                  {el.vignetteEnabled && (
+                    <div className="flex items-center gap-1.5 flex-1">
+                      <input
+                        type="color"
+                        value={el.vignetteColor || '#000000'}
+                        onChange={e => upd({ vignetteColor: e.target.value })}
+                        className="w-6 h-5 rounded border border-editor-border bg-transparent cursor-pointer"
+                        title="Vignette color"
+                      />
+                      <div className="flex-1">
+                        <Slider
+                          value={el.vignetteAmount ?? 0.5}
+                          min={0.1}
+                          max={1.0}
+                          step={0.05}
+                          onChange={v => upd({ vignetteAmount: v })}
+                          display={(el.vignetteAmount ?? 0.5).toFixed(2)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Row>
+
+              {/* Video Effects */}
+              <Row label="Video Effect">
+                <select
+                  value={el.videoEffect ?? 'none'}
+                  onChange={e => upd({ videoEffect: e.target.value as any })}
+                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                >
+                  <option value="none">No Effect</option>
+                  <option value="lensBlur">Lens & Blur</option>
+                  <option value="distortion">Wave Distortion</option>
+                  <option value="shake">Camera Shake</option>
+                  <option value="comic">Comic Effects</option>
+                  <option value="retro">Retro Scanlines</option>
+                  <option value="flash">Strobe Flash</option>
+                </select>
+              </Row>
+
+              {/* Effect Intensity */}
+              {el.videoEffect && el.videoEffect !== 'none' && (
+                <Row label="Intensity">
+                  <Slider
+                    value={el.videoEffectIntensity ?? 0.5}
+                    min={0.1}
+                    max={1.0}
+                    step={0.05}
+                    onChange={v => upd({ videoEffectIntensity: v })}
+                    display={`${Math.round((el.videoEffectIntensity ?? 0.5) * 100)}%`}
+                  />
+                </Row>
+              )}
+
+              {/* Framing / Masking */}
+              <Row label="Frame mask">
+                <select
+                  value={el.frameType ?? 'none'}
+                  onChange={e => upd({ frameType: e.target.value as any })}
+                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                >
+                  <option value="none">Rectangle (No Mask)</option>
+                  <option value="circle">Circle Frame</option>
+                  <option value="triangle">Triangle Frame</option>
+                </select>
+              </Row>
+            </div>
+
             {/* ── Animations ──────────────────────────────────────────── */}
             <AnimSection
               label="On Enter" color="text-green-400"

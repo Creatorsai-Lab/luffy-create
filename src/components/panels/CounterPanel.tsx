@@ -63,7 +63,21 @@ export default function CounterPanel() {
               <Row label="Mode">
                 <select
                   value={el.mode}
-                  onChange={e => upd({ mode: e.target.value as CounterMode })}
+                  onChange={e => {
+                    const newMode = e.target.value as CounterMode
+                    const patch: Partial<CounterElement> = { mode: newMode }
+                    if (newMode === 'number') {
+                      patch.start = 1
+                      patch.end = 50
+                    } else if (newMode === 'english') {
+                      patch.start = 'A'
+                      patch.end = 'Z'
+                    } else if (newMode === 'hindi') {
+                      patch.start = 'अ'
+                      patch.end = 'त्र'
+                    }
+                    upd(patch)
+                  }}
                   className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
                   <option value="number">Numbers (1, 2, 3...)</option>

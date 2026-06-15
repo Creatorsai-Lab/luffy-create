@@ -12,7 +12,7 @@ import { maxVideoClipDuration } from '../../utils/videoClip'
 import { TRANS_COLOR } from '../../utils/transitions'
 
 const RULER_HEIGHT = 22
-const VIDEO_TRACK_HEIGHT = 16
+const SINGLE_VIDEO_TRACK_HEIGHT = 38
 const SCENE_HEIGHT = 50
 const TRACK_HEIGHT = 32
 const PX_PER_SEC_BASE = 60
@@ -696,6 +696,26 @@ export default function Timeline() {
       .map(el => ({ video: el as VideoElement, sc, scStart }))
   })
 
+  // ── Lane packing for video clips ──────────────────────────────────────────
+  const videoLaneById = new Map<string, number>()
+  {
+    const laneEnds: number[] = []
+    const vbs = allVideoClips.map(c => {
+      const s = c.scStart + (c.video.timelineX ?? 0)
+      const dur = c.video.duration ?? c.video.sourceDuration ?? 10
+      return { id: c.video.id, s, e: s + dur }
+    })
+    for (const c of [...vbs].sort((a, b) => a.s - b.s)) {
+      let lane = 0
+      while ((laneEnds[lane] ?? -Infinity) > c.s + 1e-6) lane++
+      videoLaneById.set(c.id, lane)
+      laneEnds[lane] = Math.max(laneEnds[lane] ?? -Infinity, c.e)
+    }
+  }
+  const maxVideoLane = videoLaneById.size ? Math.max(...videoLaneById.values()) : 0
+  const numVideoLanes = videoLaneById.size ? maxVideoLane + 1 : 1
+  const VIDEO_TRACK_HEIGHT = numVideoLanes * SINGLE_VIDEO_TRACK_HEIGHT
+
   const SCENE_TOP = RULER_HEIGHT + VIDEO_TRACK_HEIGHT
   const AUDIO_TOP = SCENE_TOP + SCENE_HEIGHT
 
@@ -968,6 +988,9 @@ export default function Timeline() {
               const widthPx = clipDur * PX_PER_SEC
               const isSelected = selectedVideoId === video.id
               const isResizing = resizingVideo?.id === video.id
+              const lane = videoLaneById.get(video.id) ?? 0
+              const topPx = lane * SINGLE_VIDEO_TRACK_HEIGHT + 2
+              const heightPx = SINGLE_VIDEO_TRACK_HEIGHT - 4
               return (
                 <div
                   key={video.id}
@@ -979,8 +1002,8 @@ export default function Timeline() {
                   style={{
                     left: startPx,
                     width: Math.max(widthPx, 40),
-                    top: 1,
-                    height: VIDEO_TRACK_HEIGHT - 2,
+                    top: topPx,
+                    height: heightPx,
                     background: '#1a1033',
                     boxShadow: '0 1px 6px rgba(0,0,0,0.45)',
                   }}
@@ -1005,7 +1028,7 @@ export default function Timeline() {
                     src={video.src}
                     startTime={video.startTime ?? 0}
                     clipWidthPx={Math.max(widthPx, 40)}
-                    trackH={VIDEO_TRACK_HEIGHT - 2}
+                    trackH={heightPx}
                   />
                   <div className="absolute inset-0 flex items-center px-1 pointer-events-none bg-gradient-to-r from-violet-900/40 via-transparent to-violet-900/40">
                     <Film size={9} className="text-white/80 flex-none drop-shadow" />

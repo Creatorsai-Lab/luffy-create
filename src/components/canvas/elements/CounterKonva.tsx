@@ -27,13 +27,16 @@ export default function CounterKonva({ el, konvaProps, localTime }: Props) {
     }).catch(() => {})
   }, [el.fontFamily, el.fontWeight])
 
-  // Calculate counter value based on local time and speed
   const calculatedValue = useMemo(() => {
     try {
       if (el.mode === 'number') {
-        const start = Number(el.start)
-        const end = Number(el.end)
-        const duration = (end - start) * (el.speedMs / 1000)
+        let start = Number(el.start)
+        let end = Number(el.end)
+        if (Number.isNaN(start)) start = 0
+        if (Number.isNaN(end)) end = 0
+        
+        const diff = Math.abs(end - start)
+        const duration = diff * (el.speedMs / 1000)
         if (duration <= 0) return String(end)
         
         if (localTime >= duration) return String(end)
@@ -42,37 +45,39 @@ export default function CounterKonva({ el, konvaProps, localTime }: Props) {
         const current = start + (end - start) * progress
         return String(Math.round(current))
       } else if (el.mode === 'english') {
-        const startChar = String(el.start).charCodeAt(0) || 65  // A = 65
-        const endChar = String(el.end).charCodeAt(0) || 90    // Z = 90
+        const startChar = String(el.start).toUpperCase().charCodeAt(0) || 65  // A = 65
+        const endChar = String(el.end).toUpperCase().charCodeAt(0) || 90    // Z = 90
         
-        if (startChar > endChar) return String(el.end)
-        
-        const totalChars = endChar - startChar
-        const duration = totalChars * (el.speedMs / 1000)
+        const isLetter = (code: number) => code >= 65 && code <= 90
+        const sChar = isLetter(startChar) ? startChar : 65
+        const eChar = isLetter(endChar) ? endChar : 90
+
+        const diff = Math.abs(eChar - sChar)
+        const duration = diff * (el.speedMs / 1000)
         if (duration <= 0) return String(el.end)
         
         if (localTime >= duration) return String(el.end)
         
         const progress = localTime / duration
-        const currentCharCode = startChar + Math.round(progress * totalChars)
+        const currentCharCode = sChar + Math.round((eChar - sChar) * progress)
         return String.fromCharCode(currentCharCode)
       } else if (el.mode === 'hindi') {
-        // For Hindi, use simple sequence
         const hindiChars = ['अ', 'आ', 'इ', 'ई', 'उ', 'ऊ', 'ए', 'ऐ', 'ओ', 'औ', 'क', 'ख', 'ग', 'घ', 'ङ', 'च', 'छ', 'ज', 'झ', 'ञ', 'ट', 'ठ', 'ड', 'ढ', 'ण', 'त', 'थ', 'द', 'ध', 'न', 'प', 'फ', 'ब', 'भ', 'म', 'य', 'र', 'ल', 'व', 'श', 'ष', 'स', 'ह', 'क्ष', 'ज्ञ', 'त्र']
         
-        const startIndex = hindiChars.indexOf(String(el.start))
-        const endIndex = hindiChars.indexOf(String(el.end))
+        let startIndex = hindiChars.indexOf(String(el.start))
+        let endIndex = hindiChars.indexOf(String(el.end))
         
-        if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) return String(el.end)
+        if (startIndex === -1) startIndex = 0
+        if (endIndex === -1) endIndex = hindiChars.length - 1
         
-        const totalChars = endIndex - startIndex
-        const duration = totalChars * (el.speedMs / 1000)
+        const diff = Math.abs(endIndex - startIndex)
+        const duration = diff * (el.speedMs / 1000)
         if (duration <= 0) return String(el.end)
         
         if (localTime >= duration) return String(el.end)
         
         const progress = localTime / duration
-        const currentIndex = startIndex + Math.round(progress * totalChars)
+        const currentIndex = startIndex + Math.round((endIndex - startIndex) * progress)
         return hindiChars[currentIndex]
       }
       

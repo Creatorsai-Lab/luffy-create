@@ -176,10 +176,10 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     // right: wipe enters from right (clip starts at x=width*(1-progress), grows left)
     // up: wipe enters from top (clip starts at y=0, grows down)
     // down: wipe enters from bottom (clip starts at y=height*(1-progress), grows up)
-    const clipX = wipeDir === 'left' ? 0 : el.width * (1 - wipeProgress)
-    const clipY = wipeDir === 'up' ? 0 : el.height * (1 - wipeProgress)
-    const clipW = wipeDir === 'left' || wipeDir === 'right' ? el.width * wipeProgress : el.width
-    const clipH = wipeDir === 'up' || wipeDir === 'down' ? el.height * wipeProgress : el.height
+    const clipX = wipeDir === 'left' ? el.width * (1 - wipeProgress) : 0
+    const clipY = wipeDir === 'up'   ? el.height * (1 - wipeProgress) : 0
+    const clipW = (wipeDir === 'left' || wipeDir === 'right') ? el.width * wipeProgress : el.width
+    const clipH = (wipeDir === 'up'   || wipeDir === 'down')  ? el.height * wipeProgress : el.height
     
     raw.beginPath()
     raw.rect(clipX, clipY, Math.max(0, clipW), Math.max(0, clipH))

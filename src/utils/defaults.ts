@@ -206,6 +206,13 @@ export function makeVideo(
     duration: sourceDuration,
     timelineX: 0,
     sourceDuration,
+    colorGrading: 'none',
+    vignetteEnabled: false,
+    vignetteColor: '#000000',
+    vignetteAmount: 0.5,
+    videoEffect: 'none',
+    videoEffectIntensity: 0.5,
+    frameType: 'none',
   }
 }
 

@@ -148,8 +148,24 @@ export default function VideoKonva({ el, konvaProps, localTime = 0 }: Props) {
 
         raw.save()
 
-        if (el.cornerRadius > 0) {
-          const r = el.cornerRadius, w = el.width, h = el.height
+        const w = el.width, h = el.height
+        const frame = el.frameType ?? 'none'
+
+        // 1. Frame Shape Mask
+        if (frame === 'circle') {
+          raw.beginPath()
+          raw.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2)
+          raw.closePath()
+          raw.clip()
+        } else if (frame === 'triangle') {
+          raw.beginPath()
+          raw.moveTo(w / 2, 0)
+          raw.lineTo(w, h)
+          raw.lineTo(0, h)
+          raw.closePath()
+          raw.clip()
+        } else if (el.cornerRadius > 0) {
+          const r = el.cornerRadius
           raw.beginPath()
           raw.moveTo(r, 0)
           raw.arcTo(w, 0, w, h, r)
@@ -160,28 +176,215 @@ export default function VideoKonva({ el, konvaProps, localTime = 0 }: Props) {
           raw.clip()
         }
 
-        raw.filter = buildCssFilter(el) || 'none'
+        // 2. Setup Effects & Adjustments Filters
+        const effect = el.videoEffect ?? 'none'
+        const intensity = el.videoEffectIntensity ?? 0.5
 
-        const vw = video.videoWidth  || el.width
-        const vh = video.videoHeight || el.height
-        if (el.crop) {
-          raw.drawImage(
-            video,
-            el.crop.x * vw, el.crop.y * vh,
-            el.crop.w * vw, el.crop.h * vh,
-            0, 0, el.width, el.height
-          )
-        } else {
-          raw.drawImage(video, 0, 0, el.width, el.height)
+        let filterStr = buildCssFilter(el) || 'none'
+        if (effect === 'lensBlur' && intensity > 0) {
+          const blurVal = Math.round(15 * intensity)
+          if (filterStr === 'none') filterStr = `blur(${blurVal}px)`
+          else filterStr += ` blur(${blurVal}px)`
+        }
+        if (effect === 'comic' && intensity > 0) {
+          const val = 1.4 + intensity * 0.8
+          if (filterStr === 'none') filterStr = `contrast(${val}) saturate(${val})`
+          else filterStr += ` contrast(${val}) saturate(${val})`
+        }
+        raw.filter = filterStr
+
+        // 3. Camera Shake translation
+        if (effect === 'shake' && intensity > 0) {
+          const time = localTime * 35
+          const shakeX = Math.sin(time) * Math.cos(time * 0.8) * 16 * intensity
+          const shakeY = Math.cos(time * 1.2) * Math.sin(time * 0.7) * 16 * intensity
+          raw.translate(shakeX, shakeY)
         }
 
+        // 4. Draw Video (with Distortion support)
+        const vw = video.videoWidth  || el.width
+        const vh = video.videoHeight || el.height
+        if (effect === 'distortion' && intensity > 0) {
+          const numSlices = 25
+          const sliceH = h / numSlices
+          const amplitude = 12 * intensity
+          const time = localTime * 8 // animation speed
+          
+          for (let s = 0; s < numSlices; s++) {
+            const sx = Math.sin(s / 3 + time) * amplitude
+            raw.drawImage(
+              video,
+              0, s * (vh / numSlices), vw, vh / numSlices,
+              sx, s * sliceH, w, sliceH
+            )
+          }
+        } else {
+          if (el.crop) {
+            raw.drawImage(
+              video,
+              el.crop.x * vw, el.crop.y * vh,
+              el.crop.w * vw, el.crop.h * vh,
+              0, 0, el.width, el.height
+            )
+          } else {
+            raw.drawImage(video, 0, 0, el.width, el.height)
+          }
+        }
+
+        // 5. Comic ink outlines
+        if (effect === 'comic' && intensity > 0) {
+          raw.save()
+          raw.filter = 'none'
+          raw.strokeStyle = '#000000'
+          raw.lineWidth = 4 * intensity
+          if (frame === 'circle') {
+            raw.beginPath()
+            raw.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2)
+            raw.stroke()
+          } else if (frame === 'triangle') {
+            raw.beginPath()
+            raw.moveTo(w / 2, 0)
+            raw.lineTo(w, h)
+            raw.lineTo(0, h)
+            raw.closePath()
+            raw.stroke()
+          } else {
+            const r = el.cornerRadius
+            raw.beginPath()
+            raw.moveTo(r, 0)
+            raw.arcTo(w, 0, w, h, r)
+            raw.arcTo(w, h, 0, h, r)
+            raw.arcTo(0, h, 0, 0, r)
+            raw.arcTo(0, 0, w, 0, r)
+            raw.closePath()
+            raw.stroke()
+          }
+          raw.restore()
+        }
+
+        // 6. Retro scanlines and noise
+        if (effect === 'retro' && intensity > 0) {
+          raw.save()
+          raw.filter = 'none'
+          raw.fillStyle = 'rgba(0, 0, 0, 0.12)'
+          for (let y = 0; y < h; y += 3) {
+            raw.fillRect(0, y, w, 1)
+          }
+          raw.fillStyle = 'rgba(255, 255, 255, 0.04)'
+          const grainCount = Math.round(w * h * 0.0003 * intensity)
+          for (let k = 0; k < grainCount; k++) {
+            const gx = Math.random() * w
+            const gy = Math.random() * h
+            raw.fillRect(gx, gy, 1.5, 1.5)
+          }
+          raw.restore()
+        }
+
+        // 7. Strobe flash
+        if (effect === 'flash' && intensity > 0) {
+          raw.save()
+          raw.filter = 'none'
+          const flashAlpha = (0.5 + 0.5 * Math.sin(localTime * 18)) * 0.35 * intensity
+          raw.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`
+          raw.fillRect(0, 0, w, h)
+          raw.restore()
+        }
+
+        // 8. Glass overlay
         if (el.glass) {
           raw.filter = 'none'
           raw.fillStyle = 'rgba(255,255,255,0.18)'
           raw.fillRect(0, 0, el.width, el.height)
         }
 
+        // 9. Standard Color Adjustments
         applyCanvasAdjustments(raw, el)
+
+        // 10. Color Grading presets
+        const grading = el.colorGrading ?? 'none'
+        if (grading !== 'none') {
+          raw.save()
+          raw.filter = 'none'
+          if (grading === 'warm') {
+            raw.globalCompositeOperation = 'color'
+            raw.fillStyle = 'rgba(255, 130, 0, 0.12)'
+            raw.fillRect(0, 0, w, h)
+          } else if (grading === 'cool') {
+            raw.globalCompositeOperation = 'color'
+            raw.fillStyle = 'rgba(0, 100, 255, 0.12)'
+            raw.fillRect(0, 0, w, h)
+          } else if (grading === 'vintage') {
+            raw.globalCompositeOperation = 'color'
+            raw.fillStyle = 'rgba(180, 135, 80, 0.25)'
+            raw.fillRect(0, 0, w, h)
+            raw.globalCompositeOperation = 'multiply'
+            raw.fillStyle = 'rgba(240, 220, 200, 0.08)'
+            raw.fillRect(0, 0, w, h)
+          } else if (grading === 'cyberpunk') {
+            const grad = raw.createLinearGradient(0, 0, w, h)
+            grad.addColorStop(0, 'rgba(255, 0, 128, 0.18)')
+            grad.addColorStop(1, 'rgba(0, 255, 255, 0.18)')
+            raw.globalCompositeOperation = 'color'
+            raw.fillStyle = grad
+            raw.fillRect(0, 0, w, h)
+          } else if (grading === 'cinematic') {
+            raw.globalCompositeOperation = 'difference'
+            raw.fillStyle = 'rgba(0, 40, 60, 0.08)'
+            raw.fillRect(0, 0, w, h)
+            raw.globalCompositeOperation = 'color'
+            raw.fillStyle = 'rgba(255, 140, 40, 0.08)'
+            raw.fillRect(0, 0, w, h)
+          } else if (grading === 'monochrome') {
+            raw.globalCompositeOperation = 'color'
+            raw.fillStyle = 'rgba(128, 128, 128, 1)'
+            raw.fillRect(0, 0, w, h)
+          } else if (grading === 'noir') {
+            raw.globalCompositeOperation = 'color'
+            raw.fillStyle = 'rgba(128, 128, 128, 1)'
+            raw.fillRect(0, 0, w, h)
+            raw.globalCompositeOperation = 'overlay'
+            raw.fillStyle = 'rgba(0,0,0,0.2)'
+            raw.fillRect(0, 0, w, h)
+          } else if (grading === 'sunset') {
+            const grad = raw.createLinearGradient(0, h, w, 0)
+            grad.addColorStop(0, 'rgba(253, 94, 83, 0.2)')
+            grad.addColorStop(1, 'rgba(255, 180, 0, 0.15)')
+            raw.globalCompositeOperation = 'color'
+            raw.fillStyle = grad
+            raw.fillRect(0, 0, w, h)
+          }
+          raw.restore()
+        }
+
+        // 11. Vignette overlay
+        if (el.vignetteEnabled && (el.vignetteAmount ?? 0.5) > 0) {
+          raw.save()
+          raw.filter = 'none'
+          const cx = w / 2
+          const cy = h / 2
+          const rOuter = Math.sqrt(cx * cx + cy * cy)
+          const grad = raw.createRadialGradient(cx, cy, rOuter * 0.35, cx, cy, rOuter)
+          
+          let color = el.vignetteColor || '#000000'
+          let rgb = '0,0,0'
+          if (color.startsWith('#')) {
+            const hex = color.replace('#', '')
+            const r = parseInt(hex.slice(0, 2), 16) || 0
+            const g = parseInt(hex.slice(2, 4), 16) || 0
+            const b = parseInt(hex.slice(4, 6), 16) || 0
+            rgb = `${r},${g},${b}`
+          } else if (color === 'white') {
+            rgb = '255,255,255'
+          }
+          
+          grad.addColorStop(0, `rgba(${rgb}, 0)`)
+          grad.addColorStop(1, `rgba(${rgb}, ${el.vignetteAmount ?? 0.5})`)
+          
+          raw.globalCompositeOperation = 'source-over'
+          raw.fillStyle = grad
+          raw.fillRect(0, 0, w, h)
+          raw.restore()
+        }
 
         raw.restore()
 

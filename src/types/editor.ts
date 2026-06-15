@@ -230,6 +230,14 @@ export interface VideoElement extends BaseElement {
   temperature?: number
   tint?: number
   vibrance?: number
+  // Cinematic & Effects
+  colorGrading?: 'none' | 'warm' | 'cool' | 'vintage' | 'cyberpunk' | 'cinematic' | 'monochrome' | 'noir' | 'sunset'
+  vignetteEnabled?: boolean
+  vignetteColor?: string
+  vignetteAmount?: number
+  videoEffect?: 'none' | 'lensBlur' | 'distortion' | 'shake' | 'comic' | 'retro' | 'flash'
+  videoEffectIntensity?: number
+  frameType?: 'none' | 'circle' | 'triangle'
 }
 
 export interface IconElement extends BaseElement {
