@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react'
 import { Shapes, Square, Circle, Triangle, Star, Pentagon, Hexagon, Octagon, Diamond, MessageCircle, MessageSquare, Cone, Box, Plus, Trash2, Heart, SquareDashedBottom } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
-import type { ShapeElement, ShapeType, ActiveTool, AnimationType, EasingType, SlideDir, ElementAnimation } from '../../types/editor'
+import type { ShapeElement, ShapeType, AnimationType, EasingType, SlideDir, ElementAnimation } from '../../types/editor'
 import { PanelHeader, Row, ColorInput, Slider, NumberInput } from './TextPanel'
 import { cn } from '../../utils/cn'
-import { makeAnimation } from '../../utils/defaults'
+import { makeAnimation, makeShape } from '../../utils/defaults'
 
 
 
@@ -70,56 +69,51 @@ const LOOP_TYPE_SET = new Set<string>(['pulse', 'bounceLoop', 'rotateLoop', 'flo
 const isLoopAnim = (a: ElementAnimation) => LOOP_TYPE_SET.has(a.type) || a.timing === 'loop'
 
 export default function ShapePanel() {
-  const { getSelectedEls, updateElement, setActiveTool, activePanel, activeTool, addAnimation } = useEditorStore()
+  const { getSelectedEls, updateElement, addElement, addAnimation, project } = useEditorStore()
   const el = getSelectedEls().find(e => e.type === 'shape') as ShapeElement | undefined
 
   function upd(patch: Partial<ShapeElement>) {
     if (el) updateElement(el.id, patch)
   }
-  
-  // Auto-select shape style when a shape is selected
-  useEffect(() => {
-    if (el && activePanel === 'shapes') {
-      // Auto-select the tool for this shape type
-      const tool = `shape-${el.shapeType}` as ActiveTool
-      if (activeTool !== tool) {
-        setActiveTool(tool)
-      }
-    }
-  }, [el, activePanel])
+
+  function handleAddShape(type: ShapeType) {
+    if (!project) return
+    const size = type === 'cube' ? 300 : 280
+    addElement(makeShape(type, project.width / 2 - size / 2, project.height / 2 - size / 2))
+  }
 
   return (
     <div className="flex flex-col overflow-y-auto flex-1">
       <PanelHeader icon={<Shapes size={14} />} title="Shape" />
 
-      {/* Shape picker */}
+      {/* Shape picker — click to add immediately */}
       <div className="px-3 py-2 border-b border-editor-border">
-        <div className="grid grid-cols-4 gap-1">
+        <p className="text-[10px] text-editor-secondary mb-2">Click a shape to add to canvas</p>
+        <div className="grid grid-cols-4 gap-1.5">
           {SHAPES.map(s => (
             <button
               key={s.type}
-              onClick={() => {
-                if (activePanel === 'shapes') {
-                  setActiveTool(`shape-${s.type}` as ActiveTool)
-                }
-              }}
+              onClick={() => handleAddShape(s.type)}
+              disabled={!project}
               title={s.label}
               className={cn(
-                'flex items-center justify-center w-full h-8 rounded border transition-colors',
-                el?.shapeType === s.type
-                  ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
-                  : 'bg-editor-elevated border-editor-border text-[#f2f2f2] hover:text-editor-text'
+                'flex flex-col items-center justify-center gap-0.5 w-full h-10 rounded border cursor-pointer transition-all',
+                'bg-editor-elevated border-editor-border text-editor-text',
+                'hover:bg-editor-accent-dim hover:border-editor-accent hover:text-editor-accent active:scale-95',
+                'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-editor-elevated disabled:hover:border-editor-border',
+                el?.shapeType === s.type && 'bg-editor-accent-dim border-editor-accent text-editor-accent ring-1 ring-editor-accent/50'
               )}
             >
               {s.icon}
+              <span className="text-[8px] leading-none truncate w-full text-center px-0.5">{s.label.split(' ')[0]}</span>
             </button>
           ))}
         </div>
       </div>
 
       {!el && (
-        <p className="text-sm text-[#f2f2f2] px-3 py-3">
-          Click a shape style above to select it, then click on canvas to add.
+        <p className="text-xs text-editor-secondary px-3 py-3">
+          Select a shape on the canvas to edit fill, stroke, size, and animations.
         </p>
       )}
 

@@ -34,6 +34,7 @@ export default function CounterKonva({ el, konvaProps, localTime }: Props) {
         const start = Number(el.start)
         const end = Number(el.end)
         const duration = (end - start) * (el.speedMs / 1000)
+        if (duration <= 0) return String(end)
         
         if (localTime >= duration) return String(end)
         
@@ -48,6 +49,7 @@ export default function CounterKonva({ el, konvaProps, localTime }: Props) {
         
         const totalChars = endChar - startChar
         const duration = totalChars * (el.speedMs / 1000)
+        if (duration <= 0) return String(el.end)
         
         if (localTime >= duration) return String(el.end)
         
@@ -65,6 +67,7 @@ export default function CounterKonva({ el, konvaProps, localTime }: Props) {
         
         const totalChars = endIndex - startIndex
         const duration = totalChars * (el.speedMs / 1000)
+        if (duration <= 0) return String(el.end)
         
         if (localTime >= duration) return String(el.end)
         

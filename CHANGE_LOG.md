@@ -4,3 +4,4 @@
 3. Footer style
 4. Debug the sqaure shapes auto addition
 5. Implement the version 0.1 automatic subtitle
+6. NEW FEATURE: Counter with multilingual support

@@ -120,6 +120,41 @@ interface EditorActions {
   getSceneAtTime:   (t: number) => { scene: Scene; localTime: number } | null
 }
 
+function reconcileUiAfterProjectRestore(s: EditorState, project: Project) {
+  s.project = project
+  s.isDirty = true
+
+  const totalDur = project.scenes.reduce((sum, sc) => sum + sc.duration, 0)
+  s.playhead = Math.min(Math.max(0, s.playhead), Math.max(0, totalDur))
+
+  const sceneStillExists = project.scenes.some(sc => sc.id === s.currentSceneId)
+  if (!sceneStillExists) {
+    let elapsed = 0
+    let resolvedId: string | null = null
+    for (const sc of project.scenes) {
+      if (s.playhead < elapsed + sc.duration) {
+        resolvedId = sc.id
+        break
+      }
+      elapsed += sc.duration
+    }
+    s.currentSceneId = resolvedId ?? project.scenes[0]?.id ?? null
+  }
+
+  if (s.currentSceneId) {
+    const scene = project.scenes.find(sc => sc.id === s.currentSceneId)
+    if (scene) {
+      const validIds = new Set(scene.elements.map(el => el.id))
+      s.selectedIds = s.selectedIds.filter(id => validIds.has(id))
+    } else {
+      s.selectedIds = []
+      s.currentSceneId = project.scenes[0]?.id ?? null
+    }
+  } else {
+    s.selectedIds = []
+  }
+}
+
 export const useEditorStore = create<EditorState & EditorActions>()(
   subscribeWithSelector(
     immer((set, get) => ({
@@ -469,7 +504,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         const previousState = useHistoryStore.getState().undo(current)
         if (previousState) {
           isUndoRedo = true
-          set(s => { s.project = previousState; s.isDirty = true })
+          set(s => reconcileUiAfterProjectRestore(s, previousState))
           isUndoRedo = false
         }
       },
@@ -479,7 +514,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         const nextState = useHistoryStore.getState().redo(current)
         if (nextState) {
           isUndoRedo = true
-          set(s => { s.project = nextState; s.isDirty = true })
+          set(s => reconcileUiAfterProjectRestore(s, nextState))
           isUndoRedo = false
         }
       },

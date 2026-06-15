@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Hash, Italic, AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
+import { Timer, Italic } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { FONT_FAMILIES } from '../../types/editor'
 import type { CounterElement, FontWeight } from '../../types/editor'
@@ -27,7 +27,7 @@ export default function CounterPanel() {
     mode: 'number' as CounterMode,
     start: 1,
     end: 20,
-    speedMs: 5
+    speedMs: 100
   })
 
   function upd(patch: Partial<CounterElement>) {
@@ -46,7 +46,7 @@ export default function CounterPanel() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <PanelHeader icon={<Hash size={12} />} title="Counter" />
+      <PanelHeader icon={<Timer size={12} />} title="Counter" />
       <div className="px-3 py-2 flex flex-col gap-2">
         <button
           disabled={!project}

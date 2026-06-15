@@ -431,6 +431,7 @@ export default function EditorCanvas() {
     if (cropState) { exitCropMode(); return }
     if (e.target === e.target.getStage() || e.target.name() === 'bg') {
       deselectAll()
+      return
     }
     if (!currentScene) return
     const { x, y } = toProjectCoords(e.evt.clientX, e.evt.clientY)
