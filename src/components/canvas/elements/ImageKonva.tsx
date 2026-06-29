@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Shape, Rect, Group, Text } from 'react-konva'
+import type Konva from 'konva'
 import type { ImageElement, SlideDir } from '../../../types/editor'
 import { toFileUrl } from '../../../utils/pathUtils'
 import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
@@ -27,10 +28,12 @@ interface Props {
 }
 
 export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgress = 1, wipeDir }: Props) {
+  const shapeRef = useRef<Konva.Shape | null>(null)
   const [img, setImg] = useState<HTMLImageElement | null>(null)
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [offscreen, setOffscreen] = useState<HTMLCanvasElement | null>(null)
+  const isGif = /\.gif(?:$|[?#])/i.test(el.src)
 
   useEffect(() => {
     setLoading(true)
@@ -62,9 +65,8 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     }
   }, [el.src])
 
-  // Build offscreen canvas for perspective warp
-  useEffect(() => {
-    if (!el.perspectivePts || !img) return
+  function buildPerspectiveSource() {
+    if (!img) return null
     const canvas = document.createElement('canvas')
     canvas.width = el.width; canvas.height = el.height
     const ctx = canvas.getContext('2d')!
@@ -79,17 +81,38 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     if (el.glass) { ctx.filter = 'none'; ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(0,0,el.width,el.height) }
     applyCanvasAdjustments(ctx, el)
     ctx.restore()
-    setOffscreen(canvas)
+    return canvas
+  }
+
+  // Animated GIFs advance internally; keep the Konva layer redrawing so the
+  // current frame is sampled instead of freezing on the first drawn frame.
+  useEffect(() => {
+    if (!isGif || !img || error) return
+    let raf = 0
+    const tick = () => {
+      shapeRef.current?.getLayer()?.batchDraw()
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [isGif, img, error])
+
+  // Build offscreen canvas for perspective warp. GIFs stay dynamic and rebuild
+  // from the live image frame during each draw.
+  useEffect(() => {
+    if (!el.perspectivePts || !img || isGif) { setOffscreen(null); return }
+    setOffscreen(buildPerspectiveSource())
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [img, el.width, el.height, el.cornerRadius, el.crop,
       el.brightness, el.contrast, el.saturation, el.hueRotate, el.blur, el.glass,
       el.exposure, el.highlights, el.shadows, el.whites, el.blacks,
-      el.temperature, el.tint, el.vibrance, !!el.perspectivePts])
+      el.temperature, el.tint, el.vibrance, !!el.perspectivePts, isGif])
 
   // Perspective warp rendering
-  if (el.perspectivePts && offscreen) {
+  if (el.perspectivePts && (offscreen || (isGif && img))) {
     return (
       <Shape
+        ref={shapeRef}
         {...konvaProps}
         width={el.width}
         height={el.height}
@@ -98,7 +121,8 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
         }}
         sceneFunc={(ctx, _shape) => {
           const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
-          drawPerspectiveWarp(raw, offscreen, el.perspectivePts!, el.width, el.height)
+          const source = isGif ? buildPerspectiveSource() : offscreen
+          if (source) drawPerspectiveWarp(raw, source, el.perspectivePts!, el.width, el.height)
         }}
       />
     )
@@ -155,6 +179,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
 
   return (
     <Shape
+      ref={shapeRef}
       {...konvaProps}
       width={el.width}
       height={el.height}

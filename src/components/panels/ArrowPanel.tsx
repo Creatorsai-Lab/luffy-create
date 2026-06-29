@@ -90,7 +90,6 @@ export default function ArrowPanel() {
         >
           Draw Arrow
         </button>
-        <p className="text-xs text-[#f2f2f2] mt-1.5">Click-drag on canvas to draw.</p>
       </div>
 
       {/* Properties */}
@@ -136,7 +135,7 @@ export default function ArrowPanel() {
           </Row>
 
           <Row label="Width">
-            <Slider value={el.strokeWidth} min={1} max={20} step={0.5}
+            <Slider value={el.strokeWidth} min={1} max={40} step={0.5}
               onChange={v => upd({ strokeWidth: v })} display={`${el.strokeWidth}px`} />
           </Row>
 
@@ -157,7 +156,7 @@ export default function ArrowPanel() {
           </Row>
 
           <Row label="Curve">
-            <Slider value={el.curve ?? 0} min={-300} max={300} step={5}
+            <Slider value={el.curve ?? 0} min={-800} max={800} step={5}
               onChange={v => upd({ curve: v })} display={`${el.curve ?? 0}`} />
           </Row>
 
@@ -194,7 +193,7 @@ export default function ArrowPanel() {
           <AnimSection
             label="On Enter"
             color="text-green-400"
-            anims={el.animations.filter(a => !isLoopAnim(a) && a.timing === 'onEnter')}
+            anims={el.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onEnter')}
             types={ENTER_ANIMS}
             onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'drawPath', timing: 'onEnter' })}
             elId={el.id}
@@ -203,7 +202,7 @@ export default function ArrowPanel() {
           <AnimSection
             label="Loop"
             color="text-editor-accent"
-            anims={el.animations.filter(a => isLoopAnim(a))}
+            anims={el.animations.filter(a => a.type !== 'move' && isLoopAnim(a))}
             types={LOOP_ANIMS}
             onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'flowLoop', timing: 'loop', duration: 1 })}
             elId={el.id}
@@ -212,7 +211,7 @@ export default function ArrowPanel() {
           <AnimSection
             label="On Exit"
             color="text-red-400"
-            anims={el.animations.filter(a => !isLoopAnim(a) && a.timing === 'onExit')}
+            anims={el.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onExit')}
             types={EXIT_ANIMS}
             onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'drawOff', timing: 'onExit' })}
             elId={el.id}

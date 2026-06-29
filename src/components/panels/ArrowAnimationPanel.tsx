@@ -77,7 +77,7 @@ export default function ArrowAnimationPanel() {
               <p className="text-xs text-[#f2f2f2] px-3 py-3">No animations yet.</p>
             )}
 
-            {el.animations.map((anim, i) => (
+            {el.animations.filter(anim => anim.type !== 'move').map((anim, i) => (
               <AnimBlock key={anim.id} anim={anim} index={i} elId={el.id} />
             ))}
           </div>

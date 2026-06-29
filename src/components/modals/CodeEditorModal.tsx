@@ -11,14 +11,14 @@ const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
 export default function CodeEditorModal() {
   const { project, currentSceneId, codeModalElemId, getSelectedEls,
-          addElement, updateElement, closeCodeModal } = useEditorStore()
+    addElement, updateElement, closeCodeModal } = useEditorStore()
 
   const scene = project?.scenes.find(s => s.id === currentSceneId)
   const existingEl = codeModalElemId
     ? (scene?.elements.find(e => e.id === codeModalElemId) as CodeElement | undefined)
     : undefined
 
-  const [code,     setCode]     = useState(existingEl?.code     ?? '// Enter your code\n')
+  const [code, setCode] = useState(existingEl?.code ?? '// Enter your code\n')
   const [language, setLanguage] = useState(existingEl?.language ?? 'javascript')
 
   function handleSave() {
@@ -26,7 +26,7 @@ export default function CodeEditorModal() {
       updateElement(existingEl.id, { code, language })
     } else {
       const el = makeCode(200, 200)
-      el.code     = code
+      el.code = code
       el.language = language
       addElement(el)
     }
@@ -38,7 +38,7 @@ export default function CodeEditorModal() {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onKeyDown={e => e.stopPropagation()}
     >
-      <div className="w-[720px] max-w-[90vw] h-[520px] bg-editor-panel border border-editor-border rounded-lg shadow-2xl flex flex-col overflow-hidden">
+      <div className="bg-editor-panel border border-editor-border rounded-3xl shadow-2xl flex flex-col overflow-hidden w-[75vw] h-[75vh] max-w-[960px]">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-editor-border">
           <span className="text-sm font-medium text-editor-text">

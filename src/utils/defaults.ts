@@ -115,10 +115,10 @@ export function makeCode(x: number, y: number): CodeElement {
   }
 }
 
-export function makeImage(x: number, y: number, src: string, assetId: string): ImageElement {
+export function makeImage(x: number, y: number, src: string, assetId: string, width = 320, height = 240): ImageElement {
   return {
     id: uuid(), type: 'image', name: 'Image',
-    x, y, width: 320, height: 240,
+    x, y, width, height,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
     src, assetId, cornerRadius: 0

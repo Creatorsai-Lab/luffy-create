@@ -8,7 +8,7 @@ import { drawBackground } from '../../engine/backgroundRenderer'
 import { registerStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
 import { makeShape, makeArrow, makeCode, makeTable, makeChart, makeVideo, makeCounter } from '../../utils/defaults'
-import type { Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement } from '../../types/editor'
+import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
 import CanvasElement from './CanvasElement'
@@ -56,7 +56,7 @@ export default function EditorCanvas() {
     playhead, isPlaying, activeTool, activePanel, pendingChartType,
     cropElementId, setCropElement,
     addElement, selectElement, deselectAll,
-    removeElement, updateElement, updateScene, setActiveTool, setActivePanel, openCodeModal,
+    removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
     undo, redo, duplicateElement
   } = useEditorStore()
 
@@ -65,6 +65,8 @@ export default function EditorCanvas() {
   // ── Auto-select sidebar panel based on selected element ──────────────────────
   useEffect(() => {
     if (selectedIds.length === 0) return
+    const stickyPanels: ActivePanel[] = ['perspective', 'move']
+    if (stickyPanels.includes(activePanel)) return
     
     const scene = project?.scenes.find(s => s.id === currentSceneId)
     if (!scene) return
@@ -72,7 +74,7 @@ export default function EditorCanvas() {
     const firstSelected = scene.elements.find(e => e.id === selectedIds[0])
     if (!firstSelected) return
     
-    const ELEMENT_PANEL: Record<string, string> = {
+    const ELEMENT_PANEL: Record<string, ActivePanel> = {
       text:  'text',
       shape: 'shapes',
       arrow: 'arrows',
@@ -914,7 +916,7 @@ export default function EditorCanvas() {
                   onClick: () => {
                     if (currentSceneId) {
                       const imgEl = ctxEl as ImageElement
-                      updateScene(currentSceneId, { background: { type: 'image', src: imgEl.src, fit: 'cover' } as ImageBg })
+                      setBackground(currentSceneId, { type: 'image', src: imgEl.src, fit: 'cover' } as ImageBg)
                     }
                     setContextMenu(null)
                   }
@@ -925,7 +927,7 @@ export default function EditorCanvas() {
                   onClick: () => {
                     if (currentSceneId) {
                       const imgEl = ctxEl as ImageElement
-                      updateScene(currentSceneId, { background: { type: 'image', src: imgEl.src, fit: 'fill' } as ImageBg })
+                      setBackground(currentSceneId, { type: 'image', src: imgEl.src, fit: 'fill' } as ImageBg)
                     }
                     setContextMenu(null)
                   }

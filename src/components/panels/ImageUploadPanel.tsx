@@ -33,6 +33,28 @@ export default function ImageUploadPanel() {
     }
   }
 
+  function readImageSize(path: string): Promise<{ width: number; height: number }> {
+    return new Promise(resolve => {
+      const img = new Image()
+      img.onload = () => resolve({ width: img.naturalWidth || 320, height: img.naturalHeight || 240 })
+      img.onerror = () => resolve({ width: 320, height: 240 })
+      img.src = toFileUrl(path)
+    })
+  }
+
+  async function addImageToCanvas(asset: NonNullable<typeof project>['assets'][number]) {
+    if (!project) return
+    const natural = await readImageSize(asset.path)
+    const maxW = Math.min(640, project.width * 0.5)
+    const maxH = Math.min(640, project.height * 0.5)
+    const scale = Math.min(maxW / natural.width, maxH / natural.height, 1)
+    const width = Math.max(10, Math.round(natural.width * scale))
+    const height = Math.max(10, Math.round(natural.height * scale))
+    const x = Math.round(project.width / 2 - width / 2)
+    const y = Math.round(project.height / 2 - height / 2)
+    addElement(makeImage(x, y, asset.path, asset.id, width, height))
+  }
+
   useEffect(() => {
     const dropZone = dropZoneRef.current
     if (!dropZone) return
@@ -100,7 +122,7 @@ export default function ImageUploadPanel() {
           <div
             key={a.id}
             className="group relative aspect-video bg-editor-elevated rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-editor-accent transition-all"
-            onClick={() => addElement(makeImage(100, 100, a.path, a.id))}
+            onClick={() => { void addImageToCanvas(a) }}
           >
             <div className="absolute inset-0 flex items-center justify-center bg-editor-panel">
               <img

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Type, Square, ArrowRight, Code2, Table2, Layers, Shuffle, ImagePlus, BarChart3, Music,
-  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, SquareDashedMousePointer, SquarePlay, Sigma, BookOpen, Captions, Timer
+  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, SquareDashedMousePointer, SquarePlay, Sigma, BookOpen, Captions, Timer, Move
 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { useHistoryStore } from '../../store/historyStore'
@@ -31,6 +31,7 @@ const TOOLS: ToolItem[] = [
   { icon: <SquarePlay size={15} />, label: 'Video', tool: 'video', panel: 'video' },
   { icon: <Music size={15} />, label: 'Audio', panel: 'audio' },
   { icon: <SquareDashedMousePointer size={15} />, label: 'Perspective', panel: 'perspective' },
+  { icon: <Move size={15} />, label: 'Move', panel: 'move' },
   { icon: <Timer size={15} />, label: 'Counter', tool: 'counter', panel: 'counter' },
 ]
 
@@ -212,6 +213,9 @@ export default function MenuSideBar() {
                     setActivePanel(activePanel === 'shapes' ? null : 'shapes')
                     // Don't set a shape tool - user needs to pick one from the panel
                     return
+                  }
+                  if (item.panel === 'perspective' || item.panel === 'move') {
+                    setActiveTool('select')
                   }
                   if (item.tool) setActiveTool(item.tool)
                   setActivePanel(activePanel === item.panel ? null : item.panel)

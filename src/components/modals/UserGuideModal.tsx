@@ -13,17 +13,17 @@ function H({ children }: { children: React.ReactNode }) {
   return <h3 className="text-base font-semibold text-editor-text mt-5 mb-2 first:mt-0">{children}</h3>
 }
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-[#c9c4dd] leading-relaxed mb-3">{children}</p>
+  return <p className="text-base text-[#c9c4dd] leading-relaxed mb-3">{children}</p>
 }
 function LI({ children }: { children: React.ReactNode }) {
-  return <li className="text-sm text-[#c9c4dd] leading-relaxed mb-1.5">{children}</li>
+  return <li className="text-base text-[#c9c4dd] leading-relaxed mb-1.5">{children}</li>
 }
 function Kbd({ children }: { children: React.ReactNode }) {
   return <kbd className="px-1.5 py-0.5 text-[11px] rounded bg-editor-elevated border border-editor-border text-editor-text font-mono">{children}</kbd>
 }
 function Table({ rows, head }: { head: [string, string]; rows: [string, string][] }) {
   return (
-    <table className="w-full text-sm mb-4 border border-editor-border rounded overflow-hidden">
+    <table className="w-full text-base mb-4 border border-editor-border rounded overflow-hidden">
       <thead><tr className="bg-editor-elevated">
         <th className="text-left px-3 py-1.5 text-editor-text font-medium">{head[0]}</th>
         <th className="text-left px-3 py-1.5 text-editor-text font-medium">{head[1]}</th>
@@ -191,7 +191,7 @@ export default function UserGuideModal() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) setUserGuideOpen(false) }}>
-      <div className="bg-editor-panel border border-editor-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
+      <div className="bg-editor-panel border border-editor-border rounded-3xl shadow-xl flex flex-col overflow-hidden"
         style={{ width: '90vw', height: '90vh' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-editor-border flex-none">
@@ -212,7 +212,7 @@ export default function UserGuideModal() {
                 key={s.id}
                 onClick={() => setActive(s.id)}
                 className={[
-                  'w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors',
+                  'w-full flex items-center gap-2.5 px-4 py-2.5 text-base text-left transition-colors',
                   active === s.id
                     ? 'bg-editor-accent-dim text-editor-accent border-r-2 border-editor-accent'
                     : 'text-[#c9c4dd] hover:bg-editor-hover hover:text-editor-text',

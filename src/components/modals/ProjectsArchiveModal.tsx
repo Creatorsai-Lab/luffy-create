@@ -89,10 +89,10 @@ export default function ProjectsArchiveModal({ onClose }: Props) {
       onMouseDown={onClose}
     >
       <div
-        className="bg-[#171717] border border-editor-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ width: '70vw', height: '70vh', maxWidth: 960 }}
+        className="bg-editor-panel border border-editor-border rounded-3xl shadow-2xl flex flex-col overflow-hidden w-[75vw] h-[75vh] max-w-[960px]"
         onMouseDown={e => e.stopPropagation()}
       >
+
         <div className="flex items-center justify-between px-5 py-4 border-b border-editor-border flex-none">
           <div className="flex items-center gap-2">
             <BriefcaseBusiness size={18} className="text-editor-accent" />

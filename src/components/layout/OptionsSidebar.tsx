@@ -19,10 +19,12 @@ import VideoUploadPanel from '../panels/VideoUploadPanel'
 import VideoPanel from '../panels/VideoPanel'
 import LatexPanel from '../panels/LatexPanel'
 import CounterPanel from '../panels/CounterPanel'
+import MovePanel from '../panels/MovePanel'
+import type { ActivePanel } from '../../types/editor'
 
 // When an element is selected and the sidebar panel matches the element's "home" panel,
 // show the element's property panel instead of the generic tool panel.
-const ELEMENT_PANEL: Record<string, string> = {
+const ELEMENT_PANEL: Record<string, ActivePanel> = {
   text:  'text',
   shape: 'shapes',
   arrow: 'arrows',
@@ -85,6 +87,7 @@ export default function OptionsSidebar() {
       case 'layers':     return <LayersPanel />
       case 'transitions':  return <TransitionPanel />
       case 'perspective':  return <PerspectivePanel />
+      case 'move':         return <MovePanel />
       default:
         return <HintPanel text="Menu Options Panel (select to see)" />
     }

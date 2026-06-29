@@ -52,6 +52,8 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
     wipeProgress: 1,
     wipeDir: undefined,
     chartAnimProgress: 1,
+    counterValue: 0,
+    counterText: '',
   }
 
   const anims = el.animations
@@ -271,6 +273,20 @@ function applyAnim(
       if (before || after) return
       out.rotation = el.rotation + lerp(0, 360, t)
       break
+
+    case 'move': {
+      const dx = anim.params?.deltaX ?? 0
+      const dy = anim.params?.deltaY ?? 0
+      if (before) return
+      if (after) {
+        out.x = el.x + dx
+        out.y = el.y + dy
+        return
+      }
+      out.x = lerp(el.x, el.x + dx, t)
+      out.y = lerp(el.y, el.y + dy, t)
+      break
+    }
 
     case 'wipeIn': {
       const dir = (anim.params?.direction ?? 'right') as SlideDir

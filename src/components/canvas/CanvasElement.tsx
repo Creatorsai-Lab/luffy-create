@@ -94,13 +94,22 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
         const baseH = 'height' in element ? (element as { height: number }).height : node.height()
         const newWidth  = Math.max(10, Math.abs(baseW * scaleX))
         const newHeight = Math.max(10, Math.abs(baseH * scaleY))
+        const nextPerspectivePts = element.perspectivePts
+          ? {
+              tl: [element.perspectivePts.tl[0] * (newWidth / baseW), element.perspectivePts.tl[1] * (newHeight / baseH)] as [number, number],
+              tr: [element.perspectivePts.tr[0] * (newWidth / baseW), element.perspectivePts.tr[1] * (newHeight / baseH)] as [number, number],
+              br: [element.perspectivePts.br[0] * (newWidth / baseW), element.perspectivePts.br[1] * (newHeight / baseH)] as [number, number],
+              bl: [element.perspectivePts.bl[0] * (newWidth / baseW), element.perspectivePts.bl[1] * (newHeight / baseH)] as [number, number],
+            }
+          : undefined
 
         updateElement(element.id, {
           x:        node.x(),
           y:        node.y(),
           width:    newWidth,
           height:   newHeight,
-          rotation: node.rotation()
+          rotation: node.rotation(),
+          ...(nextPerspectivePts ? { perspectivePts: nextPerspectivePts } : {})
         })
 
         node.scaleX(1)

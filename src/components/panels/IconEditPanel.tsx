@@ -107,21 +107,21 @@ export default function IconEditPanel() {
         {/* ── Animations ──────────────────────────────────────────── */}
         <AnimSection
           label="On Enter" color="text-green-400"
-          anims={iconEl.animations.filter(a => !isLoopAnim(a) && a.timing === 'onEnter')}
+          anims={iconEl.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onEnter')}
           types={ENTER_ANIMS}
           onAdd={() => addAnimation(iconEl.id, { ...makeAnimation(), type: 'fadeIn', timing: 'onEnter' })}
           elId={iconEl.id} isLoop={false}
         />
         <AnimSection
           label="Loop" color="text-editor-accent"
-          anims={iconEl.animations.filter(a => isLoopAnim(a))}
+          anims={iconEl.animations.filter(a => a.type !== 'move' && isLoopAnim(a))}
           types={LOOP_ANIMS}
           onAdd={() => addAnimation(iconEl.id, { ...makeAnimation(), type: 'pulse', timing: 'loop', duration: 1 })}
           elId={iconEl.id} isLoop={true}
         />
         <AnimSection
           label="On Exit" color="text-red-400"
-          anims={iconEl.animations.filter(a => !isLoopAnim(a) && a.timing === 'onExit')}
+          anims={iconEl.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onExit')}
           types={EXIT_ANIMS}
           onAdd={() => addAnimation(iconEl.id, { ...makeAnimation(), type: 'fadeOut', timing: 'onExit' })}
           elId={iconEl.id} isLoop={false}

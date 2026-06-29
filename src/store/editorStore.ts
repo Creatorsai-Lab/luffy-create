@@ -228,7 +228,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         s.project.scenes.push(scene)
         s.currentSceneId = scene.id
         s.isDirty = true
-      }, false, 'addScene'),
+      }),
 
       duplicateScene: (id) => set(s => {
         if (!s.project) return
@@ -241,7 +241,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         s.project.scenes.splice(idx + 1, 0, clone)
         s.currentSceneId = clone.id
         s.isDirty = true
-      }, false, 'duplicateScene'),
+      }),
 
       removeScene: (id) => set(s => {
         if (!s.project || s.project.scenes.length <= 1) return
@@ -272,7 +272,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
           s.currentSceneId = scenes[Math.max(0, idx - 1)].id
         }
         s.isDirty = true
-      }, false, 'removeScene'),
+      }),
 
       reorderScenes: (from, to) => set(s => {
         if (!s.project) return

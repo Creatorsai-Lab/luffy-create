@@ -14,20 +14,20 @@ export default function PreviewModal() {
   const { project, setPreviewOpen } = useEditorStore()
   const [playhead, setPlayhead] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
-  const rafRef        = useRef<number>(0)
-  const lastRef       = useRef<number>(0)
-  const playheadRef   = useRef(0)                                      // always-current value for RAF closures
+  const rafRef = useRef<number>(0)
+  const lastRef = useRef<number>(0)
+  const playheadRef = useRef(0)                                      // always-current value for RAF closures
   const audioPlayersRef = useRef<Map<string, HTMLAudioElement>>(new Map())
 
   // Fit preview into viewport, preserving aspect ratio
-  const maxW = Math.min(950, window.innerWidth  * 0.88)
+  const maxW = Math.min(950, window.innerWidth * 0.88)
   const maxH = window.innerHeight * 0.72
   const aspect = project ? project.width / project.height : 16 / 9
   let pw = maxW, ph = maxW / aspect
   if (ph > maxH) { ph = maxH; pw = maxH * aspect }
   const PREVIEW_W = Math.round(pw)
   const PREVIEW_H = Math.round(ph)
-  const scale     = project ? PREVIEW_W / project.width : 1
+  const scale = project ? PREVIEW_W / project.width : 1
 
   const totalDur = project?.scenes.reduce((s, sc) => s + sc.duration, 0) ?? 0
 
@@ -51,7 +51,7 @@ export default function PreviewModal() {
       lastRef.current = now
       setPlayhead(t => {
         const next = t + delta
-        const val  = next >= totalDur ? 0 : next
+        const val = next >= totalDur ? 0 : next
         playheadRef.current = val
         return val
       })
@@ -79,9 +79,9 @@ export default function PreviewModal() {
       for (const sc of project!.scenes) {
         for (const el of sc.elements) {
           if (el.type !== 'audio') continue
-          const audio    = el as AudioElement
+          const audio = el as AudioElement
           const absStart = elapsed + (audio.x ?? 0)
-          const absEnd   = absStart + (audio.duration ?? 0)
+          const absEnd = absStart + (audio.duration ?? 0)
 
           if (ph >= absStart && ph < absEnd) {
             activeIds.add(audio.id)
@@ -90,13 +90,13 @@ export default function PreviewModal() {
               player = new Audio(toFileUrl(audio.src))
               audioPlayersRef.current.set(audio.id, player)
             }
-            player.volume       = audio.volume ?? 1
+            player.volume = audio.volume ?? 1
             player.playbackRate = audio.speed ?? 1
 
             const expected = (audio.startTime ?? 0) + (ph - absStart) * (audio.speed ?? 1)
             if (player.paused) {
               player.currentTime = Math.max(0, expected)
-              player.play().catch(() => {})
+              player.play().catch(() => { })
             } else if (Math.abs(player.currentTime - expected) > 0.3) {
               player.currentTime = Math.max(0, expected)
             }
@@ -126,15 +126,15 @@ export default function PreviewModal() {
 
   if (!project) return null
 
-  const at        = getSceneAt(playhead)
-  const scene     = at?.scene ?? project.scenes[0]
+  const at = getSceneAt(playhead)
+  const scene = at?.scene ?? project.scenes[0]
   const localTime = at?.localTime ?? 0
-  const sorted    = [...scene.elements].sort((a, b) => a.zIndex - b.zIndex)
+  const sorted = [...scene.elements].sort((a, b) => a.zIndex - b.zIndex)
 
   // Transition computation
   const tr = scene.transition
-  const inTrans  = tr && tr.type !== 'none' && localTime < tr.duration
-  const transP   = inTrans ? Math.min(1, localTime / tr.duration) : 1
+  const inTrans = tr && tr.type !== 'none' && localTime < tr.duration
+  const transP = inTrans ? Math.min(1, localTime / tr.duration) : 1
 
   // CSS transform for slide/push/zoom/morph transitions
   const transStyle: React.CSSProperties = (() => {
@@ -146,21 +146,21 @@ export default function PreviewModal() {
         const d = (tr.direction ?? 'right') as SlideDir
         const v = (1 - p) * 100
         if (d === 'right') return { transform: `translateX(${off(v)})` }
-        if (d === 'left')  return { transform: `translateX(${off(-v)})` }
-        if (d === 'down')  return { transform: `translateY(${off(v)})` }
-        if (d === 'up')    return { transform: `translateY(${off(-v)})` }
+        if (d === 'left') return { transform: `translateX(${off(-v)})` }
+        if (d === 'down') return { transform: `translateY(${off(v)})` }
+        if (d === 'up') return { transform: `translateY(${off(-v)})` }
         return {}
       }
       case 'push': {
         const d = (tr.direction ?? 'left') as SlideDir
         const v = (1 - p) * 100
-        if (d === 'left')  return { transform: `translateX(${off(v)})` }
+        if (d === 'left') return { transform: `translateX(${off(v)})` }
         if (d === 'right') return { transform: `translateX(${off(-v)})` }
-        if (d === 'down')  return { transform: `translateY(${off(-v)})` }
-        if (d === 'up')    return { transform: `translateY(${off(v)})` }
+        if (d === 'down') return { transform: `translateY(${off(-v)})` }
+        if (d === 'up') return { transform: `translateY(${off(v)})` }
         return {}
       }
-      case 'zoom':  return { transform: `scale(${0.7 + p * 0.3})`, opacity: p }
+      case 'zoom': return { transform: `scale(${0.7 + p * 0.3})`, opacity: p }
       case 'morph': return { transform: `scale(${0.92 + p * 0.08})`, opacity: p }
       default: return {}
     }
@@ -168,7 +168,7 @@ export default function PreviewModal() {
 
   // Overlay opacity for fade / wipe
   const fadeOverlay = inTrans && tr?.type === 'fade' ? 1 - transP : 0
-  const wipeWidth   = inTrans && tr?.type === 'wipe' ? (1 - transP) * 100 : 0
+  const wipeWidth = inTrans && tr?.type === 'wipe' ? (1 - transP) * 100 : 0
 
   return (
     <div
@@ -206,8 +206,8 @@ export default function PreviewModal() {
                     element={el}
                     animProps={getAnimatedProps(el, localTime)}
                     isSelected={false}
-                    onSelect={() => {}}
-                    onDblClick={() => {}}
+                    onSelect={() => { }}
+                    onDblClick={() => { }}
                     stageScale={scale}
                     localTime={localTime}
                   />

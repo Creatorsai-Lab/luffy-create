@@ -6,10 +6,10 @@ import { getStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
 import type { Scene } from '../../types/editor'
 
-type Phase   = 'idle' | 'exporting' | 'done' | 'error'
+type Phase = 'idle' | 'exporting' | 'done' | 'error'
 type Quality = '720p' | '1080p'
-type Tab     = 'video' | 'image'
-type ImgFmt  = 'png' | 'webp'
+type Tab = 'video' | 'image'
+type ImgFmt = 'png' | 'webp'
 type ImgPhase = 'idle' | 'capturing' | 'done' | 'error'
 
 /** Compute the best local time within a scene to capture all elements visible. */
@@ -32,21 +32,21 @@ export default function ExportModal() {
   const { project, setExportOpen, setPlayhead } = useEditorStore()
 
   // ── Video state ──────────────────────────────────────────────────────────────
-  const [phase,    setPhase]    = useState<Phase>('idle')
+  const [phase, setPhase] = useState<Phase>('idle')
   const [progress, setProgress] = useState(0)
-  const [log,      setLog]      = useState('')
+  const [log, setLog] = useState('')
   const [savePath, setSavePath] = useState<string | null>(null)
-  const [quality,  setQuality]  = useState<Quality>('1080p')
+  const [quality, setQuality] = useState<Quality>('1080p')
   const [ffmpegAvailable, setFFmpegAvailable] = useState(false)
-  const blobRef   = useRef<Blob | null>(null)
+  const blobRef = useRef<Blob | null>(null)
   const cancelRef = useRef(false)
 
   // ── Image state ──────────────────────────────────────────────────────────────
-  const [tab,       setTab]       = useState<Tab>('video')
-  const [imgScene,  setImgScene]  = useState(0)
+  const [tab, setTab] = useState<Tab>('video')
+  const [imgScene, setImgScene] = useState(0)
   const [imgFormat, setImgFormat] = useState<ImgFmt>('png')
-  const [imgPhase,  setImgPhase]  = useState<ImgPhase>('idle')
-  const [imgLog,    setImgLog]    = useState('')
+  const [imgPhase, setImgPhase] = useState<ImgPhase>('idle')
+  const [imgLog, setImgLog] = useState('')
 
   useEffect(() => { isFFmpegAvailable().then(setFFmpegAvailable) }, [])
   useEffect(() => () => { cancelRef.current = true }, [])
@@ -163,7 +163,7 @@ export default function ExportModal() {
     setImgLog('Capturing slide...')
 
     try {
-      const localT  = computeSnapshotLocalTime(scene)
+      const localT = computeSnapshotLocalTime(scene)
       const globalT = sceneGlobalStart(imgScene) + localT
       await ensureFrameRendered(scene.id, globalT)
 
@@ -176,15 +176,15 @@ export default function ExportModal() {
       if (bgNode) { bgNode.visible(false); stage.batchDraw(); await new Promise(r => requestAnimationFrame(r)) }
 
       const mimeType = imgFormat === 'webp' ? 'image/webp' : 'image/png'
-      const dataUrl  = stage.toDataURL({ mimeType, quality: 0.95, pixelRatio: 1 })
+      const dataUrl = stage.toDataURL({ mimeType, quality: 0.95, pixelRatio: 1 })
 
       if (bgNode) { bgNode.visible(true); stage.batchDraw() }
 
       // Convert dataURL to Uint8Array
       const base64 = dataUrl.split(',')[1]
       if (!base64) throw new Error('Failed to capture image')
-      const binary  = atob(base64)
-      const bytes   = new Uint8Array(binary.length)
+      const binary = atob(base64)
+      const bytes = new Uint8Array(binary.length)
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
 
       const sceneName = scene.name.replace(/[^a-zA-Z0-9_-]/g, '_')
@@ -207,16 +207,16 @@ export default function ExportModal() {
     setExportOpen(false)
   }
 
-  const fps      = project.fps
-  const total    = project.scenes.reduce((s, sc) => s + sc.duration, 0)
-  const frames   = Math.ceil(total * fps)
-  const exportW  = quality === '720p' ? Math.round(project.width * 720 / project.height) : Math.min(project.width, 1920)
-  const exportH  = quality === '720p' ? 720 : Math.min(project.height, 1080)
+  const fps = project.fps
+  const total = project.scenes.reduce((s, sc) => s + sc.duration, 0)
+  const frames = Math.ceil(total * fps)
+  const exportW = quality === '720p' ? Math.round(project.width * 720 / project.height) : Math.min(project.width, 1920)
+  const exportH = quality === '720p' ? 720 : Math.min(project.height, 1080)
   const estimatedSizeMB = Math.round((exportW * exportH * fps * total * 0.10) / (1024 * 1024))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="w-[600px] bg-editor-panel border border-editor-border rounded-lg shadow-2xl flex flex-col overflow-hidden">
+      <div className="bg-editor-panel border border-editor-border rounded-3xl shadow-2xl flex flex-col overflow-hidden w-[75vw] h-[75vh] max-w-[960px]">
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-editor-border">
@@ -286,11 +286,10 @@ export default function ExportModal() {
                         <button
                           key={q}
                           onClick={() => setQuality(q)}
-                          className={`flex-1 px-3 py-2 text-sm rounded transition-colors ${
-                            quality === q
-                              ? 'bg-editor-accent text-white'
-                              : 'bg-editor-panel text-editor-text hover:bg-editor-hover'
-                          }`}
+                          className={`flex-1 px-3 py-2 text-sm rounded transition-colors ${quality === q
+                            ? 'bg-editor-accent text-white'
+                            : 'bg-editor-panel text-editor-text hover:bg-editor-hover'
+                            }`}
                         >
                           <div className="font-medium">{q}</div>
                           <div className="text-2xs opacity-70">{q === '720p' ? 'HD · CRF 18' : 'Full HD · CRF 16'}</div>
@@ -303,7 +302,7 @@ export default function ExportModal() {
                   </div>
                   {!ffmpegAvailable && (
                     <div className="text-2xs text-yellow-500 bg-yellow-900/20 rounded px-2 py-1.5">
-                       loading... export will be available shortly.
+                      loading... export will be available shortly.
                     </div>
                   )}
                 </div>
@@ -313,8 +312,8 @@ export default function ExportModal() {
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2">
                     {phase === 'exporting' && <Loader2 size={13} className="text-editor-accent animate-spin" />}
-                    {phase === 'done'      && <CheckCircle size={13} className="text-green-400" />}
-                    {phase === 'error'     && <AlertCircle size={13} className="text-red-400" />}
+                    {phase === 'done' && <CheckCircle size={13} className="text-green-400" />}
+                    {phase === 'error' && <AlertCircle size={13} className="text-red-400" />}
                     <span className="text-ms text-editor-secondary truncate">{log}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-editor-elevated overflow-hidden">
@@ -380,11 +379,10 @@ export default function ExportModal() {
                       <button
                         key={fmt}
                         onClick={() => setImgFormat(fmt)}
-                        className={`flex-1 px-3 py-2 text-ms rounded transition-colors ${
-                          imgFormat === fmt
-                            ? 'bg-editor-accent text-white'
-                            : 'bg-editor-panel text-editor-text hover:bg-editor-hover'
-                        }`}
+                        className={`flex-1 px-3 py-2 text-ms rounded transition-colors ${imgFormat === fmt
+                          ? 'bg-editor-accent text-white'
+                          : 'bg-editor-panel text-editor-text hover:bg-editor-hover'
+                          }`}
                       >
                         <div className="font-medium uppercase">{fmt}</div>
                         <div className="text-2xs opacity-70">{fmt === 'png' ? 'Lossless' : 'Compressed'}</div>
@@ -398,8 +396,8 @@ export default function ExportModal() {
               {imgPhase !== 'idle' && (
                 <div className="flex items-center gap-2">
                   {imgPhase === 'capturing' && <Loader2 size={13} className="text-editor-accent animate-spin" />}
-                  {imgPhase === 'done'      && <CheckCircle size={13} className="text-green-400" />}
-                  {imgPhase === 'error'     && <AlertCircle size={13} className="text-red-400" />}
+                  {imgPhase === 'done' && <CheckCircle size={13} className="text-green-400" />}
+                  {imgPhase === 'error' && <AlertCircle size={13} className="text-red-400" />}
                   <span className="text-ms text-editor-secondary">{imgLog}</span>
                 </div>
               )}
@@ -408,7 +406,7 @@ export default function ExportModal() {
         </div>
 
         {/* Footer */}
-        <div className="px-4 pb-4 flex items-center justify-end gap-2">
+        <div className="mt-auto px-4 pb-4 flex items-center justify-end gap-2">
 
           {/* Video footer */}
           {tab === 'video' && phase === 'idle' && (
