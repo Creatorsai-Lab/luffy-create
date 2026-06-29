@@ -13,6 +13,18 @@ export function makePerspectivePts(w: number, h: number): PerspectivePts {
 
 type Pt = [number, number]
 
+function expandedTri(d0: Pt, d1: Pt, d2: Pt, amount = 1.15): [Pt, Pt, Pt] {
+  const cx = (d0[0] + d1[0] + d2[0]) / 3
+  const cy = (d0[1] + d1[1] + d2[1]) / 3
+  const expand = (p: Pt): Pt => {
+    const dx = p[0] - cx
+    const dy = p[1] - cy
+    const len = Math.hypot(dx, dy) || 1
+    return [p[0] + (dx / len) * amount, p[1] + (dy / len) * amount]
+  }
+  return [expand(d0), expand(d1), expand(d2)]
+}
+
 function bilerp(tl: Pt, tr: Pt, br: Pt, bl: Pt, u: number, v: number): Pt {
   return [
     (1 - v) * ((1 - u) * tl[0] + u * tr[0]) + v * ((1 - u) * bl[0] + u * br[0]),
@@ -30,10 +42,11 @@ function drawTri(
   srcW: number, srcH: number,
 ) {
   ctx.save()
+  const [c0, c1, c2] = expandedTri(d0, d1, d2)
   ctx.beginPath()
-  ctx.moveTo(d0[0], d0[1])
-  ctx.lineTo(d1[0], d1[1])
-  ctx.lineTo(d2[0], d2[1])
+  ctx.moveTo(c0[0], c0[1])
+  ctx.lineTo(c1[0], c1[1])
+  ctx.lineTo(c2[0], c2[1])
   ctx.closePath()
   ctx.clip()
 
@@ -58,9 +71,21 @@ export function drawPerspectiveWarp(
   pts: PerspectivePts,
   srcW: number,
   srcH: number,
-  N = 12,
+  N = 1,
 ) {
   const { tl, tr, br, bl } = pts
+  const oldSmoothing = ctx.imageSmoothingEnabled
+  const oldQuality = ctx.imageSmoothingQuality
+  ctx.save()
+  ctx.beginPath()
+  ctx.moveTo(tl[0], tl[1])
+  ctx.lineTo(tr[0], tr[1])
+  ctx.lineTo(br[0], br[1])
+  ctx.lineTo(bl[0], bl[1])
+  ctx.closePath()
+  ctx.clip()
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
   for (let row = 0; row < N; row++) {
     for (let col = 0; col < N; col++) {
       const u0 = col / N, u1 = (col + 1) / N
@@ -75,6 +100,9 @@ export function drawPerspectiveWarp(
       drawTri(ctx, src, sx1, sy0, sx1, sy1, sx0, sy1, dTR, dBR, dBL, srcW, srcH)
     }
   }
+  ctx.imageSmoothingEnabled = oldSmoothing
+  ctx.imageSmoothingQuality = oldQuality
+  ctx.restore()
 }
 
 // ── Shape canvas renderer ──────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Type, Square, ArrowRight, Code2, Table2, Layers, Shuffle, ImagePlus, BarChart3, Music,
-  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, SquareDashedMousePointer, SquarePlay, Sigma, BookOpen, Captions, Timer, Move
+  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, SquareDashedMousePointer, SquarePlay, Sigma, BookOpen, Captions, Timer, Route
 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { useHistoryStore } from '../../store/historyStore'
@@ -31,7 +31,7 @@ const TOOLS: ToolItem[] = [
   { icon: <SquarePlay size={15} />, label: 'Video', tool: 'video', panel: 'video' },
   { icon: <Music size={15} />, label: 'Audio', panel: 'audio' },
   { icon: <SquareDashedMousePointer size={15} />, label: 'Perspective', panel: 'perspective' },
-  { icon: <Move size={15} />, label: 'Move', panel: 'move' },
+  { icon: <Route size={15} />, label: 'Move', panel: 'move' },
   { icon: <Timer size={15} />, label: 'Counter', tool: 'counter', panel: 'counter' },
 ]
 

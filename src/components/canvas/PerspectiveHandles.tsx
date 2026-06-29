@@ -49,14 +49,14 @@ export default function PerspectiveHandles({ el }: Props) {
 
   return (
     <Group x={el.x} y={el.y} rotation={el.rotation}>
-      <Line points={outline} closed stroke="#ff2205" strokeWidth={3} listening={false} dash={[4,3]} />
+      <Line points={outline} closed stroke="rgba(99,102,241,0.9)" strokeWidth={1.5} listening={false} />
 
       {corners.map(({ key, pt }) => (
         <Circle
           key={key}
           x={pt[0]} y={pt[1]}
-          radius={6}
-          fill="#94ff08" stroke="#bbbbbb" strokeWidth={2}
+          radius={5}
+          fill="#ffffff" stroke="#6366f1" strokeWidth={2}
           draggable
           onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => {
             updPts({ ...pts, [key]: [e.target.x(), e.target.y()] as Pt })
@@ -68,8 +68,8 @@ export default function PerspectiveHandles({ el }: Props) {
         <Circle
           key={key}
           x={pt[0]} y={pt[1]}
-          radius={5}
-          fill="#ff8800" stroke="#eeeded" strokeWidth={2}
+          radius={4}
+          fill="#ff0015" stroke="#ffffff" strokeWidth={1.5}
           draggable
           onDragStart={(e: Konva.KonvaEventObject<DragEvent>) => {
             edgeStart.current[key] = {

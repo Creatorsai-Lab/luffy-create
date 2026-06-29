@@ -1027,6 +1027,8 @@ export default function Timeline() {
                   <VideoClipFilmstrip
                     src={video.src}
                     startTime={video.startTime ?? 0}
+                    clipDuration={clipDur}
+                    speed={video.playbackRate ?? 1}
                     clipWidthPx={Math.max(widthPx, 40)}
                     trackH={heightPx}
                   />
@@ -1471,35 +1473,146 @@ export default function Timeline() {
 
 // ── Video clip filmstrip (timeline thumbnail) ─────────────────────────────────
 
-function VideoClipFilmstrip({ src, startTime, clipWidthPx, trackH }: {
+function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, trackH }: {
   src: string
   startTime: number
+  clipDuration: number
+  speed: number
   clipWidthPx: number
   trackH: number
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const [stripUrl, setStripUrl] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
-    const v = videoRef.current
-    if (!v) return
-    const seek = () => {
-      if (v.duration && Number.isFinite(v.duration)) {
-        v.currentTime = Math.min(Math.max(0, startTime), Math.max(0, v.duration - 0.05))
+    let cancelled = false
+    let objectUrl: string | null = null
+    const video = document.createElement('video')
+    const canvas = document.createElement('canvas')
+    const frameW = 68
+    const gap = 2
+    const safeTrackH = Math.max(20, Math.round(trackH))
+    const visibleWidth = Math.max(40, Math.round(clipWidthPx))
+    const frameCount = Math.max(1, Math.min(48, Math.ceil(visibleWidth / frameW)))
+    const canvasW = frameCount * frameW + Math.max(0, frameCount - 1) * gap
+
+    setStripUrl(null)
+    setFailed(false)
+
+    canvas.width = canvasW
+    canvas.height = safeTrackH
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      setFailed(true)
+      return () => {}
+    }
+
+    video.src = toFileUrl(src)
+    video.crossOrigin = 'anonymous'
+    video.muted = true
+    video.preload = 'metadata'
+
+    const seekTo = (time: number) => new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        video.removeEventListener('seeked', onSeeked)
+        video.removeEventListener('error', onError)
+      }
+      const onSeeked = () => { cleanup(); resolve() }
+      const onError = () => { cleanup(); reject(new Error('Video frame seek failed')) }
+      video.addEventListener('seeked', onSeeked, { once: true })
+      video.addEventListener('error', onError, { once: true })
+      video.currentTime = time
+    })
+
+    const drawCoverFrame = (x: number) => {
+      const vw = video.videoWidth || frameW
+      const vh = video.videoHeight || safeTrackH
+      const scale = Math.max(frameW / vw, safeTrackH / vh)
+      const dw = vw * scale
+      const dh = vh * scale
+      const dx = x + (frameW - dw) / 2
+      const dy = (safeTrackH - dh) / 2
+      ctx.drawImage(video, dx, dy, dw, dh)
+    }
+
+    const render = async () => {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const onLoaded = () => { cleanup(); resolve() }
+          const onError = () => { cleanup(); reject(new Error('Video metadata failed')) }
+          const cleanup = () => {
+            video.removeEventListener('loadedmetadata', onLoaded)
+            video.removeEventListener('loadeddata', onLoaded)
+            video.removeEventListener('error', onError)
+          }
+          video.addEventListener('loadedmetadata', onLoaded, { once: true })
+          video.addEventListener('loadeddata', onLoaded, { once: true })
+          video.addEventListener('error', onError, { once: true })
+          if (video.readyState >= 1) onLoaded()
+        })
+
+        const duration = Number.isFinite(video.duration) && video.duration > 0
+          ? video.duration
+          : startTime + clipDuration * speed
+        const maxTime = Math.max(0, duration - 0.05)
+        const sourceStart = Math.max(0, Math.min(startTime, maxTime))
+        const sourceSpan = Math.max(0.05, clipDuration * Math.max(speed, 0.01))
+
+        ctx.fillStyle = '#111018'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        for (let i = 0; i < frameCount; i++) {
+          if (cancelled) return
+          const ratio = frameCount === 1 ? 0 : i / (frameCount - 1)
+          const sourceTime = Math.min(maxTime, sourceStart + sourceSpan * ratio)
+          await seekTo(sourceTime)
+          if (cancelled) return
+          const x = i * (frameW + gap)
+          drawCoverFrame(x)
+          if (gap > 0 && i < frameCount - 1) {
+            ctx.fillStyle = 'rgba(7,7,10,0.92)'
+            ctx.fillRect(x + frameW, 0, gap, safeTrackH)
+          }
+        }
+
+        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.76))
+        if (!blob || cancelled) return
+        objectUrl = URL.createObjectURL(blob)
+        setStripUrl(objectUrl)
+      } catch {
+        if (!cancelled) setFailed(true)
       }
     }
-    v.addEventListener('loadeddata', seek)
-    if (v.readyState >= 2) seek()
-    return () => v.removeEventListener('loadeddata', seek)
-  }, [src, startTime])
+
+    render()
+
+    return () => {
+      cancelled = true
+      video.pause()
+      video.src = ''
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [src, startTime, clipDuration, speed, clipWidthPx, trackH])
+
+  if (stripUrl) {
+    return (
+      <img
+        src={stripUrl}
+        className="absolute inset-0 w-full h-full pointer-events-none object-cover"
+        style={{ opacity: 0.95, imageRendering: 'auto' }}
+      />
+    )
+  }
 
   return (
-    <video
-      ref={videoRef}
-      src={toFileUrl(src)}
-      muted
-      preload="auto"
-      className="absolute inset-0 w-full pointer-events-none object-cover"
-      style={{ height: trackH, minWidth: clipWidthPx, opacity: 0.92 }}
+    <div
+      className="absolute inset-0 pointer-events-none"
+      style={{
+        background: failed
+          ? 'linear-gradient(135deg, rgba(88,28,135,0.55), rgba(30,27,75,0.7))'
+          : 'repeating-linear-gradient(90deg, rgba(76,29,149,0.65) 0 54px, rgba(109,40,217,0.45) 54px 56px)',
+        opacity: 0.9,
+      }}
     />
   )
 }

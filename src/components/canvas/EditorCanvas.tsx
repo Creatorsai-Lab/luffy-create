@@ -4,6 +4,7 @@ import type Konva from 'konva'
 import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { getAnimatedProps } from '../../engine/animator'
+import { easeInOutCubic } from '../../engine/transitionRenderer'
 import { drawBackground } from '../../engine/backgroundRenderer'
 import { registerStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
@@ -685,7 +686,8 @@ export default function EditorCanvas() {
 
       {/* Transition overlay — FROM-scene snapshot fades/slides out while TO scene plays under */}
       {transOverlay && (() => {
-        const p = Math.min(1, (playhead - transOverlay.transitionStart) / transOverlay.duration)
+        const rawP = Math.min(1, Math.max(0, (playhead - transOverlay.transitionStart) / transOverlay.duration))
+        const p = easeInOutCubic(rawP)
         const dir = transOverlay.direction
         // The overlay is the OLD (FROM) scene sitting on top; the NEW scene renders
         // beneath. So we animate the OLD scene's EXIT. `dir` = edge the NEW scene
@@ -705,7 +707,7 @@ export default function EditorCanvas() {
             else overlayStyle = { transform: `translateX(-${p * 100}%)` }
             break
           case 'zoom':
-            overlayStyle = { opacity: 1 - p, transform: `scale(${1 + p * 0.5})`, transformOrigin: 'center center' }
+            overlayStyle = { opacity: 1 - p, transform: `scale(${1 + p * 0.035})`, transformOrigin: 'center center' }
             break
           case 'wipe':
             if (dir === 'right') overlayStyle = { clipPath: `inset(0 0 0 ${p * 100}%)` }
@@ -714,13 +716,10 @@ export default function EditorCanvas() {
             else overlayStyle = { clipPath: `inset(0 0 ${p * 100}% 0)` }
             break
           case 'morph': {
-            // old scales up + drifts toward `dir` + fades out (matches export renderer)
-            const driftPct = 6 * p   // % of size
-            const tx = dir === 'right' ? driftPct : dir === 'left' ? -driftPct : 0
-            const ty = dir === 'down' ? driftPct : dir === 'up' ? -driftPct : 0
+            // Match export: stable center grow/blend, no directional drift.
             overlayStyle = {
               opacity: 1 - p,
-              transform: `translate(${tx}%, ${ty}%) scale(${1 + p * 0.08})`,
+              transform: `scale(${1 + p * 0.025})`,
               transformOrigin: 'center center',
             }
             break

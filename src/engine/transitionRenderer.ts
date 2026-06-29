@@ -17,8 +17,14 @@ export interface TransitionRenderOptions {
  */
 export function renderTransition(opts: TransitionRenderOptions): void {
   const { ctx, width, height, progress, type, direction, fromCanvas, toCanvas } = opts
+  const p = clamp01(progress)
+  const e = easeInOutCubic(p)
 
   // Clear canvas
+  ctx.save()
+  ctx.globalAlpha = 1
+  ctx.filter = 'none'
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.clearRect(0, 0, width, height)
 
   switch (type) {
@@ -28,33 +34,35 @@ export function renderTransition(opts: TransitionRenderOptions): void {
       break
 
     case 'fade':
-      renderFadeTransition(ctx, width, height, progress, fromCanvas, toCanvas)
+      renderFadeTransition(ctx, width, height, e, fromCanvas, toCanvas)
       break
 
     case 'slide':
-      renderSlideTransition(ctx, width, height, progress, direction ?? 'left', fromCanvas, toCanvas)
+      renderPushTransition(ctx, width, height, e, direction ?? 'left', fromCanvas, toCanvas)
       break
 
     case 'push':
-      renderPushTransition(ctx, width, height, progress, direction ?? 'left', fromCanvas, toCanvas)
+      renderPushTransition(ctx, width, height, e, direction ?? 'left', fromCanvas, toCanvas)
       break
 
     case 'zoom':
-      renderZoomTransition(ctx, width, height, progress, fromCanvas, toCanvas)
+      renderZoomTransition(ctx, width, height, e, fromCanvas, toCanvas)
       break
 
     case 'wipe':
-      renderWipeTransition(ctx, width, height, progress, direction ?? 'left', fromCanvas, toCanvas)
+      renderWipeTransition(ctx, width, height, e, direction ?? 'left', fromCanvas, toCanvas)
       break
 
     case 'morph':
-      renderMorphTransition(ctx, width, height, progress, direction ?? 'right', fromCanvas, toCanvas)
+      renderMorphTransition(ctx, width, height, e, fromCanvas, toCanvas)
       break
 
     default:
       // Fallback to fade
-      renderFadeTransition(ctx, width, height, progress, fromCanvas, toCanvas)
+      renderFadeTransition(ctx, width, height, e, fromCanvas, toCanvas)
   }
+
+  ctx.restore()
 }
 
 // ─── Transition Implementations ──────────────────────────────────────────────
@@ -76,29 +84,6 @@ function renderFadeTransition(
   ctx.drawImage(to, 0, 0, w, h)
   
   ctx.globalAlpha = 1
-}
-
-function renderSlideTransition(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  t: number,
-  dir: SlideDir,
-  from: HTMLCanvasElement,
-  to: HTMLCanvasElement
-): void {
-  // Old scene stays in place, new scene slides in from `dir` edge.
-  ctx.drawImage(from, 0, 0, w, h)
-
-  let x = 0, y = 0
-  switch (dir) {
-    case 'right': x = w * (1 - t);  break  // enters from right
-    case 'left':  x = -w * (1 - t); break  // enters from left
-    case 'down':  y = h * (1 - t);  break  // enters from bottom
-    case 'up':    y = -h * (1 - t); break  // enters from top
-  }
-
-  ctx.drawImage(to, x, y, w, h)
 }
 
 function renderPushTransition(
@@ -125,6 +110,10 @@ function renderPushTransition(
       toY = -h * (1 - t); fromY = h * t;  break
   }
 
+  fromX = Math.round(fromX)
+  fromY = Math.round(fromY)
+  toX = Math.round(toX)
+  toY = Math.round(toY)
   ctx.drawImage(from, fromX, fromY, w, h)
   ctx.drawImage(to, toX, toY, w, h)
 }
@@ -137,9 +126,9 @@ function renderZoomTransition(
   from: HTMLCanvasElement,
   to: HTMLCanvasElement
 ): void {
-  // Old scene zooms out, new scene zooms in
-  const fromScale = 1 + t * 0.5
-  const toScale = 0.5 + t * 0.5
+  // Small, stable center zoom. Large scale deltas feel shaky in an editor canvas.
+  const fromScale = 1 + t * 0.035
+  const toScale = 0.965 + t * 0.035
   
   // Draw old scene (zooming out and fading)
   ctx.globalAlpha = 1 - t
@@ -171,31 +160,65 @@ function renderWipeTransition(
   from: HTMLCanvasElement,
   to: HTMLCanvasElement
 ): void {
-  // Draw old scene
   ctx.drawImage(from, 0, 0, w, h)
-  
-  // Wipe with new scene
-  ctx.save()
-  ctx.beginPath()
-  
+
+  const feather = Math.max(12, Math.min(w, h) * 0.018)
+  let x = 0, y = 0, ww = w, hh = h
+
   switch (dir) {
     case 'left':
-      ctx.rect(0, 0, w * t, h)
+      ww = w * t
       break
     case 'right':
-      ctx.rect(w * (1 - t), 0, w * t, h)
+      x = w * (1 - t)
+      ww = w * t
       break
     case 'up':
-      ctx.rect(0, 0, w, h * t)
+      hh = h * t
       break
     case 'down':
-      ctx.rect(0, h * (1 - t), w, h * t)
+      y = h * (1 - t)
+      hh = h * t
       break
   }
-  
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(x, y, Math.max(0, ww), Math.max(0, hh))
   ctx.clip()
   ctx.drawImage(to, 0, 0, w, h)
   ctx.restore()
+
+  // Feather only the reveal edge to avoid a hard mechanical curtain line.
+  if (t > 0 && t < 1) {
+    ctx.save()
+    const g = dir === 'left' || dir === 'right'
+      ? ctx.createLinearGradient(
+          dir === 'left' ? ww - feather : x,
+          0,
+          dir === 'left' ? ww : x + feather,
+          0
+        )
+      : ctx.createLinearGradient(
+          0,
+          dir === 'up' ? hh - feather : y,
+          0,
+          dir === 'up' ? hh : y + feather
+        )
+    if (dir === 'left' || dir === 'up') {
+      g.addColorStop(0, 'rgba(0,0,0,0)')
+      g.addColorStop(1, 'rgba(0,0,0,0.22)')
+    } else {
+      g.addColorStop(0, 'rgba(0,0,0,0.22)')
+      g.addColorStop(1, 'rgba(0,0,0,0)')
+    }
+    ctx.fillStyle = g
+    if (dir === 'left') ctx.fillRect(Math.max(0, ww - feather), 0, feather, h)
+    if (dir === 'right') ctx.fillRect(x, 0, feather, h)
+    if (dir === 'up') ctx.fillRect(0, Math.max(0, hh - feather), w, feather)
+    if (dir === 'down') ctx.fillRect(0, y, w, feather)
+    ctx.restore()
+  }
 }
 
 function renderMorphTransition(
@@ -203,40 +226,24 @@ function renderMorphTransition(
   w: number,
   h: number,
   t: number,
-  dir: SlideDir,
   from: HTMLCanvasElement,
   to: HTMLCanvasElement
 ): void {
-  // PowerPoint-style "Morph" approximation: the old scene scales up slightly and
-  // drifts in `dir` while fading out; the new scene starts a touch larger,
-  // settles to 1×, and drifts in from the opposite side while fading in.
-  // Eased so the motion accelerates then settles, reading as a smooth blend.
-  const e = easeInOutCubic(t)
-  const drift = Math.min(w, h) * 0.06   // max pan distance
-
-  // Direction unit vector (where the new scene drifts TOWARD = `dir` edge feel)
-  let dx = 0, dy = 0
-  switch (dir) {
-    case 'right': dx = 1;  break
-    case 'left':  dx = -1; break
-    case 'down':  dy = 1;  break
-    case 'up':    dy = -1; break
-  }
-
-  const drawScaledPanned = (img: HTMLCanvasElement, scale: number, panX: number, panY: number, alpha: number) => {
+  // Stable "smart" morph baseline: no directional drift, no hard push.
+  // When matching objects change size between scenes, this reads as a controlled
+  // grow/blend instead of a whole-slide shake.
+  const drawScaled = (img: HTMLCanvasElement, scale: number, alpha: number) => {
     ctx.globalAlpha = alpha
     ctx.save()
-    ctx.translate(w / 2 + panX, h / 2 + panY)
+    ctx.translate(w / 2, h / 2)
     ctx.scale(scale, scale)
     ctx.translate(-w / 2, -h / 2)
     ctx.drawImage(img, 0, 0, w, h)
     ctx.restore()
   }
 
-  // Old: 1 → 1.08, pans toward dir, fades out
-  drawScaledPanned(from, 1 + e * 0.08,  dx * drift * e,        dy * drift * e,        1 - e)
-  // New: 1.08 → 1, pans in from opposite side, fades in
-  drawScaledPanned(to,   1.08 - e * 0.08, -dx * drift * (1 - e), -dy * drift * (1 - e), e)
+  drawScaled(from, 1 + t * 0.025, 1 - t)
+  drawScaled(to, 0.965 + t * 0.035, t)
 
   ctx.globalAlpha = 1
 }
@@ -245,7 +252,12 @@ function renderMorphTransition(
  * Easing function for smooth transitions
  */
 export function easeInOutCubic(t: number): number {
+  t = clamp01(t)
   return t < 0.5
     ? 4 * t * t * t
     : 1 - Math.pow(-2 * t + 2, 3) / 2
+}
+
+function clamp01(t: number): number {
+  return Math.max(0, Math.min(1, Number.isFinite(t) ? t : 0))
 }

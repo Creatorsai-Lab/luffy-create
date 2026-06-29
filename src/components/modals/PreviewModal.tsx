@@ -5,6 +5,7 @@ import { X, Play, Pause, SkipBack } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { getAnimatedProps } from '../../engine/animator'
 import { drawBackground } from '../../engine/backgroundRenderer'
+import { easeInOutCubic } from '../../engine/transitionRenderer'
 import CanvasElement from '../canvas/CanvasElement'
 import type { Background, TransitionType, SlideDir, AudioElement, VideoElement } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
@@ -134,9 +135,9 @@ export default function PreviewModal() {
   // Transition computation
   const tr = scene.transition
   const inTrans = tr && tr.type !== 'none' && localTime < tr.duration
-  const transP = inTrans ? Math.min(1, localTime / tr.duration) : 1
+  const transP = inTrans ? easeInOutCubic(Math.min(1, Math.max(0, localTime / tr.duration))) : 1
 
-  // CSS transform for slide/push/zoom/morph transitions
+  // CSS transform for legacy slide/push/zoom/morph transitions.
   const transStyle: React.CSSProperties = (() => {
     if (!inTrans || !tr) return {}
     const p = transP
@@ -160,8 +161,8 @@ export default function PreviewModal() {
         if (d === 'up') return { transform: `translateY(${off(v)})` }
         return {}
       }
-      case 'zoom': return { transform: `scale(${0.7 + p * 0.3})`, opacity: p }
-      case 'morph': return { transform: `scale(${0.92 + p * 0.08})`, opacity: p }
+      case 'zoom': return { transform: `scale(${0.965 + p * 0.035})`, opacity: p, transformOrigin: 'center center' }
+      case 'morph': return { transform: `scale(${0.965 + p * 0.035})`, opacity: p, transformOrigin: 'center center' }
       default: return {}
     }
   })()
