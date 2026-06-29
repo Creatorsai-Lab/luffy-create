@@ -55,6 +55,14 @@ declare global {
       ffmpeg: {
         getPaths: () => Promise<{ coreJs: string; coreWasm: string }>
       }
+      ai?: {
+        plan: (payload: {
+          prompt: string
+          context: unknown
+          systemPrompt: string
+          schema: unknown
+        }) => Promise<unknown>
+      }
     }
   }
 }
