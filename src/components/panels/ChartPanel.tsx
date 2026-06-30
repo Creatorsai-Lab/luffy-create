@@ -1,7 +1,7 @@
-import { BarChart3, LineChart, PieChart, Plus, Trash2, Sparkles, TrendingUp } from 'lucide-react'
+import { BarChart3, CircleDot, LineChart, PieChart, Plus, Trash2, Sparkles, TrendingUp } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { ChartElement, AnimationType, EasingType } from '../../types/editor'
-import { makeAnimation } from '../../utils/defaults'
+import { makeAnimation, makeChart } from '../../utils/defaults'
 import { PanelHeader, Row, ColorInput, Slider } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { FONT_FAMILIES } from '../../types/editor'
@@ -12,6 +12,7 @@ const CHART_TYPES: { icon: React.ReactNode; type: ChartElement['chartType']; lab
   { icon: <TrendingUp size={13} />,  type: 'area',     label: 'Area' },
   { icon: <PieChart size={13} />,    type: 'pie',      label: 'Pie' },
   { icon: <PieChart size={13} />,    type: 'doughnut', label: 'Ring' },
+  { icon: <CircleDot size={13} />,    type: 'points',   label: 'Points' },
 ]
 
 const CHART_ANIM_TYPES: Record<ChartElement['chartType'], AnimationType> = {
@@ -20,6 +21,7 @@ const CHART_ANIM_TYPES: Record<ChartElement['chartType'], AnimationType> = {
   area:     'chartAreaFlow',
   pie:      'chartPieSpin',
   doughnut: 'chartPieSpin',
+  points:   'chartLineDraw',
 }
 
 const CHART_ANIM_LABELS: Record<ChartElement['chartType'], string> = {
@@ -28,17 +30,89 @@ const CHART_ANIM_LABELS: Record<ChartElement['chartType'], string> = {
   area:     'Area flows left to right',
   pie:      'Slices open sequentially',
   doughnut: 'Slices open sequentially',
+  points:   'Points reveal across the x-axis',
 }
 
 export default function ChartPanel() {
   const {
-    getSelectedEls, updateElement, addAnimation, updateAnimation, removeAnimation,
-    setActiveTool, setActivePanel, activePanel, pendingChartType, setPendingChartType
+    project, currentSceneId, getSelectedEls, updateElement, addElement, addAnimation, updateAnimation, removeAnimation,
+    setActiveTool, setActivePanel, pendingChartType, setPendingChartType
   } = useEditorStore()
   const el = getSelectedEls().find(e => e.type === 'chart') as ChartElement | undefined
+  const firstDataset = el?.data.datasets[0]
+  const pointData = firstDataset?.points ?? [
+    { x: 0, y: 1 },
+    { x: 2, y: 4 },
+    { x: 4, y: 3 },
+    { x: 6, y: 8 },
+    { x: 8, y: 6 },
+  ]
 
   function upd(patch: Partial<ChartElement>) {
     if (el) updateElement(el.id, patch)
+  }
+
+  function toNumber(raw: string, fallback: number) {
+    const parsed = parseFloat(raw)
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+
+  function withPointDefaults(chart: ChartElement): ChartElement {
+    const datasets = chart.data.datasets.length > 0 ? chart.data.datasets : [{
+      label: 'Points',
+      data: [],
+      color: '#2563eb',
+      points: pointData,
+    }]
+    return {
+      ...chart,
+      data: {
+        ...chart.data,
+        datasets: datasets.map((ds, i) => ({
+          ...ds,
+          label: i === 0 && ds.label === 'Dataset 1' ? 'Points' : ds.label,
+          color: ds.color || '#2563eb',
+          points: ds.points?.length ? ds.points : pointData,
+        })),
+      },
+      xAxisMin: chart.xAxisMin ?? 0,
+      xAxisMax: chart.xAxisMax ?? 10,
+      xAxisStep: chart.xAxisStep ?? 2,
+      yAxisMin: chart.yAxisMin ?? 0,
+      yAxisMax: chart.yAxisMax ?? 10,
+      yAxisStep: chart.yAxisStep ?? 2,
+      pointSize: chart.pointSize ?? 5,
+      showPointLabels: chart.showPointLabels ?? true,
+      regressionLineEnabled: chart.regressionLineEnabled ?? false,
+      regressionStartX: chart.regressionStartX ?? 0,
+      regressionStartY: chart.regressionStartY ?? 1,
+      regressionEndX: chart.regressionEndX ?? 10,
+      regressionEndY: chart.regressionEndY ?? 8,
+      regressionLineColor: chart.regressionLineColor ?? '#ef4444',
+      regressionLineWidth: chart.regressionLineWidth ?? 3,
+      showGrid: true,
+      showLegend: false,
+    }
+  }
+
+  function setChartType(type: ChartElement['chartType']) {
+    setPendingChartType(type)
+    if (el) {
+      const patch: Partial<ChartElement> = { chartType: type }
+      if (type === 'points') Object.assign(patch, withPointDefaults({ ...el, chartType: type }))
+      upd(patch)
+      return
+    }
+
+    if (!project || !currentSceneId) return
+    const chart = makeChart(
+      Math.round(project.width / 2 - 200),
+      Math.round(project.height / 2 - 150)
+    )
+    chart.chartType = type
+    addElement(type === 'points' ? withPointDefaults(chart) : chart)
+    setActiveTool('select')
+    setActivePanel('charts')
   }
 
   function addDataset() {
@@ -108,6 +182,28 @@ export default function ChartPanel() {
     upd({ data: { ...el.data, datasets } })
   }
 
+  function updatePoint(idx: number, axis: 'x' | 'y', value: number) {
+    if (!el || !firstDataset) return
+    const points = pointData.map((pt, i) => i === idx ? { ...pt, [axis]: value } : pt)
+    const datasets = el.data.datasets.map((ds, i) => i === 0 ? { ...ds, points } : ds)
+    upd({ data: { ...el.data, datasets } })
+  }
+
+  function addPoint() {
+    if (!el || !firstDataset) return
+    const last = pointData[pointData.length - 1] ?? { x: 0, y: 0 }
+    const points = [...pointData, { x: last.x + (el.xAxisStep ?? 1), y: last.y }]
+    const datasets = el.data.datasets.map((ds, i) => i === 0 ? { ...ds, points } : ds)
+    upd({ data: { ...el.data, datasets } })
+  }
+
+  function removePoint(idx: number) {
+    if (!el || !firstDataset || pointData.length <= 1) return
+    const points = pointData.filter((_, i) => i !== idx)
+    const datasets = el.data.datasets.map((ds, i) => i === 0 ? { ...ds, points } : ds)
+    upd({ data: { ...el.data, datasets } })
+  }
+
   const chartAnimType = el ? CHART_ANIM_TYPES[el.chartType] : null
   const chartAnim = el?.animations.find(a => a.timing === 'onEnter' && chartAnimType && a.type === chartAnimType)
 
@@ -123,6 +219,7 @@ export default function ChartPanel() {
   }
 
   const isPieType = el?.chartType === 'pie' || el?.chartType === 'doughnut'
+  const isPointType = el?.chartType === 'points'
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -132,21 +229,13 @@ export default function ChartPanel() {
         {/* Chart type grid — always visible */}
         <div className="px-3 py-2 border-b border-editor-border">
           <span className="label block mb-2">Chart Type</span>
-          <div className="grid grid-cols-5 gap-1">
+          <div className="grid grid-cols-6 gap-1">
             {CHART_TYPES.map(ct => {
               const isActive = el ? el.chartType === ct.type : pendingChartType === ct.type
               return (
                 <button
                   key={ct.type}
-                  onClick={() => {
-                    if (el) {
-                      upd({ chartType: ct.type })
-                    } else {
-                      setPendingChartType(ct.type)
-                      setActiveTool('chart')
-                      setActivePanel(activePanel)
-                    }
-                  }}
+                  onClick={() => setChartType(ct.type)}
                   title={ct.label}
                   className={cn(
                     'flex flex-col items-center justify-center gap-1 py-2 rounded border transition-colors',
@@ -199,13 +288,15 @@ export default function ChartPanel() {
                   onChange={v => upd({ opacity: v })} display={`${Math.round(el.opacity * 100)}%`} />
               </Row>
               <div className="flex items-center gap-3 pt-0.5">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" checked={el.showLegend}
-                    onChange={e => upd({ showLegend: e.target.checked })}
-                    className="w-3.5 h-3.5 accent-editor-accent" />
-                  <span className="text-xs text-[#f2f2f2]">Legend</span>
-                </label>
-                {!isPieType && (
+                {!isPointType && (
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={el.showLegend}
+                      onChange={e => upd({ showLegend: e.target.checked })}
+                      className="w-3.5 h-3.5 accent-editor-accent" />
+                    <span className="text-xs text-[#f2f2f2]">Legend</span>
+                  </label>
+                )}
+                {!isPieType && !isPointType && (
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input type="checkbox" checked={el.showGrid}
                       onChange={e => upd({ showGrid: e.target.checked })}
@@ -241,8 +332,160 @@ export default function ChartPanel() {
               </div>
             )}
 
+            {isPointType && (
+              <>
+                <div className="px-3 py-2 border-b border-editor-border flex flex-col gap-1.5">
+                  <span className="label">Point Graph</span>
+                  <Row label="Point Color">
+                    <ColorInput value={firstDataset?.color ?? '#2563eb'} onChange={v => updateDatasetColor(0, v)} />
+                  </Row>
+                  <Row label="Point Size">
+                    <Slider value={el.pointSize ?? 5} min={2} max={18} step={1}
+                      onChange={v => upd({ pointSize: v })} display={`${el.pointSize ?? 5}px`} />
+                  </Row>
+                  <Row label="Coordinates">
+                    <select
+                      value={el.showPointLabels ?? true ? 'show' : 'hide'}
+                      onChange={e => upd({ showPointLabels: e.target.value === 'show' })}
+                      className="w-full bg-editor-base border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                    >
+                      <option value="show">Show labels</option>
+                      <option value="hide">Hide labels</option>
+                    </select>
+                  </Row>
+                </div>
+
+                <div className="px-3 py-2 border-b border-editor-border flex flex-col gap-1.5">
+                  <span className="label">Axis Range</span>
+                  <div className="grid grid-cols-3 gap-1">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[#d9d9d9]">X Start</span>
+                      <input type="number" value={el.xAxisMin ?? 0}
+                        onChange={e => upd({ xAxisMin: toNumber(e.target.value, 0) })}
+                        className="px-1.5 py-1 text-xs bg-editor-base border border-editor-border rounded text-editor-text nodrag" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[#d9d9d9]">X End</span>
+                      <input type="number" value={el.xAxisMax ?? 10}
+                        onChange={e => upd({ xAxisMax: toNumber(e.target.value, 10) })}
+                        className="px-1.5 py-1 text-xs bg-editor-base border border-editor-border rounded text-editor-text nodrag" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[#d9d9d9]">X Gap</span>
+                      <input type="number" value={el.xAxisStep ?? 2} min={0.01} step={0.1}
+                        onChange={e => upd({ xAxisStep: Math.max(0.01, toNumber(e.target.value, 1)) })}
+                        className="px-1.5 py-1 text-xs bg-editor-base border border-editor-border rounded text-editor-text nodrag" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[#d9d9d9]">Y Start</span>
+                      <input type="number" value={el.yAxisMin ?? 0}
+                        onChange={e => upd({ yAxisMin: toNumber(e.target.value, 0) })}
+                        className="px-1.5 py-1 text-xs bg-editor-base border border-editor-border rounded text-editor-text nodrag" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[#d9d9d9]">Y End</span>
+                      <input type="number" value={el.yAxisMax ?? 10}
+                        onChange={e => upd({ yAxisMax: toNumber(e.target.value, 10) })}
+                        className="px-1.5 py-1 text-xs bg-editor-base border border-editor-border rounded text-editor-text nodrag" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[#d9d9d9]">Y Gap</span>
+                      <input type="number" value={el.yAxisStep ?? 2} min={0.01} step={0.1}
+                        onChange={e => upd({ yAxisStep: Math.max(0.01, toNumber(e.target.value, 1)) })}
+                        className="px-1.5 py-1 text-xs bg-editor-base border border-editor-border rounded text-editor-text nodrag" />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="px-3 py-2 border-b border-editor-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="label">Data Points</span>
+                    <button onClick={addPoint}
+                      className="flex items-center gap-1 text-xs text-editor-accent hover:text-editor-accent/80">
+                      <Plus size={10} /> Add
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-1 max-h-56 overflow-y-auto">
+                    {pointData.map((pt, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-1">
+                        <input
+                          type="number" value={pt.x}
+                          onChange={e => updatePoint(i, 'x', toNumber(e.target.value, 0))}
+                          className="px-1.5 py-1 text-xs bg-editor-elevated border border-editor-border rounded text-editor-text nodrag"
+                          title="X value"
+                        />
+                        <input
+                          type="number" value={pt.y}
+                          onChange={e => updatePoint(i, 'y', toNumber(e.target.value, 0))}
+                          className="px-1.5 py-1 text-xs bg-editor-elevated border border-editor-border rounded text-editor-text nodrag"
+                          title="Y value"
+                        />
+                        <button onClick={() => removePoint(i)}
+                          disabled={pointData.length <= 1}
+                          className="p-1 text-[#f2f2f2] hover:text-red-400 disabled:opacity-30">
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {isPointType && (
+              <div className="px-3 py-2 border-b border-editor-border flex flex-col gap-1.5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={el.regressionLineEnabled ?? false}
+                    onChange={e => upd({ regressionLineEnabled: e.target.checked })}
+                    className="w-3.5 h-3.5 accent-editor-accent"
+                  />
+                  <span className="label">Regression Line</span>
+                </label>
+
+                {el.regressionLineEnabled && (
+                  <>
+                    <div className="grid grid-cols-2 gap-1">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[#d9d9d9]">Start X</span>
+                        <input type="number" value={el.regressionStartX ?? 0}
+                          onChange={e => upd({ regressionStartX: toNumber(e.target.value, 0) })}
+                          className="px-1.5 py-1 text-xs bg-editor-base border border-editor-border rounded text-editor-text nodrag" />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[#d9d9d9]">Start Y</span>
+                        <input type="number" value={el.regressionStartY ?? 1}
+                          onChange={e => upd({ regressionStartY: toNumber(e.target.value, 1) })}
+                          className="px-1.5 py-1 text-xs bg-editor-base border border-editor-border rounded text-editor-text nodrag" />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[#d9d9d9]">End X</span>
+                        <input type="number" value={el.regressionEndX ?? 10}
+                          onChange={e => upd({ regressionEndX: toNumber(e.target.value, 10) })}
+                          className="px-1.5 py-1 text-xs bg-editor-base border border-editor-border rounded text-editor-text nodrag" />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[10px] text-[#d9d9d9]">End Y</span>
+                        <input type="number" value={el.regressionEndY ?? 8}
+                          onChange={e => upd({ regressionEndY: toNumber(e.target.value, 8) })}
+                          className="px-1.5 py-1 text-xs bg-editor-base border border-editor-border rounded text-editor-text nodrag" />
+                      </label>
+                    </div>
+                    <Row label="Line Color">
+                      <ColorInput value={el.regressionLineColor ?? '#ef4444'} onChange={v => upd({ regressionLineColor: v })} />
+                    </Row>
+                    <Row label="Line Width">
+                      <Slider value={el.regressionLineWidth ?? 3} min={1} max={12} step={0.5}
+                        onChange={v => upd({ regressionLineWidth: v })} display={`${el.regressionLineWidth ?? 3}px`} />
+                    </Row>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Categories */}
-            <div className="px-3 py-2 border-b border-editor-border">
+            {!isPointType && <div className="px-3 py-2 border-b border-editor-border">
               <div className="flex items-center justify-between mb-2">
                 <span className="label">Categories</span>
                 <button onClick={addLabel}
@@ -266,10 +509,10 @@ export default function ChartPanel() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
 
             {/* Data Series */}
-            <div className="px-3 py-2 border-b border-editor-border">
+            {!isPointType && <div className="px-3 py-2 border-b border-editor-border">
               <div className="flex items-center justify-between mb-2">
                 <span className="label">Data Series</span>
                 {!isPieType && (
@@ -316,7 +559,7 @@ export default function ChartPanel() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
 
             {/* Animation */}
             <div className="px-3 py-2">

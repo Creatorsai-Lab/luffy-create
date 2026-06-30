@@ -211,6 +211,8 @@ export default function PreviewModal() {
                     onDblClick={() => { }}
                     stageScale={scale}
                     localTime={localTime}
+                    syncVideoToTime
+                    videoPlaybackActive={isPlaying}
                   />
                 ))}
               </Layer>

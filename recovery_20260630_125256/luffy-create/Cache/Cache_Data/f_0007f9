@@ -1,0 +1,707 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/components/modals/UserGuideModal.tsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=8f4506e8"; const Fragment = __vite__cjsImport0_react_jsxDevRuntime["Fragment"]; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+let prevRefreshReg;
+let prevRefreshSig;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/luffy-editor/src/components/modals/UserGuideModal.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=8f4506e8"; const useState = __vite__cjsImport3_react["useState"];
+import { X, BookOpen, LayoutGrid, Sparkles, Image as ImageIcon, Shuffle, Keyboard, Download, Clapperboard } from "/node_modules/.vite/deps/lucide-react.js?v=8f4506e8";
+import { useEditorStore } from "/src/store/editorStore.ts?t=1781203865344";
+function H({ children }) {
+  return /* @__PURE__ */ jsxDEV("h3", { className: "text-base font-semibold text-editor-text mt-5 mb-2 first:mt-0", children }, void 0, false, {
+    fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+    lineNumber: 32,
+    columnNumber: 10
+  }, this);
+}
+_c = H;
+function P({ children }) {
+  return /* @__PURE__ */ jsxDEV("p", { className: "text-sm text-[#c9c4dd] leading-relaxed mb-3", children }, void 0, false, {
+    fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+    lineNumber: 35,
+    columnNumber: 10
+  }, this);
+}
+_c2 = P;
+function LI({ children }) {
+  return /* @__PURE__ */ jsxDEV("li", { className: "text-sm text-[#c9c4dd] leading-relaxed mb-1.5", children }, void 0, false, {
+    fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+    lineNumber: 38,
+    columnNumber: 10
+  }, this);
+}
+_c3 = LI;
+function Kbd({ children }) {
+  return /* @__PURE__ */ jsxDEV("kbd", { className: "px-1.5 py-0.5 text-[11px] rounded bg-editor-elevated border border-editor-border text-editor-text font-mono", children }, void 0, false, {
+    fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+    lineNumber: 41,
+    columnNumber: 10
+  }, this);
+}
+_c4 = Kbd;
+function Table({ rows, head }) {
+  return /* @__PURE__ */ jsxDEV("table", { className: "w-full text-sm mb-4 border border-editor-border rounded overflow-hidden", children: [
+    /* @__PURE__ */ jsxDEV("thead", { children: /* @__PURE__ */ jsxDEV("tr", { className: "bg-editor-elevated", children: [
+      /* @__PURE__ */ jsxDEV("th", { className: "text-left px-3 py-1.5 text-editor-text font-medium", children: head[0] }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 47,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("th", { className: "text-left px-3 py-1.5 text-editor-text font-medium", children: head[1] }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 48,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 46,
+      columnNumber: 14
+    }, this) }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 46,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV("tbody", { children: rows.map(
+      (r, i) => /* @__PURE__ */ jsxDEV("tr", { className: "border-t border-editor-border", children: [
+        /* @__PURE__ */ jsxDEV("td", { className: "px-3 py-1.5 text-editor-text", children: r[0] }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 53,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("td", { className: "px-3 py-1.5 text-[#c9c4dd]", children: r[1] }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 54,
+          columnNumber: 13
+        }, this)
+      ] }, i, true, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 52,
+        columnNumber: 9
+      }, this)
+    ) }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 50,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+    lineNumber: 45,
+    columnNumber: 5
+  }, this);
+}
+_c5 = Table;
+const SECTIONS = [
+  {
+    id: "overview",
+    title: "Overview",
+    icon: /* @__PURE__ */ jsxDEV(BookOpen, { size: 15 }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 64,
+      columnNumber: 44
+    }, this),
+    content: /* @__PURE__ */ jsxDEV(Fragment, { children: [
+      /* @__PURE__ */ jsxDEV(H, { children: "Welcome to Luffy Create" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 67,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(P, { children: [
+        "Luffy Create is a scene-based animated video editor for technical and educational content. A project is a sequence of ",
+        /* @__PURE__ */ jsxDEV("strong", { children: "scenes" }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 68,
+          columnNumber: 130
+        }, this),
+        "; each scene has its own background, elements, duration, and entry transition."
+      ] }, void 0, true, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 68,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(H, { children: "The interface" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 69,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("ul", { className: "list-disc pl-5", children: [
+        /* @__PURE__ */ jsxDEV(LI, { children: [
+          /* @__PURE__ */ jsxDEV("strong", { children: "Left sidebar (Menu):" }, void 0, false, {
+            fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+            lineNumber: 71,
+            columnNumber: 15
+          }, this),
+          " project name, canvas size, undo/redo, preview/export, and all creation tools."
+        ] }, void 0, true, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 71,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV(LI, { children: [
+          /* @__PURE__ */ jsxDEV("strong", { children: "Canvas (center):" }, void 0, false, {
+            fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+            lineNumber: 72,
+            columnNumber: 15
+          }, this),
+          " the editing surface. Click to select, drag to move, handles to resize/rotate, double-click code/image/video to edit/crop."
+        ] }, void 0, true, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 72,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV(LI, { children: [
+          /* @__PURE__ */ jsxDEV("strong", { children: "Right sidebar (Options):" }, void 0, false, {
+            fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+            lineNumber: 73,
+            columnNumber: 15
+          }, this),
+          " properties for the active tool or selected element."
+        ] }, void 0, true, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 73,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV(LI, { children: [
+          /* @__PURE__ */ jsxDEV("strong", { children: "Timeline (bottom):" }, void 0, false, {
+            fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+            lineNumber: 74,
+            columnNumber: 15
+          }, this),
+          " scenes, playhead, playback, audio tracks. Drag its top edge to resize."
+        ] }, void 0, true, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 74,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV(LI, { children: [
+          /* @__PURE__ */ jsxDEV("strong", { children: "AI Agents (far right):" }, void 0, false, {
+            fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+            lineNumber: 75,
+            columnNumber: 15
+          }, this),
+          " upcoming assistant (placeholder)."
+        ] }, void 0, true, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 75,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 70,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(H, { children: "Quick start" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 77,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("ul", { className: "list-disc pl-5", children: [
+        /* @__PURE__ */ jsxDEV(LI, { children: "Pick a canvas size, set a background." }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 79,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV(LI, { children: "Add elements (text, shapes, code, images, video…)." }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 80,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV(LI, { children: "Select an element and add enter / loop / exit animations." }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 81,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV(LI, { children: "Preview, then Export to MP4 or an image." }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 82,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 78,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 66,
+      columnNumber: 3
+    }, this)
+  },
+  {
+    id: "tools",
+    title: "Tools & Elements",
+    icon: /* @__PURE__ */ jsxDEV(LayoutGrid, { size: 15 }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 88,
+      columnNumber: 49
+    }, this),
+    content: /* @__PURE__ */ jsxDEV(Fragment, { children: [
+      /* @__PURE__ */ jsxDEV(H, { children: "Creation tools" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 91,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(Table, { head: ["Tool", "What it does"], rows: [
+        ["Text", "Add text. Font, size, weight, color, alignment, stretch, stroke, shadow, background box, effects."],
+        ["Shapes", "Rect, circle, polygons, star, diamond, speech bubbles, 3D cube/cone, hand-drawn + sketch box, heart."],
+        ["Arrow", "Lines/arrows with heads, dashes, curve. Drag endpoints on canvas."],
+        ["Code", "Monaco editor; 15 languages, syntax highlighting, line numbers."],
+        ["LaTeX", "Render equations as vector graphics; color + size; full animations."],
+        ["Table", "Editable grid; rows/cols, colors, borders, header."],
+        ["Charts", "Bar, line, area, pie, doughnut; editable data + styling."],
+        ["Icons", "Searchable Lucide icon library; color + stroke width."],
+        ["Images", "Upload PNG/JPG/WebP; adjustments, crop, perspective."],
+        ["Video", "Upload MP4/WebM; volume, speed, loop, crop, adjustments."],
+        ["Audio", "Background / voiceover tracks; trim, fade, speed, markers."],
+        ["Perspective", "Warp an image/shape into any quadrilateral."]
+      ] }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 92,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(H, { children: "Editing an element" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 106,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(P, { children: [
+        "Select it, then use the right Options panel. Move with the mouse or arrow keys: ",
+        /* @__PURE__ */ jsxDEV(Kbd, { children: "Arrow" }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 107,
+          columnNumber: 92
+        }, this),
+        " nudges, ",
+        /* @__PURE__ */ jsxDEV(Kbd, { children: "Shift" }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 107,
+          columnNumber: 117
+        }, this),
+        " faster, ",
+        /* @__PURE__ */ jsxDEV(Kbd, { children: "Ctrl" }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 107,
+          columnNumber: 142
+        }, this),
+        " fastest. Right-click for Copy, Duplicate, Center Horizontally/Vertically, and Delete."
+      ] }, void 0, true, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 107,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 90,
+      columnNumber: 3
+    }, this)
+  },
+  {
+    id: "animations",
+    title: "Animations",
+    icon: /* @__PURE__ */ jsxDEV(Sparkles, { size: 15 }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 112,
+      columnNumber: 48
+    }, this),
+    content: /* @__PURE__ */ jsxDEV(Fragment, { children: [
+      /* @__PURE__ */ jsxDEV(P, { children: "Every element has three animation slots. Add as many as you like per slot; configure type, start, duration, delay, easing, and (where relevant) direction/distance." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 115,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(H, { children: "1 · On Enter" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 116,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(P, { children: "Plays once when the element appears: Fade In, Slide In, Scale In, Wipe In, Spin, plus text-only Typewriter (chars/words)." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 117,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(H, { children: "2 · Loop" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 118,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(P, { children: "Repeats continuously while the element is visible: Pulse, Bounce, Rotate, Fade Loop, and Flow (marching-dash border on shapes/arrows)." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 119,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(H, { children: "3 · On Exit" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 120,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(P, { children: "Plays once as the element leaves: Fade Out, Slide Out, Scale Out, Wipe Out (and Draw Off for arrows)." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 121,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(H, { children: "Easing" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 122,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(P, { children: "Linear, Ease In, Ease Out, Ease In-Out, Bounce — controls the acceleration of the motion." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 123,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(P, { children: "Tip: clear every animation on the current slide with the eraser button on the canvas toolbar (top-right)." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 124,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 114,
+      columnNumber: 3
+    }, this)
+  },
+  {
+    id: "backgrounds",
+    title: "Backgrounds",
+    icon: /* @__PURE__ */ jsxDEV(ImageIcon, { size: 15 }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 129,
+      columnNumber: 50
+    }, this),
+    content: /* @__PURE__ */ jsxDEV(Fragment, { children: [
+      /* @__PURE__ */ jsxDEV(P, { children: "Set per scene from the Background tool." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 132,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(Table, { head: ["Type", "Controls"], rows: [
+        ["Solid", "Single color."],
+        ["Gradient", "Linear / radial / conic, from–via–to colors, angle, stops."],
+        ["Grid", "Background + line color, cell size."],
+        ["Dots", "Background + dot color, spacing, radius."],
+        ["Animated", "Gradient Flow, Gradient Shift, Conic Rotate, Aurora, Wave — two colors + speed."],
+        ["Transparent", "Checkerboard in the editor; real alpha in PNG/WebP export (MP4 has no alpha)."],
+        ["Image", "Right-click an image element → Set Background (cover/fill)."]
+      ] }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 133,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 131,
+      columnNumber: 3
+    }, this)
+  },
+  {
+    id: "transitions",
+    title: "Transitions",
+    icon: /* @__PURE__ */ jsxDEV(Shuffle, { size: 15 }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 146,
+      columnNumber: 50
+    }, this),
+    content: /* @__PURE__ */ jsxDEV(Fragment, { children: [
+      /* @__PURE__ */ jsxDEV(P, { children: [
+        "A transition plays at the ",
+        /* @__PURE__ */ jsxDEV("strong", { children: "start" }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 149,
+          columnNumber: 38
+        }, this),
+        " of a scene (from the previous scene into it). Set it in the Transitions tool, or right-click a scene in the timeline → Edit Transition."
+      ] }, void 0, true, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 149,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(Table, { head: ["Transition", "Effect"], rows: [
+        ["Fade", "Cross-fade from the previous scene."],
+        ["Slide", "New scene slides in from an edge (direction)."],
+        ["Push", "New scene pushes the old one out (direction)."],
+        ["Zoom", "Zoom in from center."],
+        ["Wipe", "Curtain reveal (direction)."],
+        ["Morph", "Smooth scale + drift blend (direction)."]
+      ] }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 150,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(P, { children: "Each transition type has a fixed color shown on its timeline block for quick recognition." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 158,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 148,
+      columnNumber: 3
+    }, this)
+  },
+  {
+    id: "shortcuts",
+    title: "Shortcuts",
+    icon: /* @__PURE__ */ jsxDEV(Keyboard, { size: 15 }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 163,
+      columnNumber: 46
+    }, this),
+    content: /* @__PURE__ */ jsxDEV(Fragment, { children: [
+      /* @__PURE__ */ jsxDEV(H, { children: "Editing" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 166,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(Table, { head: ["Action", "Keys"], rows: [
+        ["Undo / Redo", "Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y)"],
+        ["Copy / Paste", "Ctrl+C / Ctrl+V"],
+        ["Delete element", "Delete / Backspace"],
+        ["Deselect / cancel", "Escape"],
+        ["Move element", "Arrow keys (Shift = fast, Ctrl = fastest)"]
+      ] }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 167,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(H, { children: "Timeline & playback" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 174,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(Table, { head: ["Action", "Keys"], rows: [
+        ["Play / Pause", "Space"],
+        ["Step frame", "← / → (when nothing is selected)"],
+        ["Jump to start / end", "Home / End"],
+        ["Zoom timeline", "Ctrl + / Ctrl − / Ctrl 0"],
+        ["Reorder scene", "Shift + drag the scene block"],
+        ["Change audio lane", "Shift + click an audio clip"],
+        ["Crop apply / cancel", "Enter / Escape"]
+      ] }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 175,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 165,
+      columnNumber: 3
+    }, this)
+  },
+  {
+    id: "export",
+    title: "Export & Download",
+    icon: /* @__PURE__ */ jsxDEV(Download, { size: 15 }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 188,
+      columnNumber: 51
+    }, this),
+    content: /* @__PURE__ */ jsxDEV(Fragment, { children: [
+      /* @__PURE__ */ jsxDEV(H, { children: "Video (MP4)" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 191,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(P, { children: "Export → Video. Choose 720p or 1080p. Frames are rendered locally with FFmpeg and saved as an MP4. A progress bar shows status; do not interact with the canvas while it renders." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 192,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(H, { children: "Image (PNG / WebP)" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 193,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(P, { children: "Export → Image. Pick a scene; the snapshot is taken after enter animations finish. PNG/WebP keep transparency when the scene background is Transparent." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 194,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV(H, { children: "Notes" }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 195,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("ul", { className: "list-disc pl-5", children: [
+        /* @__PURE__ */ jsxDEV(LI, { children: "Everything runs offline — no account, no upload." }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 197,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV(LI, { children: "MP4 can't store transparency (H.264 has no alpha). Use PNG/WebP for transparent stills." }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 198,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+        lineNumber: 196,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 190,
+      columnNumber: 3
+    }, this)
+  }
+];
+export default function UserGuideModal() {
+  _s();
+  const setUserGuideOpen = useEditorStore((s) => s.setUserGuideOpen);
+  const [active, setActive] = useState("overview");
+  const section = SECTIONS.find((s) => s.id === active) ?? SECTIONS[0];
+  return /* @__PURE__ */ jsxDEV(
+    "div",
+    {
+      className: "fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm",
+      onClick: (e) => {
+        if (e.target === e.currentTarget) setUserGuideOpen(false);
+      },
+      children: /* @__PURE__ */ jsxDEV(
+        "div",
+        {
+          className: "bg-editor-panel border border-editor-border rounded-xl shadow-2xl flex flex-col overflow-hidden",
+          style: { width: "90vw", height: "90vh" },
+          children: [
+            /* @__PURE__ */ jsxDEV("div", { className: "flex items-center justify-between px-4 py-3 border-b border-editor-border flex-none", children: [
+              /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2", children: [
+                /* @__PURE__ */ jsxDEV(Clapperboard, { size: 16, className: "text-editor-accent" }, void 0, false, {
+                  fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+                  lineNumber: 218,
+                  columnNumber: 13
+                }, this),
+                /* @__PURE__ */ jsxDEV("span", { className: "text-base font-medium text-editor-text", children: "User Guide" }, void 0, false, {
+                  fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+                  lineNumber: 219,
+                  columnNumber: 13
+                }, this)
+              ] }, void 0, true, {
+                fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+                lineNumber: 217,
+                columnNumber: 11
+              }, this),
+              /* @__PURE__ */ jsxDEV("button", { onClick: () => setUserGuideOpen(false), className: "text-[#c9c4dd] hover:text-white transition-colors", children: /* @__PURE__ */ jsxDEV(X, { size: 18 }, void 0, false, {
+                fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+                lineNumber: 222,
+                columnNumber: 13
+              }, this) }, void 0, false, {
+                fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+                lineNumber: 221,
+                columnNumber: 11
+              }, this)
+            ] }, void 0, true, {
+              fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+              lineNumber: 216,
+              columnNumber: 9
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 min-h-0", children: [
+              /* @__PURE__ */ jsxDEV("nav", { className: "w-56 flex-none border-r border-editor-border overflow-y-auto py-2", children: SECTIONS.map(
+                (s) => /* @__PURE__ */ jsxDEV(
+                  "button",
+                  {
+                    onClick: () => setActive(s.id),
+                    className: [
+                      "w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors",
+                      active === s.id ? "bg-editor-accent-dim text-editor-accent border-r-2 border-editor-accent" : "text-[#c9c4dd] hover:bg-editor-hover hover:text-editor-text"
+                    ].join(" "),
+                    children: [
+                      s.icon,
+                      s.title
+                    ]
+                  },
+                  s.id,
+                  true,
+                  {
+                    fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+                    lineNumber: 230,
+                    columnNumber: 13
+                  },
+                  this
+                )
+              ) }, void 0, false, {
+                fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+                lineNumber: 228,
+                columnNumber: 11
+              }, this),
+              /* @__PURE__ */ jsxDEV("div", { className: "flex-1 overflow-y-auto px-8 py-6", children: /* @__PURE__ */ jsxDEV("div", { className: "max-w-2xl", children: [
+                /* @__PURE__ */ jsxDEV("h2", { className: "text-xl font-bold text-editor-text mb-4 flex items-center gap-2", children: [
+                  section.icon,
+                  section.title
+                ] }, void 0, true, {
+                  fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+                  lineNumber: 248,
+                  columnNumber: 15
+                }, this),
+                section.content
+              ] }, void 0, true, {
+                fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+                lineNumber: 247,
+                columnNumber: 13
+              }, this) }, void 0, false, {
+                fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+                lineNumber: 246,
+                columnNumber: 11
+              }, this)
+            ] }, void 0, true, {
+              fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+              lineNumber: 226,
+              columnNumber: 9
+            }, this)
+          ]
+        },
+        void 0,
+        true,
+        {
+          fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+          lineNumber: 213,
+          columnNumber: 7
+        },
+        this
+      )
+    },
+    void 0,
+    false,
+    {
+      fileName: "D:/luffy-editor/src/components/modals/UserGuideModal.tsx",
+      lineNumber: 211,
+      columnNumber: 5
+    },
+    this
+  );
+}
+_s(UserGuideModal, "Fbus8y0yzvjafktxI5kuUJ6rkiw=", false, function() {
+  return [useEditorStore];
+});
+_c6 = UserGuideModal;
+var _c, _c2, _c3, _c4, _c5, _c6;
+$RefreshReg$(_c, "H");
+$RefreshReg$(_c2, "P");
+$RefreshReg$(_c3, "LI");
+$RefreshReg$(_c4, "Kbd");
+$RefreshReg$(_c5, "Table");
+$RefreshReg$(_c6, "UserGuideModal");
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/luffy-editor/src/components/modals/UserGuideModal.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/luffy-editor/src/components/modals/UserGuideModal.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,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QUFBO0FBQUE7QUFBQTtBQUFBLGdCQVdBO0FBQUEsY0FDRCxLQWRIO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBZUE7QUFBQSxjQUdBLHVCQUFDLFNBQUksV0FBVSxvQ0FDYixpQ0FBQyxTQUFJLFdBQVUsYUFDYjtBQUFBLHVDQUFDLFFBQUcsV0FBVSxtRUFBbUVVO0FBQUFBLDBCQUFRUjtBQUFBQSxrQkFBTVEsUUFBUVQ7QUFBQUEscUJBQXZHO0FBQUE7QUFBQTtBQUFBO0FBQUEsdUJBQTZHO0FBQUEsZ0JBQzVHUyxRQUFRUDtBQUFBQSxtQkFGWDtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUdBLEtBSkY7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFLQTtBQUFBLGlCQXpCRjtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQTBCQTtBQUFBO0FBQUE7QUFBQSxRQXZDRjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsTUF3Q0E7QUFBQTtBQUFBLElBMUNGO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQSxFQTJDQTtBQUVKO0FBQUNFLEdBbkR1QkQsZ0JBQWM7QUFBQSxVQUNYdEIsY0FBYztBQUFBO0FBQUEsTUFEakJzQjtBQUFjLElBQUFuQixJQUFBRSxLQUFBRSxLQUFBRSxLQUFBTyxLQUFBb0I7QUFBQSxhQUFBakMsSUFBQTtBQUFBLGFBQUFFLEtBQUE7QUFBQSxhQUFBRSxLQUFBO0FBQUEsYUFBQUUsS0FBQTtBQUFBLGFBQUFPLEtBQUE7QUFBQSxhQUFBb0IsS0FBQSIsIm5hbWVzIjpbInVzZVN0YXRlIiwiWCIsIkJvb2tPcGVuIiwiTGF5b3V0R3JpZCIsIlNwYXJrbGVzIiwiSW1hZ2UiLCJJbWFnZUljb24iLCJTaHVmZmxlIiwiS2V5Ym9hcmQiLCJEb3dubG9hZCIsIkNsYXBwZXJib2FyZCIsInVzZUVkaXRvclN0b3JlIiwiSCIsImNoaWxkcmVuIiwiX2MiLCJQIiwiX2MyIiwiTEkiLCJfYzMiLCJLYmQiLCJfYzQiLCJUYWJsZSIsInJvd3MiLCJoZWFkIiwibWFwIiwiciIsImkiLCJfYzUiLCJTRUNUSU9OUyIsImlkIiwidGl0bGUiLCJpY29uIiwiY29udGVudCIsIlVzZXJHdWlkZU1vZGFsIiwiX3MiLCJzZXRVc2VyR3VpZGVPcGVuIiwicyIsImFjdGl2ZSIsInNldEFjdGl2ZSIsInNlY3Rpb24iLCJmaW5kIiwiZSIsInRhcmdldCIsImN1cnJlbnRUYXJnZXQiLCJ3aWR0aCIsImhlaWdodCIsImpvaW4iLCJfYzYiXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiVXNlckd1aWRlTW9kYWwudHN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IHVzZVN0YXRlIH0gZnJvbSAncmVhY3QnXG5pbXBvcnQgeyBYLCBCb29rT3BlbiwgTGF5b3V0R3JpZCwgU3BhcmtsZXMsIEltYWdlIGFzIEltYWdlSWNvbiwgU2h1ZmZsZSwgS2V5Ym9hcmQsIERvd25sb2FkLCBDbGFwcGVyYm9hcmQgfSBmcm9tICdsdWNpZGUtcmVhY3QnXG5pbXBvcnQgeyB1c2VFZGl0b3JTdG9yZSB9IGZyb20gJy4uLy4uL3N0b3JlL2VkaXRvclN0b3JlJ1xuXG5pbnRlcmZhY2UgU2VjdGlvbiB7XG4gIGlkOiBzdHJpbmdcbiAgdGl0bGU6IHN0cmluZ1xuICBpY29uOiBSZWFjdC5SZWFjdE5vZGVcbiAgY29udGVudDogUmVhY3QuUmVhY3ROb2RlXG59XG5cbmZ1bmN0aW9uIEgoeyBjaGlsZHJlbiB9OiB7IGNoaWxkcmVuOiBSZWFjdC5SZWFjdE5vZGUgfSkge1xuICByZXR1cm4gPGgzIGNsYXNzTmFtZT1cInRleHQtYmFzZSBmb250LXNlbWlib2xkIHRleHQtZWRpdG9yLXRleHQgbXQtNSBtYi0yIGZpcnN0Om10LTBcIj57Y2hpbGRyZW59PC9oMz5cbn1cbmZ1bmN0aW9uIFAoeyBjaGlsZHJlbiB9OiB7IGNoaWxkcmVuOiBSZWFjdC5SZWFjdE5vZGUgfSkge1xuICByZXR1cm4gPHAgY2xhc3NOYW1lPVwidGV4dC1zbSB0ZXh0LVsjYzljNGRkXSBsZWFkaW5nLXJlbGF4ZWQgbWItM1wiPntjaGlsZHJlbn08L3A+XG59XG5mdW5jdGlvbiBMSSh7IGNoaWxkcmVuIH06IHsgY2hpbGRyZW46IFJlYWN0LlJlYWN0Tm9kZSB9KSB7XG4gIHJldHVybiA8bGkgY2xhc3NOYW1lPVwidGV4dC1zbSB0ZXh0LVsjYzljNGRkXSBsZWFkaW5nLXJlbGF4ZWQgbWItMS41XCI+e2NoaWxkcmVufTwvbGk+XG59XG5mdW5jdGlvbiBLYmQoeyBjaGlsZHJlbiB9OiB7IGNoaWxkcmVuOiBSZWFjdC5SZWFjdE5vZGUgfSkge1xuICByZXR1cm4gPGtiZCBjbGFzc05hbWU9XCJweC0xLjUgcHktMC41IHRleHQtWzExcHhdIHJvdW5kZWQgYmctZWRpdG9yLWVsZXZhdGVkIGJvcmRlciBib3JkZXItZWRpdG9yLWJvcmRlciB0ZXh0LWVkaXRvci10ZXh0IGZvbnQtbW9ub1wiPntjaGlsZHJlbn08L2tiZD5cbn1cbmZ1bmN0aW9uIFRhYmxlKHsgcm93cywgaGVhZCB9OiB7IGhlYWQ6IFtzdHJpbmcsIHN0cmluZ107IHJvd3M6IFtzdHJpbmcsIHN0cmluZ11bXSB9KSB7XG4gIHJldHVybiAoXG4gICAgPHRhYmxlIGNsYXNzTmFtZT1cInctZnVsbCB0ZXh0LXNtIG1iLTQgYm9yZGVyIGJvcmRlci1lZGl0b3ItYm9yZGVyIHJvdW5kZWQgb3ZlcmZsb3ctaGlkZGVuXCI+XG4gICAgICA8dGhlYWQ+PHRyIGNsYXNzTmFtZT1cImJnLWVkaXRvci1lbGV2YXRlZFwiPlxuICAgICAgICA8dGggY2xhc3NOYW1lPVwidGV4dC1sZWZ0IHB4LTMgcHktMS41IHRleHQtZWRpdG9yLXRleHQgZm9udC1tZWRpdW1cIj57aGVhZFswXX08L3RoPlxuICAgICAgICA8dGggY2xhc3NOYW1lPVwidGV4dC1sZWZ0IHB4LTMgcHktMS41IHRleHQtZWRpdG9yLXRleHQgZm9udC1tZWRpdW1cIj57aGVhZFsxXX08L3RoPlxuICAgICAgPC90cj48L3RoZWFkPlxuICAgICAgPHRib2R5PlxuICAgICAgICB7cm93cy5tYXAoKHIsIGkpID0+IChcbiAgICAgICAgICA8dHIga2V5PXtpfSBjbGFzc05hbWU9XCJib3JkZXItdCBib3JkZXItZWRpdG9yLWJvcmRlclwiPlxuICAgICAgICAgICAgPHRkIGNsYXNzTmFtZT1cInB4LTMgcHktMS41IHRleHQtZWRpdG9yLXRleHRcIj57clswXX08L3RkPlxuICAgICAgICAgICAgPHRkIGNsYXNzTmFtZT1cInB4LTMgcHktMS41IHRleHQtWyNjOWM0ZGRdXCI+e3JbMV19PC90ZD5cbiAgICAgICAgICA8L3RyPlxuICAgICAgICApKX1cbiAgICAgIDwvdGJvZHk+XG4gICAgPC90YWJsZT5cbiAgKVxufVxuXG5jb25zdCBTRUNUSU9OUzogU2VjdGlvbltdID0gW1xuICB7XG4gICAgaWQ6ICdvdmVydmlldycsIHRpdGxlOiAnT3ZlcnZpZXcnLCBpY29uOiA8Qm9va09wZW4gc2l6ZT17MTV9IC8+LFxuICAgIGNvbnRlbnQ6IChcbiAgICAgIDw+XG4gICAgICAgIDxIPldlbGNvbWUgdG8gTHVmZnkgQ3JlYXRlPC9IPlxuICAgICAgICA8UD5MdWZmeSBDcmVhdGUgaXMgYSBzY2VuZS1iYXNlZCBhbmltYXRlZCB2aWRlbyBlZGl0b3IgZm9yIHRlY2huaWNhbCBhbmQgZWR1Y2F0aW9uYWwgY29udGVudC4gQSBwcm9qZWN0IGlzIGEgc2VxdWVuY2Ugb2YgPHN0cm9uZz5zY2VuZXM8L3N0cm9uZz47IGVhY2ggc2NlbmUgaGFzIGl0cyBvd24gYmFja2dyb3VuZCwgZWxlbWVudHMsIGR1cmF0aW9uLCBhbmQgZW50cnkgdHJhbnNpdGlvbi48L1A+XG4gICAgICAgIDxIPlRoZSBpbnRlcmZhY2U8L0g+XG4gICAgICAgIDx1bCBjbGFzc05hbWU9XCJsaXN0LWRpc2MgcGwtNVwiPlxuICAgICAgICAgIDxMST48c3Ryb25nPkxlZnQgc2lkZWJhciAoTWVudSk6PC9zdHJvbmc+IHByb2plY3QgbmFtZSwgY2FudmFzIHNpemUsIHVuZG8vcmVkbywgcHJldmlldy9leHBvcnQsIGFuZCBhbGwgY3JlYXRpb24gdG9vbHMuPC9MST5cbiAgICAgICAgICA8TEk+PHN0cm9uZz5DYW52YXMgKGNlbnRlcik6PC9zdHJvbmc+IHRoZSBlZGl0aW5nIHN1cmZhY2UuIENsaWNrIHRvIHNlbGVjdCwgZHJhZyB0byBtb3ZlLCBoYW5kbGVzIHRvIHJlc2l6ZS9yb3RhdGUsIGRvdWJsZS1jbGljayBjb2RlL2ltYWdlL3ZpZGVvIHRvIGVkaXQvY3JvcC48L0xJPlxuICAgICAgICAgIDxMST48c3Ryb25nPlJpZ2h0IHNpZGViYXIgKE9wdGlvbnMpOjwvc3Ryb25nPiBwcm9wZXJ0aWVzIGZvciB0aGUgYWN0aXZlIHRvb2wgb3Igc2VsZWN0ZWQgZWxlbWVudC48L0xJPlxuICAgICAgICAgIDxMST48c3Ryb25nPlRpbWVsaW5lIChib3R0b20pOjwvc3Ryb25nPiBzY2VuZXMsIHBsYXloZWFkLCBwbGF5YmFjaywgYXVkaW8gdHJhY2tzLiBEcmFnIGl0cyB0b3AgZWRnZSB0byByZXNpemUuPC9MST5cbiAgICAgICAgICA8TEk+PHN0cm9uZz5BSSBBZ2VudHMgKGZhciByaWdodCk6PC9zdHJvbmc+IHVwY29taW5nIGFzc2lzdGFudCAocGxhY2Vob2xkZXIpLjwvTEk+XG4gICAgICAgIDwvdWw+XG4gICAgICAgIDxIPlF1aWNrIHN0YXJ0PC9IPlxuICAgICAgICA8dWwgY2xhc3NOYW1lPVwibGlzdC1kaXNjIHBsLTVcIj5cbiAgICAgICAgICA8TEk+UGljayBhIGNhbnZhcyBzaXplLCBzZXQgYSBiYWNrZ3JvdW5kLjwvTEk+XG4gICAgICAgICAgPExJPkFkZCBlbGVtZW50cyAodGV4dCwgc2hhcGVzLCBjb2RlLCBpbWFnZXMsIHZpZGVv4oCmKS48L0xJPlxuICAgICAgICAgIDxMST5TZWxlY3QgYW4gZWxlbWVudCBhbmQgYWRkIGVudGVyIC8gbG9vcCAvIGV4aXQgYW5pbWF0aW9ucy48L0xJPlxuICAgICAgICAgIDxMST5QcmV2aWV3LCB0aGVuIEV4cG9ydCB0byBNUDQgb3IgYW4gaW1hZ2UuPC9MST5cbiAgICAgICAgPC91bD5cbiAgICAgIDwvPlxuICAgICksXG4gIH0sXG4gIHtcbiAgICBpZDogJ3Rvb2xzJywgdGl0bGU6ICdUb29scyAmIEVsZW1lbnRzJywgaWNvbjogPExheW91dEdyaWQgc2l6ZT17MTV9IC8+LFxuICAgIGNvbnRlbnQ6IChcbiAgICAgIDw+XG4gICAgICAgIDxIPkNyZWF0aW9uIHRvb2xzPC9IPlxuICAgICAgICA8VGFibGUgaGVhZD17WydUb29sJywgJ1doYXQgaXQgZG9lcyddfSByb3dzPXtbXG4gICAgICAgICAgWydUZXh0JywgJ0FkZCB0ZXh0LiBGb250LCBzaXplLCB3ZWlnaHQsIGNvbG9yLCBhbGlnbm1lbnQsIHN0cmV0Y2gsIHN0cm9rZSwgc2hhZG93LCBiYWNrZ3JvdW5kIGJveCwgZWZmZWN0cy4nXSxcbiAgICAgICAgICBbJ1NoYXBlcycsICdSZWN0LCBjaXJjbGUsIHBvbHlnb25zLCBzdGFyLCBkaWFtb25kLCBzcGVlY2ggYnViYmxlcywgM0QgY3ViZS9jb25lLCBoYW5kLWRyYXduICsgc2tldGNoIGJveCwgaGVhcnQuJ10sXG4gICAgICAgICAgWydBcnJvdycsICdMaW5lcy9hcnJvd3Mgd2l0aCBoZWFkcywgZGFzaGVzLCBjdXJ2ZS4gRHJhZyBlbmRwb2ludHMgb24gY2FudmFzLiddLFxuICAgICAgICAgIFsnQ29kZScsICdNb25hY28gZWRpdG9yOyAxNSBsYW5ndWFnZXMsIHN5bnRheCBoaWdobGlnaHRpbmcsIGxpbmUgbnVtYmVycy4nXSxcbiAgICAgICAgICBbJ0xhVGVYJywgJ1JlbmRlciBlcXVhdGlvbnMgYXMgdmVjdG9yIGdyYXBoaWNzOyBjb2xvciArIHNpemU7IGZ1bGwgYW5pbWF0aW9ucy4nXSxcbiAgICAgICAgICBbJ1RhYmxlJywgJ0VkaXRhYmxlIGdyaWQ7IHJvd3MvY29scywgY29sb3JzLCBib3JkZXJzLCBoZWFkZXIuJ10sXG4gICAgICAgICAgWydDaGFydHMnLCAnQmFyLCBsaW5lLCBhcmVhLCBwaWUsIGRvdWdobnV0OyBlZGl0YWJsZSBkYXRhICsgc3R5bGluZy4nXSxcbiAgICAgICAgICBbJ0ljb25zJywgJ1NlYXJjaGFibGUgTHVjaWRlIGljb24gbGlicmFyeTsgY29sb3IgKyBzdHJva2Ugd2lkdGguJ10sXG4gICAgICAgICAgWydJbWFnZXMnLCAnVXBsb2FkIFBORy9KUEcvV2ViUDsgYWRqdXN0bWVudHMsIGNyb3AsIHBlcnNwZWN0aXZlLiddLFxuICAgICAgICAgIFsnVmlkZW8nLCAnVXBsb2FkIE1QNC9XZWJNOyB2b2x1bWUsIHNwZWVkLCBsb29wLCBjcm9wLCBhZGp1c3RtZW50cy4nXSxcbiAgICAgICAgICBbJ0F1ZGlvJywgJ0JhY2tncm91bmQgLyB2b2ljZW92ZXIgdHJhY2tzOyB0cmltLCBmYWRlLCBzcGVlZCwgbWFya2Vycy4nXSxcbiAgICAgICAgICBbJ1BlcnNwZWN0aXZlJywgJ1dhcnAgYW4gaW1hZ2Uvc2hhcGUgaW50byBhbnkgcXVhZHJpbGF0ZXJhbC4nXSxcbiAgICAgICAgXX0gLz5cbiAgICAgICAgPEg+RWRpdGluZyBhbiBlbGVtZW50PC9IPlxuICAgICAgICA8UD5TZWxlY3QgaXQsIHRoZW4gdXNlIHRoZSByaWdodCBPcHRpb25zIHBhbmVsLiBNb3ZlIHdpdGggdGhlIG1vdXNlIG9yIGFycm93IGtleXM6IDxLYmQ+QXJyb3c8L0tiZD4gbnVkZ2VzLCA8S2JkPlNoaWZ0PC9LYmQ+IGZhc3RlciwgPEtiZD5DdHJsPC9LYmQ+IGZhc3Rlc3QuIFJpZ2h0LWNsaWNrIGZvciBDb3B5LCBEdXBsaWNhdGUsIENlbnRlciBIb3Jpem9udGFsbHkvVmVydGljYWxseSwgYW5kIERlbGV0ZS48L1A+XG4gICAgICA8Lz5cbiAgICApLFxuICB9LFxuICB7XG4gICAgaWQ6ICdhbmltYXRpb25zJywgdGl0bGU6ICdBbmltYXRpb25zJywgaWNvbjogPFNwYXJrbGVzIHNpemU9ezE1fSAvPixcbiAgICBjb250ZW50OiAoXG4gICAgICA8PlxuICAgICAgICA8UD5FdmVyeSBlbGVtZW50IGhhcyB0aHJlZSBhbmltYXRpb24gc2xvdHMuIEFkZCBhcyBtYW55IGFzIHlvdSBsaWtlIHBlciBzbG90OyBjb25maWd1cmUgdHlwZSwgc3RhcnQsIGR1cmF0aW9uLCBkZWxheSwgZWFzaW5nLCBhbmQgKHdoZXJlIHJlbGV2YW50KSBkaXJlY3Rpb24vZGlzdGFuY2UuPC9QPlxuICAgICAgICA8SD4xIMK3IE9uIEVudGVyPC9IPlxuICAgICAgICA8UD5QbGF5cyBvbmNlIHdoZW4gdGhlIGVsZW1lbnQgYXBwZWFyczogRmFkZSBJbiwgU2xpZGUgSW4sIFNjYWxlIEluLCBXaXBlIEluLCBTcGluLCBwbHVzIHRleHQtb25seSBUeXBld3JpdGVyIChjaGFycy93b3JkcykuPC9QPlxuICAgICAgICA8SD4yIMK3IExvb3A8L0g+XG4gICAgICAgIDxQPlJlcGVhdHMgY29udGludW91c2x5IHdoaWxlIHRoZSBlbGVtZW50IGlzIHZpc2libGU6IFB1bHNlLCBCb3VuY2UsIFJvdGF0ZSwgRmFkZSBMb29wLCBhbmQgRmxvdyAobWFyY2hpbmctZGFzaCBib3JkZXIgb24gc2hhcGVzL2Fycm93cykuPC9QPlxuICAgICAgICA8SD4zIMK3IE9uIEV4aXQ8L0g+XG4gICAgICAgIDxQPlBsYXlzIG9uY2UgYXMgdGhlIGVsZW1lbnQgbGVhdmVzOiBGYWRlIE91dCwgU2xpZGUgT3V0LCBTY2FsZSBPdXQsIFdpcGUgT3V0IChhbmQgRHJhdyBPZmYgZm9yIGFycm93cykuPC9QPlxuICAgICAgICA8SD5FYXNpbmc8L0g+XG4gICAgICAgIDxQPkxpbmVhciwgRWFzZSBJbiwgRWFzZSBPdXQsIEVhc2UgSW4tT3V0LCBCb3VuY2Ug4oCUIGNvbnRyb2xzIHRoZSBhY2NlbGVyYXRpb24gb2YgdGhlIG1vdGlvbi48L1A+XG4gICAgICAgIDxQPlRpcDogY2xlYXIgZXZlcnkgYW5pbWF0aW9uIG9uIHRoZSBjdXJyZW50IHNsaWRlIHdpdGggdGhlIGVyYXNlciBidXR0b24gb24gdGhlIGNhbnZhcyB0b29sYmFyICh0b3AtcmlnaHQpLjwvUD5cbiAgICAgIDwvPlxuICAgICksXG4gIH0sXG4gIHtcbiAgICBpZDogJ2JhY2tncm91bmRzJywgdGl0bGU6ICdCYWNrZ3JvdW5kcycsIGljb246IDxJbWFnZUljb24gc2l6ZT17MTV9IC8+LFxuICAgIGNvbnRlbnQ6IChcbiAgICAgIDw+XG4gICAgICAgIDxQPlNldCBwZXIgc2NlbmUgZnJvbSB0aGUgQmFja2dyb3VuZCB0b29sLjwvUD5cbiAgICAgICAgPFRhYmxlIGhlYWQ9e1snVHlwZScsICdDb250cm9scyddfSByb3dzPXtbXG4gICAgICAgICAgWydTb2xpZCcsICdTaW5nbGUgY29sb3IuJ10sXG4gICAgICAgICAgWydHcmFkaWVudCcsICdMaW5lYXIgLyByYWRpYWwgLyBjb25pYywgZnJvbeKAk3ZpYeKAk3RvIGNvbG9ycywgYW5nbGUsIHN0b3BzLiddLFxuICAgICAgICAgIFsnR3JpZCcsICdCYWNrZ3JvdW5kICsgbGluZSBjb2xvciwgY2VsbCBzaXplLiddLFxuICAgICAgICAgIFsnRG90cycsICdCYWNrZ3JvdW5kICsgZG90IGNvbG9yLCBzcGFjaW5nLCByYWRpdXMuJ10sXG4gICAgICAgICAgWydBbmltYXRlZCcsICdHcmFkaWVudCBGbG93LCBHcmFkaWVudCBTaGlmdCwgQ29uaWMgUm90YXRlLCBBdXJvcmEsIFdhdmUg4oCUIHR3byBjb2xvcnMgKyBzcGVlZC4nXSxcbiAgICAgICAgICBbJ1RyYW5zcGFyZW50JywgJ0NoZWNrZXJib2FyZCBpbiB0aGUgZWRpdG9yOyByZWFsIGFscGhhIGluIFBORy9XZWJQIGV4cG9ydCAoTVA0IGhhcyBubyBhbHBoYSkuJ10sXG4gICAgICAgICAgWydJbWFnZScsICdSaWdodC1jbGljayBhbiBpbWFnZSBlbGVtZW50IOKGkiBTZXQgQmFja2dyb3VuZCAoY292ZXIvZmlsbCkuJ10sXG4gICAgICAgIF19IC8+XG4gICAgICA8Lz5cbiAgICApLFxuICB9LFxuICB7XG4gICAgaWQ6ICd0cmFuc2l0aW9ucycsIHRpdGxlOiAnVHJhbnNpdGlvbnMnLCBpY29uOiA8U2h1ZmZsZSBzaXplPXsxNX0gLz4sXG4gICAgY29udGVudDogKFxuICAgICAgPD5cbiAgICAgICAgPFA+QSB0cmFuc2l0aW9uIHBsYXlzIGF0IHRoZSA8c3Ryb25nPnN0YXJ0PC9zdHJvbmc+IG9mIGEgc2NlbmUgKGZyb20gdGhlIHByZXZpb3VzIHNjZW5lIGludG8gaXQpLiBTZXQgaXQgaW4gdGhlIFRyYW5zaXRpb25zIHRvb2wsIG9yIHJpZ2h0LWNsaWNrIGEgc2NlbmUgaW4gdGhlIHRpbWVsaW5lIOKGkiBFZGl0IFRyYW5zaXRpb24uPC9QPlxuICAgICAgICA8VGFibGUgaGVhZD17WydUcmFuc2l0aW9uJywgJ0VmZmVjdCddfSByb3dzPXtbXG4gICAgICAgICAgWydGYWRlJywgJ0Nyb3NzLWZhZGUgZnJvbSB0aGUgcHJldmlvdXMgc2NlbmUuJ10sXG4gICAgICAgICAgWydTbGlkZScsICdOZXcgc2NlbmUgc2xpZGVzIGluIGZyb20gYW4gZWRnZSAoZGlyZWN0aW9uKS4nXSxcbiAgICAgICAgICBbJ1B1c2gnLCAnTmV3IHNjZW5lIHB1c2hlcyB0aGUgb2xkIG9uZSBvdXQgKGRpcmVjdGlvbikuJ10sXG4gICAgICAgICAgWydab29tJywgJ1pvb20gaW4gZnJvbSBjZW50ZXIuJ10sXG4gICAgICAgICAgWydXaXBlJywgJ0N1cnRhaW4gcmV2ZWFsIChkaXJlY3Rpb24pLiddLFxuICAgICAgICAgIFsnTW9ycGgnLCAnU21vb3RoIHNjYWxlICsgZHJpZnQgYmxlbmQgKGRpcmVjdGlvbikuJ10sXG4gICAgICAgIF19IC8+XG4gICAgICAgIDxQPkVhY2ggdHJhbnNpdGlvbiB0eXBlIGhhcyBhIGZpeGVkIGNvbG9yIHNob3duIG9uIGl0cyB0aW1lbGluZSBibG9jayBmb3IgcXVpY2sgcmVjb2duaXRpb24uPC9QPlxuICAgICAgPC8+XG4gICAgKSxcbiAgfSxcbiAge1xuICAgIGlkOiAnc2hvcnRjdXRzJywgdGl0bGU6ICdTaG9ydGN1dHMnLCBpY29uOiA8S2V5Ym9hcmQgc2l6ZT17MTV9IC8+LFxuICAgIGNvbnRlbnQ6IChcbiAgICAgIDw+XG4gICAgICAgIDxIPkVkaXRpbmc8L0g+XG4gICAgICAgIDxUYWJsZSBoZWFkPXtbJ0FjdGlvbicsICdLZXlzJ119IHJvd3M9e1tcbiAgICAgICAgICBbJ1VuZG8gLyBSZWRvJywgJ0N0cmwrWiAvIEN0cmwrU2hpZnQrWiAob3IgQ3RybCtZKSddLFxuICAgICAgICAgIFsnQ29weSAvIFBhc3RlJywgJ0N0cmwrQyAvIEN0cmwrViddLFxuICAgICAgICAgIFsnRGVsZXRlIGVsZW1lbnQnLCAnRGVsZXRlIC8gQmFja3NwYWNlJ10sXG4gICAgICAgICAgWydEZXNlbGVjdCAvIGNhbmNlbCcsICdFc2NhcGUnXSxcbiAgICAgICAgICBbJ01vdmUgZWxlbWVudCcsICdBcnJvdyBrZXlzIChTaGlmdCA9IGZhc3QsIEN0cmwgPSBmYXN0ZXN0KSddLFxuICAgICAgICBdfSAvPlxuICAgICAgICA8SD5UaW1lbGluZSAmIHBsYXliYWNrPC9IPlxuICAgICAgICA8VGFibGUgaGVhZD17WydBY3Rpb24nLCAnS2V5cyddfSByb3dzPXtbXG4gICAgICAgICAgWydQbGF5IC8gUGF1c2UnLCAnU3BhY2UnXSxcbiAgICAgICAgICBbJ1N0ZXAgZnJhbWUnLCAn4oaQIC8g4oaSICh3aGVuIG5vdGhpbmcgaXMgc2VsZWN0ZWQpJ10sXG4gICAgICAgICAgWydKdW1wIHRvIHN0YXJ0IC8gZW5kJywgJ0hvbWUgLyBFbmQnXSxcbiAgICAgICAgICBbJ1pvb20gdGltZWxpbmUnLCAnQ3RybCArIC8gQ3RybCDiiJIgLyBDdHJsIDAnXSxcbiAgICAgICAgICBbJ1Jlb3JkZXIgc2NlbmUnLCAnU2hpZnQgKyBkcmFnIHRoZSBzY2VuZSBibG9jayddLFxuICAgICAgICAgIFsnQ2hhbmdlIGF1ZGlvIGxhbmUnLCAnU2hpZnQgKyBjbGljayBhbiBhdWRpbyBjbGlwJ10sXG4gICAgICAgICAgWydDcm9wIGFwcGx5IC8gY2FuY2VsJywgJ0VudGVyIC8gRXNjYXBlJ10sXG4gICAgICAgIF19IC8+XG4gICAgICA8Lz5cbiAgICApLFxuICB9LFxuICB7XG4gICAgaWQ6ICdleHBvcnQnLCB0aXRsZTogJ0V4cG9ydCAmIERvd25sb2FkJywgaWNvbjogPERvd25sb2FkIHNpemU9ezE1fSAvPixcbiAgICBjb250ZW50OiAoXG4gICAgICA8PlxuICAgICAgICA8SD5WaWRlbyAoTVA0KTwvSD5cbiAgICAgICAgPFA+RXhwb3J0IOKGkiBWaWRlby4gQ2hvb3NlIDcyMHAgb3IgMTA4MHAuIEZyYW1lcyBhcmUgcmVuZGVyZWQgbG9jYWxseSB3aXRoIEZGbXBlZyBhbmQgc2F2ZWQgYXMgYW4gTVA0LiBBIHByb2dyZXNzIGJhciBzaG93cyBzdGF0dXM7IGRvIG5vdCBpbnRlcmFjdCB3aXRoIHRoZSBjYW52YXMgd2hpbGUgaXQgcmVuZGVycy48L1A+XG4gICAgICAgIDxIPkltYWdlIChQTkcgLyBXZWJQKTwvSD5cbiAgICAgICAgPFA+RXhwb3J0IOKGkiBJbWFnZS4gUGljayBhIHNjZW5lOyB0aGUgc25hcHNob3QgaXMgdGFrZW4gYWZ0ZXIgZW50ZXIgYW5pbWF0aW9ucyBmaW5pc2guIFBORy9XZWJQIGtlZXAgdHJhbnNwYXJlbmN5IHdoZW4gdGhlIHNjZW5lIGJhY2tncm91bmQgaXMgVHJhbnNwYXJlbnQuPC9QPlxuICAgICAgICA8SD5Ob3RlczwvSD5cbiAgICAgICAgPHVsIGNsYXNzTmFtZT1cImxpc3QtZGlzYyBwbC01XCI+XG4gICAgICAgICAgPExJPkV2ZXJ5dGhpbmcgcnVucyBvZmZsaW5lIOKAlCBubyBhY2NvdW50LCBubyB1cGxvYWQuPC9MST5cbiAgICAgICAgICA8TEk+TVA0IGNhbid0IHN0b3JlIHRyYW5zcGFyZW5jeSAoSC4yNjQgaGFzIG5vIGFscGhhKS4gVXNlIFBORy9XZWJQIGZvciB0cmFuc3BhcmVudCBzdGlsbHMuPC9MST5cbiAgICAgICAgPC91bD5cbiAgICAgIDwvPlxuICAgICksXG4gIH0sXG5dXG5cbmV4cG9ydCBkZWZhdWx0IGZ1bmN0aW9uIFVzZXJHdWlkZU1vZGFsKCkge1xuICBjb25zdCBzZXRVc2VyR3VpZGVPcGVuID0gdXNlRWRpdG9yU3RvcmUocyA9PiBzLnNldFVzZXJHdWlkZU9wZW4pXG4gIGNvbnN0IFthY3RpdmUsIHNldEFjdGl2ZV0gPSB1c2VTdGF0ZSgnb3ZlcnZpZXcnKVxuICBjb25zdCBzZWN0aW9uID0gU0VDVElPTlMuZmluZChzID0+IHMuaWQgPT09IGFjdGl2ZSkgPz8gU0VDVElPTlNbMF1cblxuICByZXR1cm4gKFxuICAgIDxkaXYgY2xhc3NOYW1lPVwiZml4ZWQgaW5zZXQtMCB6LTUwIGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIGJnLWJsYWNrLzcwIGJhY2tkcm9wLWJsdXItc21cIlxuICAgICAgb25DbGljaz17ZSA9PiB7IGlmIChlLnRhcmdldCA9PT0gZS5jdXJyZW50VGFyZ2V0KSBzZXRVc2VyR3VpZGVPcGVuKGZhbHNlKSB9fT5cbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwiYmctZWRpdG9yLXBhbmVsIGJvcmRlciBib3JkZXItZWRpdG9yLWJvcmRlciByb3VuZGVkLXhsIHNoYWRvdy0yeGwgZmxleCBmbGV4LWNvbCBvdmVyZmxvdy1oaWRkZW5cIlxuICAgICAgICBzdHlsZT17eyB3aWR0aDogJzkwdncnLCBoZWlnaHQ6ICc5MHZoJyB9fT5cbiAgICAgICAgey8qIEhlYWRlciAqL31cbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWJldHdlZW4gcHgtNCBweS0zIGJvcmRlci1iIGJvcmRlci1lZGl0b3ItYm9yZGVyIGZsZXgtbm9uZVwiPlxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTJcIj5cbiAgICAgICAgICAgIDxDbGFwcGVyYm9hcmQgc2l6ZT17MTZ9IGNsYXNzTmFtZT1cInRleHQtZWRpdG9yLWFjY2VudFwiIC8+XG4gICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJ0ZXh0LWJhc2UgZm9udC1tZWRpdW0gdGV4dC1lZGl0b3ItdGV4dFwiPlVzZXIgR3VpZGU8L3NwYW4+XG4gICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgPGJ1dHRvbiBvbkNsaWNrPXsoKSA9PiBzZXRVc2VyR3VpZGVPcGVuKGZhbHNlKX0gY2xhc3NOYW1lPVwidGV4dC1bI2M5YzRkZF0gaG92ZXI6dGV4dC13aGl0ZSB0cmFuc2l0aW9uLWNvbG9yc1wiPlxuICAgICAgICAgICAgPFggc2l6ZT17MTh9IC8+XG4gICAgICAgICAgPC9idXR0b24+XG4gICAgICAgIDwvZGl2PlxuXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBmbGV4LTEgbWluLWgtMFwiPlxuICAgICAgICAgIHsvKiBTaWRlYmFyIG5hdiAqL31cbiAgICAgICAgICA8bmF2IGNsYXNzTmFtZT1cInctNTYgZmxleC1ub25lIGJvcmRlci1yIGJvcmRlci1lZGl0b3ItYm9yZGVyIG92ZXJmbG93LXktYXV0byBweS0yXCI+XG4gICAgICAgICAgICB7U0VDVElPTlMubWFwKHMgPT4gKFxuICAgICAgICAgICAgICA8YnV0dG9uXG4gICAgICAgICAgICAgICAga2V5PXtzLmlkfVxuICAgICAgICAgICAgICAgIG9uQ2xpY2s9eygpID0+IHNldEFjdGl2ZShzLmlkKX1cbiAgICAgICAgICAgICAgICBjbGFzc05hbWU9e1tcbiAgICAgICAgICAgICAgICAgICd3LWZ1bGwgZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTIuNSBweC00IHB5LTIuNSB0ZXh0LXNtIHRleHQtbGVmdCB0cmFuc2l0aW9uLWNvbG9ycycsXG4gICAgICAgICAgICAgICAgICBhY3RpdmUgPT09IHMuaWRcbiAgICAgICAgICAgICAgICAgICAgPyAnYmctZWRpdG9yLWFjY2VudC1kaW0gdGV4dC1lZGl0b3ItYWNjZW50IGJvcmRlci1yLTIgYm9yZGVyLWVkaXRvci1hY2NlbnQnXG4gICAgICAgICAgICAgICAgICAgIDogJ3RleHQtWyNjOWM0ZGRdIGhvdmVyOmJnLWVkaXRvci1ob3ZlciBob3Zlcjp0ZXh0LWVkaXRvci10ZXh0JyxcbiAgICAgICAgICAgICAgICBdLmpvaW4oJyAnKX1cbiAgICAgICAgICAgICAgPlxuICAgICAgICAgICAgICAgIHtzLmljb259e3MudGl0bGV9XG4gICAgICAgICAgICAgIDwvYnV0dG9uPlxuICAgICAgICAgICAgKSl9XG4gICAgICAgICAgPC9uYXY+XG5cbiAgICAgICAgICB7LyogQ29udGVudCAqL31cbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXgtMSBvdmVyZmxvdy15LWF1dG8gcHgtOCBweS02XCI+XG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cIm1heC13LTJ4bFwiPlxuICAgICAgICAgICAgICA8aDIgY2xhc3NOYW1lPVwidGV4dC14bCBmb250LWJvbGQgdGV4dC1lZGl0b3ItdGV4dCBtYi00IGZsZXggaXRlbXMtY2VudGVyIGdhcC0yXCI+e3NlY3Rpb24uaWNvbn17c2VjdGlvbi50aXRsZX08L2gyPlxuICAgICAgICAgICAgICB7c2VjdGlvbi5jb250ZW50fVxuICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgPC9kaXY+XG4gICAgICAgIDwvZGl2PlxuICAgICAgPC9kaXY+XG4gICAgPC9kaXY+XG4gIClcbn1cbiJdLCJmaWxlIjoiRDovbHVmZnktZWRpdG9yL3NyYy9jb21wb25lbnRzL21vZGFscy9Vc2VyR3VpZGVNb2RhbC50c3gifQ==

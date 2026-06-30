@@ -179,12 +179,34 @@ export function makeChart(x: number, y: number): ChartElement {
       datasets: [{
         label: 'Dataset 1',
         data: [12, 19, 3, 5, 2],
-        color: '#623af5'
+        color: '#2563eb',
+        points: [
+          { x: 0, y: 1 },
+          { x: 2, y: 4 },
+          { x: 4, y: 3 },
+          { x: 6, y: 8 },
+          { x: 8, y: 6 },
+        ],
       }]
     },
     showLegend: true,
     showGrid: true,
-    backgroundColor: '#59595e'
+    backgroundColor: '#59595e',
+    xAxisMin: 0,
+    xAxisMax: 10,
+    xAxisStep: 2,
+    yAxisMin: 0,
+    yAxisMax: 10,
+    yAxisStep: 2,
+    pointSize: 5,
+    showPointLabels: true,
+    regressionLineEnabled: false,
+    regressionStartX: 0,
+    regressionStartY: 1,
+    regressionEndX: 10,
+    regressionEndY: 8,
+    regressionLineColor: '#ef4444',
+    regressionLineWidth: 3,
   }
 }
 

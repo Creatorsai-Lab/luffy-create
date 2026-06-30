@@ -1,0 +1,321 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/components/panels/MovePanel.tsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=8f4506e8"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+let prevRefreshReg;
+let prevRefreshSig;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/luffy-editor/src/components/panels/MovePanel.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+var _s = $RefreshSig$();
+import { Move, Trash2 } from "/node_modules/.vite/deps/lucide-react.js?v=8f4506e8";
+import { v4 as uuid } from "/node_modules/.vite/deps/uuid.js?v=8f4506e8";
+import { useEditorStore } from "/src/store/editorStore.ts";
+import { PanelHeader, Row, Slider } from "/src/components/panels/TextPanel.tsx";
+import {
+  MOVE_DIRECTIONS,
+  computeMoveDelta,
+  durationFromMove,
+  isMoveAnimation
+} from "/src/utils/moveAnimation.ts";
+const DEFAULT_DIRECTION = "right";
+const DEFAULT_SPEED = 420;
+function getMoveAnim(el) {
+  return el.animations.find(isMoveAnimation);
+}
+export default function MovePanel() {
+  _s();
+  const {
+    project,
+    getSelectedEls,
+    addAnimation,
+    updateAnimation,
+    removeAnimation
+  } = useEditorStore();
+  const selected = getSelectedEls();
+  const el = selected.find((item) => item.type !== "audio");
+  const moveAnim = el ? getMoveAnim(el) : void 0;
+  const direction = moveAnim?.params?.moveDirection ?? DEFAULT_DIRECTION;
+  const speed = moveAnim?.params?.speed ?? DEFAULT_SPEED;
+  const delay = moveAnim?.delay ?? 0;
+  const moveOutside = moveAnim?.params?.moveOutside ?? false;
+  const deltaX = moveAnim?.params?.deltaX ?? 0;
+  const deltaY = moveAnim?.params?.deltaY ?? 0;
+  function buildMoveAnimation(target, patch = {}) {
+    if (!project) return null;
+    const nextDirection = patch.direction ?? direction;
+    const nextSpeed = patch.speed ?? speed;
+    const nextDelay = patch.delay ?? delay;
+    const nextOutside = patch.moveOutside ?? moveOutside;
+    const delta = computeMoveDelta(project, target, nextDirection, nextOutside);
+    const duration = durationFromMove(delta.deltaX, delta.deltaY, nextSpeed);
+    return {
+      id: moveAnim?.id ?? uuid(),
+      type: "move",
+      timing: "onEnter",
+      startTime: 0,
+      duration,
+      delay: nextDelay,
+      easing: "linear",
+      params: {
+        moveDirection: nextDirection,
+        deltaX: delta.deltaX,
+        deltaY: delta.deltaY,
+        speed: nextSpeed,
+        moveOutside: nextOutside
+      }
+    };
+  }
+  function applyMove(patch) {
+    if (!el) return;
+    const anim = buildMoveAnimation(el, patch);
+    if (!anim) return;
+    if (moveAnim) updateAnimation(el.id, moveAnim.id, anim);
+    else
+      addAnimation(el.id, anim);
+  }
+  return /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col h-full overflow-hidden", children: [
+    /* @__PURE__ */ jsxDEV(PanelHeader, { icon: /* @__PURE__ */ jsxDEV(Move, { size: 12 }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+      lineNumber: 104,
+      columnNumber: 26
+    }, this), title: "Move" }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+      lineNumber: 104,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV("div", { className: "flex-1 overflow-y-auto px-3 py-3", children: [
+      !el && /* @__PURE__ */ jsxDEV("p", { className: "text-xs text-[#d9d9d9] leading-relaxed text-center py-4", children: "Nothing is selected. Please select an item on the slide." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+        lineNumber: 108,
+        columnNumber: 9
+      }, this),
+      el && /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col gap-2", children: [
+        /* @__PURE__ */ jsxDEV("div", { className: "rounded border border-editor-border bg-editor-elevated px-2 py-2", children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "text-[10px] uppercase text-editor-secondary", children: "Selected item" }, void 0, false, {
+            fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+            lineNumber: 116,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "text-xs text-editor-text truncate", children: el.name }, void 0, false, {
+            fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+            lineNumber: 117,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+          lineNumber: 115,
+          columnNumber: 13
+        }, this),
+        !moveAnim && /* @__PURE__ */ jsxDEV(
+          "button",
+          {
+            onClick: () => applyMove(),
+            className: "w-full text-xs py-2 bg-editor-accent text-white rounded hover:bg-editor-accent-hover transition-colors",
+            children: "Create Move"
+          },
+          void 0,
+          false,
+          {
+            fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+            lineNumber: 121,
+            columnNumber: 11
+          },
+          this
+        ),
+        /* @__PURE__ */ jsxDEV(Row, { label: "Direction", children: /* @__PURE__ */ jsxDEV(
+          "select",
+          {
+            value: direction,
+            onChange: (e) => applyMove({ direction: e.target.value }),
+            className: "w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5",
+            children: MOVE_DIRECTIONS.map(
+              (item) => /* @__PURE__ */ jsxDEV("option", { value: item.value, children: item.label }, item.value, false, {
+                fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+                lineNumber: 136,
+                columnNumber: 15
+              }, this)
+            )
+          },
+          void 0,
+          false,
+          {
+            fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+            lineNumber: 130,
+            columnNumber: 15
+          },
+          this
+        ) }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+          lineNumber: 129,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV(Row, { label: "Speed", children: /* @__PURE__ */ jsxDEV(
+          Slider,
+          {
+            value: speed,
+            min: 60,
+            max: 2e3,
+            step: 20,
+            display: `${Math.round(speed)} px/s`,
+            onChange: (value) => applyMove({ speed: value })
+          },
+          void 0,
+          false,
+          {
+            fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+            lineNumber: 142,
+            columnNumber: 15
+          },
+          this
+        ) }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+          lineNumber: 141,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV(Row, { label: "Delay", children: /* @__PURE__ */ jsxDEV(
+          "input",
+          {
+            type: "number",
+            min: 0,
+            max: 60,
+            step: 0.1,
+            value: delay,
+            onChange: (e) => applyMove({ delay: Math.max(0, Number(e.target.value)) }),
+            className: "w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5 nodrag"
+          },
+          void 0,
+          false,
+          {
+            fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+            lineNumber: 153,
+            columnNumber: 15
+          },
+          this
+        ) }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+          lineNumber: 152,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("label", { className: "flex items-center gap-2 text-xs text-editor-text py-1", children: [
+          /* @__PURE__ */ jsxDEV(
+            "input",
+            {
+              type: "checkbox",
+              checked: moveOutside,
+              onChange: (e) => applyMove({ moveOutside: e.target.checked }),
+              className: "accent-editor-accent"
+            },
+            void 0,
+            false,
+            {
+              fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+              lineNumber: 165,
+              columnNumber: 15
+            },
+            this
+          ),
+          /* @__PURE__ */ jsxDEV("span", { children: "Item goes outside from scene" }, void 0, false, {
+            fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+            lineNumber: 171,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+          lineNumber: 164,
+          columnNumber: 13
+        }, this),
+        moveAnim && /* @__PURE__ */ jsxDEV("div", { className: "rounded border border-editor-border bg-editor-elevated px-2 py-2 text-[10px] text-[#d9d9d9]", children: [
+          /* @__PURE__ */ jsxDEV("div", { children: [
+            "Delta: ",
+            Math.round(deltaX),
+            "px, ",
+            Math.round(deltaY),
+            "px"
+          ] }, void 0, true, {
+            fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+            lineNumber: 176,
+            columnNumber: 17
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { children: [
+            "Duration: ",
+            moveAnim.duration.toFixed(2),
+            "s"
+          ] }, void 0, true, {
+            fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+            lineNumber: 177,
+            columnNumber: 17
+          }, this)
+        ] }, void 0, true, {
+          fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+          lineNumber: 175,
+          columnNumber: 11
+        }, this),
+        moveAnim && /* @__PURE__ */ jsxDEV(
+          "button",
+          {
+            onClick: () => removeAnimation(el.id, moveAnim.id),
+            className: "flex items-center justify-center gap-1.5 text-xs py-1.5 bg-editor-elevated border border-editor-border rounded text-[#d9d9d9] hover:text-red-400 transition-colors",
+            children: [
+              /* @__PURE__ */ jsxDEV(Trash2, { size: 11 }, void 0, false, {
+                fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+                lineNumber: 186,
+                columnNumber: 17
+              }, this),
+              " Remove Move"
+            ]
+          },
+          void 0,
+          true,
+          {
+            fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+            lineNumber: 182,
+            columnNumber: 11
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+        lineNumber: 114,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+      lineNumber: 106,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "D:/luffy-editor/src/components/panels/MovePanel.tsx",
+    lineNumber: 103,
+    columnNumber: 5
+  }, this);
+}
+_s(MovePanel, "2bgINyIlebGrPb4dgmcnSwo5TWU=", false, function() {
+  return [useEditorStore];
+});
+_c = MovePanel;
+var _c;
+$RefreshReg$(_c, "MovePanel");
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/luffy-editor/src/components/panels/MovePanel.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/luffy-editor/src/components/panels/MovePanel.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,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aUNBQUMsU0FBSTtBQUFBO0FBQUEsWUFBUThCLEtBQUtDLE1BQU12QixNQUFNO0FBQUEsWUFBRTtBQUFBLFlBQUtzQixLQUFLQyxNQUFNdEIsTUFBTTtBQUFBLFlBQUU7QUFBQSxlQUF4RDtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUEwRDtBQUFBLFVBQzFELHVCQUFDLFNBQUk7QUFBQTtBQUFBLFlBQVdULFNBQVNrQixTQUFTaUIsUUFBUSxDQUFDO0FBQUEsWUFBRTtBQUFBLGVBQTdDO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBQThDO0FBQUEsYUFGaEQ7QUFBQTtBQUFBO0FBQUE7QUFBQSxlQUdBO0FBQUEsUUFHRG5DLFlBQ0M7QUFBQSxVQUFDO0FBQUE7QUFBQSxZQUNDLFNBQVMsTUFBTUosZ0JBQWdCVCxHQUFHZ0MsSUFBSW5CLFNBQVNtQixFQUFFO0FBQUEsWUFDakQsV0FBVTtBQUFBLFlBRVY7QUFBQSxxQ0FBQyxVQUFPLE1BQU0sTUFBZDtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUFpQjtBQUFBLGNBQUc7QUFBQTtBQUFBO0FBQUEsVUFKdEI7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBLFFBS0E7QUFBQSxXQXpFSjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBMkVBO0FBQUEsU0FuRko7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQXFGQTtBQUFBLE9BeEZGO0FBQUE7QUFBQTtBQUFBO0FBQUEsU0F5RkE7QUFFSjtBQUFDNUIsR0EzSnVCRCxXQUFTO0FBQUEsVUFPM0JkLGNBQWM7QUFBQTtBQUFBLEtBUEljO0FBQVMsSUFBQThDO0FBQUEsYUFBQUEsSUFBQSIsIm5hbWVzIjpbIk1vdmUiLCJUcmFzaDIiLCJ2NCIsInV1aWQiLCJ1c2VFZGl0b3JTdG9yZSIsIlBhbmVsSGVhZGVyIiwiUm93IiwiU2xpZGVyIiwiTU9WRV9ESVJFQ1RJT05TIiwiY29tcHV0ZU1vdmVEZWx0YSIsImR1cmF0aW9uRnJvbU1vdmUiLCJpc01vdmVBbmltYXRpb24iLCJERUZBVUxUX0RJUkVDVElPTiIsIkRFRkFVTFRfU1BFRUQiLCJnZXRNb3ZlQW5pbSIsImVsIiwiYW5pbWF0aW9ucyIsImZpbmQiLCJNb3ZlUGFuZWwiLCJfcyIsInByb2plY3QiLCJnZXRTZWxlY3RlZEVscyIsImFkZEFuaW1hdGlvbiIsInVwZGF0ZUFuaW1hdGlvbiIsInJlbW92ZUFuaW1hdGlvbiIsInNlbGVjdGVkIiwiaXRlbSIsInR5cGUiLCJtb3ZlQW5pbSIsInVuZGVmaW5lZCIsImRpcmVjdGlvbiIsInBhcmFtcyIsIm1vdmVEaXJlY3Rpb24iLCJzcGVlZCIsImRlbGF5IiwibW92ZU91dHNpZGUiLCJkZWx0YVgiLCJkZWx0YVkiLCJidWlsZE1vdmVBbmltYXRpb24iLCJ0YXJnZXQiLCJwYXRjaCIsIm5leHREaXJlY3Rpb24iLCJuZXh0U3BlZWQiLCJuZXh0RGVsYXkiLCJuZXh0T3V0c2lkZSIsImRlbHRhIiwiZHVyYXRpb24iLCJpZCIsInRpbWluZyIsInN0YXJ0VGltZSIsImVhc2luZyIsImFwcGx5TW92ZSIsImFuaW0iLCJuYW1lIiwiZSIsInZhbHVlIiwibWFwIiwibGFiZWwiLCJNYXRoIiwicm91bmQiLCJtYXgiLCJOdW1iZXIiLCJjaGVja2VkIiwidG9GaXhlZCIsIl9jIl0sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIk1vdmVQYW5lbC50c3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgTW92ZSwgVHJhc2gyIH0gZnJvbSAnbHVjaWRlLXJlYWN0J1xuaW1wb3J0IHsgdjQgYXMgdXVpZCB9IGZyb20gJ3V1aWQnXG5pbXBvcnQgeyB1c2VFZGl0b3JTdG9yZSB9IGZyb20gJy4uLy4uL3N0b3JlL2VkaXRvclN0b3JlJ1xuaW1wb3J0IHR5cGUgeyBFZGl0b3JFbGVtZW50LCBFbGVtZW50QW5pbWF0aW9uLCBNb3ZlRGlyZWN0aW9uIH0gZnJvbSAnLi4vLi4vdHlwZXMvZWRpdG9yJ1xuaW1wb3J0IHsgUGFuZWxIZWFkZXIsIFJvdywgU2xpZGVyIH0gZnJvbSAnLi9UZXh0UGFuZWwnXG5pbXBvcnQge1xuICBNT1ZFX0RJUkVDVElPTlMsXG4gIGNvbXB1dGVNb3ZlRGVsdGEsXG4gIGR1cmF0aW9uRnJvbU1vdmUsXG4gIGlzTW92ZUFuaW1hdGlvbixcbn0gZnJvbSAnLi4vLi4vdXRpbHMvbW92ZUFuaW1hdGlvbidcblxuY29uc3QgREVGQVVMVF9ESVJFQ1RJT046IE1vdmVEaXJlY3Rpb24gPSAncmlnaHQnXG5jb25zdCBERUZBVUxUX1NQRUVEID0gNDIwXG5cbmZ1bmN0aW9uIGdldE1vdmVBbmltKGVsOiBFZGl0b3JFbGVtZW50KSB7XG4gIHJldHVybiBlbC5hbmltYXRpb25zLmZpbmQoaXNNb3ZlQW5pbWF0aW9uKVxufVxuXG5leHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBNb3ZlUGFuZWwoKSB7XG4gIGNvbnN0IHtcbiAgICBwcm9qZWN0LFxuICAgIGdldFNlbGVjdGVkRWxzLFxuICAgIGFkZEFuaW1hdGlvbixcbiAgICB1cGRhdGVBbmltYXRpb24sXG4gICAgcmVtb3ZlQW5pbWF0aW9uLFxuICB9ID0gdXNlRWRpdG9yU3RvcmUoKVxuXG4gIGNvbnN0IHNlbGVjdGVkID0gZ2V0U2VsZWN0ZWRFbHMoKVxuICBjb25zdCBlbCA9IHNlbGVjdGVkLmZpbmQoaXRlbSA9PiBpdGVtLnR5cGUgIT09ICdhdWRpbycpXG4gIGNvbnN0IG1vdmVBbmltID0gZWwgPyBnZXRNb3ZlQW5pbShlbCkgOiB1bmRlZmluZWRcblxuICBjb25zdCBkaXJlY3Rpb24gPSBtb3ZlQW5pbT8ucGFyYW1zPy5tb3ZlRGlyZWN0aW9uID8/IERFRkFVTFRfRElSRUNUSU9OXG4gIGNvbnN0IHNwZWVkID0gbW92ZUFuaW0/LnBhcmFtcz8uc3BlZWQgPz8gREVGQVVMVF9TUEVFRFxuICBjb25zdCBkZWxheSA9IG1vdmVBbmltPy5kZWxheSA/PyAwXG4gIGNvbnN0IG1vdmVPdXRzaWRlID0gbW92ZUFuaW0/LnBhcmFtcz8ubW92ZU91dHNpZGUgPz8gZmFsc2VcbiAgY29uc3QgZGVsdGFYID0gbW92ZUFuaW0/LnBhcmFtcz8uZGVsdGFYID8/IDBcbiAgY29uc3QgZGVsdGFZID0gbW92ZUFuaW0/LnBhcmFtcz8uZGVsdGFZID8/IDBcblxuICBmdW5jdGlvbiBidWlsZE1vdmVBbmltYXRpb24oXG4gICAgdGFyZ2V0OiBFZGl0b3JFbGVtZW50LFxuICAgIHBhdGNoOiB7XG4gICAgICBkaXJlY3Rpb24/OiBNb3ZlRGlyZWN0aW9uXG4gICAgICBzcGVlZD86IG51bWJlclxuICAgICAgZGVsYXk/OiBudW1iZXJcbiAgICAgIG1vdmVPdXRzaWRlPzogYm9vbGVhblxuICAgIH0gPSB7fSxcbiAgKTogRWxlbWVudEFuaW1hdGlvbiB8IG51bGwge1xuICAgIGlmICghcHJvamVjdCkgcmV0dXJuIG51bGxcbiAgICBjb25zdCBuZXh0RGlyZWN0aW9uID0gcGF0Y2guZGlyZWN0aW9uID8/IGRpcmVjdGlvblxuICAgIGNvbnN0IG5leHRTcGVlZCA9IHBhdGNoLnNwZWVkID8/IHNwZWVkXG4gICAgY29uc3QgbmV4dERlbGF5ID0gcGF0Y2guZGVsYXkgPz8gZGVsYXlcbiAgICBjb25zdCBuZXh0T3V0c2lkZSA9IHBhdGNoLm1vdmVPdXRzaWRlID8/IG1vdmVPdXRzaWRlXG4gICAgY29uc3QgZGVsdGEgPSBjb21wdXRlTW92ZURlbHRhKHByb2plY3QsIHRhcmdldCwgbmV4dERpcmVjdGlvbiwgbmV4dE91dHNpZGUpXG4gICAgY29uc3QgZHVyYXRpb24gPSBkdXJhdGlvbkZyb21Nb3ZlKGRlbHRhLmRlbHRhWCwgZGVsdGEuZGVsdGFZLCBuZXh0U3BlZWQpXG5cbiAgICByZXR1cm4ge1xuICAgICAgaWQ6IG1vdmVBbmltPy5pZCA/PyB1dWlkKCksXG4gICAgICB0eXBlOiAnbW92ZScsXG4gICAgICB0aW1pbmc6ICdvbkVudGVyJyxcbiAgICAgIHN0YXJ0VGltZTogMCxcbiAgICAgIGR1cmF0aW9uLFxuICAgICAgZGVsYXk6IG5leHREZWxheSxcbiAgICAgIGVhc2luZzogJ2xpbmVhcicsXG4gICAgICBwYXJhbXM6IHtcbiAgICAgICAgbW92ZURpcmVjdGlvbjogbmV4dERpcmVjdGlvbixcbiAgICAgICAgZGVsdGFYOiBkZWx0YS5kZWx0YVgsXG4gICAgICAgIGRlbHRhWTogZGVsdGEuZGVsdGFZLFxuICAgICAgICBzcGVlZDogbmV4dFNwZWVkLFxuICAgICAgICBtb3ZlT3V0c2lkZTogbmV4dE91dHNpZGUsXG4gICAgICB9LFxuICAgIH1cbiAgfVxuXG4gIGZ1bmN0aW9uIGFwcGx5TW92ZShwYXRjaD86IFBhcmFtZXRlcnM8dHlwZW9mIGJ1aWxkTW92ZUFuaW1hdGlvbj5bMV0pIHtcbiAgICBpZiAoIWVsKSByZXR1cm5cbiAgICBjb25zdCBhbmltID0gYnVpbGRNb3ZlQW5pbWF0aW9uKGVsLCBwYXRjaClcbiAgICBpZiAoIWFuaW0pIHJldHVyblxuICAgIGlmIChtb3ZlQW5pbSkgdXBkYXRlQW5pbWF0aW9uKGVsLmlkLCBtb3ZlQW5pbS5pZCwgYW5pbSlcbiAgICBlbHNlIGFkZEFuaW1hdGlvbihlbC5pZCwgYW5pbSlcbiAgfVxuXG4gIHJldHVybiAoXG4gICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGZsZXgtY29sIGgtZnVsbCBvdmVyZmxvdy1oaWRkZW5cIj5cbiAgICAgIDxQYW5lbEhlYWRlciBpY29uPXs8TW92ZSBzaXplPXsxMn0gLz59IHRpdGxlPVwiTW92ZVwiIC8+XG5cbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleC0xIG92ZXJmbG93LXktYXV0byBweC0zIHB5LTNcIj5cbiAgICAgICAgeyFlbCAmJiAoXG4gICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC14cyB0ZXh0LVsjZDlkOWQ5XSBsZWFkaW5nLXJlbGF4ZWQgdGV4dC1jZW50ZXIgcHktNFwiPlxuICAgICAgICAgICAgTm90aGluZyBpcyBzZWxlY3RlZC4gUGxlYXNlIHNlbGVjdCBhbiBpdGVtIG9uIHRoZSBzbGlkZS5cbiAgICAgICAgICA8L3A+XG4gICAgICAgICl9XG5cbiAgICAgICAge2VsICYmIChcbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggZmxleC1jb2wgZ2FwLTJcIj5cbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicm91bmRlZCBib3JkZXIgYm9yZGVyLWVkaXRvci1ib3JkZXIgYmctZWRpdG9yLWVsZXZhdGVkIHB4LTIgcHktMlwiPlxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInRleHQtWzEwcHhdIHVwcGVyY2FzZSB0ZXh0LWVkaXRvci1zZWNvbmRhcnlcIj5TZWxlY3RlZCBpdGVtPC9kaXY+XG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwidGV4dC14cyB0ZXh0LWVkaXRvci10ZXh0IHRydW5jYXRlXCI+e2VsLm5hbWV9PC9kaXY+XG4gICAgICAgICAgICA8L2Rpdj5cblxuICAgICAgICAgICAgeyFtb3ZlQW5pbSAmJiAoXG4gICAgICAgICAgICAgIDxidXR0b25cbiAgICAgICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiBhcHBseU1vdmUoKX1cbiAgICAgICAgICAgICAgICBjbGFzc05hbWU9XCJ3LWZ1bGwgdGV4dC14cyBweS0yIGJnLWVkaXRvci1hY2NlbnQgdGV4dC13aGl0ZSByb3VuZGVkIGhvdmVyOmJnLWVkaXRvci1hY2NlbnQtaG92ZXIgdHJhbnNpdGlvbi1jb2xvcnNcIlxuICAgICAgICAgICAgICA+XG4gICAgICAgICAgICAgICAgQ3JlYXRlIE1vdmVcbiAgICAgICAgICAgICAgPC9idXR0b24+XG4gICAgICAgICAgICApfVxuXG4gICAgICAgICAgICA8Um93IGxhYmVsPVwiRGlyZWN0aW9uXCI+XG4gICAgICAgICAgICAgIDxzZWxlY3RcbiAgICAgICAgICAgICAgICB2YWx1ZT17ZGlyZWN0aW9ufVxuICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXtlID0+IGFwcGx5TW92ZSh7IGRpcmVjdGlvbjogZS50YXJnZXQudmFsdWUgYXMgTW92ZURpcmVjdGlvbiB9KX1cbiAgICAgICAgICAgICAgICBjbGFzc05hbWU9XCJ3LWZ1bGwgYmctZWRpdG9yLWVsZXZhdGVkIGJvcmRlciBib3JkZXItZWRpdG9yLWJvcmRlciByb3VuZGVkIHRleHQteHMgdGV4dC1lZGl0b3ItdGV4dCBweC0yIHB5LTEuNVwiXG4gICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICB7TU9WRV9ESVJFQ1RJT05TLm1hcChpdGVtID0+IChcbiAgICAgICAgICAgICAgICAgIDxvcHRpb24ga2V5PXtpdGVtLnZhbHVlfSB2YWx1ZT17aXRlbS52YWx1ZX0+e2l0ZW0ubGFiZWx9PC9vcHRpb24+XG4gICAgICAgICAgICAgICAgKSl9XG4gICAgICAgICAgICAgIDwvc2VsZWN0PlxuICAgICAgICAgICAgPC9Sb3c+XG5cbiAgICAgICAgICAgIDxSb3cgbGFiZWw9XCJTcGVlZFwiPlxuICAgICAgICAgICAgICA8U2xpZGVyXG4gICAgICAgICAgICAgICAgdmFsdWU9e3NwZWVkfVxuICAgICAgICAgICAgICAgIG1pbj17NjB9XG4gICAgICAgICAgICAgICAgbWF4PXsyMDAwfVxuICAgICAgICAgICAgICAgIHN0ZXA9ezIwfVxuICAgICAgICAgICAgICAgIGRpc3BsYXk9e2Ake01hdGgucm91bmQoc3BlZWQpfSBweC9zYH1cbiAgICAgICAgICAgICAgICBvbkNoYW5nZT17dmFsdWUgPT4gYXBwbHlNb3ZlKHsgc3BlZWQ6IHZhbHVlIH0pfVxuICAgICAgICAgICAgICAvPlxuICAgICAgICAgICAgPC9Sb3c+XG5cbiAgICAgICAgICAgIDxSb3cgbGFiZWw9XCJEZWxheVwiPlxuICAgICAgICAgICAgICA8aW5wdXRcbiAgICAgICAgICAgICAgICB0eXBlPVwibnVtYmVyXCJcbiAgICAgICAgICAgICAgICBtaW49ezB9XG4gICAgICAgICAgICAgICAgbWF4PXs2MH1cbiAgICAgICAgICAgICAgICBzdGVwPXswLjF9XG4gICAgICAgICAgICAgICAgdmFsdWU9e2RlbGF5fVxuICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXtlID0+IGFwcGx5TW92ZSh7IGRlbGF5OiBNYXRoLm1heCgwLCBOdW1iZXIoZS50YXJnZXQudmFsdWUpKSB9KX1cbiAgICAgICAgICAgICAgICBjbGFzc05hbWU9XCJ3LWZ1bGwgYmctZWRpdG9yLWVsZXZhdGVkIGJvcmRlciBib3JkZXItZWRpdG9yLWJvcmRlciByb3VuZGVkIHRleHQteHMgdGV4dC1lZGl0b3ItdGV4dCBweC0yIHB5LTEuNSBub2RyYWdcIlxuICAgICAgICAgICAgICAvPlxuICAgICAgICAgICAgPC9Sb3c+XG5cbiAgICAgICAgICAgIDxsYWJlbCBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMiB0ZXh0LXhzIHRleHQtZWRpdG9yLXRleHQgcHktMVwiPlxuICAgICAgICAgICAgICA8aW5wdXRcbiAgICAgICAgICAgICAgICB0eXBlPVwiY2hlY2tib3hcIlxuICAgICAgICAgICAgICAgIGNoZWNrZWQ9e21vdmVPdXRzaWRlfVxuICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXtlID0+IGFwcGx5TW92ZSh7IG1vdmVPdXRzaWRlOiBlLnRhcmdldC5jaGVja2VkIH0pfVxuICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cImFjY2VudC1lZGl0b3ItYWNjZW50XCJcbiAgICAgICAgICAgICAgLz5cbiAgICAgICAgICAgICAgPHNwYW4+SXRlbSBnb2VzIG91dHNpZGUgZnJvbSBzY2VuZTwvc3Bhbj5cbiAgICAgICAgICAgIDwvbGFiZWw+XG5cbiAgICAgICAgICAgIHttb3ZlQW5pbSAmJiAoXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicm91bmRlZCBib3JkZXIgYm9yZGVyLWVkaXRvci1ib3JkZXIgYmctZWRpdG9yLWVsZXZhdGVkIHB4LTIgcHktMiB0ZXh0LVsxMHB4XSB0ZXh0LVsjZDlkOWQ5XVwiPlxuICAgICAgICAgICAgICAgIDxkaXY+RGVsdGE6IHtNYXRoLnJvdW5kKGRlbHRhWCl9cHgsIHtNYXRoLnJvdW5kKGRlbHRhWSl9cHg8L2Rpdj5cbiAgICAgICAgICAgICAgICA8ZGl2PkR1cmF0aW9uOiB7bW92ZUFuaW0uZHVyYXRpb24udG9GaXhlZCgyKX1zPC9kaXY+XG4gICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgKX1cblxuICAgICAgICAgICAge21vdmVBbmltICYmIChcbiAgICAgICAgICAgICAgPGJ1dHRvblxuICAgICAgICAgICAgICAgIG9uQ2xpY2s9eygpID0+IHJlbW92ZUFuaW1hdGlvbihlbC5pZCwgbW92ZUFuaW0uaWQpfVxuICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIGdhcC0xLjUgdGV4dC14cyBweS0xLjUgYmctZWRpdG9yLWVsZXZhdGVkIGJvcmRlciBib3JkZXItZWRpdG9yLWJvcmRlciByb3VuZGVkIHRleHQtWyNkOWQ5ZDldIGhvdmVyOnRleHQtcmVkLTQwMCB0cmFuc2l0aW9uLWNvbG9yc1wiXG4gICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICA8VHJhc2gyIHNpemU9ezExfSAvPiBSZW1vdmUgTW92ZVxuICAgICAgICAgICAgICA8L2J1dHRvbj5cbiAgICAgICAgICAgICl9XG4gICAgICAgICAgPC9kaXY+XG4gICAgICAgICl9XG4gICAgICA8L2Rpdj5cbiAgICA8L2Rpdj5cbiAgKVxufVxuIl0sImZpbGUiOiJEOi9sdWZmeS1lZGl0b3Ivc3JjL2NvbXBvbmVudHMvcGFuZWxzL01vdmVQYW5lbC50c3gifQ==

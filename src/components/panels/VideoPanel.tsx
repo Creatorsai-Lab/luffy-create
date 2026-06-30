@@ -5,6 +5,7 @@ import type { VideoElement, AnimationType, EasingType, SlideDir, ElementAnimatio
 import { PanelHeader, Row, Slider, NumberInput } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
+import { sourceVideoClipDuration } from '../../utils/videoClip'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade In',   value: 'fadeIn'   },
@@ -48,8 +49,10 @@ const isLoopAnim = (a: ElementAnimation) => LOOP_TYPE_SET.has(a.type) || a.timin
 const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2]
 
 export default function VideoPanel() {
-  const { getSelectedEls, updateElement, addAnimation, setCropElement } = useEditorStore()
+  const { project, currentSceneId, getSelectedEls, updateElement, addAnimation, setCropElement } = useEditorStore()
   const el = getSelectedEls().find(e => e.type === 'video') as VideoElement | undefined
+  const scene = project?.scenes.find(sc => sc.elements.some(item => item.id === el?.id))
+    ?? project?.scenes.find(sc => sc.id === currentSceneId)
 
   const ratioRef = useRef(16 / 9)
 
@@ -61,6 +64,22 @@ export default function VideoPanel() {
 
   function upd(patch: Partial<VideoElement>) {
     if (el) updateElement(el.id, patch)
+  }
+
+  function toggleLoop() {
+    if (!el) return
+    if (!el.loop) {
+      const remainingScene = scene ? Math.max(0.1, scene.duration - (el.timelineX ?? 0)) : undefined
+      upd({
+        loop: true,
+        duration: remainingScene ? Math.max(el.duration ?? 0, remainingScene) : el.duration,
+      })
+    } else {
+      upd({
+        loop: false,
+        duration: Math.min(el.duration ?? sourceVideoClipDuration(el), sourceVideoClipDuration(el)),
+      })
+    }
   }
 
   function toggleLock() {
@@ -160,7 +179,7 @@ export default function VideoPanel() {
               </Row>
               <Row label="Loop">
                 <button
-                  onClick={() => upd({ loop: !el.loop })}
+                  onClick={toggleLoop}
                   className={cn(
                     'px-2 py-1 rounded text-xs transition-colors',
                     el.loop

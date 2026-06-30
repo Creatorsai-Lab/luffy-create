@@ -11,9 +11,11 @@ interface Props {
   el: VideoElement
   konvaProps: Record<string, unknown>
   localTime?: number   // scene-local seconds — the video is seeked to this
+  syncToTime?: boolean
+  playbackActive?: boolean
 }
 
-export default function VideoKonva({ el, konvaProps, localTime = 0 }: Props) {
+export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime = true, playbackActive = false }: Props) {
   const videoRef  = useRef<HTMLVideoElement | null>(null)
   const shapeRef  = useRef<Konva.Shape | null>(null)
   const rafRef    = useRef<number>(0)
@@ -97,24 +99,38 @@ export default function VideoKonva({ el, konvaProps, localTime = 0 }: Props) {
   // Seek the video to the clip-adjusted source time.
   useEffect(() => {
     const v = videoRef.current
-    if (!v || !loaded || !v.paused) return
+    if (!v || !loaded || !syncToTime) return
 
     const clip = getVideoClipState(el, localTime)
-    if (!clip.visible) { redraw(); return }
+    if (!clip.visible) {
+      if (!v.paused) v.pause()
+      redraw()
+      return
+    }
 
     const dur = v.duration || el.sourceDuration || 0
     if (!dur) { redraw(); return }
 
     let target = clip.sourceTime
-    if (el.loop) target = clip.sourceTime % dur
     target = Math.max(0, Math.min(target, dur - 0.03))
 
+    if (playbackActive) {
+      if (Math.abs(v.currentTime - target) > 0.25) v.currentTime = target
+      if (v.paused) v.play().catch(() => {
+        if (Math.abs(v.currentTime - target) > 0.015) v.currentTime = target
+        else redraw()
+      })
+      else redraw()
+      return
+    }
+
+    if (!v.paused) v.pause()
     if (Math.abs(v.currentTime - target) > 0.015) {
       v.currentTime = target
     } else {
       redraw()
     }
-  }, [localTime, loaded, el.loop, el.startTime, el.duration, el.timelineX, el.playbackRate, el.sourceDuration])
+  }, [localTime, loaded, syncToTime, playbackActive, el.loop, el.startTime, el.duration, el.timelineX, el.playbackRate, el.sourceDuration])
 
   if (!loaded || !videoRef.current) {
     return (

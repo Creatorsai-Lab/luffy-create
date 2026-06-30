@@ -82,8 +82,8 @@ export default function AISidebar() {
             key={item.id}
             className={
               item.role === 'user'
-                ? 'ml-10 rounded-2xl rounded-br-none bg-editor-accent/20 border border-editor-accent/30 px-3 py-2 text-sm text-editor-text'
-                : 'mr-10 rounded bg-editor-elevated px-2 py-1 text-sm text-editor-text'
+                ? 'ml-10 rounded-2xl rounded-br-none bg-editor-accent/20 border border-editor-accent/30 px-2 py-1 text-sm text-editor-text'
+                : 'mr-10 px-1.5 py-1 text-base text-editor-text'
             }
           >
             {item.text}
@@ -132,10 +132,10 @@ export default function AISidebar() {
         )}
 
         {results.length > 0 && (
-          <div className="rounded border border-editor-border bg-editor-elevated px-2 py-2 space-y-1">
+          <div className="rounded-2xl rounded-bl-none border border-editor-border bg-editor-elevated px-2 py-2 space-y-1 mr-5">
             {results.map((item, index) => (
-              <p key={index} className={item.ok ? 'text-sm text-emerald-200' : 'text-sm text-red-200'}>
-                {item.message}
+              <p key={index} className={item.ok ? 'text-sm text-white' : 'text-sm text-red-200'}>
+                ✓ {item.message}
               </p>
             ))}
           </div>

@@ -11,16 +11,27 @@ export default function ChartKonva({ el, konvaProps, animProgress = 1 }: Props) 
   const { data, chartType, showLegend, showGrid, backgroundColor } = el
   const w = el.width
   const h = el.height
-  const padding = 36
+  const padding = chartType === 'points' ? 48 : 36
   const labelFontSize = el.fontSize ?? 10
   const labelColor = el.textColor ?? '#999999'
   const fontFamily = el.fontFamily ?? 'Arial'
   const lineWeight = el.lineWeight ?? 2
+  const legendVisible = showLegend && chartType !== 'points'
   const chartW = w - padding * 2
-  const chartH = h - padding * 2 - (showLegend ? 28 : 0)
+  const chartH = h - padding * 2 - (legendVisible ? 28 : 0)
 
   const allValues = data.datasets.flatMap(ds => ds.data)
   const maxValue = Math.max(...allValues, 1)
+  const tickValues = (min: number, max: number, step: number) => {
+    const safeStep = Math.max(0.01, Math.abs(step))
+    const vals: number[] = []
+    if (max <= min) return [min, max + safeStep]
+    for (let v = min; v <= max + safeStep * 0.5; v += safeStep) {
+      vals.push(Number(v.toFixed(6)))
+      if (vals.length > 200) break
+    }
+    return vals
+  }
 
   const renderBarChart = () => {
     const numGroups = data.labels.length
@@ -212,7 +223,7 @@ export default function ChartKonva({ el, konvaProps, animProgress = 1 }: Props) 
 
   const renderPieChart = () => {
     const centerX = w / 2
-    const centerY = (h - (showLegend ? 30 : 0)) / 2
+    const centerY = (h - (legendVisible ? 30 : 0)) / 2
     const radius = Math.min(chartW, chartH) / 2 - 10
     const dataset = data.datasets[0]
     if (!dataset) return null
@@ -245,7 +256,7 @@ export default function ChartKonva({ el, konvaProps, animProgress = 1 }: Props) 
 
   const renderDoughnutChart = () => {
     const centerX = w / 2
-    const centerY = (h - (showLegend ? 30 : 0)) / 2
+    const centerY = (h - (legendVisible ? 30 : 0)) / 2
     const outerRadius = Math.min(chartW, chartH) / 2 - 10
     const innerRadius = outerRadius * 0.6
     const dataset = data.datasets[0]
@@ -281,6 +292,145 @@ export default function ChartKonva({ el, konvaProps, animProgress = 1 }: Props) 
     )
   }
 
+  const renderPointChart = () => {
+    const dataset = data.datasets[0]
+    const points = [...(dataset?.points ?? [])].sort((a, b) => a.x - b.x)
+    const xMin = el.xAxisMin ?? 0
+    const xMax = el.xAxisMax ?? 10
+    const xStep = el.xAxisStep ?? 2
+    const yMin = el.yAxisMin ?? 0
+    const yMax = el.yAxisMax ?? 10
+    const yStep = el.yAxisStep ?? 2
+    const xSpan = Math.max(0.0001, xMax - xMin)
+    const ySpan = Math.max(0.0001, yMax - yMin)
+    const radius = el.pointSize ?? 5
+    const color = dataset?.color ?? '#2563eb'
+    const visibleCount = Math.ceil(points.length * animProgress)
+    const xTicks = tickValues(xMin, xMax, xStep)
+    const yTicks = tickValues(yMin, yMax, yStep)
+    const toScreen = (pt: { x: number; y: number }) => ({
+      x: padding + ((pt.x - xMin) / xSpan) * chartW,
+      y: padding + chartH - ((pt.y - yMin) / ySpan) * chartH,
+    })
+    const renderRegressionLine = () => {
+      if (!el.regressionLineEnabled) return null
+      const start = toScreen({ x: el.regressionStartX ?? xMin, y: el.regressionStartY ?? yMin })
+      const end = toScreen({ x: el.regressionEndX ?? xMax, y: el.regressionEndY ?? yMax })
+      const drawEnd = {
+        x: start.x + (end.x - start.x) * animProgress,
+        y: start.y + (end.y - start.y) * animProgress,
+      }
+
+      return (
+        <Line
+          points={[start.x, start.y, drawEnd.x, drawEnd.y]}
+          stroke={el.regressionLineColor ?? '#ef4444'}
+          strokeWidth={el.regressionLineWidth ?? 3}
+          lineCap="round"
+          lineJoin="round"
+        />
+      )
+    }
+
+    return (
+      <>
+        {showGrid && (
+          <Group>
+            {xTicks.map((tick, i) => {
+              const x = padding + ((tick - xMin) / xSpan) * chartW
+              return (
+                <Line
+                  key={`xg-${i}`}
+                  points={[x, padding, x, padding + chartH]}
+                  stroke="#333"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                />
+              )
+            })}
+            {yTicks.map((tick, i) => {
+              const y = padding + chartH - ((tick - yMin) / ySpan) * chartH
+              return (
+                <Line
+                  key={`yg-${i}`}
+                  points={[padding, y, padding + chartW, y]}
+                  stroke="#333"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                />
+              )
+            })}
+          </Group>
+        )}
+
+        <Line points={[padding, padding + chartH, padding + chartW, padding + chartH]} stroke={labelColor} strokeWidth={1.2} opacity={0.85} />
+        <Line points={[padding, padding, padding, padding + chartH]} stroke={labelColor} strokeWidth={1.2} opacity={0.85} />
+
+        {xTicks.map((tick, i) => {
+          const x = padding + ((tick - xMin) / xSpan) * chartW
+          return (
+            <Group key={`xt-${i}`}>
+              <Line points={[x, padding + chartH, x, padding + chartH + 4]} stroke={labelColor} strokeWidth={1} />
+              <Text
+                x={x - 18}
+                y={padding + chartH + 7}
+                text={String(tick)}
+                fontSize={labelFontSize}
+                fontFamily={fontFamily}
+                fill={labelColor}
+                width={36}
+                align="center"
+              />
+            </Group>
+          )
+        })}
+        {yTicks.map((tick, i) => {
+          const y = padding + chartH - ((tick - yMin) / ySpan) * chartH
+          return (
+            <Group key={`yt-${i}`}>
+              <Line points={[padding - 4, y, padding, y]} stroke={labelColor} strokeWidth={1} />
+              <Text
+                x={4}
+                y={y - labelFontSize / 2}
+                text={String(tick)}
+                fontSize={labelFontSize}
+                fontFamily={fontFamily}
+                fill={labelColor}
+                width={padding - 8}
+                align="right"
+              />
+            </Group>
+          )
+        })}
+
+        <Group clipX={padding} clipY={padding} clipWidth={chartW} clipHeight={chartH}>
+          {renderRegressionLine()}
+        </Group>
+
+        {points.map((pt, i) => {
+          if (i >= visibleCount) return null
+          if (pt.x < xMin || pt.x > xMax || pt.y < yMin || pt.y > yMax) return null
+          const screen = toScreen(pt)
+          return (
+            <Group key={i} opacity={Math.max(0, Math.min(1, animProgress * points.length - i))}>
+              <Circle x={screen.x} y={screen.y} radius={radius} fill={color} />
+              {el.showPointLabels && (
+                <Text
+                  x={screen.x + radius + 4}
+                  y={screen.y - labelFontSize - 2}
+                  text={`(${pt.x}, ${pt.y})`}
+                  fontSize={labelFontSize}
+                  fontFamily={fontFamily}
+                  fill={labelColor}
+                />
+              )}
+            </Group>
+          )
+        })}
+      </>
+    )
+  }
+
   return (
     <Group {...konvaProps}>
       <Rect
@@ -289,7 +439,7 @@ export default function ChartKonva({ el, konvaProps, animProgress = 1 }: Props) 
         cornerRadius={el.cornerRadius ?? 4}
       />
 
-      {showGrid && chartType !== 'pie' && chartType !== 'doughnut' && (
+      {showGrid && chartType !== 'pie' && chartType !== 'doughnut' && chartType !== 'points' && (
         <Group>
           {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
             <Line
@@ -308,8 +458,9 @@ export default function ChartKonva({ el, konvaProps, animProgress = 1 }: Props) 
       {chartType === 'pie'      && renderPieChart()}
       {chartType === 'doughnut' && renderDoughnutChart()}
       {chartType === 'area'     && renderAreaChart()}
+      {chartType === 'points'   && renderPointChart()}
 
-      {showLegend && (
+      {legendVisible && (
         <Group y={h - 22}>
           {data.datasets.map((dataset, i) => (
             <Group key={i} x={padding + i * 90}>

@@ -179,15 +179,21 @@ export interface TableElement extends BaseElement {
   showHeader: boolean
 }
 
+export interface ChartDataPoint {
+  x: number
+  y: number
+}
+
 export interface ChartElement extends BaseElement {
   type: 'chart'
-  chartType: 'bar' | 'line' | 'pie' | 'doughnut' | 'area'
+  chartType: 'bar' | 'line' | 'pie' | 'doughnut' | 'area' | 'points'
   data: {
     labels: string[]
     datasets: {
       label: string
       data: number[]
       color: string
+      points?: ChartDataPoint[]
     }[]
   }
   showLegend: boolean
@@ -200,6 +206,21 @@ export interface ChartElement extends BaseElement {
   barWidth?: number        // 0.3-1.0, fraction of bar slot filled by bar
   barSpacing?: number      // 0.0-0.5, fraction of slot used as group gap
   lineWeight?: number      // stroke width for line/area charts, default 2
+  xAxisMin?: number
+  xAxisMax?: number
+  xAxisStep?: number
+  yAxisMin?: number
+  yAxisMax?: number
+  yAxisStep?: number
+  pointSize?: number
+  showPointLabels?: boolean
+  regressionLineEnabled?: boolean
+  regressionStartX?: number
+  regressionStartY?: number
+  regressionEndX?: number
+  regressionEndY?: number
+  regressionLineColor?: string
+  regressionLineWidth?: number
 }
 
 export interface VideoElement extends BaseElement {

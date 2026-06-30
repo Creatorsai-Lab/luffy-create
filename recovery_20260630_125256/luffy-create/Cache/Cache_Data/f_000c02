@@ -1,0 +1,205 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/components/panels/PerspectivePanel.tsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=8f4506e8"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+let prevRefreshReg;
+let prevRefreshSig;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("D:/luffy-editor/src/components/panels/PerspectivePanel.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+var _s = $RefreshSig$();
+import { Focus } from "/node_modules/.vite/deps/lucide-react.js?v=8f4506e8";
+import { useEditorStore } from "/src/store/editorStore.ts?t=1782718123295";
+import { makePerspectivePts } from "/src/engine/perspectiveUtils.ts";
+import { PanelHeader, Row } from "/src/components/panels/TextPanel.tsx?t=1782718123295";
+export default function PerspectivePanel() {
+  _s();
+  const { getSelectedEls, updateElement } = useEditorStore();
+  const selected = getSelectedEls();
+  const selectedEl = selected[0];
+  const el = selected.find((e) => e.type !== "arrow" && e.type !== "audio");
+  const unsupported = selectedEl && !el;
+  function reset() {
+    if (!el) return;
+    updateElement(el.id, { perspectivePts: void 0 });
+  }
+  function setCorner(target, corner, axis, value) {
+    if (target.type === "arrow" || target.type === "audio") return;
+    const base = target.perspectivePts ?? makePerspectivePts(target.width, target.height);
+    const next = {
+      tl: [...base.tl],
+      tr: [...base.tr],
+      br: [...base.br],
+      bl: [...base.bl]
+    };
+    next[corner][axis] = value;
+    updateElement(target.id, { perspectivePts: next });
+  }
+  return /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col overflow-y-auto flex-1", children: [
+    /* @__PURE__ */ jsxDEV(PanelHeader, { icon: /* @__PURE__ */ jsxDEV(Focus, { size: 12 }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+      lineNumber: 58,
+      columnNumber: 26
+    }, this), title: "Perspective" }, void 0, false, {
+      fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+      lineNumber: 58,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV("div", { className: "px-3 py-3 flex flex-col gap-3", children: [
+      /* @__PURE__ */ jsxDEV("p", { className: "text-[10px] text-[#f2f2f2] leading-relaxed", children: "Drag corner handles to distort the element. Edge handles move two corners simultaneously." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+        lineNumber: 61,
+        columnNumber: 9
+      }, this),
+      !selectedEl && /* @__PURE__ */ jsxDEV("p", { className: "text-xs text-[#d9d9d9] text-center py-4", children: "Nothing is selected. Please select an item on the slide." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+        lineNumber: 66,
+        columnNumber: 9
+      }, this),
+      unsupported && /* @__PURE__ */ jsxDEV("p", { className: "text-xs text-[#d9d9d9] text-center py-4", children: "Perspective works on visual elements such as text, shapes, images, icons, and LaTeX." }, void 0, false, {
+        fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+        lineNumber: 72,
+        columnNumber: 9
+      }, this),
+      el && /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col gap-2", children: [
+        /* @__PURE__ */ jsxDEV("div", { className: "text-[10px] text-[#f2f2f2]", children: [
+          "Selected item: ",
+          /* @__PURE__ */ jsxDEV("span", { className: "text-editor-text", children: el.name }, void 0, false, {
+            fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+            lineNumber: 80,
+            columnNumber: 30
+          }, this)
+        ] }, void 0, true, {
+          fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+          lineNumber: 79,
+          columnNumber: 13
+        }, this),
+        el.perspectivePts && /* @__PURE__ */ jsxDEV("div", { className: "text-[10px] text-editor-accent bg-editor-accent-dim rounded px-2 py-1", children: "Perspective active" }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+          lineNumber: 84,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "grid grid-cols-2 gap-2", children: ["tl", "tr", "br", "bl"].map((corner) => {
+          const pts = el.perspectivePts ?? makePerspectivePts(el.width, el.height);
+          return /* @__PURE__ */ jsxDEV("div", { className: "rounded border border-editor-border bg-editor-elevated px-2 py-1.5", children: [
+            /* @__PURE__ */ jsxDEV("div", { className: "text-[10px] uppercase text-editor-secondary mb-1", children: corner }, void 0, false, {
+              fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+              lineNumber: 94,
+              columnNumber: 21
+            }, this),
+            /* @__PURE__ */ jsxDEV(Row, { label: "X", children: /* @__PURE__ */ jsxDEV(
+              "input",
+              {
+                type: "number",
+                step: 1,
+                value: Math.round(pts[corner][0]),
+                onChange: (e) => setCorner(el, corner, 0, Number(e.target.value)),
+                className: "w-full bg-[#171717] border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+              },
+              void 0,
+              false,
+              {
+                fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+                lineNumber: 96,
+                columnNumber: 23
+              },
+              this
+            ) }, void 0, false, {
+              fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+              lineNumber: 95,
+              columnNumber: 21
+            }, this),
+            /* @__PURE__ */ jsxDEV(Row, { label: "Y", children: /* @__PURE__ */ jsxDEV(
+              "input",
+              {
+                type: "number",
+                step: 1,
+                value: Math.round(pts[corner][1]),
+                onChange: (e) => setCorner(el, corner, 1, Number(e.target.value)),
+                className: "w-full bg-[#171717] border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+              },
+              void 0,
+              false,
+              {
+                fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+                lineNumber: 105,
+                columnNumber: 23
+              },
+              this
+            ) }, void 0, false, {
+              fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+              lineNumber: 104,
+              columnNumber: 21
+            }, this)
+          ] }, corner, true, {
+            fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+            lineNumber: 93,
+            columnNumber: 17
+          }, this);
+        }) }, void 0, false, {
+          fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+          lineNumber: 89,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV(
+          "button",
+          {
+            onClick: reset,
+            disabled: !el.perspectivePts,
+            className: "text-xs px-3 py-1.5 bg-editor-elevated border border-editor-border rounded text-[#f2f2f2] hover:text-editor-text transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+            children: "Reset Perspective"
+          },
+          void 0,
+          false,
+          {
+            fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+            lineNumber: 118,
+            columnNumber: 13
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+        lineNumber: 78,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+      lineNumber: 60,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "D:/luffy-editor/src/components/panels/PerspectivePanel.tsx",
+    lineNumber: 57,
+    columnNumber: 5
+  }, this);
+}
+_s(PerspectivePanel, "A7v8TR9qWKDvipYQF3KW4AuyjtY=", false, function() {
+  return [useEditorStore];
+});
+_c = PerspectivePanel;
+var _c;
+$RefreshReg$(_c, "PerspectivePanel");
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("D:/luffy-editor/src/components/panels/PerspectivePanel.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("D:/luffy-editor/src/components/panels/PerspectivePanel.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,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YUErQ0E7QUFBQSxTQWpFSjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBbUVBO0FBQUEsT0F0RUY7QUFBQTtBQUFBO0FBQUE7QUFBQSxTQXVFQTtBQUVKO0FBQUNaLEdBckd1QkQsa0JBQWdCO0FBQUEsVUFDSUosY0FBYztBQUFBO0FBQUEsS0FEbENJO0FBQWdCLElBQUFrQztBQUFBLGFBQUFBLElBQUEiLCJuYW1lcyI6WyJGb2N1cyIsInVzZUVkaXRvclN0b3JlIiwibWFrZVBlcnNwZWN0aXZlUHRzIiwiUGFuZWxIZWFkZXIiLCJSb3ciLCJQZXJzcGVjdGl2ZVBhbmVsIiwiX3MiLCJnZXRTZWxlY3RlZEVscyIsInVwZGF0ZUVsZW1lbnQiLCJzZWxlY3RlZCIsInNlbGVjdGVkRWwiLCJlbCIsImZpbmQiLCJlIiwidHlwZSIsInVuc3VwcG9ydGVkIiwicmVzZXQiLCJpZCIsInBlcnNwZWN0aXZlUHRzIiwidW5kZWZpbmVkIiwic2V0Q29ybmVyIiwidGFyZ2V0IiwiY29ybmVyIiwiYXhpcyIsInZhbHVlIiwiYmFzZSIsIndpZHRoIiwiaGVpZ2h0IiwibmV4dCIsInRsIiwidHIiLCJiciIsImJsIiwibmFtZSIsIm1hcCIsInB0cyIsIk1hdGgiLCJyb3VuZCIsIk51bWJlciIsIl9jIl0sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIlBlcnNwZWN0aXZlUGFuZWwudHN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IEZvY3VzIH0gZnJvbSAnbHVjaWRlLXJlYWN0J1xuaW1wb3J0IHsgdXNlRWRpdG9yU3RvcmUgfSBmcm9tICcuLi8uLi9zdG9yZS9lZGl0b3JTdG9yZSdcbmltcG9ydCB0eXBlIHsgRWRpdG9yRWxlbWVudCB9IGZyb20gJy4uLy4uL3R5cGVzL2VkaXRvcidcbmltcG9ydCB7IG1ha2VQZXJzcGVjdGl2ZVB0cyB9IGZyb20gJy4uLy4uL2VuZ2luZS9wZXJzcGVjdGl2ZVV0aWxzJ1xuaW1wb3J0IHsgUGFuZWxIZWFkZXIsIFJvdyB9IGZyb20gJy4vVGV4dFBhbmVsJ1xuXG50eXBlIENvcm5lcktleSA9ICd0bCcgfCAndHInIHwgJ2JyJyB8ICdibCdcbnR5cGUgQXhpcyA9IDAgfCAxXG5cbmV4cG9ydCBkZWZhdWx0IGZ1bmN0aW9uIFBlcnNwZWN0aXZlUGFuZWwoKSB7XG4gIGNvbnN0IHsgZ2V0U2VsZWN0ZWRFbHMsIHVwZGF0ZUVsZW1lbnQgfSA9IHVzZUVkaXRvclN0b3JlKClcbiAgY29uc3Qgc2VsZWN0ZWQgPSBnZXRTZWxlY3RlZEVscygpXG4gIGNvbnN0IHNlbGVjdGVkRWwgPSBzZWxlY3RlZFswXVxuICBjb25zdCBlbCA9IHNlbGVjdGVkLmZpbmQoZSA9PiBlLnR5cGUgIT09ICdhcnJvdycgJiYgZS50eXBlICE9PSAnYXVkaW8nKVxuICBjb25zdCB1bnN1cHBvcnRlZCA9IHNlbGVjdGVkRWwgJiYgIWVsXG5cbiAgZnVuY3Rpb24gcmVzZXQoKSB7XG4gICAgaWYgKCFlbCkgcmV0dXJuXG4gICAgLy8gZXNsaW50LWRpc2FibGUtbmV4dC1saW5lIEB0eXBlc2NyaXB0LWVzbGludC9uby1leHBsaWNpdC1hbnlcbiAgICB1cGRhdGVFbGVtZW50KGVsLmlkLCB7IHBlcnNwZWN0aXZlUHRzOiB1bmRlZmluZWQgfSBhcyBhbnkpXG4gIH1cblxuICBmdW5jdGlvbiBzZXRDb3JuZXIodGFyZ2V0OiBFZGl0b3JFbGVtZW50LCBjb3JuZXI6IENvcm5lcktleSwgYXhpczogQXhpcywgdmFsdWU6IG51bWJlcikge1xuICAgIGlmICh0YXJnZXQudHlwZSA9PT0gJ2Fycm93JyB8fCB0YXJnZXQudHlwZSA9PT0gJ2F1ZGlvJykgcmV0dXJuXG4gICAgY29uc3QgYmFzZSA9IHRhcmdldC5wZXJzcGVjdGl2ZVB0cyA/PyBtYWtlUGVyc3BlY3RpdmVQdHModGFyZ2V0LndpZHRoLCB0YXJnZXQuaGVpZ2h0KVxuICAgIGNvbnN0IG5leHQgPSB7XG4gICAgICB0bDogWy4uLmJhc2UudGxdIGFzIFtudW1iZXIsIG51bWJlcl0sXG4gICAgICB0cjogWy4uLmJhc2UudHJdIGFzIFtudW1iZXIsIG51bWJlcl0sXG4gICAgICBicjogWy4uLmJhc2UuYnJdIGFzIFtudW1iZXIsIG51bWJlcl0sXG4gICAgICBibDogWy4uLmJhc2UuYmxdIGFzIFtudW1iZXIsIG51bWJlcl0sXG4gICAgfVxuICAgIG5leHRbY29ybmVyXVtheGlzXSA9IHZhbHVlXG4gICAgLy8gZXNsaW50LWRpc2FibGUtbmV4dC1saW5lIEB0eXBlc2NyaXB0LWVzbGludC9uby1leHBsaWNpdC1hbnlcbiAgICB1cGRhdGVFbGVtZW50KHRhcmdldC5pZCwgeyBwZXJzcGVjdGl2ZVB0czogbmV4dCB9IGFzIGFueSlcbiAgfVxuXG4gIHJldHVybiAoXG4gICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGZsZXgtY29sIG92ZXJmbG93LXktYXV0byBmbGV4LTFcIj5cbiAgICAgIDxQYW5lbEhlYWRlciBpY29uPXs8Rm9jdXMgc2l6ZT17MTJ9IC8+fSB0aXRsZT1cIlBlcnNwZWN0aXZlXCIgLz5cblxuICAgICAgPGRpdiBjbGFzc05hbWU9XCJweC0zIHB5LTMgZmxleCBmbGV4LWNvbCBnYXAtM1wiPlxuICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LVsxMHB4XSB0ZXh0LVsjZjJmMmYyXSBsZWFkaW5nLXJlbGF4ZWRcIj5cbiAgICAgICAgICBEcmFnIGNvcm5lciBoYW5kbGVzIHRvIGRpc3RvcnQgdGhlIGVsZW1lbnQuIEVkZ2UgaGFuZGxlcyBtb3ZlIHR3byBjb3JuZXJzIHNpbXVsdGFuZW91c2x5LlxuICAgICAgICA8L3A+XG5cbiAgICAgICAgeyFzZWxlY3RlZEVsICYmIChcbiAgICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXhzIHRleHQtWyNkOWQ5ZDldIHRleHQtY2VudGVyIHB5LTRcIj5cbiAgICAgICAgICAgIE5vdGhpbmcgaXMgc2VsZWN0ZWQuIFBsZWFzZSBzZWxlY3QgYW4gaXRlbSBvbiB0aGUgc2xpZGUuXG4gICAgICAgICAgPC9wPlxuICAgICAgICApfVxuXG4gICAgICAgIHt1bnN1cHBvcnRlZCAmJiAoXG4gICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC14cyB0ZXh0LVsjZDlkOWQ5XSB0ZXh0LWNlbnRlciBweS00XCI+XG4gICAgICAgICAgICBQZXJzcGVjdGl2ZSB3b3JrcyBvbiB2aXN1YWwgZWxlbWVudHMgc3VjaCBhcyB0ZXh0LCBzaGFwZXMsIGltYWdlcywgaWNvbnMsIGFuZCBMYVRlWC5cbiAgICAgICAgICA8L3A+XG4gICAgICAgICl9XG5cbiAgICAgICAge2VsICYmIChcbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggZmxleC1jb2wgZ2FwLTJcIj5cbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwidGV4dC1bMTBweF0gdGV4dC1bI2YyZjJmMl1cIj5cbiAgICAgICAgICAgICAgU2VsZWN0ZWQgaXRlbTogPHNwYW4gY2xhc3NOYW1lPVwidGV4dC1lZGl0b3ItdGV4dFwiPntlbC5uYW1lfTwvc3Bhbj5cbiAgICAgICAgICAgIDwvZGl2PlxuXG4gICAgICAgICAgICB7ZWwucGVyc3BlY3RpdmVQdHMgJiYgKFxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInRleHQtWzEwcHhdIHRleHQtZWRpdG9yLWFjY2VudCBiZy1lZGl0b3ItYWNjZW50LWRpbSByb3VuZGVkIHB4LTIgcHktMVwiPlxuICAgICAgICAgICAgICAgIFBlcnNwZWN0aXZlIGFjdGl2ZVxuICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICl9XG5cbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZ3JpZCBncmlkLWNvbHMtMiBnYXAtMlwiPlxuICAgICAgICAgICAgICB7KFsndGwnLCAndHInLCAnYnInLCAnYmwnXSBhcyBDb3JuZXJLZXlbXSkubWFwKGNvcm5lciA9PiB7XG4gICAgICAgICAgICAgICAgY29uc3QgcHRzID0gZWwucGVyc3BlY3RpdmVQdHMgPz8gbWFrZVBlcnNwZWN0aXZlUHRzKGVsLndpZHRoLCBlbC5oZWlnaHQpXG4gICAgICAgICAgICAgICAgcmV0dXJuIChcbiAgICAgICAgICAgICAgICAgIDxkaXYga2V5PXtjb3JuZXJ9IGNsYXNzTmFtZT1cInJvdW5kZWQgYm9yZGVyIGJvcmRlci1lZGl0b3ItYm9yZGVyIGJnLWVkaXRvci1lbGV2YXRlZCBweC0yIHB5LTEuNVwiPlxuICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInRleHQtWzEwcHhdIHVwcGVyY2FzZSB0ZXh0LWVkaXRvci1zZWNvbmRhcnkgbWItMVwiPntjb3JuZXJ9PC9kaXY+XG4gICAgICAgICAgICAgICAgICAgIDxSb3cgbGFiZWw9XCJYXCI+XG4gICAgICAgICAgICAgICAgICAgICAgPGlucHV0XG4gICAgICAgICAgICAgICAgICAgICAgICB0eXBlPVwibnVtYmVyXCJcbiAgICAgICAgICAgICAgICAgICAgICAgIHN0ZXA9ezF9XG4gICAgICAgICAgICAgICAgICAgICAgICB2YWx1ZT17TWF0aC5yb3VuZChwdHNbY29ybmVyXVswXSl9XG4gICAgICAgICAgICAgICAgICAgICAgICBvbkNoYW5nZT17ZSA9PiBzZXRDb3JuZXIoZWwsIGNvcm5lciwgMCwgTnVtYmVyKGUudGFyZ2V0LnZhbHVlKSl9XG4gICAgICAgICAgICAgICAgICAgICAgICBjbGFzc05hbWU9XCJ3LWZ1bGwgYmctWyMxNzE3MTddIGJvcmRlciBib3JkZXItZWRpdG9yLWJvcmRlciByb3VuZGVkIHRleHQteHMgdGV4dC1lZGl0b3ItdGV4dCBweC0yIHB5LTEgbm9kcmFnXCJcbiAgICAgICAgICAgICAgICAgICAgICAvPlxuICAgICAgICAgICAgICAgICAgICA8L1Jvdz5cbiAgICAgICAgICAgICAgICAgICAgPFJvdyBsYWJlbD1cIllcIj5cbiAgICAgICAgICAgICAgICAgICAgICA8aW5wdXRcbiAgICAgICAgICAgICAgICAgICAgICAgIHR5cGU9XCJudW1iZXJcIlxuICAgICAgICAgICAgICAgICAgICAgICAgc3RlcD17MX1cbiAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlPXtNYXRoLnJvdW5kKHB0c1tjb3JuZXJdWzFdKX1cbiAgICAgICAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXtlID0+IHNldENvcm5lcihlbCwgY29ybmVyLCAxLCBOdW1iZXIoZS50YXJnZXQudmFsdWUpKX1cbiAgICAgICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cInctZnVsbCBiZy1bIzE3MTcxN10gYm9yZGVyIGJvcmRlci1lZGl0b3ItYm9yZGVyIHJvdW5kZWQgdGV4dC14cyB0ZXh0LWVkaXRvci10ZXh0IHB4LTIgcHktMSBub2RyYWdcIlxuICAgICAgICAgICAgICAgICAgICAgIC8+XG4gICAgICAgICAgICAgICAgICAgIDwvUm93PlxuICAgICAgICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICAgICAgKVxuICAgICAgICAgICAgICB9KX1cbiAgICAgICAgICAgIDwvZGl2PlxuXG4gICAgICAgICAgICA8YnV0dG9uXG4gICAgICAgICAgICAgIG9uQ2xpY2s9e3Jlc2V0fVxuICAgICAgICAgICAgICBkaXNhYmxlZD17IWVsLnBlcnNwZWN0aXZlUHRzfVxuICAgICAgICAgICAgICBjbGFzc05hbWU9XCJ0ZXh0LXhzIHB4LTMgcHktMS41IGJnLWVkaXRvci1lbGV2YXRlZCBib3JkZXIgYm9yZGVyLWVkaXRvci1ib3JkZXIgcm91bmRlZCB0ZXh0LVsjZjJmMmYyXSBob3Zlcjp0ZXh0LWVkaXRvci10ZXh0IHRyYW5zaXRpb24tY29sb3JzIGRpc2FibGVkOm9wYWNpdHktNDAgZGlzYWJsZWQ6Y3Vyc29yLW5vdC1hbGxvd2VkXCJcbiAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgUmVzZXQgUGVyc3BlY3RpdmVcbiAgICAgICAgICAgIDwvYnV0dG9uPlxuICAgICAgICAgIDwvZGl2PlxuICAgICAgICApfVxuICAgICAgPC9kaXY+XG4gICAgPC9kaXY+XG4gIClcbn1cbiJdLCJmaWxlIjoiRDovbHVmZnktZWRpdG9yL3NyYy9jb21wb25lbnRzL3BhbmVscy9QZXJzcGVjdGl2ZVBhbmVsLnRzeCJ9

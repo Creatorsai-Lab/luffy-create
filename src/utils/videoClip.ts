@@ -6,6 +6,13 @@ export interface VideoClipState {
   clipLocalTime: number
 }
 
+export function sourceVideoClipDuration(el: VideoElement): number {
+  const source = el.sourceDuration ?? 9999
+  const start = el.startTime ?? 0
+  const rate = el.playbackRate ?? 1
+  return Math.max(0.1, (source - start) / rate)
+}
+
 /** Map scene-local time to source-file seek position for a video clip. */
 export function getVideoClipState(el: VideoElement, sceneLocalTime: number): VideoClipState {
   const timelineX = el.timelineX ?? 0
@@ -23,17 +30,25 @@ export function getVideoClipState(el: VideoElement, sceneLocalTime: number): Vid
     return { visible: false, sourceTime: startTime, clipLocalTime: clipLocal }
   }
 
+  const rawElapsed = clipLocal * rate
+  if (el.loop) {
+    const source = el.sourceDuration ?? duration * rate
+    const sourceSpan = Math.max(0.05, source - startTime)
+    return {
+      visible: true,
+      sourceTime: startTime + (rawElapsed % sourceSpan),
+      clipLocalTime: clipLocal,
+    }
+  }
+
   return {
     visible: true,
-    sourceTime: startTime + clipLocal * rate,
+    sourceTime: startTime + rawElapsed,
     clipLocalTime: clipLocal,
   }
 }
 
 /** Max clip duration on timeline given current trim + speed. */
 export function maxVideoClipDuration(el: VideoElement): number {
-  const source = el.sourceDuration ?? 9999
-  const start = el.startTime ?? 0
-  const rate = el.playbackRate ?? 1
-  return Math.max(0.1, (source - start) / rate)
+  return el.loop ? Number.POSITIVE_INFINITY : sourceVideoClipDuration(el)
 }

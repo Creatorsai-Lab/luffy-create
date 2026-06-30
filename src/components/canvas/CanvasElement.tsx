@@ -25,9 +25,11 @@ interface Props {
   onDblClick: () => void
   stageScale: number
   localTime?: number   // scene-local seconds — drives video seeking
+  syncVideoToTime?: boolean
+  videoPlaybackActive?: boolean
 }
 
-export default function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0 }: Props) {
+export default function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, syncVideoToTime = true, videoPlaybackActive = false }: Props) {
   const { updateElement } = useEditorStore()
 
   // Animation-driven scale from center: adjust x/y so the element scales around its center,
@@ -137,6 +139,8 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
           el={v}
           konvaProps={{ ...props, opacity: inClip ? props.opacity : 0, listening: inClip }}
           localTime={localTime}
+          syncToTime={syncVideoToTime}
+          playbackActive={videoPlaybackActive}
         />
       )
     }

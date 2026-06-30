@@ -438,10 +438,6 @@ export default function EditorCanvas() {
   }
   function handleStageClick(e: Konva.KonvaEventObject<MouseEvent>) {
     if (cropState) { exitCropMode(); return }
-    if (e.target === e.target.getStage() || e.target.name() === 'bg') {
-      deselectAll()
-      return
-    }
     if (!currentScene) return
     const { x, y } = toProjectCoords(e.evt.clientX, e.evt.clientY)
 
@@ -487,6 +483,10 @@ export default function EditorCanvas() {
       case 'counter':
         // Don't add counter on canvas click - user configures in panel first
         break
+      default:
+        if (e.target === e.target.getStage() || e.target.name() === 'bg') {
+          deselectAll()
+        }
     }
   }
 
@@ -616,6 +616,8 @@ export default function EditorCanvas() {
                   }}
                   stageScale={scale}
                   localTime={localTime}
+                  syncVideoToTime={!localPlayingIds.has(el.id) && (isPlaying || playhead > 0)}
+                  videoPlaybackActive={isPlaying}
                 />
               )
             })}

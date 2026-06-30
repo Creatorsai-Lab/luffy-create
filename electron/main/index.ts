@@ -20,7 +20,7 @@ protocol.registerSchemesAsPrivileged([
 ])
 import { join, normalize } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { mkdir, readFile, writeFile, copyFile, readdir, rm, stat, open } from 'fs/promises'
+import { mkdir, readFile, writeFile, copyFile, readdir, rm, stat, open, rename } from 'fs/promises'
 import { existsSync, writeFileSync } from 'fs'
 
 const USER_DATA   = app.getPath('userData')
@@ -65,13 +65,100 @@ async function ensureDir(dir: string) {
   if (!existsSync(dir)) await mkdir(dir, { recursive: true })
 }
 
+async function writeFileAtomic(filePath: string, data: string) {
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`
+  const fh = await open(tmpPath, 'w')
+  try {
+    await fh.writeFile(data, 'utf-8')
+    await fh.sync()
+  } finally {
+    await fh.close()
+  }
+
+  try {
+    await rename(tmpPath, filePath)
+  } catch (err) {
+    await rm(tmpPath, { force: true }).catch(() => {})
+    throw err
+  }
+}
+
+async function backupValidJsonFile(filePath: string) {
+  try {
+    const raw = await readFile(filePath, 'utf-8')
+    JSON.parse(raw)
+    await copyFile(filePath, `${filePath}.bak`)
+  } catch {
+    // No valid previous JSON to preserve.
+  }
+}
+
+async function writeJsonFile(filePath: string, data: string) {
+  JSON.parse(data)
+  await backupValidJsonFile(filePath)
+  await writeFileAtomic(filePath, data)
+}
+
+async function readJsonWithBackup<T>(filePath: string): Promise<T> {
+  try {
+    return JSON.parse(await readFile(filePath, 'utf-8'))
+  } catch (primaryErr) {
+    try {
+      return JSON.parse(await readFile(`${filePath}.bak`, 'utf-8'))
+    } catch {
+      throw primaryErr
+    }
+  }
+}
+
+async function recordFromProjectFolder(folder: string): Promise<ProjectRecord | null> {
+  try {
+    const project = await readJsonWithBackup<{ id?: string; name?: string; createdAt?: number; updatedAt?: number }>(
+      join(folder, 'project.json')
+    )
+    if (!project.id || !project.name) return null
+    return {
+      id: project.id,
+      name: project.name,
+      folder,
+      createdAt: project.createdAt || Date.now(),
+      updatedAt: project.updatedAt || Date.now()
+    }
+  } catch {
+    return null
+  }
+}
+
 async function readIndex(): Promise<ProjectRecord[]> {
-  try { return JSON.parse(await readFile(INDEX_FILE, 'utf-8')) }
-  catch { return [] }
+  let records: ProjectRecord[] = []
+  try {
+    const parsed = await readJsonWithBackup<ProjectRecord[]>(INDEX_FILE)
+    if (Array.isArray(parsed)) records = parsed
+  } catch {
+    records = []
+  }
+
+  const seen = new Set(records.map(r => r.id))
+  try {
+    await ensureDir(PROJECTS_DIR)
+    const entries = await readdir(PROJECTS_DIR, { withFileTypes: true })
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue
+      const record = await recordFromProjectFolder(join(PROJECTS_DIR, entry.name))
+      if (record && !seen.has(record.id)) {
+        records.push(record)
+        seen.add(record.id)
+      }
+    }
+  } catch {
+    // If project-folder scanning fails, keep the parsed index.
+  }
+
+  return records
 }
 
 async function writeIndex(records: ProjectRecord[]) {
-  await writeFile(INDEX_FILE, JSON.stringify(records, null, 2), 'utf-8')
+  await writeJsonFile(INDEX_FILE, JSON.stringify(records, null, 2))
 }
 
 function focusedWindow(): BrowserWindow | null {
@@ -140,11 +227,9 @@ function registerIpcHandlers() {
     const idx    = await readIndex()
     const record = idx.find(r => r.id === id)
     if (!record) throw new Error('Project not found')
-    await writeFile(join(record.folder, 'project.json'), data, 'utf-8')
-    try {
-      const parsed = JSON.parse(data) as { name?: string }
-      if (parsed.name?.trim()) record.name = parsed.name.trim()
-    } catch { /* keep existing index name */ }
+    const parsed = JSON.parse(data) as { name?: string }
+    await writeJsonFile(join(record.folder, 'project.json'), data)
+    if (parsed.name?.trim()) record.name = parsed.name.trim()
     record.updatedAt = Date.now()
     await writeIndex(idx)
   })
@@ -153,8 +238,7 @@ function registerIpcHandlers() {
     const idx    = await readIndex()
     const record = idx.find(r => r.id === id)
     if (!record) throw new Error('Project not found')
-    const raw = await readFile(join(record.folder, 'project.json'), 'utf-8')
-    return JSON.parse(raw)
+    return readJsonWithBackup(join(record.folder, 'project.json'))
   })
 
   ipcMain.handle('projects:delete', async (_, id: string) => {

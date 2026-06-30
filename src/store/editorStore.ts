@@ -20,7 +20,7 @@ interface EditorState {
   zoom:              number
   activeTool:        ActiveTool
   activePanel:       ActivePanel
-  pendingChartType:  'bar' | 'line' | 'pie' | 'doughnut' | 'area'
+  pendingChartType:  'bar' | 'line' | 'pie' | 'doughnut' | 'area' | 'points'
   isDirty:           boolean
   codeModalOpen:     boolean
   codeModalElemId:   string | null
@@ -83,7 +83,7 @@ interface EditorActions {
   setZoom:          (z: number) => void
   setActiveTool:    (t: ActiveTool) => void
   setActivePanel:   (p: ActivePanel) => void
-  setPendingChartType: (ct: 'bar' | 'line' | 'pie' | 'doughnut' | 'area') => void
+  setPendingChartType: (ct: 'bar' | 'line' | 'pie' | 'doughnut' | 'area' | 'points') => void
   openCodeModal:    (elemId?: string) => void
   closeCodeModal:   () => void
   setCropElement:   (id: string | null) => void

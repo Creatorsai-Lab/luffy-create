@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useState, useMemo } from 'react'
-import { Plus, Play, Pause, SkipBack, ZoomIn, ZoomOut, ArrowLeftRight, Music, Trash2, Copy, Scissors, Split, X, Volume2, Bookmark, Shuffle, Film } from 'lucide-react'
+import { Plus, Play, Pause, SkipBack, ZoomIn, ZoomOut, ArrowLeftRight, Music, Trash2, Copy, Scissors, Split, X, Volume2, Bookmark, Shuffle, Film, Repeat } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { cn } from '../../utils/cn'
 import { toFileUrl } from '../../utils/pathUtils'
@@ -12,7 +12,7 @@ import { maxVideoClipDuration } from '../../utils/videoClip'
 import { TRANS_COLOR } from '../../utils/transitions'
 
 const RULER_HEIGHT = 22
-const SINGLE_VIDEO_TRACK_HEIGHT = 38
+const SINGLE_VIDEO_TRACK_HEIGHT = 42
 const SCENE_HEIGHT = 50
 const TRACK_HEIGHT = 32
 const PX_PER_SEC_BASE = 60
@@ -449,14 +449,17 @@ export default function Timeline() {
     const origDuration = video.duration ?? 10
     const origStartTime = video.startTime ?? 0
     const speed = video.playbackRate ?? 1
-    const maxDur = maxVideoClipDuration(video)
+    const result = findVideoScene(video.id)
+    const sceneRemaining = result ? Math.max(0.1, result.scene.duration - origTimelineX) : Number.POSITIVE_INFINITY
+    const maxDur = Math.min(maxVideoClipDuration(video), sceneRemaining)
 
     const handleMouseMove = (mv: MouseEvent) => {
       const delta = (mv.clientX - startMouseX) / PX_PER_SEC
       if (edge === 'end') {
         updateElement(video.id, { duration: Math.max(0.1, Math.min(maxDur, origDuration + delta)) })
       } else {
-        const newX = Math.max(0, origTimelineX + delta)
+        const maxX = result ? Math.max(0, result.scene.duration - 0.1) : Number.POSITIVE_INFINITY
+        const newX = Math.max(0, Math.min(maxX, origTimelineX + delta))
         const actualDelta = newX - origTimelineX
         updateElement(video.id, {
           timelineX: newX,
@@ -806,7 +809,7 @@ export default function Timeline() {
 
         {selectedVideo ? (
           <>
-            <Film size={15} className="text-violet-400 flex-none" />
+            <Film size={15} className="text-editor-text flex-none" />
 
             <div className="flex items-center gap-2 flex-none">
               <Volume2 size={15} className="text-editor-text" />
@@ -989,14 +992,14 @@ export default function Timeline() {
               const isSelected = selectedVideoId === video.id
               const isResizing = resizingVideo?.id === video.id
               const lane = videoLaneById.get(video.id) ?? 0
-              const topPx = lane * SINGLE_VIDEO_TRACK_HEIGHT + 2
-              const heightPx = SINGLE_VIDEO_TRACK_HEIGHT - 4
+              const topPx = lane * SINGLE_VIDEO_TRACK_HEIGHT + 3
+              const heightPx = SINGLE_VIDEO_TRACK_HEIGHT - 8
               return (
                 <div
                   key={video.id}
                   className={cn(
                     'absolute rounded overflow-hidden transition-shadow select-none cursor-grab',
-                    isSelected ? 'ring-2 ring-violet-300 shadow-lg shadow-violet-500/30' : 'hover:ring-1 hover:ring-violet-400/60',
+                    isSelected ? 'ring-2 ring-sky-300 shadow-lg shadow-black/40' : 'hover:ring-1 hover:ring-white/45',
                     isResizing && 'ring-2 ring-white',
                   )}
                   style={{
@@ -1004,7 +1007,7 @@ export default function Timeline() {
                     width: Math.max(widthPx, 40),
                     top: topPx,
                     height: heightPx,
-                    background: '#1a1033',
+                    background: '#111316',
                     boxShadow: '0 1px 6px rgba(0,0,0,0.45)',
                   }}
                   title={`${video.name} — ${clipDur.toFixed(1)}s — drag · right-click for options`}
@@ -1031,12 +1034,18 @@ export default function Timeline() {
                     speed={video.playbackRate ?? 1}
                     clipWidthPx={Math.max(widthPx, 40)}
                     trackH={heightPx}
+                    loop={video.loop ?? false}
                   />
-                  <div className="absolute inset-0 flex items-center px-1 pointer-events-none bg-gradient-to-r from-violet-900/40 via-transparent to-violet-900/40">
+                  <div className="absolute inset-0 flex items-center px-1 pointer-events-none bg-gradient-to-r from-black/45 via-transparent to-black/35">
                     <Film size={9} className="text-white/80 flex-none drop-shadow" />
                     <span className="text-[9px] text-white/90 truncate ml-1 font-medium drop-shadow">
                       {(video.playbackRate ?? 1) !== 1 ? `${video.playbackRate}× ` : ''}{clipDur.toFixed(1)}s
                     </span>
+                    {video.loop && (
+                      <span className="ml-auto flex items-center gap-0.5 rounded bg-black/55 px-1 py-0.5 text-[8px] uppercase tracking-normal text-white/85">
+                        <Repeat size={8} /> loop
+                      </span>
+                    )}
                   </div>
                   <div
                     className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 z-10"
@@ -1473,13 +1482,14 @@ export default function Timeline() {
 
 // ── Video clip filmstrip (timeline thumbnail) ─────────────────────────────────
 
-function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, trackH }: {
+function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, trackH, loop }: {
   src: string
   startTime: number
   clipDuration: number
   speed: number
   clipWidthPx: number
   trackH: number
+  loop: boolean
 }) {
   const [stripUrl, setStripUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
@@ -1556,7 +1566,8 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
           : startTime + clipDuration * speed
         const maxTime = Math.max(0, duration - 0.05)
         const sourceStart = Math.max(0, Math.min(startTime, maxTime))
-        const sourceSpan = Math.max(0.05, clipDuration * Math.max(speed, 0.01))
+        const sourceSpan = Math.max(0.05, duration - sourceStart)
+        const clipSourceSpan = Math.max(0.05, clipDuration * Math.max(speed, 0.01))
 
         ctx.fillStyle = '#111018'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -1564,7 +1575,10 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
         for (let i = 0; i < frameCount; i++) {
           if (cancelled) return
           const ratio = frameCount === 1 ? 0 : i / (frameCount - 1)
-          const sourceTime = Math.min(maxTime, sourceStart + sourceSpan * ratio)
+          const rawOffset = clipSourceSpan * ratio
+          const sourceTime = loop
+            ? Math.min(maxTime, sourceStart + (rawOffset % sourceSpan))
+            : Math.min(maxTime, sourceStart + rawOffset)
           await seekTo(sourceTime)
           if (cancelled) return
           const x = i * (frameW + gap)
@@ -1572,6 +1586,10 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
           if (gap > 0 && i < frameCount - 1) {
             ctx.fillStyle = 'rgba(7,7,10,0.92)'
             ctx.fillRect(x + frameW, 0, gap, safeTrackH)
+          }
+          if (loop && sourceSpan > 0 && rawOffset >= sourceSpan) {
+            ctx.fillStyle = 'rgba(255,255,255,0.5)'
+            ctx.fillRect(x, 0, 1, safeTrackH)
           }
         }
 
@@ -1592,7 +1610,7 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
       video.src = ''
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [src, startTime, clipDuration, speed, clipWidthPx, trackH])
+  }, [src, startTime, clipDuration, speed, clipWidthPx, trackH, loop])
 
   if (stripUrl) {
     return (
@@ -1609,8 +1627,8 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
       className="absolute inset-0 pointer-events-none"
       style={{
         background: failed
-          ? 'linear-gradient(135deg, rgba(88,28,135,0.55), rgba(30,27,75,0.7))'
-          : 'repeating-linear-gradient(90deg, rgba(76,29,149,0.65) 0 54px, rgba(109,40,217,0.45) 54px 56px)',
+          ? 'linear-gradient(135deg, rgba(39,43,48,0.88), rgba(16,18,22,0.94))'
+          : 'repeating-linear-gradient(90deg, rgba(38,42,48,0.9) 0 54px, rgba(68,74,84,0.72) 54px 56px)',
         opacity: 0.9,
       }}
     />
