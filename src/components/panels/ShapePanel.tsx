@@ -97,7 +97,7 @@ export default function ShapePanel() {
               disabled={!project}
               title={s.label}
               className={cn(
-                'flex flex-col items-center justify-center gap-0.5 w-full h-10 rounded border cursor-pointer transition-all',
+                'flex items-center justify-center w-full h-9 rounded border cursor-pointer transition-all',
                 'bg-editor-elevated border-editor-border text-editor-text',
                 'hover:bg-editor-accent-dim hover:border-editor-accent hover:text-editor-accent active:scale-95',
                 'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-editor-elevated disabled:hover:border-editor-border',
@@ -105,15 +105,14 @@ export default function ShapePanel() {
               )}
             >
               {s.icon}
-              <span className="text-[8px] leading-none truncate w-full text-center px-0.5">{s.label.split(' ')[0]}</span>
             </button>
           ))}
         </div>
       </div>
 
       {!el && (
-        <p className="text-xs text-editor-secondary px-3 py-3">
-          Select a shape on the canvas to edit fill, stroke, size, and animations.
+        <p className="text-sm text-editor-secondary px-3 py-3">
+          Select a shape on the canvas to edit it.
         </p>
       )}
 
@@ -335,7 +334,7 @@ function AnimBlock({
       </Row>
 
       <Row label="Delay (s)">
-        <input type="number" min={0} max={30} step={0.1}
+        <input type="number" min={0} max={60} step={0.1}
           value={anim.delay}
           onChange={e => upd({ delay: Number(e.target.value) })}
           className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"

@@ -39,6 +39,11 @@ export const LOOP_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade Loop', value: 'fadeLoop'   },
 ]
 
+const TEXT_LOOP_ANIMS: { label: string; value: AnimationType }[] = [
+  ...LOOP_ANIMS,
+  { label: 'Color Pulse', value: 'colorPulse' },
+]
+
 export const EXIT_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Slide Out', value: 'slideOut' },
   { label: 'Fade Out',  value: 'fadeOut'  },
@@ -62,7 +67,7 @@ const EASINGS: { label: string; value: EasingType }[] = [
   { label: 'Bounce',     value: 'bounce'   },
 ]
 
-const LOOP_TYPE_SET = new Set<string>(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop'])
+const LOOP_TYPE_SET = new Set<string>(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop', 'colorPulse'])
 export const isLoopAnim = (a: ElementAnimation) => LOOP_TYPE_SET.has(a.type) || a.timing === 'loop'
 
 export default function TextPanel() {
@@ -102,8 +107,8 @@ export default function TextPanel() {
 
       <div className="flex-1 overflow-y-auto">
         {!el && (
-          <p className="text-xs text-[#c1c1c1] px-3 py-4 text-center">
-            Select a text element to edit its properties.
+          <p className="text-sn text-[#c1c1c1] px-3 py-4 text-center">
+            Click on '+ Add Text' to add a text box in scene
           </p>
         )}
 
@@ -312,7 +317,7 @@ export default function TextPanel() {
             <AnimSection
               label="Loop" color="text-editor-accent"
               anims={el.animations.filter(a => a.type !== 'move' && isLoopAnim(a))}
-              types={LOOP_ANIMS}
+              types={TEXT_LOOP_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'pulse', timing: 'loop', duration: 1 })}
               elId={el.id} isLoop={true}
             />
@@ -488,6 +493,23 @@ function AnimBlock({
 
   const hasDir  = ['slideIn', 'slideOut', 'wipeIn', 'wipeOut'].includes(anim.type)
   const hasDist = anim.type === 'bounceLoop'
+  const isColorPulse = anim.type === 'colorPulse'
+  const updateType = (type: AnimationType) => {
+    if (type === 'colorPulse') {
+      upd({
+        type,
+        timing: 'loop',
+        duration: anim.duration > 0 ? Math.min(anim.duration, 1) : 0.4,
+        params: {
+          ...anim.params,
+          pulseColor: anim.params?.pulseColor ?? '#ffea00',
+          pulseCount: anim.params?.pulseCount ?? 2,
+        },
+      })
+      return
+    }
+    upd({ type })
+  }
 
   return (
     <div className="border-t border-editor-border px-3 py-2 flex flex-col gap-1.5">
@@ -501,17 +523,35 @@ function AnimBlock({
       <Row label="Type">
         <select
           value={anim.type}
-          onChange={e => upd({ type: e.target.value as AnimationType })}
+          onChange={e => updateType(e.target.value as AnimationType)}
           className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
         >
           {types.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
       </Row>
 
-      {isLoop && (
+      {isLoop && !isColorPulse && (
         <div className="text-[10px] text-editor-accent bg-editor-accent-dim rounded px-2 py-0.5 w-fit">
           ∞ Loops continuously
         </div>
+      )}
+
+      {isColorPulse && (
+        <>
+          <Row label="Pulse Color">
+            <ColorInput
+              value={anim.params?.pulseColor ?? '#ffea00'}
+              onChange={value => upd({ params: { ...anim.params, pulseColor: value } })}
+            />
+          </Row>
+          <Row label="Pulse Count">
+            <input type="number" min={1} max={20} step={1}
+              value={anim.params?.pulseCount ?? 2}
+              onChange={e => upd({ params: { ...anim.params, pulseCount: Math.max(1, Number(e.target.value) || 1) } })}
+              className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+            />
+          </Row>
+        </>
       )}
 
       {hasDir && (
@@ -536,15 +576,17 @@ function AnimBlock({
         </Row>
       )}
 
-      <Row label="Start (s)">
-        <input type="number" min={0} max={60} step={0.1}
-          value={anim.startTime}
-          onChange={e => upd({ startTime: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
-        />
-      </Row>
+      {!isColorPulse && (
+        <Row label="Start (s)">
+          <input type="number" min={0} max={60} step={0.1}
+            value={anim.startTime}
+            onChange={e => upd({ startTime: Number(e.target.value) })}
+            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          />
+        </Row>
+      )}
 
-      <Row label={isLoop ? 'Period (s)' : 'Duration (s)'}>
+      <Row label={isColorPulse ? 'Pulse Duration (s)' : isLoop ? 'Period (s)' : 'Duration (s)'}>
         <input type="number" min={0.1} max={30} step={0.1}
           value={anim.duration}
           onChange={e => upd({ duration: Number(e.target.value) })}
@@ -553,7 +595,7 @@ function AnimBlock({
       </Row>
 
       <Row label="Delay (s)">
-        <input type="number" min={0} max={30} step={0.1}
+        <input type="number" min={0} max={60} step={0.1}
           value={anim.delay}
           onChange={e => upd({ delay: Number(e.target.value) })}
           className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"

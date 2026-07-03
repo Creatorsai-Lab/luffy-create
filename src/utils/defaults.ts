@@ -5,7 +5,7 @@ import type {
   IconElement, LatexElement, CounterElement, ElementAnimation, SceneTransition, ShapeType
 } from '../types/editor'
 
-export const DEFAULT_BG: Background = { type: 'solid', color: '#fffaf7' }
+export const DEFAULT_BG: Background = { type: 'solid', color: '#cac8c6' }
 
 export const DEFAULT_TRANSITION: SceneTransition = { type: 'none', duration: 0.5 }
 
@@ -35,12 +35,12 @@ export function makeProject(id: string, name: string): Project {
 export function makeText(x: number, y: number): TextElement {
   return {
     id: uuid(), type: 'text', name: 'Text',
-    x, y, width: 500, height: 60,
+    x, y, width: 600, height: 60,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
-    content: 'Double-click to edit',
-    fontSize: 50, fontFamily: 'Segoe UI', fontWeight: 'normal',
-    italic: false, color: '#333333', align: 'left',
+    content: 'Write in the text box',
+    fontSize: 55, fontFamily: 'Noto Serif', fontWeight: 'normal',
+    italic: false, color: '#807f7f', align: 'left',
     lineHeight: 1.4, letterSpacing: 0, underline: false,
     shadowColor: 'transparent',
     shadowBlur: 0,
@@ -109,8 +109,8 @@ export function makeCode(x: number, y: number): CodeElement {
     x, y, width: 480, height: 240,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
-    code: '// Enter your code here\nconst hello = "world"\nconsole.log(hello)',
-    language: 'javascript',
+    code: '# Enter your code here\nvariable = "Hello, World!"\nprint(variable)',
+    language: 'python',
     fontSize: 14, showLineNumbers: true
   }
 }
@@ -247,6 +247,10 @@ export function makeAudio(src: string, assetId: string, duration: number): Audio
     src, assetId,
     volume: 1,
     speed: 1,
+    voice: 0,
+    pitch: 0,
+    bass: 0,
+    saturation: 0,
     fadeIn: 0,
     fadeOut: 0,
     startTime: 0,

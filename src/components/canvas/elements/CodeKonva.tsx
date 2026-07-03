@@ -188,9 +188,12 @@ export default function CodeKonva({ el, konvaProps }: Props) {
   return (
     <Group {...konvaProps} width={el.width} height={el.height}>
       <Shape
+        id={`${el.id}-hit`}
         width={el.width}
         height={el.height}
         sceneFunc={sceneFunc}
+        onClick={konvaProps.onClick as (e: Konva.KonvaEventObject<MouseEvent>) => void}
+        onDblClick={konvaProps.onDblClick as (e: Konva.KonvaEventObject<MouseEvent>) => void}
         hitFunc={(ctx, shape) => {
           ctx.beginPath()
           ctx.rect(0, 0, el.width, el.height)

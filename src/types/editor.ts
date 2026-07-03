@@ -4,7 +4,7 @@ export type ElementType   = 'text' | 'shape' | 'arrow' | 'code' | 'image' | 'tab
 export type ShapeType     = 'rect' | 'circle' | 'triangle' | 'star' | 'pentagon' | 'hexagon' | 'octagon' | 'diamond' | 'oval' | 'speechBubble' | 'roundedSpeech' | 'cone' | 'cube' | 'rect-hand' | 'circle-hand' | 'square-hand' | 'heart' | 'rect-sketch'
 export type AnimationType = 'fadeIn' | 'fadeOut' | 'slideIn' | 'slideOut' | 'scaleIn' | 'scaleOut' | 'wipeIn' | 'wipeOut' | 'typewriter' | 'drawPath' | 'spin' | 'pulse' | 'bounceLoop' | 'rotateLoop' | 'move' |
   // Text-specific animations
-  'typewriterChars' | 'typewriterWords' | 'textFade' |
+  'typewriterChars' | 'typewriterWords' | 'textFade' | 'colorPulse' |
   // Arrow-specific animations
   'drawOff' | 'flowLoop' | 'fadeLoop' |
   // Chart-specific animations
@@ -41,6 +41,8 @@ export interface ElementAnimation {
     deltaY?: number
     speed?: number
     moveOutside?: boolean
+    pulseColor?: string
+    pulseCount?: number
   }
 }
 
@@ -321,6 +323,10 @@ export interface AudioElement extends BaseElement {
   assetId: string
   volume: number
   speed?: number     // Playback speed multiplier, default 1
+  voice?: number     // Voice tone -100..100, default 0
+  pitch?: number     // Semitone shift -12..12, default 0
+  bass?: number      // Bass gain in dB -12..12, default 0
+  saturation?: number // Harmonic saturation -100..100, default 0
   fadeIn: number
   fadeOut: number
   startTime: number  // Trim start (seconds)

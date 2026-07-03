@@ -7,12 +7,12 @@ import { cn } from '../../utils/cn'
 import { FONT_FAMILIES } from '../../types/editor'
 
 const CHART_TYPES: { icon: React.ReactNode; type: ChartElement['chartType']; label: string }[] = [
-  { icon: <BarChart3 size={13} />,   type: 'bar',      label: 'Bar' },
-  { icon: <LineChart size={13} />,   type: 'line',     label: 'Line' },
-  { icon: <TrendingUp size={13} />,  type: 'area',     label: 'Area' },
-  { icon: <PieChart size={13} />,    type: 'pie',      label: 'Pie' },
-  { icon: <PieChart size={13} />,    type: 'doughnut', label: 'Ring' },
-  { icon: <CircleDot size={13} />,    type: 'points',   label: 'Points' },
+  { icon: <BarChart3 size={14} />,   type: 'bar',      label: 'Bar' },
+  { icon: <LineChart size={14} />,   type: 'line',     label: 'Line' },
+  { icon: <TrendingUp size={14} />,  type: 'area',     label: 'Area' },
+  { icon: <PieChart size={14} />,    type: 'pie',      label: 'Pie' },
+  { icon: <PieChart size={14} />,    type: 'doughnut', label: 'Ring' },
+  { icon: <CircleDot size={14} />,    type: 'points',   label: 'Points' },
 ]
 
 const CHART_ANIM_TYPES: Record<ChartElement['chartType'], AnimationType> = {
@@ -25,12 +25,12 @@ const CHART_ANIM_TYPES: Record<ChartElement['chartType'], AnimationType> = {
 }
 
 const CHART_ANIM_LABELS: Record<ChartElement['chartType'], string> = {
-  bar:      'Bars rise from bottom',
-  line:     'Line draws point-to-point',
-  area:     'Area flows left to right',
-  pie:      'Slices open sequentially',
-  doughnut: 'Slices open sequentially',
-  points:   'Points reveal across the x-axis',
+  bar:      'Animation Style: Bars rise from bottom',
+  line:     'Animation Style: Line draws point-to-point',
+  area:     'Animation Style: Area flows left to right',
+  pie:      'Animation Style: Slices open sequentially',
+  doughnut: 'Animation Style: Slices open sequentially',
+  points:   'Animation Style: Points reveal across the x-axis',
 }
 
 export default function ChartPanel() {
@@ -71,17 +71,17 @@ export default function ChartPanel() {
         datasets: datasets.map((ds, i) => ({
           ...ds,
           label: i === 0 && ds.label === 'Dataset 1' ? 'Points' : ds.label,
-          color: ds.color || '#2563eb',
+          color: ds.color || '#1664ad',
           points: ds.points?.length ? ds.points : pointData,
         })),
       },
       xAxisMin: chart.xAxisMin ?? 0,
-      xAxisMax: chart.xAxisMax ?? 10,
+      xAxisMax: chart.xAxisMax ?? 9,
       xAxisStep: chart.xAxisStep ?? 2,
       yAxisMin: chart.yAxisMin ?? 0,
-      yAxisMax: chart.yAxisMax ?? 10,
+      yAxisMax: chart.yAxisMax ?? 9,
       yAxisStep: chart.yAxisStep ?? 2,
-      pointSize: chart.pointSize ?? 5,
+      pointSize: chart.pointSize ?? 7,
       showPointLabels: chart.showPointLabels ?? true,
       regressionLineEnabled: chart.regressionLineEnabled ?? false,
       regressionStartX: chart.regressionStartX ?? 0,
@@ -106,8 +106,8 @@ export default function ChartPanel() {
 
     if (!project || !currentSceneId) return
     const chart = makeChart(
-      Math.round(project.width / 2 - 200),
-      Math.round(project.height / 2 - 150)
+      Math.round(project.width / 2 - 300),
+      Math.round(project.height / 2 - 250)
     )
     chart.chartType = type
     addElement(type === 'points' ? withPointDefaults(chart) : chart)
@@ -227,9 +227,9 @@ export default function ChartPanel() {
 
       <div className="flex-1 overflow-y-auto">
         {/* Chart type grid — always visible */}
-        <div className="px-3 py-2 border-b border-editor-border">
-          <span className="label block mb-2">Chart Type</span>
-          <div className="grid grid-cols-6 gap-1">
+        <div className="px-3 py-2">
+          <span className="label block mb-2">Charts and Graphs Type</span>
+          <div className="grid grid-cols-4 gap-1">
             {CHART_TYPES.map(ct => {
               const isActive = el ? el.chartType === ct.type : pendingChartType === ct.type
               return (
@@ -245,13 +245,13 @@ export default function ChartPanel() {
                   )}
                 >
                   {ct.icon}
-                  <span className="text-[9px]">{ct.label}</span>
+                  <span className="text-[10px]">{ct.label}</span>
                 </button>
               )
             })}
           </div>
           {!el && (
-            <p className="text-[10px] text-[#d9d9d9] mt-2">Click a type, then click canvas to place chart.</p>
+            <p className="text-sm text-[#d9d9d9] mt-2">Click a type, to add that chart/graph in scene</p>
           )}
         </div>
 
@@ -264,11 +264,11 @@ export default function ChartPanel() {
                 <ColorInput value={el.backgroundColor} onChange={v => upd({ backgroundColor: v })} />
               </Row>
               <Row label="Label Color">
-                <ColorInput value={el.textColor ?? '#999999'} onChange={v => upd({ textColor: v })} />
+                <ColorInput value={el.textColor ?? '#e9e9e9'} onChange={v => upd({ textColor: v })} />
               </Row>
               <Row label="Font Size">
-                <Slider value={el.fontSize ?? 10} min={6} max={40} step={1}
-                  onChange={v => upd({ fontSize: v })} display={`${el.fontSize ?? 10}px`} />
+                <Slider value={el.fontSize ?? 15} min={6} max={40} step={1}
+                  onChange={v => upd({ fontSize: v })} display={`${el.fontSize ?? 15}px`} />
               </Row>
               <Row label="Font Family">
                 <select
@@ -584,7 +584,7 @@ export default function ChartPanel() {
                       display={`${chartAnim.duration.toFixed(1)}s`} />
                   </Row>
                   <Row label="Delay (s)">
-                    <Slider value={chartAnim.delay} min={0} max={10} step={0.1}
+                    <Slider value={chartAnim.delay} min={0} max={60} step={0.1}
                       onChange={v => updateAnimation(el.id, chartAnim.id, { delay: v })}
                       display={`${chartAnim.delay.toFixed(1)}s`} />
                   </Row>

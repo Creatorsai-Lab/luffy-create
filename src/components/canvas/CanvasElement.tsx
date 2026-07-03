@@ -124,7 +124,7 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
   const wipeDir      = animProps?.wipeDir
 
   switch (element.type) {
-    case 'text':   return <TextKonva   el={element} konvaProps={props} textProgress={animProps?.textProgress ?? 1} textMode={animProps?.textMode} wipeProgress={wipeProgress} wipeDir={wipeDir} />
+    case 'text':   return <TextKonva   el={element} konvaProps={props} textProgress={animProps?.textProgress ?? 1} textMode={animProps?.textMode} wipeProgress={wipeProgress} wipeDir={wipeDir} textColor={animProps?.textColor} />
     case 'shape':  return <ShapeKonva  el={element} konvaProps={props} wipeProgress={wipeProgress} wipeDir={wipeDir} dashOffset={animProps?.dashOffset ?? 0} />
     case 'arrow':  return <ArrowKonva  el={element} konvaProps={props} pathProgress={animProps?.textProgress ?? 1} dashOffset={animProps?.dashOffset ?? 0} />
     case 'code':   return <CodeKonva   el={element} konvaProps={props} />

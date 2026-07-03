@@ -10,6 +10,14 @@ import CanvasElement from '../canvas/CanvasElement'
 import type { Background, TransitionType, SlideDir, AudioElement, VideoElement } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
+import {
+  applyAudioEffects,
+  audioPreviewPlaybackRate,
+  disposeAudioEffectGraphs,
+  ensureAudioEffectGraph,
+  syncAudioPlaybackSettings,
+  type AudioEffectGraphMap,
+} from '../../utils/audioEffects'
 
 export default function PreviewModal() {
   const { project, setPreviewOpen } = useEditorStore()
@@ -19,6 +27,7 @@ export default function PreviewModal() {
   const lastRef = useRef<number>(0)
   const playheadRef = useRef(0)                                      // always-current value for RAF closures
   const audioPlayersRef = useRef<Map<string, HTMLAudioElement>>(new Map())
+  const audioGraphsRef = useRef<AudioEffectGraphMap>(new Map())
 
   // Fit preview into viewport, preserving aspect ratio
   const maxW = Math.min(950, window.innerWidth * 0.88)
@@ -91,12 +100,14 @@ export default function PreviewModal() {
               player = new Audio(toFileUrl(audio.src))
               audioPlayersRef.current.set(audio.id, player)
             }
-            player.volume = audio.volume ?? 1
-            player.playbackRate = audio.speed ?? 1
+            const graph = ensureAudioEffectGraph(audio.id, player, audioGraphsRef.current)
+            applyAudioEffects(graph, audio)
+            syncAudioPlaybackSettings(player, audio)
 
-            const expected = (audio.startTime ?? 0) + (ph - absStart) * (audio.speed ?? 1)
+            const expected = (audio.startTime ?? 0) + (ph - absStart) * audioPreviewPlaybackRate(audio)
             if (player.paused) {
               player.currentTime = Math.max(0, expected)
+              void graph.context.resume().catch(() => {})
               player.play().catch(() => { })
             } else if (Math.abs(player.currentTime - expected) > 0.3) {
               player.currentTime = Math.max(0, expected)
@@ -122,6 +133,7 @@ export default function PreviewModal() {
     return () => {
       audioPlayersRef.current.forEach(p => { p.pause(); p.src = '' })
       audioPlayersRef.current.clear()
+      disposeAudioEffectGraphs(audioGraphsRef.current)
     }
   }, [])
 

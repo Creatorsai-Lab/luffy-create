@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid'
 import type {
   Project, Scene, EditorElement, ElementAnimation,
   Background, SceneTransition, AssetMeta,
-  ActiveTool, ActivePanel, TimeMarker, VideoElement
+  ActiveTool, ActivePanel, TimeMarker, VideoElement, AudioElement
 } from '../types/editor'
 import { makeScene, makeProject } from '../utils/defaults'
 import { useHistoryStore } from './historyStore'
@@ -43,8 +43,10 @@ interface EditorActions {
 
   // Scenes
   addScene:         () => void
+  addSceneAfter:    (id: string) => void
   duplicateScene:   (id: string) => void
   removeScene:      (id: string) => void
+  splitScene:       (id: string, splitAt: number) => void
   reorderScenes:    (from: number, to: number) => void
   setCurrentScene:  (id: string) => void
   updateScene:      (id: string, patch: Partial<Pick<Scene, 'name' | 'duration'>>) => void
@@ -61,6 +63,7 @@ interface EditorActions {
   sendBackward:     (id: string) => void
   bringToFront:     (id: string) => void
   sendToBack:       (id: string) => void
+  reorderElementLayer: (id: string, targetTopIndex: number) => void
 
   // Selection
   selectElement:    (id: string, multi?: boolean) => void
@@ -166,6 +169,79 @@ function fitSceneToVideoContent(sc: Scene) {
   if (maxEnd > 0) sc.duration = Math.max(sc.duration, maxEnd)
 }
 
+function cloneElement(el: EditorElement): EditorElement {
+  const clone = JSON.parse(JSON.stringify(el)) as EditorElement
+  clone.id = uuid()
+  return clone
+}
+
+function normalizeZ(elements: EditorElement[]) {
+  const ordered = [...elements].sort((a, b) => a.zIndex - b.zIndex)
+  ordered.forEach((el, index) => { el.zIndex = index })
+}
+
+function splitElementForScene(el: EditorElement, splitAt: number): { first?: EditorElement; second?: EditorElement } {
+  if (el.type === 'audio') {
+    const audio = el as AudioElement
+    const clipStart = audio.x ?? 0
+    const clipDur = audio.duration ?? 0
+    const clipEnd = clipStart + clipDur
+    const speed = audio.speed ?? 1
+
+    if (clipEnd <= splitAt) return { first: audio }
+    if (clipStart >= splitAt) {
+      const second = cloneElement(audio) as AudioElement
+      second.x = clipStart - splitAt
+      return { second }
+    }
+
+    const firstDur = Math.max(0.1, splitAt - clipStart)
+    const secondDur = Math.max(0.1, clipEnd - splitAt)
+    const consumed = Math.max(0, splitAt - clipStart)
+    const second = cloneElement(audio) as AudioElement
+
+    audio.duration = firstDur
+    audio.markers = (audio.markers ?? []).filter(marker => marker.offset <= firstDur)
+    second.x = 0
+    second.startTime = (audio.startTime ?? 0) + consumed * speed
+    second.duration = secondDur
+    second.markers = (second.markers ?? [])
+      .filter(marker => marker.offset >= consumed && marker.offset <= consumed + secondDur)
+      .map(marker => ({ ...marker, id: uuid(), offset: marker.offset - consumed }))
+
+    return { first: audio, second }
+  }
+
+  if (el.type === 'video') {
+    const video = el as VideoElement
+    const clipStart = video.timelineX ?? 0
+    const clipDur = video.duration ?? video.sourceDuration ?? 0
+    const clipEnd = clipStart + clipDur
+    const speed = video.playbackRate ?? 1
+
+    if (clipDur <= 0) return { first: video, second: cloneElement(video) }
+    if (clipEnd <= splitAt) return { first: video }
+    if (clipStart >= splitAt) {
+      const second = cloneElement(video) as VideoElement
+      second.timelineX = clipStart - splitAt
+      return { second }
+    }
+
+    const firstDur = Math.max(0.1, splitAt - clipStart)
+    const secondDur = Math.max(0.1, clipEnd - splitAt)
+    const second = cloneElement(video) as VideoElement
+
+    video.duration = firstDur
+    second.timelineX = 0
+    second.startTime = (video.startTime ?? 0) + firstDur * speed
+    second.duration = secondDur
+
+    return { first: video, second }
+  }
+
+  return { first: el, second: cloneElement(el) }
+}
+
 export const useEditorStore = create<EditorState & EditorActions>()(
   subscribeWithSelector(
     immer((set, get) => ({
@@ -230,6 +306,18 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         s.isDirty = true
       }),
 
+      addSceneAfter: (id) => set(s => {
+        if (!s.project) return
+        const idx = s.project.scenes.findIndex(sc => sc.id === id)
+        if (idx < 0) return
+        const scene = makeScene(s.project.scenes.length + 1)
+        scene.name = `Scene after ${idx + 1}`
+        s.project.scenes.splice(idx + 1, 0, scene)
+        s.currentSceneId = scene.id
+        s.selectedIds = []
+        s.isDirty = true
+      }),
+
       duplicateScene: (id) => set(s => {
         if (!s.project) return
         const idx = s.project.scenes.findIndex(sc => sc.id === id)
@@ -271,6 +359,42 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         if (s.currentSceneId === id) {
           s.currentSceneId = scenes[Math.max(0, idx - 1)].id
         }
+        s.isDirty = true
+      }),
+
+      splitScene: (id, splitAt) => set(s => {
+        if (!s.project) return
+        const idx = s.project.scenes.findIndex(sc => sc.id === id)
+        if (idx < 0) return
+
+        const scene = s.project.scenes[idx]
+        const split = Math.max(0.1, Math.min(scene.duration - 0.1, splitAt))
+        if (split <= 0.1 || split >= scene.duration - 0.1) return
+
+        const originalElements = [...scene.elements]
+        const firstElements: EditorElement[] = []
+        const secondElements: EditorElement[] = []
+
+        for (const el of originalElements) {
+          const { first, second } = splitElementForScene(el, split)
+          if (first) firstElements.push(first)
+          if (second) secondElements.push(second)
+        }
+
+        const secondScene: Scene = JSON.parse(JSON.stringify(scene))
+        secondScene.id = uuid()
+        secondScene.name = `${scene.name} split`
+        secondScene.duration = Math.max(0.1, scene.duration - split)
+        secondScene.elements = secondElements
+
+        scene.duration = split
+        scene.elements = firstElements
+        normalizeZ(scene.elements)
+        normalizeZ(secondScene.elements)
+
+        s.project.scenes.splice(idx + 1, 0, secondScene)
+        s.currentSceneId = secondScene.id
+        s.selectedIds = []
         s.isDirty = true
       }),
 
@@ -418,6 +542,27 @@ export const useEditorStore = create<EditorState & EditorActions>()(
           const el = sc.elements.find(x => x.id === e.id)
           if (el) el.zIndex = i
         })
+        s.isDirty = true
+      }),
+
+      reorderElementLayer: (id, targetTopIndex) => set(s => {
+        if (!s.project || !s.currentSceneId) return
+        const sc = s.project.scenes.find(x => x.id === s.currentSceneId)
+        if (!sc) return
+
+        const orderedTop = [...sc.elements].sort((a, b) => b.zIndex - a.zIndex)
+        const from = orderedTop.findIndex(e => e.id === id)
+        if (from < 0) return
+
+        const [moved] = orderedTop.splice(from, 1)
+        const to = Math.max(0, Math.min(targetTopIndex, orderedTop.length))
+        orderedTop.splice(to, 0, moved)
+
+        orderedTop.forEach((item, topIndex) => {
+          const el = sc.elements.find(e => e.id === item.id)
+          if (el) el.zIndex = orderedTop.length - 1 - topIndex
+        })
+        s.selectedIds = [id]
         s.isDirty = true
       }),
 

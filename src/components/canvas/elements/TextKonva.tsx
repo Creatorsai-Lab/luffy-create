@@ -12,13 +12,14 @@ interface Props {
   textMode?: 'chars' | 'words' | 'draw'
   wipeProgress?: number
   wipeDir?: SlideDir
+  textColor?: string
 }
 
 const WEIGHT_MAP: Record<string, string> = {
   normal: 'normal', medium: '500', semibold: '600', bold: 'bold'
 }
 
-function resolveEffectProps(el: TextElement) {
+function resolveEffectProps(el: TextElement, effectiveColor: string) {
   const effects = el.effects ?? []
 
   let shadowEnabled  = el.shadowBlur > 0
@@ -40,7 +41,7 @@ function resolveEffectProps(el: TextElement) {
   }
   if (effects.includes('glow')) {
     shadowEnabled = true
-    shadowColor   = el.color
+    shadowColor   = effectiveColor
     shadowBlur    = 22
     shadowOffsetX = 0
     shadowOffsetY = 0
@@ -52,7 +53,7 @@ function resolveEffectProps(el: TextElement) {
   }
   if (effects.includes('hollow')) {
     fillEnabled   = false
-    stroke        = stroke || el.color
+    stroke        = stroke || effectiveColor
     strokeWidth   = Math.max(strokeWidth, 2)
     strokeEnabled = true
   }
@@ -60,10 +61,11 @@ function resolveEffectProps(el: TextElement) {
   return { shadowEnabled, shadowColor, shadowBlur, shadowOffsetX, shadowOffsetY, stroke, strokeWidth, strokeEnabled, fillEnabled }
 }
 
-export default function TextKonva({ el, konvaProps, textProgress, textMode, wipeProgress = 1, wipeDir }: Props) {
+export default function TextKonva({ el, konvaProps, textProgress, textMode, wipeProgress = 1, wipeDir, textColor }: Props) {
   const nodeRef = useRef<Konva.Text | null>(null)
   const [offscreen, setOffscreen] = useState<HTMLCanvasElement | null>(null)
   const [textH, setTextH] = useState(el.height)
+  const effectiveColor = textColor ?? el.color
 
   // Measure rendered text height so the background box hugs the text vertically.
   useEffect(() => {
@@ -84,11 +86,11 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
     loadFont(el.fontFamily, weight).then(() => {
       const canvas = document.createElement('canvas')
       canvas.width = el.width; canvas.height = el.height + el.fontSize * 4
-      drawTextToCtx(el, canvas.getContext('2d')!)
+      drawTextToCtx({ ...el, color: effectiveColor }, canvas.getContext('2d')!)
       setOffscreen(canvas)
     }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [el.content, el.color, el.fontSize, el.fontFamily, el.fontWeight, el.italic, el.align,
+  }, [el.content, effectiveColor, el.fontSize, el.fontFamily, el.fontWeight, el.italic, el.align,
       el.lineHeight, el.letterSpacing, el.textStroke, el.textStrokeWidth,
       el.width, el.height, !!el.perspectivePts])
 
@@ -102,7 +104,7 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
     return el.content.slice(0, Math.floor(el.content.length * textProgress))
   })()
 
-  const effectProps = resolveEffectProps(el)
+  const effectProps = resolveEffectProps(el, effectiveColor)
 
   const textStyleProps = {
     width: el.width,
@@ -110,7 +112,7 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
     fontFamily: el.fontFamily,
     fontStyle: [el.italic ? 'italic' : '', WEIGHT_MAP[el.fontWeight] ?? 'normal'].join(' ').trim(),
     textDecoration: el.underline ? 'underline' : '',
-    fill: el.color,
+    fill: effectiveColor,
     align: el.align,
     lineHeight: el.lineHeight,
     letterSpacing: el.letterSpacing,

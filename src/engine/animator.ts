@@ -37,6 +37,7 @@ export interface AnimatedProps {
   chartAnimProgress: number
   counterValue: number
   counterText: string
+  textColor?: string
 }
 
 export function getAnimatedProps(el: EditorElement, localTime: number): AnimatedProps {
@@ -54,6 +55,7 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
     chartAnimProgress: 1,
     counterValue: 0,
     counterText: '',
+    textColor: undefined,
   }
 
   const anims = el.animations
@@ -62,7 +64,7 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
   // Loop animations are identified by type (canonical) OR by timing field.
   // This guards against old saved projects where loop-type animations were
   // incorrectly stored with timing='onEnter'.
-  const LOOP_TYPES = new Set(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop'])
+  const LOOP_TYPES = new Set(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop', 'colorPulse'])
   const isLoop = (a: ElementAnimation) => LOOP_TYPES.has(a.type) || a.timing === 'loop'
 
   const enters = anims.filter(a => !isLoop(a) && a.timing === 'onEnter')
@@ -150,6 +152,18 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
     
     // For loops with their own window that extends beyond valid loop window
     if (localTime < effectiveStart) continue
+
+    if (anim.type === 'colorPulse') {
+      const pulseCount = Math.max(1, Math.round(anim.params?.pulseCount ?? 2))
+      const pulseDuration = Math.max(0.05, safe(anim.duration) || 0.4)
+      const totalDuration = pulseCount * pulseDuration
+      if (localTime >= effectiveStart + totalDuration) continue
+
+      const elapsed = localTime - effectiveStart
+      const pulseProgress = (elapsed % pulseDuration) / pulseDuration
+      applyAnim(anim, pulseProgress, false, false, el, props, localTime, effectiveStart)
+      continue
+    }
     
     // Calculate proper progress within the loop ( accounting for delay )
     const timeSinceAnimStart = localTime - animStart
@@ -390,6 +404,15 @@ function applyAnim(
       break
     }
 
+    case 'colorPulse': {
+      if (before) return
+      const baseColor = 'color' in el ? String((el as { color: string }).color) : '#222222'
+      const pulseColor = anim.params?.pulseColor ?? '#ffea00'
+      const strength = Math.sin(Math.max(0, Math.min(1, t)) * Math.PI)
+      out.textColor = mixHexColor(baseColor, pulseColor, strength)
+      break
+    }
+
     // ─── Chart-specific animations ──────────────────────────────────────────
     case 'chartBarsRise':
       if (before) { out.opacity = 0; out.chartAnimProgress = 0; return }
@@ -419,6 +442,27 @@ function applyAnim(
       out.chartAnimProgress = t
       break
   }
+}
+
+function parseHexColor(color: string): [number, number, number] | null {
+  const match = color.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i)
+  if (!match) return null
+  let hex = match[1]
+  if (hex.length === 3) hex = hex.split('').map(ch => ch + ch).join('')
+  return [
+    parseInt(hex.slice(0, 2), 16),
+    parseInt(hex.slice(2, 4), 16),
+    parseInt(hex.slice(4, 6), 16),
+  ]
+}
+
+function mixHexColor(from: string, to: string, t: number): string {
+  const a = parseHexColor(from)
+  const b = parseHexColor(to)
+  if (!a || !b) return t > 0.5 ? to : from
+  const clamped = Math.max(0, Math.min(1, t))
+  const parts = a.map((value, index) => Math.round(lerp(value, b[index], clamped)))
+  return `#${parts.map(value => value.toString(16).padStart(2, '0')).join('')}`
 }
 
 // ─── Background animation helper ─────────────────────────────────────────────

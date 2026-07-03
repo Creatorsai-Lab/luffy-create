@@ -10,6 +10,14 @@ import ContextMenu from '../ui/ContextMenu'
 import type { AudioElement, VideoElement } from '../../types/editor'
 import { maxVideoClipDuration } from '../../utils/videoClip'
 import { TRANS_COLOR } from '../../utils/transitions'
+import {
+  applyAudioEffects,
+  audioPreviewPlaybackRate,
+  disposeAudioEffectGraphs,
+  ensureAudioEffectGraph,
+  syncAudioPlaybackSettings,
+  type AudioEffectGraphMap,
+} from '../../utils/audioEffects'
 
 const RULER_HEIGHT = 22
 const SINGLE_VIDEO_TRACK_HEIGHT = 42
@@ -44,12 +52,12 @@ export default function Timeline() {
     project, currentSceneId,
     playhead, isPlaying,
     timelineZoom, snapEnabled,
-    addScene, setCurrentScene, updateScene, reorderScenes, removeScene, duplicateScene,
+    addScene, addSceneAfter, splitScene, setCurrentScene, updateScene, reorderScenes, removeScene, duplicateScene,
     setPlayhead, play, pause, stop,
     getTotalDuration, setTimelineZoom, 
     updateElement, removeElement, addElementToScene,
     addAudioMarker, removeAudioMarker,
-    setActivePanel, selectElement,
+    setActivePanel, selectElement, deselectAll,
   } = useEditorStore()
 
   const [editDurId, setEditDurId] = useState<string | null>(null)
@@ -58,7 +66,7 @@ export default function Timeline() {
   const [draggingPlayhead, setDraggingPlayhead] = useState(false)
   const [draggedSceneIndex, setDraggedSceneIndex] = useState<number | null>(null)
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sceneId: string; clickTimeInScene: number } | null>(null)
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(null)
   const [audioContextMenu, setAudioContextMenu] = useState<{
     x: number; y: number; audioId: string; clickTimeInAudio: number; sceneId: string; absoluteTime: number
@@ -103,6 +111,7 @@ export default function Timeline() {
   const rafRef          = useRef<number>(0)
   const lastTimeRef     = useRef<number>(0)
   const audioPlayersRef = useRef<Map<string, HTMLAudioElement>>(new Map())
+  const audioGraphsRef  = useRef<AudioEffectGraphMap>(new Map())
 
   const PX_PER_SEC = PX_PER_SEC_BASE * timelineZoom
 
@@ -170,15 +179,17 @@ export default function Timeline() {
               audioPlayersRef.current.set(audio.id, player)
             }
 
-            player.volume       = audio.volume ?? 1
-            player.playbackRate = audio.speed ?? 1
+            const graph = ensureAudioEffectGraph(audio.id, player, audioGraphsRef.current)
+            applyAudioEffects(graph, audio)
+            syncAudioPlaybackSettings(player, audio)
 
             if (player.paused) {
               // Calculate current time based on playhead position within this audio element
               // account for trim start (startTime) and playback speed
               const trimStart = audio.startTime ?? 0
-              const timeWithinAudio = (ph - absStart) * (audio.speed ?? 1)
+              const timeWithinAudio = (ph - absStart) * audioPreviewPlaybackRate(audio)
               player.currentTime = Math.max(trimStart, trimStart + timeWithinAudio)
+              void graph.context.resume().catch(() => {})
               player.play().catch(() => {})
             }
           }
@@ -201,6 +212,7 @@ export default function Timeline() {
     return () => {
       audioPlayersRef.current.forEach(p => { p.pause(); p.src = '' })
       audioPlayersRef.current.clear()
+      disposeAudioEffectGraphs(audioGraphsRef.current)
     }
   }, [])
 
@@ -328,7 +340,7 @@ export default function Timeline() {
     document.addEventListener('mouseup', handleMouseUp)
   }, [project, updateScene, PX_PER_SEC, snapTime])
 
-  function handleAudioMouseDown(e: React.MouseEvent, audioId: string, audioX: number) {
+  function handleAudioMouseDown(e: React.MouseEvent, audioId: string, audioX: number, sceneId: string) {
     e.stopPropagation()
 
     const wasSelected = selectedAudioId === audioId
@@ -339,17 +351,26 @@ export default function Timeline() {
     if (!wasSelected) {
       setSelectedAudioId(audioId)
       setSelectedVideoId(null)
+      setCurrentScene(sceneId)
+      selectElement(audioId, false)
+      setActivePanel('audio')
     }
 
     const handleMouseMove = (mv: MouseEvent) => {
       if (!moved && Math.abs(mv.clientX - startMouseX) < 3) return
       moved = true
       setSelectedAudioId(audioId)
+      setCurrentScene(sceneId)
+      selectElement(audioId, false)
+      setActivePanel('audio')
       updateElement(audioId, { x: Math.max(0, audioX + (mv.clientX - startMouseX) / pxPerSec) })
     }
 
     const handleMouseUp = () => {
-      if (!moved && wasSelected) setSelectedAudioId(null)
+      if (!moved && wasSelected) {
+        setSelectedAudioId(null)
+        deselectAll()
+      }
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
@@ -358,12 +379,15 @@ export default function Timeline() {
     document.addEventListener('mouseup', handleMouseUp)
   }
 
-  function handleAudioResizeMouseDown(e: React.MouseEvent, audioEl: AudioElement, edge: 'start' | 'end') {
+  function handleAudioResizeMouseDown(e: React.MouseEvent, audioEl: AudioElement, edge: 'start' | 'end', sceneId: string) {
     e.stopPropagation()
     e.preventDefault()
     setResizingAudio({ id: audioEl.id, edge })
     setSelectedAudioId(audioEl.id)
     setSelectedVideoId(null)
+    setCurrentScene(sceneId)
+    selectElement(audioEl.id, false)
+    setActivePanel('audio')
 
     const startMouseX   = e.clientX
     const origX         = audioEl.x ?? 0
@@ -632,12 +656,13 @@ export default function Timeline() {
     const clipTime = playhead - (result.sceneStart + selectedAudio.x)
     if (clipTime <= 0.1 || clipTime >= selectedAudio.duration - 0.1) return
 
+    const speed = selectedAudio.speed ?? 1
     updateElement(selectedAudio.id, { duration: clipTime })
     addElementToScene(result.scene.id, {
       ...JSON.parse(JSON.stringify(selectedAudio)),
       id: crypto.randomUUID(),
       x: selectedAudio.x + clipTime,
-      startTime: selectedAudio.startTime + clipTime,
+      startTime: selectedAudio.startTime + clipTime * speed,
       duration: selectedAudio.duration - clipTime,
     })
   }
@@ -674,12 +699,13 @@ export default function Timeline() {
     const audio = sc?.elements.find(e => e.id === audioId) as AudioElement | undefined
     if (!audio || clickTimeInAudio <= 0.1 || clickTimeInAudio >= audio.duration - 0.1) return
 
+    const speed = audio.speed ?? 1
     updateElement(audioId, { duration: clickTimeInAudio })
     addElementToScene(sceneId, {
       ...JSON.parse(JSON.stringify(audio)),
       id: crypto.randomUUID(),
       x: audio.x + clickTimeInAudio,
-      startTime: audio.startTime + clickTimeInAudio,
+      startTime: audio.startTime + clickTimeInAudio * speed,
       duration: audio.duration - clickTimeInAudio,
     })
     setAudioContextMenu(null)
@@ -869,80 +895,15 @@ export default function Timeline() {
         ) : selectedAudio ? (
           <>
             <Music size={15} className="text-editor-accent flex-none" />
-
-            <div className="flex items-center gap-2 flex-none">
-              <Volume2 size={15} className="text-editor-text" />
-              <input
-                type="range" min={0} max={1} step={0.01}
-                value={selectedAudio.volume ?? 1}
-                onChange={e => updateElement(selectedAudio!.id, { volume: parseFloat(e.target.value) })}
-                className="w-20 text-editor-text h-1 accent-editor-accent"
-              />
-              <span className="text-xs text-editor-text w-10 flex-none">
-                {Math.round((selectedAudio.volume ?? 1) * 100)}%
-              </span>
-            </div>
-
-            <select
-              value={selectedAudio.speed ?? 1}
-              onChange={e => {
-                const newSpeed  = parseFloat(e.target.value)
-                const rawAudioS = selectedAudio!.duration * (selectedAudio!.speed ?? 1)
-                updateElement(selectedAudio!.id, { speed: newSpeed, duration: rawAudioS / newSpeed })
-              }}
-              className="bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-1.5 py-1 flex-none"
-              title="Playback speed"
-            >
-              {SPEED_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-
-            <div className="flex items-center gap-1.5 flex-none">
-              <span className="text-xs text-editor-text">Fade In</span>
-              <input
-                type="number" min={0} max={10} step={0.1}
-                value={selectedAudio.fadeIn}
-                onChange={e => updateElement(selectedAudio!.id, { fadeIn: Math.max(0, parseFloat(e.target.value) || 0) })}
-                className="w-12 bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-1 py-1 text-center nodrag"
-                title="Fade in (seconds)"
-              />
-              <span className="text-xs text-editor-text">s</span>
-            </div>
-
-            <div className="flex items-center gap-1.5 flex-none">
-              <span className="text-xs text-editor-text">Fade Out</span>
-              <input
-                type="number" min={0} max={10} step={0.1}
-                value={selectedAudio.fadeOut}
-                onChange={e => updateElement(selectedAudio!.id, { fadeOut: Math.max(0, parseFloat(e.target.value) || 0) })}
-                className="w-12 bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-1 py-1 text-center nodrag"
-                title="Fade out (seconds)"
-              />
-              <span className="text-xs text-editor-text">s</span>
-            </div>
-
-            <div className="w-px h-5 bg-editor-border mx-1 flex-none" />
-
-            <div className="flex items-center gap-2 flex-none">
-              <Tooltip text="Trim after playhead (cut end)">
-                <button
-                  onClick={trimAtPlayhead}
-                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-editor-elevated border border-editor-border text-editor-text hover:text-editor-text hover:border-editor-text/40 transition-colors flex-none"
-                >
-                  <Scissors size={13} /> Trim</button>
-              </Tooltip>
-
-              <Tooltip text="Split at playhead">
-                <button
-                  onClick={splitAtPlayhead}
-                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-editor-elevated border border-editor-border text-editor-text hover:text-editor-text hover:border-editor-text/40 transition-colors flex-none"
-                >
-                  <Split size={13} /> Split
-                </button>
-              </Tooltip>
-            </div>
+            <span className="text-xs text-editor-text truncate max-w-[180px] flex-none" title={selectedAudio.name}>
+              {selectedAudio.name}
+            </span>
+            <span className="text-xs text-editor-secondary tabular-nums flex-none">
+              {selectedAudio.duration.toFixed(1)}s
+            </span>
 
             <button
-              onClick={() => setSelectedAudioId(null)}
+              onClick={() => { setSelectedAudioId(null); deselectAll() }}
               className="text-editor-text hover:text-red-400 transition-colors ml-1 flex-none"
               title="Deselect audio"
             >
@@ -1042,8 +1003,8 @@ export default function Timeline() {
                       {(video.playbackRate ?? 1) !== 1 ? `${video.playbackRate}× ` : ''}{clipDur.toFixed(1)}s
                     </span>
                     {video.loop && (
-                      <span className="ml-auto flex items-center gap-0.5 rounded bg-black/55 px-1 py-0.5 text-[8px] uppercase tracking-normal text-white/85">
-                        <Repeat size={8} /> loop
+                      <span className="ml-auto flex items-center gap-0.5 rounded bg-black/80 px-1 py-0.5 text-[10px] uppercase tracking-normal text-white/85">
+                        <Repeat size={9} /> loop
                       </span>
                     )}
                   </div>
@@ -1089,7 +1050,10 @@ export default function Timeline() {
                   onClick={e => { e.stopPropagation(); setCurrentScene(sc.id); setSelectedAudioId(null); setSelectedVideoId(null) }}
                   onContextMenu={e => {
                     e.preventDefault(); e.stopPropagation()
-                    setContextMenu({ x: e.clientX, y: e.clientY, sceneId: sc.id })
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const localX = e.clientX - rect.left
+                    const clickTimeInScene = Math.max(0, Math.min(sc.duration, (localX / Math.max(1, rect.width)) * sc.duration))
+                    setContextMenu({ x: e.clientX, y: e.clientY, sceneId: sc.id, clickTimeInScene })
                   }}
                   className={cn(
                     'absolute flex items-center px-3 cursor-pointer text-xs transition-all select-none rounded-md overflow-hidden',
@@ -1193,10 +1157,13 @@ export default function Timeline() {
                         const cur = audioLaneOf(audio.id)
                         updateElement(audio.id, { lane: (cur + 1) % (maxLane + 2) })
                         setSelectedAudioId(audio.id)
-                      setSelectedVideoId(null)
+                        setSelectedVideoId(null)
+                        setCurrentScene(sc.id)
+                        selectElement(audio.id, false)
+                        setActivePanel('audio')
                         return
                       }
-                      handleAudioMouseDown(e, audio.id, audio.x ?? 0)
+                      handleAudioMouseDown(e, audio.id, audio.x ?? 0, sc.id)
                     }}
                     onContextMenu={e => {
                       e.preventDefault(); e.stopPropagation()
@@ -1213,6 +1180,9 @@ export default function Timeline() {
                       })
                       setSelectedAudioId(audio.id)
                       setSelectedVideoId(null)
+                      setCurrentScene(sc.id)
+                      selectElement(audio.id, false)
+                      setActivePanel('audio')
                     }}
                   >
                     {/* Real waveform */}
@@ -1250,12 +1220,12 @@ export default function Timeline() {
 
                     <div
                       className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 rounded-l z-10"
-                      onMouseDown={e => handleAudioResizeMouseDown(e, audio, 'start')}
+                      onMouseDown={e => handleAudioResizeMouseDown(e, audio, 'start', sc.id)}
                       title="Drag to trim start"
                     />
                     <div
                       className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 rounded-r z-10"
-                      onMouseDown={e => handleAudioResizeMouseDown(e, audio, 'end')}
+                      onMouseDown={e => handleAudioResizeMouseDown(e, audio, 'end', sc.id)}
                       title="Drag to trim end"
                     />
                   </div>
@@ -1316,6 +1286,22 @@ export default function Timeline() {
             icon: <Shuffle size={14} />,
             onClick: () => {
               if (contextMenu?.sceneId) { setCurrentScene(contextMenu.sceneId); setActivePanel('transitions') }
+              setContextMenu(null)
+            }
+          },
+          {
+            label: `Split at ${contextMenu ? fmtTime(contextMenu.clickTimeInScene) : '0:00.0'}`,
+            icon: <Split size={14} />,
+            onClick: () => {
+              if (contextMenu?.sceneId) splitScene(contextMenu.sceneId, contextMenu.clickTimeInScene)
+              setContextMenu(null)
+            }
+          },
+          {
+            label: 'Add scene after',
+            icon: <Plus size={14} />,
+            onClick: () => {
+              if (contextMenu?.sceneId) addSceneAfter(contextMenu.sceneId)
               setContextMenu(null)
             }
           },

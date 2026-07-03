@@ -337,7 +337,7 @@ function AnimBlock({
       </Row>
 
       <Row label="Delay (s)">
-        <input type="number" min={0} max={30} step={0.1}
+        <input type="number" min={0} max={60} step={0.1}
           value={anim.delay}
           onChange={e => upd({ delay: Number(e.target.value) })}
           className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"

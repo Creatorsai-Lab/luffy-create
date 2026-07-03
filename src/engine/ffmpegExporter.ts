@@ -1,6 +1,6 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
-import type { Project, AudioElement } from '../types/editor'
+import type { Project, AudioElement, VideoElement } from '../types/editor'
 import type Konva from 'konva'
 import { renderTransition } from './transitionRenderer'
 import { toFileUrl } from '../utils/pathUtils'
@@ -22,6 +22,7 @@ let ffmpegLoaded = false
 // onerror handler, so a worker that fails to start (e.g. blocked origin) leaves
 // load() pending forever. Cap it so the UI surfaces an error instead of hanging.
 const FFMPEG_LOAD_TIMEOUT_MS = 30_000
+const FALLBACK_EXPORT_AUDIO_GAIN = 4.0
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -307,26 +308,53 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
   // ── Audio mixing pass ────────────────────────────────────────────────────────
   // Collect every audio element from every scene, with absolute timeline positions
   const audioClips: {
+    sourceKind: 'audio' | 'video'
     src: string; absStart: number; startTime: number
     duration: number; speed: number; volume: number
+    voice: number; pitch: number; bass: number; saturation: number
     fadeIn: number; fadeOut: number
   }[] = []
 
   let audioElapsed = 0
   for (const scene of project.scenes) {
     for (const el of scene.elements) {
-      if (el.type !== 'audio') continue
-      const a = el as AudioElement
-      audioClips.push({
-        src:       a.src,
-        absStart:  audioElapsed + (a.x ?? 0),
-        startTime: a.startTime ?? 0,
-        duration:  a.duration  ?? 0,
-        speed:     a.speed     ?? 1,
-        volume:    a.volume    ?? 1,
-        fadeIn:    a.fadeIn    ?? 0,
-        fadeOut:   a.fadeOut   ?? 0,
-      })
+      if (el.type === 'audio') {
+        const a = el as AudioElement
+        audioClips.push({
+          sourceKind: 'audio',
+          src:       a.src,
+          absStart:  audioElapsed + (a.x ?? 0),
+          startTime: a.startTime ?? 0,
+          duration:  a.duration  ?? 0,
+          speed:     a.speed     ?? 1,
+          volume:    a.volume    ?? 1,
+          voice:     a.voice     ?? 0,
+          pitch:     a.pitch     ?? 0,
+          bass:      a.bass      ?? 0,
+          saturation: a.saturation ?? 0,
+          fadeIn:    a.fadeIn    ?? 0,
+          fadeOut:   a.fadeOut   ?? 0,
+        })
+      } else if (el.type === 'video') {
+        const v = el as VideoElement
+        if (!v.muted && (v.volume ?? 1) > 0) {
+          audioClips.push({
+            sourceKind: 'video',
+            src:       v.src,
+            absStart:  audioElapsed + (v.timelineX ?? 0),
+            startTime: v.startTime ?? 0,
+            duration:  v.duration ?? v.sourceDuration ?? 0,
+            speed:     v.playbackRate ?? 1,
+            volume:    v.volume ?? 1,
+            voice:     0,
+            pitch:     0,
+            bass:      0,
+            saturation: 0,
+            fadeIn:    0,
+            fadeOut:   0,
+          })
+        }
+      }
     }
     audioElapsed += scene.duration
   }
@@ -359,63 +387,99 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     if (validClips.length > 0) {
       onProgress(90, 'Mixing audio...')
 
-      const filterSegments: string[] = []
-      const outLabels: string[] = []
+      const mediaInputs = validClips.map((clip, index) => ({ clip, file: writtenFiles[index] }))
 
-      for (let i = 0; i < validClips.length; i++) {
-        const clip    = validClips[i]
-        const rawDur  = clip.duration * clip.speed
-        const delayMs = Math.round(clip.absStart * 1000)
-        const label   = `[aout${i}]`
+      const runAudioMux = async (
+        masterFilters: string[],
+        suffix: string,
+        sourceKinds: Array<'audio' | 'video'> = ['audio', 'video']
+      ) => {
+        const inputs = mediaInputs.filter(input => sourceKinds.includes(input.clip.sourceKind))
+        if (inputs.length === 0) throw new Error(`No ${sourceKinds.join('/')} clips available for audio mux`)
 
-        const filt: string[] = [
-          `atrim=start=${clip.startTime.toFixed(3)}:duration=${rawDur.toFixed(3)}`,
-          `asetpts=PTS-STARTPTS`,
-          ...buildAtempoFilters(clip.speed),
+        const filterSegments: string[] = []
+        const outLabels: string[] = []
+        const audioInArgs: string[] = []
+
+        inputs.forEach(({ clip, file }, index) => {
+          audioInArgs.push('-i', file)
+          const rawDur  = clip.duration * clip.speed
+          const delayMs = Math.round(clip.absStart * 1000)
+          const label   = `[aout_${suffix}_${index}]`
+
+          const filt: string[] = [
+            `atrim=start=${clip.startTime.toFixed(3)}:duration=${rawDur.toFixed(3)}`,
+            `asetpts=PTS-STARTPTS`,
+            ...buildPitchFilters(clip.pitch),
+            ...buildAtempoFilters(clip.speed),
+            ...buildAudioToneFilters(clip.voice, clip.bass, clip.saturation),
+          ]
+          if (clip.volume !== 1) filt.push(`volume=${clip.volume.toFixed(4)}`)
+          if (clip.fadeIn  > 0)  filt.push(`afade=t=in:st=0:d=${clip.fadeIn.toFixed(3)}`)
+          if (clip.fadeOut > 0 && clip.duration - clip.fadeOut > 0)
+            filt.push(`afade=t=out:st=${(clip.duration - clip.fadeOut).toFixed(3)}:d=${clip.fadeOut.toFixed(3)}`)
+          if (delayMs > 0) filt.push(`adelay=${delayMs}:all=1`)
+          filt.push(`apad=whole_dur=${totalDuration.toFixed(3)}`)
+
+          filterSegments.push(`[${index + 1}:a]${filt.join(',')}${label}`)
+          outLabels.push(label)
+        })
+
+        let mixedAudioLabel: string
+        if (outLabels.length === 1) {
+          mixedAudioLabel = outLabels[0]
+        } else {
+          mixedAudioLabel = `[afinal_${suffix}]`
+          filterSegments.push(`${outLabels.join('')}amix=inputs=${outLabels.length}:normalize=0${mixedAudioLabel}`)
+        }
+
+        const masteredAudioLabel = `[amastered_${suffix}]`
+        const finalFile = `with_audio_output_${suffix}.mp4`
+        const allSegments = [
+          ...filterSegments,
+          `${mixedAudioLabel}${masterFilters.join(',')}${masteredAudioLabel}`,
         ]
-        if (clip.volume !== 1) filt.push(`volume=${clip.volume.toFixed(4)}`)
-        if (clip.fadeIn  > 0)  filt.push(`afade=t=in:st=0:d=${clip.fadeIn.toFixed(3)}`)
-        if (clip.fadeOut > 0 && clip.duration - clip.fadeOut > 0)
-          filt.push(`afade=t=out:st=${(clip.duration - clip.fadeOut).toFixed(3)}:d=${clip.fadeOut.toFixed(3)}`)
-        if (delayMs > 0) filt.push(`adelay=${delayMs}:all=1`)
-        filt.push(`apad=whole_dur=${totalDuration.toFixed(3)}`)
-
-        filterSegments.push(`[${i + 1}:a]${filt.join(',')}${label}`)
-        outLabels.push(label)
-      }
-
-      let audioMapLabel: string
-      if (outLabels.length === 1) {
-        audioMapLabel = outLabels[0]
-      } else {
-        audioMapLabel = '[afinal]'
-        filterSegments.push(`${outLabels.join('')}amix=inputs=${outLabels.length}:normalize=0[afinal]`)
-      }
-
-      const audioInArgs: string[] = []
-      for (const fn of writtenFiles) audioInArgs.push('-i', fn)
-
-      const finalFile = 'with_audio_output.mp4'
-      const muxArgs = [
-        '-i', outputFile,
-        ...audioInArgs,
-        '-filter_complex', filterSegments.join(';'),
-        '-map', '0:v',
-        '-map', audioMapLabel,
-        '-c:v', 'copy',
-        '-c:a', 'aac',
-        '-b:a', '192k',
-        finalFile,
-      ]
-      onLog?.(`Audio mux command: ${muxArgs.join(' ')}`)
-
-      try {
+        const muxArgs = [
+          '-i', outputFile,
+          ...audioInArgs,
+          '-filter_complex', allSegments.join(';'),
+          '-map', '0:v',
+          '-map', masteredAudioLabel,
+          '-c:v', 'copy',
+          '-c:a', 'aac',
+          '-b:a', '192k',
+          finalFile,
+        ]
+        onLog?.(`Audio mux command (${suffix}): ${muxArgs.join(' ')}`)
         await ffmpeg.exec(muxArgs)
         const finalData = await ffmpeg.readFile(finalFile) as Uint8Array
-        finalBlob = new Blob([finalData as BlobPart], { type: 'video/mp4' })
         try { await ffmpeg.deleteFile(finalFile) } catch {}
+        return new Blob([finalData as BlobPart], { type: 'video/mp4' })
+      }
+
+      try {
+        finalBlob = await runAudioMux([
+          'loudnorm=I=-14:LRA=11:TP=-1.5',
+          'alimiter=limit=0.98',
+        ], 'loudnorm')
       } catch (err) {
-        onLog?.(`Audio mixing failed, exporting video without audio: ${err}`)
+        onLog?.(`Full audio mix loudness normalization failed, retrying simple gain: ${err}`)
+        try {
+          finalBlob = await runAudioMux([
+            `volume=${FALLBACK_EXPORT_AUDIO_GAIN.toFixed(3)}`,
+            'alimiter=limit=0.98',
+          ], 'gain')
+        } catch (fallbackErr) {
+          onLog?.(`Full audio mix failed, retrying timeline audio only: ${fallbackErr}`)
+          try {
+            finalBlob = await runAudioMux([
+              'loudnorm=I=-14:LRA=11:TP=-1.5',
+              'alimiter=limit=0.98',
+            ], 'audio_only', ['audio'])
+          } catch (audioOnlyErr) {
+            onLog?.(`Audio mixing failed, exporting video without audio: ${audioOnlyErr}`)
+          }
+        }
       }
 
       // Clean up audio files
@@ -448,6 +512,51 @@ function buildAtempoFilters(speed: number): string[] {
   while (s < 0.5)  { filters.push('atempo=0.5'); s /= 0.5 }
   filters.push(`atempo=${s.toFixed(6)}`)
   return filters
+}
+
+function buildPitchFilters(pitch: number): string[] {
+  const semitones = clamp(pitch, -12, 12)
+  if (Math.abs(semitones) < 0.01) return []
+
+  const ratio = Math.pow(2, semitones / 12)
+  const shiftedRate = Math.max(8000, Math.round(44100 * ratio))
+  return [
+    `asetrate=${shiftedRate}`,
+    'aresample=44100',
+    ...buildAtempoFilters(1 / ratio),
+  ]
+}
+
+function buildAudioToneFilters(voice: number, bass: number, saturation: number): string[] {
+  const filters: string[] = []
+  const voiceTone = clamp(voice, -100, 100)
+  const bassGain = clamp(bass, -12, 12)
+  const sat = clamp(saturation, -100, 100)
+
+  if (Math.abs(bassGain) >= 0.1) {
+    filters.push(`equalizer=f=120:t=q:w=0.9:g=${bassGain.toFixed(2)}`)
+  }
+
+  if (voiceTone > 0.1) {
+    filters.push(`equalizer=f=2800:t=q:w=0.8:g=${(voiceTone * 0.12).toFixed(2)}`)
+  } else if (voiceTone < -0.1) {
+    filters.push(`equalizer=f=320:t=q:w=0.9:g=${(Math.abs(voiceTone) * 0.12).toFixed(2)}`)
+    filters.push(`equalizer=f=2800:t=q:w=0.8:g=${(voiceTone * 0.06).toFixed(2)}`)
+  }
+
+  if (sat > 0.1) {
+    filters.push(`volume=${(1 + sat / 65).toFixed(4)}`)
+    filters.push('alimiter=limit=0.95')
+  } else if (sat < -0.1) {
+    filters.push(`equalizer=f=6500:t=q:w=0.7:g=${(sat * 0.08).toFixed(2)}`)
+  }
+
+  return filters
+}
+
+function clamp(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(min, Math.min(max, value))
 }
 
 export interface FFmpegStatus {

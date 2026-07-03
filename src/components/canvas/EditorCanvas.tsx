@@ -418,6 +418,16 @@ export default function EditorCanvas() {
   }
 
   // ── Stage event handlers ───────────────────────────────────────────────────────
+  function resolveElementId(target: Konva.Node) {
+    let node: Konva.Node | null = target
+    while (node && node !== node.getStage()) {
+      const id = node.id()
+      if (id && currentScene?.elements.some(el => el.id === id)) return id
+      node = node.getParent()
+    }
+    return ''
+  }
+
   function handleStageContextMenu(e: Konva.KonvaEventObject<MouseEvent>) {
     e.evt.preventDefault()
 
@@ -425,8 +435,8 @@ export default function EditorCanvas() {
     // Ignore background clicks
     if (target === target.getStage() || target.name() === 'bg') return
 
-    // Resolve element id — direct node or its parent Group
-    const id = target.id() || (target.getParent()?.id() ?? '')
+    // Resolve element id from direct node or any selectable parent Group.
+    const id = resolveElementId(target)
     if (!id) return
 
     // Select the right-clicked element if not already in selection

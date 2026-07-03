@@ -1,7 +1,13 @@
-import { useState } from 'react'
-import { Volume2, Zap, Scissors, Sliders, X, ChevronDown, RotateCcw } from 'lucide-react'
+import { Mic2, Volume2, Zap, Sliders, X } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { AudioElement } from '../../types/editor'
+import { clampAudioEffect } from '../../utils/audioEffects'
+
+const AUDIO_SPEED_OPTIONS = [
+  0.25,
+  ...Array.from({ length: 17 }, (_, index) => Number((0.3 + index * 0.1).toFixed(2))),
+  2,
+]
 
 interface AudioPropertiesPanelProps {
   element: AudioElement | null
@@ -10,7 +16,6 @@ interface AudioPropertiesPanelProps {
 
 export default function AudioPropertiesPanel({ element, onClose }: AudioPropertiesPanelProps) {
   const { updateElement } = useEditorStore()
-  const [showAdvanced, setShowAdvanced] = useState(false)
 
   if (!element || element.type !== 'audio') {
     return null
@@ -20,16 +25,20 @@ export default function AudioPropertiesPanel({ element, onClose }: AudioProperti
     updateElement(element.id, { volume: Math.max(0, Math.min(1, volume)) })
   }
 
+  const currentSpeed = Number((element.speed ?? 1).toFixed(2))
+  const speedOptions = AUDIO_SPEED_OPTIONS.includes(currentSpeed)
+    ? AUDIO_SPEED_OPTIONS
+    : [...AUDIO_SPEED_OPTIONS, currentSpeed].sort((a, b) => a - b)
+
+  const formatSpeed = (speed: number) => speed === 1 ? '1x' : `${speed.toFixed(2)}x`
+
   const handleSpeedChange = (speed: number) => {
-    updateElement(element.id, { speed: Math.max(0.25, Math.min(4, speed)) })
-  }
-
-  const handleTrimStart = (startTime: number) => {
-    updateElement(element.id, { startTime: Math.max(0, startTime) })
-  }
-
-  const handleTrimDuration = (duration: number) => {
-    updateElement(element.id, { duration: Math.max(0.1, duration) })
+    const nextSpeed = Math.max(0.25, Math.min(2, speed))
+    const rawAudioSeconds = (element.duration ?? 0.1) * (element.speed ?? 1)
+    updateElement(element.id, {
+      speed: nextSpeed,
+      duration: Math.max(0.1, rawAudioSeconds / nextSpeed),
+    })
   }
 
   const handleFadeIn = (fadeIn: number) => {
@@ -38,6 +47,15 @@ export default function AudioPropertiesPanel({ element, onClose }: AudioProperti
 
   const handleFadeOut = (fadeOut: number) => {
     updateElement(element.id, { fadeOut: Math.max(0, Math.min(5, fadeOut)) })
+  }
+
+  const handleVoiceEffectChange = (
+    key: 'voice' | 'pitch' | 'bass' | 'saturation',
+    value: number,
+    min: number,
+    max: number
+  ) => {
+    updateElement(element.id, { [key]: clampAudioEffect(value, min, max) })
   }
 
   return (
@@ -75,44 +93,84 @@ export default function AudioPropertiesPanel({ element, onClose }: AudioProperti
           />
         </div>
 
-        {/* Trim Controls */}
+        {/* Speed Control */}
+        <div className="space-y-1.5 border-t border-editor-border pt-2">
+          <div className="flex items-center gap-2">
+            <Sliders size={13} className="text-editor-accent flex-none" />
+            <label className="text-xs font-medium text-white flex-1">Speed</label>
+            <span className="text-2xs text-[#888888]">{formatSpeed(currentSpeed)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={0.25}
+              max={2}
+              step={0.01}
+              value={currentSpeed}
+              onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
+              className="flex-1 min-w-0 h-1.5 bg-editor-border rounded-lg appearance-none cursor-pointer"
+            />
+            <select
+              value={currentSpeed}
+              onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
+              className="w-20 bg-editor-border text-white text-2xs px-2 py-1 rounded border border-editor-border-strong"
+            >
+              {speedOptions.map(speed => (
+                <option key={speed} value={speed}>{formatSpeed(speed)}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Voice / Tone */}
         <div className="space-y-2 border-t border-editor-border pt-2">
           <div className="flex items-center gap-2">
-            <Scissors size={13} className="text-editor-accent flex-none" />
-            <label className="text-xs font-medium text-white">Trim</label>
-          </div>
-          
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-2xs text-[#888888]">
-              <span>Start Time (s)</span>
-              <span className="text-white">{element.startTime.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={element.duration}
-              step={0.1}
-              value={element.startTime}
-              onChange={(e) => handleTrimStart(parseFloat(e.target.value))}
-              className="w-full h-1.5 bg-editor-border rounded-lg appearance-none cursor-pointer"
-            />
+            <Mic2 size={13} className="text-editor-accent flex-none" />
+            <label className="text-xs font-medium text-white flex-1">Voice</label>
+            <button
+              onClick={() => updateElement(element.id, { voice: 0, pitch: 0, bass: 0, saturation: 0 })}
+              className="text-2xs text-[#888888] hover:text-white transition-colors"
+            >
+              Reset
+            </button>
           </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-2xs text-[#888888]">
-              <span>Duration (s)</span>
-              <span className="text-white">{element.duration.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min={0.1}
-              max={element.duration + 10}
-              step={0.1}
-              value={element.duration}
-              onChange={(e) => handleTrimDuration(parseFloat(e.target.value))}
-              className="w-full h-1.5 bg-editor-border rounded-lg appearance-none cursor-pointer"
-            />
-          </div>
+          <EffectSlider
+            label="Voice Tone"
+            value={element.voice ?? 0}
+            min={-100}
+            max={100}
+            step={1}
+            unit="%"
+            onChange={value => handleVoiceEffectChange('voice', value, -100, 100)}
+          />
+          <EffectSlider
+            label="Pitch"
+            value={element.pitch ?? 0}
+            min={-12}
+            max={12}
+            step={1}
+            unit=" st"
+            onChange={value => handleVoiceEffectChange('pitch', value, -12, 12)}
+          />
+          <EffectSlider
+            label="Bass"
+            value={element.bass ?? 0}
+            min={-12}
+            max={12}
+            step={1}
+            unit=" dB"
+            onChange={value => handleVoiceEffectChange('bass', value, -12, 12)}
+          />
+          <EffectSlider
+            label="Saturation"
+            value={element.saturation ?? 0}
+            min={-100}
+            max={100}
+            step={1}
+            unit="%"
+            onChange={value => handleVoiceEffectChange('saturation', value, -100, 100)}
+          />
         </div>
 
         {/* Fade In/Out */}
@@ -155,68 +213,45 @@ export default function AudioPropertiesPanel({ element, onClose }: AudioProperti
           </div>
         </div>
 
-        {/* Advanced Options */}
-        <div className="border-t border-editor-border pt-2">
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 text-xs font-medium text-editor-accent hover:text-white transition-colors"
-          >
-            <Sliders size={13} />
-            Advanced Options
-            <ChevronDown size={12} className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
-          </button>
-
-          {showAdvanced && (
-            <div className="mt-2 space-y-2 pt-2 border-t border-editor-border">
-              {/* Loop toggle */}
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-white">Loop</label>
-                <button
-                  onClick={() => updateElement(element.id, { loop: !element.loop })}
-                  className={`px-2 py-1 rounded text-2xs font-medium transition-colors ${
-                    element.loop
-                      ? 'bg-editor-accent text-white'
-                      : 'bg-editor-border text-[#888888]'
-                  }`}
-                >
-                  {element.loop ? 'On' : 'Off'}
-                </button>
-              </div>
-
-              {/* Track type */}
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-white">Track Type</label>
-                <select
-                  value={element.track}
-                  onChange={(e) => updateElement(element.id, { track: e.target.value as 'background' | 'voiceover' })}
-                  className="bg-editor-border text-white text-2xs px-2 py-1 rounded border border-editor-border-strong"
-                >
-                  <option value="background">Background</option>
-                  <option value="voiceover">Voiceover</option>
-                </select>
-              </div>
-
-              {/* Reset button */}
-              <button
-                onClick={() => {
-                  updateElement(element.id, {
-                    volume: 1,
-                    fadeIn: 0,
-                    fadeOut: 0,
-                    startTime: 0,
-                    loop: false,
-                    track: 'background'
-                  })
-                }}
-                className="w-full flex items-center justify-center gap-2 mt-2 px-2 py-1.5 bg-editor-border hover:bg-editor-border-strong text-[#888888] hover:text-white rounded text-2xs transition-colors"
-              >
-                <RotateCcw size={11} />
-                Reset to Defaults
-              </button>
-            </div>
-          )}
-        </div>
       </div>
+    </div>
+  )
+}
+
+function EffectSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  unit,
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  unit: string
+  onChange: (value: number) => void
+}) {
+  const display = value === 0 ? `0${unit}` : `${value > 0 ? '+' : ''}${value}${unit}`
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-2xs text-[#888888]">
+        <span>{label}</span>
+        <span className="text-white tabular-nums">{display}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full h-1.5 bg-editor-border rounded-lg appearance-none cursor-pointer"
+      />
     </div>
   )
 }

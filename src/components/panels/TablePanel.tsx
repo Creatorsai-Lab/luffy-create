@@ -32,8 +32,8 @@ export default function TablePanel() {
       <PanelHeader icon={<Table2 size={12} />} title="Table" />
 
       {!el && (
-        <p className="text-xs text-[#f2f2f2] px-3 py-3">
-          Click <strong className="text-editor-secondary">Table</strong> in the menu bar to add a table.
+        <p className="text-sm text-[#f2f2f2] px-3 py-3">
+          Table tool is selected, please click on the scene first to add <b>Table</b>, then edit it
         </p>
       )}
 
