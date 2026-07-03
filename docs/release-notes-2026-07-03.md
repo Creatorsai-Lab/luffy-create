@@ -1,6 +1,6 @@
 # Luffy Editor Feature Release - July 2026
 
-This release focuses on making Luffy Editor more practical for real video production: richer animation controls, stronger timeline editing, smoother media preview, better audio tooling, smarter charts, and several stability fixes found while editing recovery projects.
+This release focuses on making Luffy Editor more practical for real video production: richer animation controls, stronger timeline editing, smoother media preview, better audio tooling, smarter charts, and several stability fixes found during real editing work.
 
 ## New Features
 
@@ -51,14 +51,3 @@ This release focuses on making Luffy Editor more practical for real video produc
 - Fixed audio split timing so split audio respects playback speed when calculating the new start time.
 - Fixed export audio mismatch where preview/timeline volume could sound correct but exported video missed video-element audio.
 - Added fallback audio export paths so projects can still export if a video source has no audio stream.
-
-## Stability And Project Recovery
-
-- Reviewed local autosave/project storage behavior during recovery work.
-- Recovered usable project data from local app storage where possible.
-- Identified recovery artifacts that should stay outside release commits.
-
-## Verification
-
-- TypeScript validation passed with `npx tsc --noEmit`.
-- Production build passed with `npm run build`.

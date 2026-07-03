@@ -28,6 +28,11 @@ out/
 .next/
 .nuxt/
 
+# Local recovery artifacts
+recovery_*/
+shadow_recovery_*/
+shadow_mount/
+
 # Testing
 coverage/
 .nyc_output
