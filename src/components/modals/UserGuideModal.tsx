@@ -191,8 +191,7 @@ export default function UserGuideModal() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) setUserGuideOpen(false) }}>
-      <div className="bg-editor-panel border border-editor-border rounded-3xl shadow-xl flex flex-col overflow-hidden"
-        style={{ width: '90vw', height: '90vh' }}>
+      <div className="bg-editor-panel border border-editor-border rounded-3xl shadow-xl flex flex-col overflow-hidden w-[80vw] h-[80vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-editor-border flex-none">
           <div className="flex items-center gap-2">

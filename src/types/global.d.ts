@@ -20,6 +20,33 @@ export interface UploadedAsset {
   path: string
 }
 
+export interface PythonStatus {
+  available: boolean
+  pythonPath: string | null
+  version: string | null
+  matplotlib: boolean
+  manim: boolean
+}
+
+export interface PythonOutputFile {
+  name: string
+  path: string
+  ext: string
+  size: number
+  type: 'image' | 'video' | 'other'
+}
+
+export interface PythonRunResult {
+  jobId: string
+  outputDir: string
+  success: boolean
+  exitCode: number | null
+  timedOut: boolean
+  stdout: string
+  stderr: string
+  outputs: PythonOutputFile[]
+}
+
 declare global {
   interface Window {
     api: {
@@ -54,6 +81,22 @@ declare global {
       }
       ffmpeg: {
         getPaths: () => Promise<{ coreJs: string; coreWasm: string }>
+      }
+      python: {
+        check: () => Promise<PythonStatus>
+        run: (payload: {
+          jobId?: string
+          projectId: string
+          code: string
+          kind: 'script' | 'manim'
+          sceneName?: string
+          width?: number
+          height?: number
+          fps?: number
+          timeoutMs?: number
+        }) => Promise<PythonRunResult>
+        cancel: (jobId: string) => Promise<boolean>
+        listOutputs: (outputDir: string) => Promise<PythonOutputFile[]>
       }
       ai?: {
         plan: (payload: {

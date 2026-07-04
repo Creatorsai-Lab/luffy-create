@@ -34,6 +34,22 @@ const api = {
   },
   ffmpeg: {
     getPaths: () => ipcRenderer.invoke('ffmpeg:get-paths') as Promise<{ coreJs: string; coreWasm: string }>
+  },
+  python: {
+    check: () => ipcRenderer.invoke('python:check'),
+    run: (payload: {
+      jobId?: string
+      projectId: string
+      code: string
+      kind: 'script' | 'manim'
+      sceneName?: string
+      width?: number
+      height?: number
+      fps?: number
+      timeoutMs?: number
+    }) => ipcRenderer.invoke('python:run', payload),
+    cancel: (jobId: string) => ipcRenderer.invoke('python:cancel', jobId),
+    listOutputs: (outputDir: string) => ipcRenderer.invoke('python:list-outputs', outputDir)
   }
 }
 

@@ -13,6 +13,7 @@ import PreviewModal from './components/modals/PreviewModal'
 import ExportModal from './components/modals/ExportModal'
 import UserGuideModal from './components/modals/UserGuideModal'
 import SubtitleModal from './subtitle/SubtitleModal'
+import { PythonSandboxModal } from './pythonSandbox'
 
 const AUTO_SAVE_DELAY = 2500
 
@@ -45,7 +46,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 export default function App() {
   const {
     project, isDirty, markClean, loadProject,
-    codeModalOpen, previewOpen, exportOpen, userGuideOpen, subtitleOpen
+    codeModalOpen, previewOpen, exportOpen, userGuideOpen, subtitleOpen, pythonSandboxOpen
   } = useEditorStore()
 
   const [ready, setReady] = useState(false)
@@ -173,6 +174,7 @@ export default function App() {
         {exportOpen    && <ExportModal />}
         {userGuideOpen && <UserGuideModal />}
         {subtitleOpen  && <SubtitleModal />}
+        {pythonSandboxOpen && <PythonSandboxModal />}
       </div>
     </ErrorBoundary>
   )

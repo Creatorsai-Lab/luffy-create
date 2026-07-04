@@ -91,12 +91,21 @@
           "ffmpeg-core.js",
           "ffmpeg-core.wasm"
         ]
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
       }
     ],
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",
       "artifactName": "Luffy-Create-Windows-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
     },
     "mac": {
       "target": "dmg",

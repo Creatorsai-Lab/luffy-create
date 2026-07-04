@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Type, Square, ArrowRight, Code2, Table2, Layers, Shuffle, ImagePlus, BarChart3, Music,
-  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, SquareDashedMousePointer, SquarePlay, Sigma, BookOpen, Captions, Timer, Route
+  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, SquareDashedMousePointer, SquarePlay, Sigma, BookOpen, Captions, Timer, Route, SquareTerminal
 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { useHistoryStore } from '../../store/historyStore'
@@ -42,6 +42,7 @@ export default function MenuSideBar() {
     setProjectName, setCanvasSize,
     setPreviewOpen, setExportOpen,
     setUserGuideOpen, setSubtitleOpen,
+    setPythonSandboxOpen,
     openCodeModal,
     deselectAll,
     undo, redo
@@ -243,6 +244,17 @@ export default function MenuSideBar() {
           >
             <Captions size={15} />
             <span className="text-[0.78rem] whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">Subtitle</span>
+          </button>
+          <button
+            disabled={disabled}
+            onClick={() => { if (!disabled) setPythonSandboxOpen(true) }}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1.5 p-2 rounded transition-all',
+              disabled ? 'text-editor-accent cursor-not-allowed' : 'text-[#f2f2f2] hover:bg-editor-hover'
+            )}
+          >
+            <SquareTerminal size={16} />
+            <span className="text-[0.78rem] whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">Python Sandbox</span>
           </button>
           <button
             onClick={() => setUserGuideOpen(true)}

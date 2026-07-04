@@ -29,6 +29,7 @@ interface EditorState {
   exportOpen:        boolean
   userGuideOpen:     boolean
   subtitleOpen:      boolean
+  pythonSandboxOpen: boolean
   exportProgress:    number
   timelineZoom:      number
   snapEnabled:       boolean
@@ -94,6 +95,7 @@ interface EditorActions {
   setExportOpen:    (v: boolean) => void
   setUserGuideOpen: (v: boolean) => void
   setSubtitleOpen:  (v: boolean) => void
+  setPythonSandboxOpen: (v: boolean) => void
   setExportProgress:(v: number) => void
   setTimelineZoom:  (z: number) => void
 
@@ -264,6 +266,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       exportOpen:       false,
       userGuideOpen:    false,
       subtitleOpen:     false,
+      pythonSandboxOpen:false,
       exportProgress:   0,
       timelineZoom:     1,
       snapEnabled:      true,
@@ -643,6 +646,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       setExportOpen:    (v) => set(s => { s.exportOpen = v }),
       setUserGuideOpen: (v) => set(s => { s.userGuideOpen = v }),
       setSubtitleOpen:  (v) => set(s => { s.subtitleOpen = v }),
+      setPythonSandboxOpen: (v) => set(s => { s.pythonSandboxOpen = v }),
       setExportProgress:(v) => set(s => { s.exportProgress = v }),
       setTimelineZoom:  (z) => set(s => { s.timelineZoom = Math.max(0.1, Math.min(5, z)) }),
 
