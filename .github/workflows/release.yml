@@ -40,13 +40,16 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopenjp2-tools rpm fakeroot dpkg
+          sudo apt-get install -y libopenjp2-tools rpm fakeroot dpkg pkg-config libcairo2-dev libpango1.0-dev
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build renderer + main (electron-vite)
         run: npm run build
+
+      - name: Prepare bundled Python Sandbox
+        run: npm run prepare-python-sandbox
 
       - name: Package — Windows
         if: matrix.platform == 'win'

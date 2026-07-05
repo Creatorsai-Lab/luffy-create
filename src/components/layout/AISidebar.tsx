@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react'
 import { BrainCircuit, Check, Loader2, Send, Sparkles, X } from 'lucide-react'
-import { buildAiProjectContext, executeAiPlan, planAiEdit, type AiCommandResult, type AiPlan } from '../../ai'
+import {
+  buildAiProjectContext,
+  executeAiPlan,
+  planAiEdit,
+  prepareAiPlan,
+  type AiCommandResult,
+  type AiPlan,
+  type AiPlanIssue,
+} from '../../ai'
 
 type ChatItem = {
   id: string
@@ -13,6 +21,7 @@ export default function AISidebar() {
   const [busy, setBusy] = useState(false)
   const [messages, setMessages] = useState<ChatItem[]>([])
   const [pendingPlan, setPendingPlan] = useState<AiPlan | null>(null)
+  const [planIssues, setPlanIssues] = useState<AiPlanIssue[]>([])
   const [results, setResults] = useState<AiCommandResult[]>([])
   const [warning, setWarning] = useState<string | null>(null)
 
@@ -34,14 +43,17 @@ export default function AISidebar() {
     setWarning(null)
     setResults([])
     setPendingPlan(null)
+    setPlanIssues([])
     setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'user', text: prompt }])
     setInput('')
 
     try {
       const planned = await planAiEdit(prompt, context)
-      setPendingPlan(planned.plan)
+      const prepared = prepareAiPlan(planned.plan, context)
+      setPendingPlan(prepared.plan)
+      setPlanIssues(prepared.issues)
       setWarning(planned.warning ?? (planned.source === 'local' ? 'Local planner used. Configure the model planner for richer edits.' : null))
-      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', text: planned.plan.summary }])
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', text: prepared.plan.summary }])
     } catch (error) {
       setWarning(error instanceof Error ? error.message : 'Could not plan the edit.')
     } finally {
@@ -58,6 +70,7 @@ export default function AISidebar() {
       { id: crypto.randomUUID(), role: 'system', text: `${applied.filter(item => item.ok).length}/${applied.length} commands applied.` },
     ])
     setPendingPlan(null)
+    setPlanIssues([])
   }
 
   return (
@@ -92,7 +105,7 @@ export default function AISidebar() {
 
         {warning && (
           <div className="px-2 py-1.5 text-sm text-[#7b6f7d] italic">
-            ⚠︎ {warning}
+            {warning}
           </div>
         )}
 
@@ -105,6 +118,15 @@ export default function AISidebar() {
               </button>
             </div>
             <div className="px-2 py-2 space-y-1.5">
+              {planIssues.length > 0 && (
+                <div className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 space-y-1">
+                  {planIssues.map((issue, index) => (
+                    <p key={index} className={issue.level === 'error' ? 'text-sm text-red-200' : 'text-sm text-amber-200'}>
+                      {issue.message}
+                    </p>
+                  ))}
+                </div>
+              )}
               {commandLabels.length === 0 ? (
                 <p className="text-sm text-editor-secondary">No supported command was produced.</p>
               ) : (

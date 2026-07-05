@@ -13,7 +13,8 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "package": "electron-vite build && electron-builder"
+    "prepare-python-sandbox": "node scripts/prepare-python-sandbox.mjs",
+    "package": "electron-vite build && npm run prepare-python-sandbox && electron-builder"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
@@ -95,6 +96,13 @@
       {
         "from": "build/icon.ico",
         "to": "icon.ico"
+      },
+      {
+        "from": "build/python-sandbox",
+        "to": "python-sandbox",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {

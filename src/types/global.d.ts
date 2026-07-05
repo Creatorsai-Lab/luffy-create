@@ -24,8 +24,16 @@ export interface PythonStatus {
   available: boolean
   pythonPath: string | null
   version: string | null
+  runtimeSource?: 'bundled' | 'user' | 'system' | null
   matplotlib: boolean
   manim: boolean
+  bundledPath?: string
+  bundledReady?: boolean
+  sandboxPath?: string
+  sandboxReady?: boolean
+  basePythonAvailable?: boolean
+  stdout?: string
+  stderr?: string
 }
 
 export interface PythonOutputFile {
@@ -84,6 +92,7 @@ declare global {
       }
       python: {
         check: () => Promise<PythonStatus>
+        setup: () => Promise<PythonStatus>
         run: (payload: {
           jobId?: string
           projectId: string

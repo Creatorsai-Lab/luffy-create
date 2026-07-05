@@ -9,6 +9,9 @@ export function buildAiProjectContext(): AiProjectContext | null {
   if (!project) return null
 
   const currentSceneIndex = Math.max(1, project.scenes.findIndex(scene => scene.id === currentSceneId) + 1)
+  const selected = project.scenes
+    .flatMap(scene => scene.elements)
+    .filter(element => selectedIds.includes(element.id))
 
   return {
     project: {
@@ -17,10 +20,13 @@ export function buildAiProjectContext(): AiProjectContext | null {
       width: project.width,
       height: project.height,
       fps: project.fps,
+      sceneCount: project.scenes.length,
+      totalDuration: project.scenes.reduce((sum, scene) => sum + scene.duration, 0),
     },
     currentSceneIndex,
     currentSceneId,
     selectedIds: [...selectedIds],
+    selectedElements: selected.map(summarizeElement),
     scenes: project.scenes.map((scene, index) => ({
       id: scene.id,
       index: index + 1,

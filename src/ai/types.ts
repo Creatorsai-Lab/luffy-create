@@ -39,6 +39,17 @@ export interface AiPlan {
   needsConfirmation?: boolean
 }
 
+export interface AiPlanIssue {
+  level: 'warning' | 'error'
+  message: string
+  commandIndex?: number
+}
+
+export interface AiPreparedPlan {
+  plan: AiPlan
+  issues: AiPlanIssue[]
+}
+
 export interface AiCommandResult {
   ok: boolean
   message: string
@@ -79,10 +90,13 @@ export interface AiProjectContext {
     width: number
     height: number
     fps: number
+    sceneCount: number
+    totalDuration: number
   }
   currentSceneIndex: number
   currentSceneId: string | null
   selectedIds: string[]
+  selectedElements: AiElementSummary[]
   scenes: AiSceneSummary[]
   assets: Array<{
     id: string

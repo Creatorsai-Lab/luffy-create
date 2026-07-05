@@ -18,10 +18,10 @@ protocol.registerSchemesAsPrivileged([
     privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true }
   }
 ])
-import { join, normalize } from 'path'
+import { dirname, join, normalize } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { mkdir, readFile, writeFile, copyFile, readdir, rm, stat, open, rename } from 'fs/promises'
-import { existsSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 
 const USER_DATA   = app.getPath('userData')
@@ -173,6 +173,19 @@ function appIconPath() {
 
 type PythonRunKind = 'script' | 'manim'
 
+interface PythonCommand {
+  command: string
+  args: string[]
+  version?: string
+  source?: 'bundled' | 'user' | 'system'
+}
+
+interface PythonSandboxManifest {
+  pythonRelativePath?: string
+  packages?: string[]
+  createdAt?: string
+}
+
 interface PythonOutputFile {
   name: string
   path: string
@@ -194,9 +207,44 @@ interface PythonRunRequest {
 }
 
 const pythonJobs = new Map<string, ChildProcessWithoutNullStreams>()
+const PYTHON_SANDBOX_DIR = join(USER_DATA, 'python-sandbox')
+const PYTHON_SANDBOX_VENV_DIR = join(PYTHON_SANDBOX_DIR, 'venv')
+const BUNDLED_PYTHON_SANDBOX_DIR = is.dev
+  ? join(process.cwd(), 'build', 'python-sandbox')
+  : join(process.resourcesPath, 'python-sandbox')
+const PYTHON_SANDBOX_PACKAGES = [
+  'numpy',
+  'matplotlib',
+  'pillow',
+  'scipy',
+  'imageio',
+  'imageio-ffmpeg',
+  'manim',
+]
 const PYTHON_OUTPUT_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'])
 const PYTHON_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'])
 const PYTHON_VIDEO_EXTS = new Set(['mp4', 'webm', 'mov'])
+const PYTHON_SANDBOX_PRELUDE = `import os
+import math
+import random
+import statistics
+from pathlib import Path
+
+import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib import animation
+
+try:
+    from manim import *
+except Exception:
+    pass
+
+out = os.environ["LUFFY_OUTPUT_DIR"]
+WIDTH = int(os.environ.get("LUFFY_WIDTH", "1920"))
+HEIGHT = int(os.environ.get("LUFFY_HEIGHT", "1080"))
+FPS = int(os.environ.get("LUFFY_FPS", "30"))`
 
 function pythonCandidates() {
   return [
@@ -204,6 +252,34 @@ function pythonCandidates() {
     { command: 'py', args: ['-3'] },
     { command: 'python3', args: [] },
   ]
+}
+
+function sandboxPythonPath() {
+  return process.platform === 'win32'
+    ? join(PYTHON_SANDBOX_VENV_DIR, 'Scripts', 'python.exe')
+    : join(PYTHON_SANDBOX_VENV_DIR, 'bin', 'python')
+}
+
+function userSandboxPythonCommand(): PythonCommand | null {
+  const command = sandboxPythonPath()
+  return existsSync(command) ? { command, args: [], source: 'user' } : null
+}
+
+function readBundledPythonManifest(): PythonSandboxManifest | null {
+  const manifestPath = join(BUNDLED_PYTHON_SANDBOX_DIR, 'manifest.json')
+  if (!existsSync(manifestPath)) return null
+  try {
+    return JSON.parse(readFileSync(manifestPath, 'utf-8')) as PythonSandboxManifest
+  } catch {
+    return null
+  }
+}
+
+function bundledPythonCommand(): PythonCommand | null {
+  const manifest = readBundledPythonManifest()
+  if (!manifest?.pythonRelativePath) return null
+  const command = join(BUNDLED_PYTHON_SANDBOX_DIR, manifest.pythonRelativePath)
+  return existsSync(command) ? { command, args: [], source: 'bundled' } : null
 }
 
 function runProcess(
@@ -246,19 +322,49 @@ function runProcess(
   })
 }
 
-async function resolvePython() {
+async function resolveBasePython() {
   for (const candidate of pythonCandidates()) {
     const result = await runProcess(candidate.command, [...candidate.args, '--version'], { timeoutMs: 5000 })
     if (result.code === 0) {
       const version = `${result.stdout}${result.stderr}`.trim()
-      return { ...candidate, version }
+      return { ...candidate, version, source: 'system' as const }
     }
   }
   return null
 }
 
-async function pythonModuleAvailable(moduleName: string) {
-  const python = await resolvePython()
+async function resolveBundledPython() {
+  const bundled = bundledPythonCommand()
+  if (bundled) {
+    const result = await runProcess(bundled.command, ['--version'], { timeoutMs: 5000 })
+    if (result.code === 0) {
+      return { ...bundled, version: `${result.stdout}${result.stderr}`.trim() }
+    }
+  }
+  return null
+}
+
+async function resolveUserSandboxPython() {
+  const sandbox = userSandboxPythonCommand()
+  if (sandbox) {
+    const result = await runProcess(sandbox.command, ['--version'], { timeoutMs: 5000 })
+    if (result.code === 0) {
+      return { ...sandbox, version: `${result.stdout}${result.stderr}`.trim() }
+    }
+  }
+  return null
+}
+
+async function resolvePython() {
+  const bundled = await resolveBundledPython()
+  if (bundled) return bundled
+  const sandbox = await resolveUserSandboxPython()
+  if (sandbox) return sandbox
+  return resolveBasePython()
+}
+
+async function pythonModuleAvailable(moduleName: string, python?: PythonCommand | null) {
+  python = python ?? await resolvePython()
   if (!python) return false
   const result = await runProcess(
     python.command,
@@ -266,6 +372,117 @@ async function pythonModuleAvailable(moduleName: string) {
     { timeoutMs: 8000 }
   )
   return result.code === 0
+}
+
+async function pythonImageioFfmpegPath(python: PythonCommand) {
+  const result = await runProcess(
+    python.command,
+    [...python.args, '-c', 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())'],
+    { timeoutMs: 8000 }
+  )
+  const ffmpegPath = result.stdout.trim()
+  return result.code === 0 && ffmpegPath && existsSync(ffmpegPath) ? ffmpegPath : null
+}
+
+async function pythonSandboxStatus() {
+  const bundledPython = await resolveBundledPython()
+  const basePython = await resolveBasePython()
+  const sandboxPython = await resolveUserSandboxPython()
+  const activePython = bundledPython ?? sandboxPython ?? basePython
+  const [matplotlib, manim] = activePython
+    ? await Promise.all([
+      pythonModuleAvailable('matplotlib', activePython),
+      pythonModuleAvailable('manim', activePython),
+    ])
+    : [false, false]
+
+  return {
+    available: Boolean(activePython),
+    pythonPath: activePython?.command ?? null,
+    version: activePython?.version ?? null,
+    runtimeSource: activePython?.source ?? null,
+    matplotlib,
+    manim,
+    bundledPath: BUNDLED_PYTHON_SANDBOX_DIR,
+    bundledReady: Boolean(bundledPython && matplotlib && manim),
+    sandboxPath: PYTHON_SANDBOX_VENV_DIR,
+    sandboxReady: Boolean((bundledPython || sandboxPython) && matplotlib && manim),
+    basePythonAvailable: Boolean(basePython),
+  }
+}
+
+async function setupPythonSandboxEnv() {
+  const bundledPython = await resolveBundledPython()
+  if (bundledPython) {
+    return {
+      ...(await pythonSandboxStatus()),
+      stdout: 'Bundled Python Sandbox is already available.',
+      stderr: '',
+    }
+  }
+
+  await ensureDir(PYTHON_SANDBOX_DIR)
+  const basePython = await resolveBasePython()
+  if (!basePython) {
+    throw new Error('Python 3 is required to create the sandbox environment. Install Python 3 once, then run setup again.')
+  }
+
+  const sandboxPython = sandboxPythonPath()
+  let stdout = ''
+  let stderr = ''
+
+  if (!existsSync(sandboxPython)) {
+    const venv = await runProcess(basePython.command, [...basePython.args, '-m', 'venv', PYTHON_SANDBOX_VENV_DIR], {
+      cwd: PYTHON_SANDBOX_DIR,
+      timeoutMs: 180_000,
+    })
+    stdout += venv.stdout
+    stderr += venv.stderr
+    if (venv.code !== 0) {
+      throw new Error(`Could not create Python sandbox environment.\n${venv.stderr || venv.stdout}`)
+    }
+  }
+
+  const python: PythonCommand = { command: sandboxPython, args: [] }
+  const pipUpgrade = await runProcess(python.command, [
+    '-m',
+    'pip',
+    'install',
+    '--upgrade',
+    'pip',
+    'setuptools',
+    'wheel',
+  ], {
+    cwd: PYTHON_SANDBOX_DIR,
+    timeoutMs: 300_000,
+  })
+  stdout += pipUpgrade.stdout
+  stderr += pipUpgrade.stderr
+  if (pipUpgrade.code !== 0) {
+    throw new Error(`Could not upgrade pip in the sandbox environment.\n${pipUpgrade.stderr || pipUpgrade.stdout}`)
+  }
+
+  const install = await runProcess(python.command, [
+    '-m',
+    'pip',
+    'install',
+    '--upgrade',
+    ...PYTHON_SANDBOX_PACKAGES,
+  ], {
+    cwd: PYTHON_SANDBOX_DIR,
+    timeoutMs: 900_000,
+  })
+  stdout += install.stdout
+  stderr += install.stderr
+  if (install.code !== 0) {
+    throw new Error(`Could not install Python sandbox packages.\n${install.stderr || install.stdout}`)
+  }
+
+  return {
+    ...(await pythonSandboxStatus()),
+    stdout,
+    stderr,
+  }
 }
 
 async function listPythonOutputs(dir: string): Promise<PythonOutputFile[]> {
@@ -301,6 +518,23 @@ async function listPythonOutputs(dir: string): Promise<PythonOutputFile[]> {
 
   await walk(dir)
   return outputs.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function validatePythonUserCode(code: string): string | null {
+  const rules: Array<{ pattern: RegExp; label: string }> = [
+    { pattern: /^\s*(import|from)\s+/m, label: 'Import statements are not allowed. Use the preloaded libraries.' },
+    { pattern: /\b__import__\s*\(/, label: '__import__ is not allowed.' },
+    { pattern: /\bimportlib\b/, label: 'importlib is not allowed.' },
+    { pattern: /\bpip\b|\bensurepip\b/, label: 'Installing packages from the sandbox is not allowed.' },
+    { pattern: /\bsubprocess\b/, label: 'Starting subprocesses from the sandbox is not allowed.' },
+    { pattern: /\bos\.(system|popen|spawn|exec|startfile)\b/, label: 'Shell/system calls are not allowed.' },
+    { pattern: /\b(eval|exec|compile)\s*\(/, label: 'Dynamic code execution is not allowed.' },
+  ]
+
+  for (const rule of rules) {
+    if (rule.pattern.test(code)) return rule.label
+  }
+  return null
 }
 
 function createWindow(): void {
@@ -477,29 +711,11 @@ function registerIpcHandlers() {
   })
 
   ipcMain.handle('python:check', async () => {
-    const python = await resolvePython()
-    if (!python) {
-      return {
-        available: false,
-        pythonPath: null,
-        version: null,
-        matplotlib: false,
-        manim: false,
-      }
-    }
+    return pythonSandboxStatus()
+  })
 
-    const [matplotlib, manim] = await Promise.all([
-      pythonModuleAvailable('matplotlib'),
-      pythonModuleAvailable('manim'),
-    ])
-
-    return {
-      available: true,
-      pythonPath: python.command,
-      version: python.version,
-      matplotlib,
-      manim,
-    }
+  ipcMain.handle('python:setup', async () => {
+    return setupPythonSandboxEnv()
   })
 
   ipcMain.handle('python:run', async (_e, req: PythonRunRequest) => {
@@ -507,9 +723,15 @@ function registerIpcHandlers() {
     const record = idx.find(r => r.id === req.projectId)
     if (!record) throw new Error('Project not found')
     if (!req.code || req.code.length > 250_000) throw new Error('Python code is empty or too large')
+    const validationError = validatePythonUserCode(req.code)
+    if (validationError) throw new Error(validationError)
 
     const python = await resolvePython()
     if (!python) throw new Error('Python 3 was not found on this computer')
+    const requiredModule = req.kind === 'manim' ? 'manim' : 'matplotlib'
+    if (!await pythonModuleAvailable(requiredModule, python)) {
+      throw new Error(`${requiredModule} is not installed in the Python Sandbox environment. Click "Setup Sandbox" first.`)
+    }
 
     const jobId = req.jobId || `py_${Date.now()}_${Math.random().toString(16).slice(2)}`
     const rootDir = join(record.folder, 'generated', 'python')
@@ -517,8 +739,11 @@ function registerIpcHandlers() {
     await ensureDir(jobDir)
 
     const scriptPath = join(jobDir, req.kind === 'manim' ? 'scene.py' : 'script.py')
-    await writeFile(scriptPath, req.code, 'utf-8')
+    const scriptSource = [PYTHON_SANDBOX_PRELUDE, req.code].join('\n\n')
+    if (scriptSource.length > 300_000) throw new Error('Python code is too large')
+    await writeFile(scriptPath, scriptSource, 'utf-8')
 
+    const ffmpegPath = req.kind === 'manim' ? await pythonImageioFfmpegPath(python) : null
     const env = {
       ...process.env,
       LUFFY_OUTPUT_DIR: jobDir,
@@ -526,7 +751,11 @@ function registerIpcHandlers() {
       LUFFY_HEIGHT: String(req.height ?? 1080),
       LUFFY_FPS: String(req.fps ?? 30),
       MPLBACKEND: 'Agg',
+      MPLCONFIGDIR: join(jobDir, '.matplotlib'),
+      PYTHONDONTWRITEBYTECODE: '1',
       PYTHONIOENCODING: 'utf-8',
+      PYTHONNOUSERSITE: '1',
+      PATH: ffmpegPath ? `${dirname(ffmpegPath)}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}` : process.env.PATH,
     }
 
     const args = req.kind === 'manim'

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, BookOpen, LayoutGrid, Sparkles, Image as ImageIcon, Shuffle, Keyboard, Download, Clapperboard } from 'lucide-react'
+import { X, BookOpen, LayoutGrid, Sparkles, Image as ImageIcon, Shuffle, Keyboard, Download, Clapperboard, BrainCircuit, Terminal } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 
 interface Section {
@@ -20,6 +20,16 @@ function LI({ children }: { children: React.ReactNode }) {
 }
 function Kbd({ children }: { children: React.ReactNode }) {
   return <kbd className="px-1.5 py-0.5 text-[11px] rounded bg-editor-elevated border border-editor-border text-editor-text font-mono">{children}</kbd>
+}
+function DocLink({ path, children }: { path: string; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={() => window.api.shell.openPath(path)}
+      className="text-editor-accent hover:text-white underline underline-offset-2"
+    >
+      {children}
+    </button>
+  )
 }
 function Table({ rows, head }: { head: [string, string]; rows: [string, string][] }) {
   return (
@@ -53,7 +63,7 @@ const SECTIONS: Section[] = [
           <LI><strong>Canvas (center):</strong> the editing surface. Click to select, drag to move, handles to resize/rotate, double-click code/image/video to edit/crop.</LI>
           <LI><strong>Right sidebar (Options):</strong> properties for the active tool or selected element.</LI>
           <LI><strong>Timeline (bottom):</strong> scenes, playhead, playback, audio tracks. Drag its top edge to resize.</LI>
-          <LI><strong>AI Agents (far right):</strong> upcoming assistant (placeholder).</LI>
+          <LI><strong>AI Agents (far right):</strong> prepare validated editor commands from natural-language requests.</LI>
         </ul>
         <H>Quick start</H>
         <ul className="list-disc pl-5">
@@ -178,6 +188,47 @@ const SECTIONS: Section[] = [
           <LI>Everything runs offline — no account, no upload.</LI>
           <LI>MP4 can't store transparency (H.264 has no alpha). Use PNG/WebP for transparent stills.</LI>
         </ul>
+      </>
+    ),
+  },
+  {
+    id: 'ai-agent', title: 'AI Agent', icon: <BrainCircuit size={15} />,
+    content: (
+      <>
+        <P>The AI Agent prepares scene edits as structured commands. It is best for focused changes such as adding elements, styling selected items, changing backgrounds, applying move animations, and setting transitions.</P>
+        <H>Better prompts</H>
+        <ul className="list-disc pl-5">
+          <LI>Mention the scene number when the edit belongs to a specific scene.</LI>
+          <LI>Select an item first when using words like "this" or "selected".</LI>
+          <LI>Give exact values for size, color, speed, delay, or duration when they matter.</LI>
+          <LI>Review the pending plan before clicking Apply. Use Undo to roll back an applied AI plan.</LI>
+        </ul>
+        <H>Examples</H>
+        <Table head={['Request', 'What it should do']} rows={[
+          ['Add a 500x500 purple square on scene 2', 'Create a square on Scene 2 and clamp values if needed.'],
+          ['Set scene 3 background to black', 'Apply a solid black background to Scene 3.'],
+          ['Move the selected item to the right with speed 400 and delay 1.2 seconds', 'Add a move animation to the selected element.'],
+          ['Set a fade transition on scene 4 with duration 0.8 seconds', 'Update Scene 4 transition settings.'],
+        ]} />
+        <P>Full guide: <DocLink path="docs/ai_agent.md">docs/ai_agent.md</DocLink></P>
+      </>
+    ),
+  },
+  {
+    id: 'python-sandbox', title: 'Python Sandbox', icon: <Terminal size={15} />,
+    content: (
+      <>
+        <P>Python Sandbox creates graph images and math animation outputs with preloaded Python tools, then saves or inserts the generated file into the editor.</P>
+        <H>Workflow</H>
+        <ul className="list-disc pl-5">
+          <LI>Open Menu Sidebar → Python Sandbox.</LI>
+          <LI>Choose Python Script for Matplotlib outputs or Manim Scene for animation.</LI>
+          <LI>Write only the working code. Do not add import lines; supported libraries are already preloaded.</LI>
+          <LI>Save outputs inside <Kbd>out</Kbd>, then use Save to Assets or Insert.</LI>
+        </ul>
+        <H>Preloaded names</H>
+        <P><Kbd>np</Kbd>, <Kbd>plt</Kbd>, <Kbd>animation</Kbd>, <Kbd>math</Kbd>, <Kbd>random</Kbd>, <Kbd>statistics</Kbd>, <Kbd>Path</Kbd>, <Kbd>out</Kbd>, <Kbd>WIDTH</Kbd>, <Kbd>HEIGHT</Kbd>, and <Kbd>FPS</Kbd>.</P>
+        <P>Full guide: <DocLink path="docs/python_sandbox.md">docs/python_sandbox.md</DocLink></P>
       </>
     ),
   },

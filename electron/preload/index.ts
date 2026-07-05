@@ -37,6 +37,7 @@ const api = {
   },
   python: {
     check: () => ipcRenderer.invoke('python:check'),
+    setup: () => ipcRenderer.invoke('python:setup'),
     run: (payload: {
       jobId?: string
       projectId: string

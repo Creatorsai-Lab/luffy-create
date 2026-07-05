@@ -4,9 +4,13 @@ import { AI_PLAN_JSON_SCHEMA, validateAiPlan } from './schema'
 const SYSTEM_PROMPT = [
   'You are an editor command planner for a scene-based video editor.',
   'Return only commands that can be safely applied to the current project.',
+  'Return a JSON object that matches the provided schema. Do not return prose outside JSON.',
   'Use 1-based sceneIndex when the user says slide/scene 1, 2, etc.',
+  'If the user does not name a scene, use currentSceneIndex from context.',
   'Prefer selected:true when the user says this/selected/current item.',
   'Do not invent asset IDs. Use available asset IDs from context.',
+  'Keep positions, sizes, timing, and colors within the project context.',
+  'For broad requests, produce a short plan with concrete editor commands rather than vague advice.',
 ].join('\n')
 
 export async function planAiEdit(prompt: string, context: AiProjectContext): Promise<AiPlanResult> {
@@ -108,6 +112,18 @@ function planLocally(prompt: string, context: AiProjectContext): AiPlan {
         direction: readMoveDirection(lower),
         speed: readNumberAfter(lower, 'speed') ?? 120,
         delay: readNumberAfter(lower, 'delay') ?? 0,
+      }],
+      needsConfirmation: true,
+    }
+  }
+
+  if (/\b(background|bg)\b/.test(lower)) {
+    return {
+      summary: `Set the background on Scene ${sceneIndex}.`,
+      commands: [{
+        type: 'setBackground',
+        sceneIndex,
+        background: { type: 'solid', color: readColor(prompt) ?? '#111111' },
       }],
       needsConfirmation: true,
     }

@@ -62,6 +62,25 @@ The complete keyboard reference for fast editing.
 
 </td>
 </tr>
+<tr>
+<td width="33%" valign="top">
+
+### 🤖 [AI Agent](ai_agent.md)
+
+How to write better AI requests, review plans, and apply safer editor commands.
+
+</td>
+<td width="33%" valign="top">
+
+### 🐍 [Python Sandbox](python_sandbox.md)
+
+Create Matplotlib graphs and Manim math animations, then save or insert outputs.
+
+</td>
+<td width="33%" valign="top">
+
+</td>
+</tr>
 </table>
 
 ---
@@ -76,6 +95,8 @@ The complete keyboard reference for fast editing.
 | 4 | [Adjustments](adjustments.md) | Polish images and video |
 | 5 | [Export](export.md) | Render your finished video or images |
 | 6 | [Shortcuts](shortcuts.md) | Speed up your workflow |
+| 7 | [AI Agent](ai_agent.md) | Prepare validated edits from natural-language requests |
+| 8 | [Python Sandbox](python_sandbox.md) | Generate graph and math animation assets |
 
 ---
 

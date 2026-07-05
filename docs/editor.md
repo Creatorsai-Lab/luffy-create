@@ -13,6 +13,8 @@
 | [Adjustments](./adjustments.md) | Image & video filters — brightness, color, blur, crop |
 | [Export](./export.md) | MP4, PNG, WebP — settings, quality, workflow |
 | [Shortcuts](./shortcuts.md) | Keyboard reference |
+| [AI Agent](./ai_agent.md) | Better prompts, plan review, and safer AI edits |
+| [Python Sandbox](./python_sandbox.md) | Matplotlib/Manim asset generation workflow |
 
 ---
 

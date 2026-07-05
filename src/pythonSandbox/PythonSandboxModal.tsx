@@ -1,13 +1,18 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import type { editor as MonacoEditorNS } from 'monaco-editor'
-import { AlertCircle, CheckCircle2, FileImage, Film, FolderOpen, Play, Plus, Square, Terminal, X, Check } from 'lucide-react'
+import { AlertCircle, CheckCircle2, FileImage, Film, FolderOpen, Play, Plus, Square, Terminal, X, Check, Download } from 'lucide-react'
 import { useEditorStore } from '../store/editorStore'
 import { makeImage, makeVideo } from '../utils/defaults'
 import { toFileUrl } from '../utils/pathUtils'
 import type { PythonOutputFile, PythonRunResult, PythonStatus } from '../types/global'
 import { PYTHON_SANDBOX_IMAGE_EXTS, PYTHON_SANDBOX_VIDEO_EXTS } from './constants'
 import { readPythonSandboxImageSize, readPythonSandboxVideoMeta } from './media'
-import { PYTHON_SANDBOX_TEMPLATES, type PythonSandboxKind } from './templates'
+import {
+  getPythonSandboxPrelude,
+  PYTHON_SANDBOX_DEFAULT_CODE,
+  type PythonSandboxKind,
+  validatePythonSandboxCode,
+} from './runtime'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
@@ -19,12 +24,12 @@ export default function PythonSandboxModal() {
     addElement,
   } = useEditorStore()
 
-  const firstTemplate = PYTHON_SANDBOX_TEMPLATES[0]
   const [status, setStatus] = useState<PythonStatus | null>(null)
   const [checking, setChecking] = useState(true)
-  const [kind, setKind] = useState<PythonSandboxKind>(firstTemplate.kind)
-  const [sceneName, setSceneName] = useState(firstTemplate.sceneName)
-  const [code, setCode] = useState(firstTemplate.code)
+  const [settingUp, setSettingUp] = useState(false)
+  const [kind, setKind] = useState<PythonSandboxKind>('script')
+  const [sceneName, setSceneName] = useState('GeneratedScene')
+  const [code, setCode] = useState(PYTHON_SANDBOX_DEFAULT_CODE)
   const [running, setRunning] = useState(false)
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
   const [result, setResult] = useState<PythonRunResult | null>(null)
@@ -36,6 +41,17 @@ export default function PythonSandboxModal() {
     () => result?.outputs.find(o => o.path === selectedPath) ?? result?.outputs[0] ?? null,
     [result, selectedPath]
   )
+  const prelude = useMemo(() => getPythonSandboxPrelude(kind), [kind])
+  const codeWarning = useMemo(() => validatePythonSandboxCode(code), [code])
+  const modeReady = kind === 'manim' ? Boolean(status?.manim) : Boolean(status?.matplotlib)
+  const runtimeLabel = status?.runtimeSource === 'bundled'
+    ? 'Bundled sandbox'
+    : status?.runtimeSource === 'user'
+      ? 'Local sandbox'
+      : status?.runtimeSource === 'system'
+        ? 'System Python'
+        : 'Python'
+  const canRepairSandbox = !status?.bundledReady && Boolean(status?.basePythonAvailable)
 
   useEffect(() => {
     let alive = true
@@ -47,19 +63,31 @@ export default function PythonSandboxModal() {
     return () => { alive = false }
   }, [])
 
-  function applyTemplate(templateId: string) {
-    const template = PYTHON_SANDBOX_TEMPLATES.find(t => t.id === templateId)
-    if (!template) return
-    setKind(template.kind)
-    setSceneName(template.sceneName)
-    setCode(template.code)
-    setResult(null)
-    setSelectedPath(null)
+  async function setupSandbox() {
+    if (settingUp) return
+    setSettingUp(true)
     setError(null)
+    try {
+      const next = await window.api.python.setup()
+      setStatus(next)
+      if (!next.sandboxReady) {
+        setError('Sandbox setup finished, but one or more packages are still missing. Check the console output.')
+      }
+    } catch (err) {
+      setError(String(err?.message ?? err))
+    } finally {
+      setSettingUp(false)
+      setChecking(false)
+    }
   }
 
   async function runCode() {
     if (!project || running) return
+    const warning = validatePythonSandboxCode(code)
+    if (warning) {
+      setError(warning)
+      return
+    }
     const jobId = `py_${Date.now()}_${Math.random().toString(16).slice(2)}`
     setRunning(true)
     setActiveJobId(jobId)
@@ -171,7 +199,7 @@ export default function PythonSandboxModal() {
                 {checking
                   ? 'Checking Python...'
                   : status?.available
-                    ? `${status.version ?? 'Python'} - Matplotlib ${status.matplotlib ? 'ready' : 'missing'} - Manim ${status.manim ? 'ready' : 'missing'}`
+                    ? `${runtimeLabel} ${status.sandboxReady ? 'ready' : 'not ready'} - Matplotlib ${status.matplotlib ? 'ready' : 'missing'} - Manim ${status.manim ? 'ready' : 'missing'}`
                     : 'Python 3 not found'}
               </p>
             </div>
@@ -187,16 +215,6 @@ export default function PythonSandboxModal() {
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(420px,1fr)_360px] gap-0">
           <div className="flex min-h-0 flex-col border-r border-editor-border">
             <div className="flex flex-wrap items-center gap-2 border-b border-editor-border px-3 py-2">
-              <select
-                onChange={e => applyTemplate(e.target.value)}
-                className="rounded border border-editor-border bg-editor-elevated px-2 py-1.5 text-xs text-editor-text"
-                defaultValue={firstTemplate.id}
-              >
-                {PYTHON_SANDBOX_TEMPLATES.map(template => (
-                  <option key={template.id} value={template.id}>{template.label}</option>
-                ))}
-              </select>
-
               <select
                 value={kind}
                 onChange={e => setKind(e.target.value as PythonSandboxKind)}
@@ -216,6 +234,16 @@ export default function PythonSandboxModal() {
               )}
 
               <div className="ml-auto flex items-center gap-2">
+                {!status?.bundledReady && (
+                  <button
+                    onClick={setupSandbox}
+                    disabled={settingUp || checking || !canRepairSandbox}
+                    className="flex items-center gap-1.5 rounded border border-editor-border bg-editor-elevated px-3 py-1.5 text-xs text-editor-text transition-colors hover:border-editor-accent hover:text-editor-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    title={status?.sandboxPath ? `Repair local sandbox packages in ${status.sandboxPath}` : 'Repair local sandbox packages'}
+                  >
+                    <Download size={13} /> {settingUp ? 'Repairing...' : 'Repair Sandbox'}
+                  </button>
+                )}
                 {running ? (
                   <button
                     onClick={stopRun}
@@ -226,13 +254,32 @@ export default function PythonSandboxModal() {
                 ) : (
                   <button
                     onClick={runCode}
-                    disabled={!project || checking || !status?.available}
+                    disabled={!project || checking || settingUp || !status?.available || !modeReady || Boolean(codeWarning)}
                     className="flex items-center gap-1.5 rounded border border-editor-accent bg-editor-accent-dim px-3 py-1.5 text-xs text-editor-accent transition-colors hover:bg-editor-accent hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Play size={13} /> Run
                   </button>
                 )}
               </div>
+            </div>
+
+            <div className="border-b border-editor-border bg-[#101010] px-3 py-2">
+              <div className="mb-1 text-[10px] uppercase tracking-wide text-editor-secondary">Preloaded libraries</div>
+              <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded border border-editor-border bg-black/35 p-2 text-[11px] leading-relaxed text-editor-secondary">
+                {prelude}
+              </pre>
+              {codeWarning && (
+                <div className="mt-2 flex items-start gap-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-200">
+                  <AlertCircle size={14} className="mt-0.5 flex-none" />
+                  <span>{codeWarning}</span>
+                </div>
+              )}
+              {!modeReady && status?.available && (
+                <div className="mt-2 flex items-start gap-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-200">
+                  <AlertCircle size={14} className="mt-0.5 flex-none" />
+                  <span>{kind === 'manim' ? 'Manim is missing.' : 'Matplotlib is missing.'} The bundled sandbox is missing or incomplete.</span>
+                </div>
+              )}
             </div>
 
             <div className="min-h-0 flex-1">

@@ -24,6 +24,11 @@ const TYPE_PATCH_KEYS: Record<string, Set<string>> = {
 }
 
 export function executeAiPlan(plan: AiPlan): AiCommandResult[] {
+  const store = useEditorStore.getState()
+  if (plan.commands.length > 0 && store.project) {
+    store.saveHistory(`AI: ${plan.summary.slice(0, 80)}`)
+  }
+
   const results: AiCommandResult[] = []
   for (const command of plan.commands) {
     try {
