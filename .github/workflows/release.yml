@@ -50,6 +50,8 @@ jobs:
 
       - name: Prepare bundled Python Sandbox
         run: npm run prepare-python-sandbox
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Package — Windows
         if: matrix.platform == 'win'

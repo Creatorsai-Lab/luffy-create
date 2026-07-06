@@ -66,13 +66,28 @@ function run(command, args, options = {}) {
 }
 
 async function githubJson(url) {
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'luffy-create-python-sandbox-builder',
+    'X-GitHub-Api-Version': '2022-11-28',
+  }
+  if (token) headers.Authorization = `Bearer ${token}`
+
   const response = await fetch(url, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'User-Agent': 'luffy-create-python-sandbox-builder',
-    },
+    headers,
   })
-  if (!response.ok) throw new Error(`GitHub request failed: ${response.status} ${response.statusText}`)
+  if (!response.ok) {
+    const remaining = response.headers.get('x-ratelimit-remaining')
+    const reset = response.headers.get('x-ratelimit-reset')
+    const resetMessage = reset
+      ? ` Rate limit resets at ${new Date(Number(reset) * 1000).toISOString()}.`
+      : ''
+    const authMessage = token
+      ? 'Authenticated GitHub request failed.'
+      : 'Unauthenticated GitHub request failed. Pass GITHUB_TOKEN in CI to avoid low API rate limits.'
+    throw new Error(`${authMessage} ${response.status} ${response.statusText}. Remaining=${remaining ?? 'unknown'}.${resetMessage}`)
+  }
   return response.json()
 }
 
