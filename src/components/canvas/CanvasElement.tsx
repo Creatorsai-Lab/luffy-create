@@ -16,6 +16,7 @@ import AudioKonva  from './elements/AudioKonva'
 import IconKonva   from './elements/IconKonva'
 import LatexKonva  from './elements/LatexKonva'
 import CounterKonva from './elements/CounterKonva'
+import HandDrawKonva from './elements/HandDrawKonva'
 
 interface Props {
   element:    EditorElement
@@ -30,7 +31,8 @@ interface Props {
 }
 
 export default function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, syncVideoToTime = true, videoPlaybackActive = false }: Props) {
-  const { updateElement } = useEditorStore()
+  const { activeTool, updateElement } = useEditorStore()
+  const drawingMode = activeTool === 'handDraw'
 
   // Animation-driven scale from center: adjust x/y so the element scales around its center,
   // not the Konva default of top-left corner.
@@ -58,8 +60,8 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
       ? animScaleY * ((element as import('../../types/editor').TextElement).stretchY ?? 1)
       : animScaleY,
     rotation: animProps?.rotation ?? element.rotation,
-    draggable: !element.locked,
-    listening: !element.locked,
+    draggable: !element.locked && !drawingMode && element.type !== 'handDraw',
+    listening: !element.locked && !drawingMode,
     onClick:  (e: Konva.KonvaEventObject<MouseEvent>) => onSelect(e.evt.shiftKey),
     onDblClick,
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
@@ -147,6 +149,7 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
     case 'icon':   return <IconKonva   el={element as import('../../types/editor').IconElement} konvaProps={props} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} />
     case 'latex':  return <LatexKonva  el={element as import('../../types/editor').LatexElement} konvaProps={props} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} />
     case 'counter': return <CounterKonva el={element as import('../../types/editor').CounterElement} konvaProps={props} localTime={localTime} />
+    case 'handDraw': return <HandDrawKonva el={element as import('../../types/editor').HandDrawElement} konvaProps={props} />
     case 'audio':  return null
     default:       return null
   }

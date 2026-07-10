@@ -7,6 +7,7 @@ import { getAnimatedProps } from '../../engine/animator'
 import { drawBackground } from '../../engine/backgroundRenderer'
 import { easeInOutCubic } from '../../engine/transitionRenderer'
 import CanvasElement from '../canvas/CanvasElement'
+import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
 import type { Background, TransitionType, SlideDir, AudioElement, VideoElement } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
@@ -227,6 +228,7 @@ export default function PreviewModal() {
                     videoPlaybackActive={isPlaying}
                   />
                 ))}
+                <SubtitleOverlay project={project} time={playhead} />
               </Layer>
             </Stage>
           </div>

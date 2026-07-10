@@ -6,6 +6,7 @@ import { toFileUrl } from '../../../utils/pathUtils'
 import { getVideoClipState } from '../../../utils/videoClip'
 import { videoRegistry } from '../../../engine/videoRegistry'
 import { buildCssFilter, applyCanvasAdjustments } from '../../../engine/imageFilters'
+import { drawBoxShadow, drawInnerShadow } from '../../../engine/boxShadow'
 
 interface Props {
   el: VideoElement
@@ -166,6 +167,8 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
 
         const w = el.width, h = el.height
         const frame = el.frameType ?? 'none'
+
+        drawBoxShadow(raw, el.boxShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
 
         // 1. Frame Shape Mask
         if (frame === 'circle') {
@@ -401,6 +404,8 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
           raw.fillRect(0, 0, w, h)
           raw.restore()
         }
+
+        drawInnerShadow(raw, el.innerShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
 
         raw.restore()
 

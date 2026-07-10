@@ -18,7 +18,7 @@ protocol.registerSchemesAsPrivileged([
     privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true }
   }
 ])
-import { dirname, join, normalize } from 'path'
+import { basename, dirname, join, normalize } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { mkdir, readFile, writeFile, copyFile, readdir, rm, stat, open, rename } from 'fs/promises'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
@@ -206,6 +206,17 @@ interface PythonRunRequest {
   timeoutMs?: number
 }
 
+interface SubtitleTranscribeRequest {
+  sourcePath: string
+  language?: string
+}
+
+interface SubtitleTranscribeCue {
+  start: number
+  end: number
+  text: string
+}
+
 const pythonJobs = new Map<string, ChildProcessWithoutNullStreams>()
 const PYTHON_SANDBOX_DIR = join(USER_DATA, 'python-sandbox')
 const PYTHON_SANDBOX_VENV_DIR = join(PYTHON_SANDBOX_DIR, 'venv')
@@ -224,6 +235,15 @@ const PYTHON_SANDBOX_PACKAGES = [
 const PYTHON_OUTPUT_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'])
 const PYTHON_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'])
 const PYTHON_VIDEO_EXTS = new Set(['mp4', 'webm', 'mov'])
+const WHISPER_DIR = is.dev
+  ? join(process.cwd(), 'build', 'whisper')
+  : join(process.resourcesPath, 'whisper')
+const WHISPER_MODEL_NAMES = [
+  'ggml-tiny.en.bin',
+  'ggml-tiny.bin',
+  'ggml-base.en.bin',
+  'ggml-base.bin',
+]
 const PYTHON_SANDBOX_PRELUDE = `import os
 import math
 import random
@@ -520,6 +540,145 @@ async function listPythonOutputs(dir: string): Promise<PythonOutputFile[]> {
   return outputs.sort((a, b) => a.name.localeCompare(b.name))
 }
 
+function firstExisting(paths: string[]) {
+  return paths.find(path => existsSync(path)) ?? null
+}
+
+function resolveWhisperCli() {
+  const exe = process.platform === 'win32' ? 'whisper-cli.exe' : 'whisper-cli'
+  const legacy = process.platform === 'win32' ? 'main.exe' : 'main'
+  return firstExisting([
+    join(WHISPER_DIR, 'bin', exe),
+    join(WHISPER_DIR, exe),
+    join(WHISPER_DIR, 'bin', legacy),
+    join(WHISPER_DIR, legacy),
+  ])
+}
+
+function resolveWhisperModel(language?: string) {
+  const wantsEnglish = !language || language.toLowerCase().startsWith('en')
+  const names = wantsEnglish
+    ? WHISPER_MODEL_NAMES
+    : ['ggml-base.bin', 'ggml-tiny.bin', ...WHISPER_MODEL_NAMES]
+  return firstExisting(names.map(name => join(WHISPER_DIR, 'models', name)))
+}
+
+function parseWhisperTimestamp(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value !== 'string') return 0
+  const clean = value.replace(',', '.').trim()
+  const parts = clean.split(':').map(Number)
+  if (parts.some(part => Number.isNaN(part))) return Number(clean) || 0
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  if (parts.length === 2) return parts[0] * 60 + parts[1]
+  return parts[0] || 0
+}
+
+function coerceWhisperSegment(segment: unknown): SubtitleTranscribeCue | null {
+  const item = segment as {
+    start?: unknown
+    end?: unknown
+    text?: unknown
+    timestamps?: { from?: unknown; to?: unknown }
+  }
+  const text = String(item.text ?? '').replace(/\s+/g, ' ').trim()
+  if (!text) return null
+  const start = parseWhisperTimestamp(item.start ?? item.timestamps?.from)
+  const end = parseWhisperTimestamp(item.end ?? item.timestamps?.to)
+  return end > start ? { start, end, text } : null
+}
+
+function coerceWhisperJson(payload: unknown): SubtitleTranscribeCue[] {
+  const data = payload as { transcription?: unknown; segments?: unknown; text?: unknown }
+  const source = Array.isArray(data.transcription)
+    ? data.transcription
+    : Array.isArray(data.segments)
+      ? data.segments
+      : []
+  return source
+    .map(coerceWhisperSegment)
+    .filter((cue): cue is SubtitleTranscribeCue => Boolean(cue))
+}
+
+async function resolveNativeFfmpeg() {
+  const python = await resolvePython()
+  return python ? pythonImageioFfmpegPath(python) : null
+}
+
+async function transcribeAudioWithLocalWhisper(req: SubtitleTranscribeRequest) {
+  if (!req.sourcePath) throw new Error('No audio file was provided for transcription.')
+  const info = await stat(req.sourcePath)
+  if (!info.isFile()) throw new Error('Selected audio source is not a file.')
+
+  const cli = resolveWhisperCli()
+  const model = resolveWhisperModel(req.language)
+  if (!cli || !model) {
+    throw new Error('Local Whisper is not installed. Add whisper.cpp CLI and a ggml model under build/whisper.')
+  }
+
+  const ffmpegPath = await resolveNativeFfmpeg()
+  if (!ffmpegPath) {
+    throw new Error('Native FFmpeg was not found. Prepare the bundled Python Sandbox so audio can be converted for Whisper.')
+  }
+
+  const jobId = `sub_${Date.now()}_${Math.random().toString(16).slice(2)}`
+  const jobDir = join(USER_DATA, 'subtitle-jobs', jobId)
+  await ensureDir(jobDir)
+
+  const wavPath = join(jobDir, `${basename(req.sourcePath).replace(/\W+/g, '_')}.wav`)
+  const outputBase = join(jobDir, 'captions')
+  const outputJson = `${outputBase}.json`
+
+  try {
+    const convert = await runProcess(ffmpegPath, [
+      '-y',
+      '-i',
+      req.sourcePath,
+      '-vn',
+      '-ar',
+      '16000',
+      '-ac',
+      '1',
+      '-c:a',
+      'pcm_s16le',
+      wavPath,
+    ], { timeoutMs: 300_000 })
+    if (convert.code !== 0) {
+      throw new Error(`Could not prepare audio for local Whisper.\n${convert.stderr || convert.stdout}`)
+    }
+
+    const whisperArgs = [
+      '-m',
+      model,
+      '-f',
+      wavPath,
+      '-oj',
+      '-of',
+      outputBase,
+    ]
+    const language = req.language?.trim()
+    if (language) whisperArgs.push('-l', language)
+
+    const result = await runProcess(cli, whisperArgs, { cwd: jobDir, timeoutMs: 900_000 })
+    if (result.code !== 0) {
+      throw new Error(`Local Whisper transcription failed.\n${result.stderr || result.stdout}`)
+    }
+    if (!existsSync(outputJson)) {
+      throw new Error('Local Whisper finished but did not produce JSON captions.')
+    }
+
+    const payload = JSON.parse(await readFile(outputJson, 'utf-8'))
+    const cues = coerceWhisperJson(payload)
+    return {
+      source: 'whisper.cpp',
+      text: cues.map(cue => cue.text).join(' ').trim(),
+      cues,
+    }
+  } finally {
+    await rm(jobDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
 function validatePythonUserCode(code: string): string | null {
   const rules: Array<{ pattern: RegExp; label: string }> = [
     { pattern: /^\s*(import|from)\s+/m, label: 'Import statements are not allowed. Use the preloaded libraries.' },
@@ -801,6 +960,10 @@ function registerIpcHandlers() {
 
   ipcMain.handle('python:list-outputs', async (_e, outputDir: string) => {
     return listPythonOutputs(outputDir)
+  })
+
+  ipcMain.handle('subtitle:transcribe-audio', async (_e, req: SubtitleTranscribeRequest) => {
+    return transcribeAudioWithLocalWhisper(req)
   })
 }
 

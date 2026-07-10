@@ -1,4 +1,6 @@
 import type { ShapeElement, TextElement } from '../types/editor'
+import { shapeCanvasFill } from './shapeFill'
+import { textCanvasFill } from './textFill'
 
 export interface PerspectivePts {
   tl: [number, number]
@@ -240,7 +242,7 @@ function roughRectPoints(w: number, h: number, seed: number): [number, number][]
 export function drawSketchRect(
   ctx: CanvasRenderingContext2D,
   w: number, h: number,
-  fill: string, stroke: string, sw: number,
+  fill: string | CanvasGradient, stroke: string, sw: number,
 ) {
   // Fill uses the smooth rounded path
   roughRoundRectPath(ctx, w, h, 1337)
@@ -277,7 +279,7 @@ export function drawShapeToCtx(el: ShapeElement, ctx: CanvasRenderingContext2D) 
   const r = Math.min(w, h) / 2
   const cx = w / 2, cy = h / 2
 
-  ctx.fillStyle = el.fill
+  ctx.fillStyle = shapeCanvasFill(ctx, el, w, h)
   ctx.strokeStyle = el.stroke || 'transparent'
   ctx.lineWidth = el.strokeWidth || 0
 
@@ -362,7 +364,7 @@ export function drawShapeToCtx(el: ShapeElement, ctx: CanvasRenderingContext2D) 
 
       ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(0, baseY)
       ctx.ellipse(cx, baseY, cx, baseRY, 0, Math.PI, 0, false); ctx.closePath()
-      ctx.fillStyle = el.fill; ctx.fill()
+      ctx.fillStyle = shapeCanvasFill(ctx, el, w, h); ctx.fill()
       if (sw > 0) { ctx.strokeStyle = sk; ctx.lineWidth = sw; ctx.stroke() }
 
       ctx.beginPath(); ctx.ellipse(cx, baseY, cx, baseRY, 0, 0, Math.PI * 2)
@@ -381,13 +383,13 @@ export function drawShapeToCtx(el: ShapeElement, ctx: CanvasRenderingContext2D) 
       const ox = depth * Math.cos(ANGLE), oy = depth * Math.sin(ANGLE)
       const fw = w - ox, fh = h - oy
       const sw = el.strokeWidth || 0, sk = el.stroke || 'transparent'
-      const drawFace = (pts: number[], fill: string) => {
+      const drawFace = (pts: number[], fill: string | CanvasGradient) => {
         ctx.beginPath(); ctx.moveTo(pts[0], pts[1])
         for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1])
         ctx.closePath(); ctx.fillStyle = fill; ctx.fill()
         if (sw > 0) { ctx.strokeStyle = sk; ctx.lineWidth = sw; ctx.stroke() }
       }
-      drawFace([0, oy, fw, oy, fw, h, 0, h], el.fill)
+      drawFace([0, oy, fw, oy, fw, h, 0, h], shapeCanvasFill(ctx, el, w, h))
       drawFace([ox, 0, w, 0, fw, oy, 0, oy], topFaceColor(el.fill, el.faceColor))
       drawFace([fw, oy, w, 0, w, fh, fw, h], sideFaceColor(el.fill, el.faceColor))
       break
@@ -422,7 +424,7 @@ export function drawShapeToCtx(el: ShapeElement, ctx: CanvasRenderingContext2D) 
       heartPath(ctx, w, h); fillStroke(); break
 
     case 'rect-sketch':
-      drawSketchRect(ctx, w, h, el.fill, el.stroke, el.strokeWidth || 0); break
+      drawSketchRect(ctx, w, h, shapeCanvasFill(ctx, el, w, h), el.stroke, el.strokeWidth || 0); break
 
     case 'circle-hand': {
       ctx.beginPath()
@@ -474,6 +476,6 @@ export function drawTextToCtx(el: TextElement, ctx: CanvasRenderingContext2D) {
     ctx.strokeStyle = el.textStroke; ctx.lineWidth = el.textStrokeWidth * 2
     lines.forEach((ln, i) => ctx.strokeText(ln, startX, i * lineH))
   }
-  ctx.fillStyle = el.color
+  ctx.fillStyle = textCanvasFill(ctx, el, el.width, lineH * Math.max(1, lines.length))
   lines.forEach((ln, i) => ctx.fillText(ln, startX, i * lineH))
 }

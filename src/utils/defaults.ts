@@ -2,12 +2,31 @@ import { v4 as uuid } from 'uuid'
 import type {
   Project, Scene, Background, TextElement, ShapeElement,
   ArrowElement, CodeElement, ImageElement, TableElement, ChartElement, VideoElement, AudioElement,
-  IconElement, LatexElement, CounterElement, ElementAnimation, SceneTransition, ShapeType
+  IconElement, LatexElement, CounterElement, HandDrawElement, ElementAnimation, SceneTransition, ShapeType, BoxShadow, InnerShadow
 } from '../types/editor'
 
 export const DEFAULT_BG: Background = { type: 'solid', color: '#cac8c6' }
 
 export const DEFAULT_TRANSITION: SceneTransition = { type: 'none', duration: 0.5 }
+
+export const DEFAULT_BOX_SHADOW: BoxShadow = {
+  enabled: false,
+  color: '#000000',
+  opacity: 0.35,
+  blur: 28,
+  spread: 0,
+  angle: 135,
+  distance: 18,
+}
+
+export const DEFAULT_INNER_SHADOW: InnerShadow = {
+  enabled: false,
+  color: '#000000',
+  opacity: 0.35,
+  blur: 18,
+  angle: 135,
+  distance: 10,
+}
 
 export function makeScene(index = 1): Scene {
   return {
@@ -27,6 +46,7 @@ export function makeProject(id: string, name: string): Project {
     scenes: [makeScene(1)],
     assets: [],
     timeMarkers: [],
+    subtitleTracks: [],
     createdAt: Date.now(),
     updatedAt: Date.now()
   }
@@ -38,9 +58,18 @@ export function makeText(x: number, y: number): TextElement {
     x, y, width: 600, height: 60,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
+    innerShadow: { ...DEFAULT_INNER_SHADOW },
     content: 'Write in the text box',
     fontSize: 55, fontFamily: 'Noto Serif', fontWeight: 'normal',
     italic: false, color: '#807f7f', align: 'left',
+    fillMode: 'solid',
+    gradientColor1: '#ffffff',
+    gradientColor2: '#8b5cf6',
+    gradientColor3: '#22d3ee',
+    gradientOpacity1: 1,
+    gradientOpacity2: 1,
+    gradientOpacity3: 1,
+    gradientUseColor3: false,
     lineHeight: 1.4, letterSpacing: 0, underline: false,
     shadowColor: 'transparent',
     shadowBlur: 0,
@@ -77,8 +106,17 @@ export function makeShape(type: ShapeType, x: number, y: number): ShapeElement {
     height: size,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
+    boxShadow: { ...DEFAULT_BOX_SHADOW },
+    innerShadow: { ...DEFAULT_INNER_SHADOW },
     shapeType: type,
     fill: isSketch ? 'transparent' : '#6366f1',
+    fillOpacity: 1,
+    fillMode: 'solid',
+    gradientFrom: '#6366f1',
+    gradientTo: '#22d3ee',
+    gradientFromOpacity: 1,
+    gradientToOpacity: 1,
+    gradientAngle: 135,
     stroke: isSketch ? '#202020' : 'transparent',
     strokeWidth: isSketch ? 3 : 0,
     cornerRadius: 8,
@@ -121,6 +159,7 @@ export function makeImage(x: number, y: number, src: string, assetId: string, wi
     x, y, width, height,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
+    boxShadow: { ...DEFAULT_BOX_SHADOW },
     src, assetId, cornerRadius: 0
   }
 }
@@ -219,6 +258,8 @@ export function makeVideo(
     x, y, width, height,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
+    boxShadow: { ...DEFAULT_BOX_SHADOW },
+    innerShadow: { ...DEFAULT_INNER_SHADOW },
     src, assetId, cornerRadius: 0,
     volume: 1,
     playbackRate: 1,
@@ -280,5 +321,15 @@ export function makeCounter(x: number, y: number): CounterElement {
     shadowColor: 'transparent',
     shadowOffsetX: 0,
     shadowOffsetY: 0,
+  }
+}
+
+export function makeHandDrawLayer(width: number, height: number): HandDrawElement {
+  return {
+    id: uuid(), type: 'handDraw', name: 'Hand Draw',
+    x: 0, y: 0, width, height,
+    rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
+    animations: [],
+    strokes: [],
   }
 }

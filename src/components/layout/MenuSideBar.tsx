@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Type, Square, ArrowRight, Code2, Table2, Layers, Shuffle, ImagePlus, BarChart3, Music,
-  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, SquareDashedMousePointer, SquarePlay, Sigma, BookOpen, Captions, Timer, Route, SquareTerminal
+  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, SquareDashedMousePointer, SquarePlay, Sigma, BookOpen, Captions, Timer, Route, SquareTerminal, PenTool
 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { useHistoryStore } from '../../store/historyStore'
@@ -30,6 +30,7 @@ const TOOLS: ToolItem[] = [
   { icon: <ImagePlus size={15} />, label: 'Images', tool: 'image', panel: 'upload' },
   { icon: <SquarePlay size={15} />, label: 'Video', tool: 'video', panel: 'video' },
   { icon: <Music size={15} />, label: 'Audio', panel: 'audio' },
+  { icon: <PenTool size={15} />, label: 'Hand Draw', tool: 'handDraw', panel: 'handDraw' },
   { icon: <SquareDashedMousePointer size={15} />, label: 'Perspective', panel: 'perspective' },
   { icon: <Route size={15} />, label: 'Move', panel: 'move' },
   { icon: <Timer size={15} />, label: 'Counter', tool: 'counter', panel: 'counter' },
@@ -207,6 +208,11 @@ export default function MenuSideBar() {
                 disabled={disabled}
                 onClick={() => {
                   if (disabled) return
+                  if (activePanel === item.panel) {
+                    setActivePanel(null)
+                    if (item.tool === 'handDraw') setActiveTool('select')
+                    return
+                  }
                   if (item.tool === 'code') { openCodeModal(); setActivePanel('code'); return }
                   // For shapes panel, just open it without setting a specific shape tool
                   // This allows the user to choose a shape from the panel first
@@ -219,7 +225,7 @@ export default function MenuSideBar() {
                     setActiveTool('select')
                   }
                   if (item.tool) setActiveTool(item.tool)
-                  setActivePanel(activePanel === item.panel ? null : item.panel)
+                  setActivePanel(item.panel)
                 }}
                 className={cn(
                   'flex flex-col items-center justify-center gap-1.5 p-2 rounded transition-all',

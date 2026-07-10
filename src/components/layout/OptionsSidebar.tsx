@@ -20,6 +20,7 @@ import VideoPanel from '../panels/VideoPanel'
 import LatexPanel from '../panels/LatexPanel'
 import CounterPanel from '../panels/CounterPanel'
 import MovePanel from '../panels/MovePanel'
+import HandDrawPanel from '../panels/HandDrawPanel'
 import type { ActivePanel } from '../../types/editor'
 
 // When an element is selected and the sidebar panel matches the element's "home" panel,
@@ -37,6 +38,7 @@ const ELEMENT_PANEL: Record<string, ActivePanel> = {
   audio: 'audio',
   latex: 'latex',
   counter: 'counter',
+  handDraw: 'handDraw',
 }
 
 export default function OptionsSidebar() {
@@ -83,6 +85,7 @@ export default function OptionsSidebar() {
       case 'icons':      return <IconCollectionPanel />
       case 'latex':      return <LatexPanel />
       case 'counter':    return <CounterPanel />
+      case 'handDraw':   return <HandDrawPanel />
       case 'background': return <BackgroundPanel />
       case 'layers':     return <LayersPanel />
       case 'transitions':  return <TransitionPanel />

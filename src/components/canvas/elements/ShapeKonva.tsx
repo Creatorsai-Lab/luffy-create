@@ -3,6 +3,8 @@ import { Rect, Circle, RegularPolygon, Star, Line, Ellipse, Shape, Group } from 
 import type Konva from 'konva'
 import type { ShapeElement, SlideDir } from '../../../types/editor'
 import { drawPerspectiveWarp, drawShapeToCtx, heartPath, drawSketchRect, type PathCtx } from '../../../engine/perspectiveUtils'
+import { drawBoxShadow, drawInnerShadow, hasBoxShadow, hasInnerShadow } from '../../../engine/boxShadow'
+import { shapeCanvasFill, shapeFillProps } from '../../../engine/shapeFill'
 
 // ─── Color helpers ────────────────────────────────────────────────────────────
 
@@ -72,22 +74,26 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
     setOffscreen(canvas)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [el.width, el.height, el.fill, el.stroke, el.strokeWidth, el.cornerRadius, el.shapeType,
+      el.fillMode, el.gradientFrom, el.gradientTo, el.gradientFromOpacity, el.gradientToOpacity, el.gradientAngle,
       (el as { depth?: number }).depth, (el as { faceColor?: string }).faceColor, !!el.perspectivePts])
 
   if (el.perspectivePts && offscreen) {
     return (
-      <Shape
-        {...konvaProps}
-        width={el.width}
-        height={el.height}
-        hitFunc={(ctx, shape) => {
-          ctx.beginPath(); ctx.rect(0, 0, el.width, el.height); ctx.closePath(); ctx.fillStrokeShape(shape)
-        }}
-        sceneFunc={(ctx, _shape) => {
-          const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
-          drawPerspectiveWarp(raw, offscreen, el.perspectivePts!, el.width, el.height)
-        }}
-      />
+      <>
+        <ElementShadow el={el} konvaProps={konvaProps} />
+        <Shape
+          {...konvaProps}
+          width={el.width}
+          height={el.height}
+          hitFunc={(ctx, shape) => {
+            ctx.beginPath(); ctx.rect(0, 0, el.width, el.height); ctx.closePath(); ctx.fillStrokeShape(shape)
+          }}
+          sceneFunc={(ctx, _shape) => {
+            const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
+            drawPerspectiveWarp(raw, offscreen, el.perspectivePts!, el.width, el.height)
+          }}
+        />
+      </>
     )
   }
 
@@ -105,20 +111,32 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
   // When wipe is active, Group owns konvaProps; inner shapes use only visual props
   const shared = {
     ...(wipeActive ? {} : konvaProps),
-    fill:        el.fill,
     stroke:      fStroke,
     strokeWidth: fStrokeW,
+    ...shapeFillProps(el, w, h),
     ...(fDash ? { dash: fDash, dashOffset } : {}),
     perfectDrawEnabled: false,
   }
 
+  function withShadow(node: React.ReactElement | null): React.ReactElement | null {
+    if (!node || (!hasBoxShadow(el.boxShadow) && !hasInnerShadow(el.innerShadow))) return node
+    return (
+      <>
+        <ElementShadow el={el} konvaProps={konvaProps} />
+        {node}
+        <ElementInnerShadow el={el} konvaProps={konvaProps} />
+      </>
+    )
+  }
+
   function wipe(node: React.ReactElement | null): React.ReactElement | null {
-    if (!wipeActive || !node || !wipeDir) return node
+    if (!node) return null
+    if (!wipeActive || !wipeDir) return withShadow(node)
     const clipX = wipeDir === 'left' ? w * (1 - wipeProgress) : 0
     const clipY = wipeDir === 'up'   ? h * (1 - wipeProgress) : 0
     const clipW = (wipeDir === 'left' || wipeDir === 'right') ? w * wipeProgress : w
     const clipH = (wipeDir === 'up'   || wipeDir === 'down')  ? h * wipeProgress : h
-    return (
+    return withShadow(
       <Group
         {...konvaProps}
         clipX={clipX}
@@ -220,7 +238,7 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
             raw.lineTo(0, baseY)
             raw.ellipse(w / 2, baseY, w / 2, baseRY, 0, Math.PI, 0, false)
             raw.closePath()
-            raw.fillStyle = el.fill
+            raw.fillStyle = shapeCanvasFill(raw, el, w, h)
             raw.fill()
             if (sw > 0) { raw.strokeStyle = sk; raw.lineWidth = sw; raw.stroke() }
 
@@ -284,7 +302,7 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
             const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
             raw.save()
 
-            const drawFace = (pts: number[], fill: string) => {
+            const drawFace = (pts: number[], fill: string | CanvasGradient) => {
               raw.beginPath()
               raw.moveTo(pts[0], pts[1])
               for (let i = 2; i < pts.length; i += 2) raw.lineTo(pts[i], pts[i+1])
@@ -294,7 +312,7 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
               if (sw > 0) { raw.strokeStyle = sk; raw.lineWidth = sw; raw.stroke() }
             }
 
-            drawFace([0, oy, fw, oy, fw, h, 0, h], frontFill)
+            drawFace([0, oy, fw, oy, fw, h, 0, h], shapeCanvasFill(raw, el, w, h))
             drawFace([ox, 0, w, 0, fw, oy, 0, oy], topFill)
             drawFace([fw, oy, w, 0, w, fh, fw, h], rightFill)
 
@@ -404,7 +422,7 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
           }}
           sceneFunc={(ctx: Konva.Context, _shape: Konva.Shape) => {
             const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
-            drawSketchRect(raw, w, h, el.fill, el.stroke, el.strokeWidth || 0)
+            drawSketchRect(raw, w, h, shapeCanvasFill(raw, el, w, h), el.stroke, el.strokeWidth || 0)
           }}
         />
       )
@@ -412,4 +430,42 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
     default:
       return null
   }
+}
+
+function ElementShadow({ el, konvaProps }: { el: ShapeElement; konvaProps: Record<string, unknown> }) {
+  if (!hasBoxShadow(el.boxShadow)) return null
+  const radius = el.shapeType === 'rect' || el.shapeType === 'rect-sketch' ? el.cornerRadius : Math.min(el.width, el.height) * 0.08
+  return (
+    <Shape
+      {...konvaProps}
+      id={`${el.id}-box-shadow`}
+      listening={false}
+      draggable={false}
+      width={el.width}
+      height={el.height}
+      sceneFunc={(ctx) => {
+        const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
+        drawBoxShadow(raw, el.boxShadow, el.width, el.height, radius)
+      }}
+    />
+  )
+}
+
+function ElementInnerShadow({ el, konvaProps }: { el: ShapeElement; konvaProps: Record<string, unknown> }) {
+  if (!hasInnerShadow(el.innerShadow)) return null
+  const radius = el.shapeType === 'rect' || el.shapeType === 'rect-sketch' ? el.cornerRadius : Math.min(el.width, el.height) * 0.08
+  return (
+    <Shape
+      {...konvaProps}
+      id={`${el.id}-inner-shadow`}
+      listening={false}
+      draggable={false}
+      width={el.width}
+      height={el.height}
+      sceneFunc={(ctx) => {
+        const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
+        drawInnerShadow(raw, el.innerShadow, el.width, el.height, radius)
+      }}
+    />
+  )
 }

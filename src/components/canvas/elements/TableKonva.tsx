@@ -32,7 +32,7 @@ export default function TableKonva({ el, konvaProps }: Props) {
                 width={cellWidth - 12}
                 text={cells[r]?.[c] ?? ''}
                 fontSize={fontSize}
-                fontFamily="Segoe UI, system-ui, sans-serif"
+                fontFamily="system-ui, sans-serif"
                 fontStyle={isHeader ? 'bold' : 'normal'}
                 fill={textColor}
                 ellipsis

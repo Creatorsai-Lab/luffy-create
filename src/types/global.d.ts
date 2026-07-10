@@ -55,6 +55,18 @@ export interface PythonRunResult {
   outputs: PythonOutputFile[]
 }
 
+export interface SubtitleTranscriptionCue {
+  start: number
+  end: number
+  text: string
+}
+
+export interface SubtitleTranscriptionResult {
+  source: 'whisper.cpp'
+  text: string
+  cues: SubtitleTranscriptionCue[]
+}
+
 declare global {
   interface Window {
     api: {
@@ -106,6 +118,12 @@ declare global {
         }) => Promise<PythonRunResult>
         cancel: (jobId: string) => Promise<boolean>
         listOutputs: (outputDir: string) => Promise<PythonOutputFile[]>
+      }
+      subtitle?: {
+        transcribeAudio: (payload: {
+          sourcePath: string
+          language?: string
+        }) => Promise<SubtitleTranscriptionResult>
       }
       ai?: {
         plan: (payload: {

@@ -51,6 +51,9 @@ const api = {
     }) => ipcRenderer.invoke('python:run', payload),
     cancel: (jobId: string) => ipcRenderer.invoke('python:cancel', jobId),
     listOutputs: (outputDir: string) => ipcRenderer.invoke('python:list-outputs', outputDir)
+  },
+  subtitle: {
+    transcribeAudio: (payload: { sourcePath: string; language?: string }) => ipcRenderer.invoke('subtitle:transcribe-audio', payload)
   }
 }
 

@@ -1,10 +1,10 @@
 // ─── Element subtypes ────────────────────────────────────────────────────────
 
-export type ElementType   = 'text' | 'shape' | 'arrow' | 'code' | 'image' | 'table' | 'chart' | 'video' | 'audio' | 'icon' | 'latex' | 'counter'
+export type ElementType   = 'text' | 'shape' | 'arrow' | 'code' | 'image' | 'table' | 'chart' | 'video' | 'audio' | 'icon' | 'latex' | 'counter' | 'handDraw'
 export type ShapeType     = 'rect' | 'circle' | 'triangle' | 'star' | 'pentagon' | 'hexagon' | 'octagon' | 'diamond' | 'oval' | 'speechBubble' | 'roundedSpeech' | 'cone' | 'cube' | 'rect-hand' | 'circle-hand' | 'square-hand' | 'heart' | 'rect-sketch'
 export type AnimationType = 'fadeIn' | 'fadeOut' | 'slideIn' | 'slideOut' | 'scaleIn' | 'scaleOut' | 'wipeIn' | 'wipeOut' | 'typewriter' | 'drawPath' | 'spin' | 'pulse' | 'bounceLoop' | 'rotateLoop' | 'move' |
   // Text-specific animations
-  'typewriterChars' | 'typewriterWords' | 'textFade' | 'colorPulse' |
+  'typewriterChars' | 'typewriterWords' | 'textBounceIn' | 'textFade' | 'colorPulse' |
   // Arrow-specific animations
   'drawOff' | 'flowLoop' | 'fadeLoop' |
   // Chart-specific animations
@@ -21,7 +21,30 @@ export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push
 export type BgType        = 'solid' | 'gradient' | 'grid' | 'dots' | 'animated' | 'transparent'
 export type FontWeight    = 'normal' | 'medium' | 'semibold' | 'bold'
 export type ActiveTool    = 'select' | 'text' | 'shape-rect' | 'shape-circle' | 'shape-triangle' | 'shape-star' | 'shape-pentagon' | 'shape-hexagon' | 'shape-octagon' | 'shape-diamond' | 'shape-oval' | 'shape-speechBubble' | 'shape-roundedSpeech' | 'shape-cone' | 'shape-cube' | 'shape-rect-hand' | 'shape-circle-hand' | 'shape-square-hand' | 'shape-heart' | 'shape-rect-sketch' | 'arrow' | 'code' | 'table' | 'image' | 'chart' | 'video' | 'latex' | 'counter'
-export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'move' | 'latex' | 'counter' | null
+  | 'handDraw'
+export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'move' | 'latex' | 'counter' | 'handDraw' | null
+export type HandDrawTool = 'pen' | 'paint' | 'spray' | 'eraser'
+export type ShapeFillMode = 'solid' | 'linearGradient' | 'radialGradient'
+export type TextFillMode = 'solid' | 'linearGradient'
+
+export interface BoxShadow {
+  enabled: boolean
+  color: string
+  opacity: number
+  blur: number
+  spread: number
+  angle: number
+  distance: number
+}
+
+export interface InnerShadow {
+  enabled: boolean
+  color: string
+  opacity: number
+  blur: number
+  angle: number
+  distance: number
+}
 
 // ─── Animation ───────────────────────────────────────────────────────────────
 
@@ -62,6 +85,8 @@ export interface BaseElement {
   visible: boolean
   name: string
   animations: ElementAnimation[]
+  boxShadow?: BoxShadow
+  innerShadow?: InnerShadow
   perspectivePts?: { tl: [number, number]; tr: [number, number]; br: [number, number]; bl: [number, number] }
   groupId?: string   // elements sharing a groupId move together when group-locked
 }
@@ -76,6 +101,14 @@ export interface TextElement extends BaseElement {
   fontWeight: FontWeight
   italic: boolean
   color: string
+  fillMode?: TextFillMode
+  gradientColor1?: string
+  gradientColor2?: string
+  gradientColor3?: string
+  gradientOpacity1?: number
+  gradientOpacity2?: number
+  gradientOpacity3?: number
+  gradientUseColor3?: boolean
   align: AlignType
   lineHeight: number
   letterSpacing: number
@@ -106,6 +139,13 @@ export interface ShapeElement extends BaseElement {
   type: 'shape'
   shapeType: ShapeType
   fill: string
+  fillOpacity?: number
+  fillMode?: ShapeFillMode
+  gradientFrom?: string
+  gradientTo?: string
+  gradientFromOpacity?: number
+  gradientToOpacity?: number
+  gradientAngle?: number
   stroke: string
   strokeWidth: number
   cornerRadius: number
@@ -312,6 +352,31 @@ export interface CounterElement extends BaseElement {
   bgShadowOffsetY?: number
 }
 
+export interface HandDrawSprayParticle {
+  x: number
+  y: number
+  radius: number
+  alpha: number
+}
+
+export interface HandDrawStroke {
+  id: string
+  tool: HandDrawTool
+  points: number[]
+  color: string
+  width: number
+  opacity: number
+  hardness?: number
+  grainColor?: string
+  spread?: number
+  particles?: HandDrawSprayParticle[]
+}
+
+export interface HandDrawElement extends BaseElement {
+  type: 'handDraw'
+  strokes: HandDrawStroke[]
+}
+
 export interface AudioMarker {
   id: string
   offset: number  // seconds from clip start (audio.x)
@@ -337,7 +402,7 @@ export interface AudioElement extends BaseElement {
   lane?: number      // explicit vertical lane in the timeline (manual override)
 }
 
-export type EditorElement = TextElement | ShapeElement | ArrowElement | CodeElement | ImageElement | TableElement | ChartElement | VideoElement | AudioElement | IconElement | LatexElement | CounterElement
+export type EditorElement = TextElement | ShapeElement | ArrowElement | CodeElement | ImageElement | TableElement | ChartElement | VideoElement | AudioElement | IconElement | LatexElement | CounterElement | HandDrawElement
 
 // ─── Background ───────────────────────────────────────────────────────────────
 
@@ -385,6 +450,38 @@ export interface TimeMarker {
   time: number
 }
 
+export interface SubtitleCue {
+  id: string
+  start: number   // seconds on the global project timeline
+  end: number     // seconds on the global project timeline
+  text: string
+}
+
+export interface SubtitleStyle {
+  fontFamily: string
+  fontSize: number
+  fontWeight: FontWeight
+  color: string
+  backgroundColor: string
+  backgroundOpacity: number
+  position: 'bottom' | 'middle' | 'top'
+  align: AlignType
+  maxWidthPct: number
+  paddingX: number
+  paddingY: number
+  radius: number
+}
+
+export interface SubtitleTrack {
+  id: string
+  name: string
+  language: string
+  enabled: boolean
+  cues: SubtitleCue[]
+  sourceAudioIds?: string[]
+  style: SubtitleStyle
+}
+
 export interface Project {
   id: string
   name: string
@@ -394,6 +491,7 @@ export interface Project {
   scenes: Scene[]
   assets: AssetMeta[]
   timeMarkers: TimeMarker[]
+  subtitleTracks?: SubtitleTrack[]
   createdAt: number
   updatedAt: number
 }
@@ -426,7 +524,6 @@ export const FONT_FAMILIES = [
   'Consolas',
   'Courier New',
   'EB Garamond',
-  'Fredoka',
   'Garamond',
   'Georgia',
   'Handlee',
@@ -435,19 +532,14 @@ export const FONT_FAMILIES = [
   'Indie Flower',
   'Inter',
   'Kalam',
-  'Monaco',
   'Montserrat',
   'Noto Serif',
   'Pacifico',
   'Playfair Display',
   'Poppins',
   'Quicksand',
-  'Raleway',
-  'Reggae One',
   'Roboto',
-  'Segoe UI',
   'Shadows Into Light',
-  'Spectral',
   'Tahoma',
   'Times New Roman',
   'Trebuchet MS',

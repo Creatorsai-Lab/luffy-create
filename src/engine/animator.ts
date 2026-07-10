@@ -30,7 +30,7 @@ export interface AnimatedProps {
   rotation: number
   offsetX: number; offsetY: number
   textProgress: number
-  textMode: 'chars' | 'words' | 'draw' | undefined
+  textMode: 'chars' | 'words' | 'bounceWords' | 'draw' | undefined
   dashOffset: number
   wipeProgress: number
   wipeDir: SlideDir | undefined
@@ -333,6 +333,13 @@ function applyAnim(
       if (after)  { out.textProgress = 1; out.textMode = 'words'; return }
       out.textProgress = t
       out.textMode = 'words'
+      break
+
+    case 'textBounceIn':
+      if (before) { out.opacity = 0; out.textProgress = 0; out.textMode = 'bounceWords'; return }
+      if (after)  { out.textProgress = 1; out.textMode = 'bounceWords'; return }
+      out.textProgress = t
+      out.textMode = 'bounceWords'
       break
 
     case 'textFade':

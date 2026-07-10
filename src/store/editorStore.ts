@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid'
 import type {
   Project, Scene, EditorElement, ElementAnimation,
   Background, SceneTransition, AssetMeta,
-  ActiveTool, ActivePanel, TimeMarker, VideoElement, AudioElement
+  ActiveTool, ActivePanel, TimeMarker, VideoElement, AudioElement, HandDrawTool, SubtitleTrack
 } from '../types/editor'
 import { makeScene, makeProject } from '../utils/defaults'
 import { useHistoryStore } from './historyStore'
@@ -33,6 +33,18 @@ interface EditorState {
   exportProgress:    number
   timelineZoom:      number
   snapEnabled:       boolean
+  handDrawSettings:  HandDrawSettings
+}
+
+export interface HandDrawSettings {
+  tool: HandDrawTool
+  strokeWidth: number
+  strokeOpacity: number
+  strokeColor: string
+  paintGrainColor: string
+  spraySpread: number
+  eraserSize: number
+  eraserHardness: number
 }
 
 interface EditorActions {
@@ -98,6 +110,7 @@ interface EditorActions {
   setPythonSandboxOpen: (v: boolean) => void
   setExportProgress:(v: number) => void
   setTimelineZoom:  (z: number) => void
+  setHandDrawSettings: (patch: Partial<HandDrawSettings>) => void
 
   // Assets
   addAsset:         (a: AssetMeta) => void
@@ -108,6 +121,10 @@ interface EditorActions {
   // Time markers
   addTimeMarker:    (time: number) => void
   removeTimeMarker: (id: string) => void
+
+  // Subtitles
+  upsertSubtitleTrack: (track: SubtitleTrack) => void
+  removeSubtitleTrack: (id: string) => void
 
   // Audio markers (stored relative to clip, move with clip, deleted with clip)
   addAudioMarker:    (audioId: string, offset: number) => void
@@ -270,6 +287,16 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       exportProgress:   0,
       timelineZoom:     1,
       snapEnabled:      true,
+      handDrawSettings: {
+        tool: 'pen',
+        strokeWidth: 8,
+        strokeOpacity: 1,
+        strokeColor: '#202020',
+        paintGrainColor: '#ffffff',
+        spraySpread: 32,
+        eraserSize: 40,
+        eraserHardness: 0.75,
+      },
 
       // ── Project ────────────────────────────────────────────────────────────
       loadProject: (project) => set(s => {
@@ -649,6 +676,9 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       setPythonSandboxOpen: (v) => set(s => { s.pythonSandboxOpen = v }),
       setExportProgress:(v) => set(s => { s.exportProgress = v }),
       setTimelineZoom:  (z) => set(s => { s.timelineZoom = Math.max(0.1, Math.min(5, z)) }),
+      setHandDrawSettings: (patch) => set(s => {
+        Object.assign(s.handDrawSettings, patch)
+      }),
 
       markDirty:        ()  => set(s => { s.isDirty = true }),
       markClean:        ()  => set(s => { s.isDirty = false }),
@@ -703,6 +733,21 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       removeTimeMarker: (id) => set(s => {
         if (!s.project) return
         s.project.timeMarkers = (s.project.timeMarkers ?? []).filter(m => m.id !== id)
+        s.isDirty = true
+      }),
+
+      upsertSubtitleTrack: (track) => set(s => {
+        if (!s.project) return
+        if (!s.project.subtitleTracks) s.project.subtitleTracks = []
+        const idx = s.project.subtitleTracks.findIndex(t => t.id === track.id)
+        if (idx >= 0) s.project.subtitleTracks[idx] = track
+        else s.project.subtitleTracks.push(track)
+        s.isDirty = true
+      }),
+
+      removeSubtitleTrack: (id) => set(s => {
+        if (!s.project) return
+        s.project.subtitleTracks = (s.project.subtitleTracks ?? []).filter(t => t.id !== id)
         s.isDirty = true
       }),
 

@@ -5,6 +5,7 @@ import type { ImageElement, SlideDir } from '../../../types/editor'
 import { toFileUrl } from '../../../utils/pathUtils'
 import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
 import { buildCssFilter, applyCanvasAdjustments } from '../../../engine/imageFilters'
+import { drawBoxShadow } from '../../../engine/boxShadow'
 
 function drawCropped(ctx: CanvasRenderingContext2D, img: HTMLImageElement, el: ImageElement) {
   if (el.crop) {
@@ -121,6 +122,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
         }}
         sceneFunc={(ctx, _shape) => {
           const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
+          drawBoxShadow(raw, el.boxShadow, el.width, el.height, el.cornerRadius)
           const source = isGif ? buildPerspectiveSource() : offscreen
           if (source) drawPerspectiveWarp(raw, source, el.perspectivePts!, el.width, el.height)
         }}
@@ -210,6 +212,8 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     raw.rect(clipX, clipY, Math.max(0, clipW), Math.max(0, clipH))
     raw.clip()
   }
+
+        drawBoxShadow(raw, el.boxShadow, el.width, el.height, el.cornerRadius)
 
         // Clip to rounded rect if needed
         if (el.cornerRadius > 0) {

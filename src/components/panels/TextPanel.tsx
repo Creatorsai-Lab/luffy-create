@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useEditorStore } from '../../store/editorStore'
 import { FONT_FAMILIES } from '../../types/editor'
-import type { TextElement, FontWeight, AlignType, AnimationType, EasingType, SlideDir, ElementAnimation, TextEffectType } from '../../types/editor'
+import type { TextElement, TextFillMode, FontWeight, AlignType, AnimationType, EasingType, SlideDir, ElementAnimation, TextEffectType } from '../../types/editor'
 import { AlignLeft, AlignCenter, AlignRight, Italic, Underline, Type, Plus, Trash2 } from 'lucide-react'
 import { cn } from '../../utils/cn'
 import { makeAnimation, makeText } from '../../utils/defaults'
+import { InnerShadowControls } from './BoxShadowControls'
 
 const WEIGHTS: { label: string; value: FontWeight }[] = [
   { label: 'Normal',   value: 'normal' },
@@ -30,6 +31,7 @@ export const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Wipe In',            value: 'wipeIn'         },
   { label: 'Typewriter (Chars)', value: 'typewriterChars'},
   { label: 'Typewriter (Words)', value: 'typewriterWords'},
+  { label: 'Bounce Words',       value: 'textBounceIn'   },
 ]
 
 export const LOOP_ANIMS: { label: string; value: AnimationType }[] = [
@@ -165,9 +167,63 @@ export default function TextPanel() {
                 </div>
               </Row>
 
-              <Row label="Color">
-                <ColorInput value={el.color} onChange={v => upd({ color: v })} />
+              <Row label="Fill Mode">
+                <select
+                  value={el.fillMode ?? 'solid'}
+                  onChange={e => upd({ fillMode: e.target.value as TextFillMode })}
+                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                >
+                  <option value="solid">Solid</option>
+                  <option value="linearGradient">Gradient</option>
+                </select>
               </Row>
+
+              {(el.fillMode ?? 'solid') === 'solid' ? (
+                <Row label="Color">
+                  <ColorInput value={el.color} onChange={v => upd({ color: v })} />
+                </Row>
+              ) : (
+                <>
+                  <Row label="Color 1">
+                    <ColorInput value={el.gradientColor1 ?? el.color} onChange={v => upd({ gradientColor1: v })} />
+                  </Row>
+                  <Row label="Color 1 Opacity">
+                    <Slider value={Math.round((el.gradientOpacity1 ?? 1) * 100)} min={0} max={100} step={1}
+                      onChange={v => upd({ gradientOpacity1: v / 100 })} display={`${Math.round((el.gradientOpacity1 ?? 1) * 100)}%`} />
+                  </Row>
+                  <Row label="Color 2">
+                    <ColorInput value={el.gradientColor2 ?? '#8b5cf6'} onChange={v => upd({ gradientColor2: v })} />
+                  </Row>
+                  <Row label="Color 2 Opacity">
+                    <Slider value={Math.round((el.gradientOpacity2 ?? 1) * 100)} min={0} max={100} step={1}
+                      onChange={v => upd({ gradientOpacity2: v / 100 })} display={`${Math.round((el.gradientOpacity2 ?? 1) * 100)}%`} />
+                  </Row>
+                  <Row label="Third Color">
+                    <button
+                      onClick={() => upd({ gradientUseColor3: !el.gradientUseColor3 })}
+                      className={cn(
+                        'px-2 py-1 rounded text-xs transition-colors',
+                        el.gradientUseColor3
+                          ? 'bg-editor-accent text-white'
+                          : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border border-editor-border'
+                      )}
+                    >
+                      {el.gradientUseColor3 ? 'On' : 'Off'}
+                    </button>
+                  </Row>
+                  {el.gradientUseColor3 && (
+                    <>
+                      <Row label="Color 3">
+                        <ColorInput value={el.gradientColor3 ?? '#22d3ee'} onChange={v => upd({ gradientColor3: v })} />
+                      </Row>
+                      <Row label="Color 3 Opacity">
+                        <Slider value={Math.round((el.gradientOpacity3 ?? 1) * 100)} min={0} max={100} step={1}
+                          onChange={v => upd({ gradientOpacity3: v / 100 })} display={`${Math.round((el.gradientOpacity3 ?? 1) * 100)}%`} />
+                      </Row>
+                    </>
+                  )}
+                </>
+              )}
 
               <Row label="Line Height">
                 <Slider value={el.lineHeight} min={0.8} max={5} step={0.05}
@@ -219,6 +275,7 @@ export default function TextPanel() {
                   </div>
                 </div>
               </Row>
+              <InnerShadowControls value={el.innerShadow} onChange={innerShadow => upd({ innerShadow })} />
             </div>
 
             {/* ── Background ────────────────────────────────────────── */}
@@ -256,7 +313,7 @@ export default function TextPanel() {
                       onChange={v => upd({ bgPadY: v })} display={`${el.bgPadY ?? 10}px`} />
                   </Row>
                   <Row label="Corner Radius">
-                    <Slider value={el.bgRadius ?? 0} min={0} max={100} step={1}
+                    <Slider value={el.bgRadius ?? 0} min={0} max={200} step={1}
                       onChange={v => upd({ bgRadius: v })} display={`${el.bgRadius ?? 0}px`} />
                   </Row>
                   <Row label="Shadow Color">

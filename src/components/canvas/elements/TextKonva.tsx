@@ -4,12 +4,14 @@ import type Konva from 'konva'
 import type { TextElement, SlideDir } from '../../../types/editor'
 import { loadFont } from '../../../utils/fontLoader'
 import { drawPerspectiveWarp, drawTextToCtx } from '../../../engine/perspectiveUtils'
+import { hasInnerShadow, innerShadowOrDefault } from '../../../engine/boxShadow'
+import { textFillProps } from '../../../engine/textFill'
 
 interface Props {
   el: TextElement
   konvaProps: Record<string, unknown>
   textProgress: number
-  textMode?: 'chars' | 'words' | 'draw'
+  textMode?: 'chars' | 'words' | 'bounceWords' | 'draw'
   wipeProgress?: number
   wipeDir?: SlideDir
   textColor?: string
@@ -61,6 +63,44 @@ function resolveEffectProps(el: TextElement, effectiveColor: string) {
   return { shadowEnabled, shadowColor, shadowBlur, shadowOffsetX, shadowOffsetY, stroke, strokeWidth, strokeEnabled, fillEnabled }
 }
 
+function bounceEase(t: number) {
+  const clamped = Math.max(0, Math.min(1, t))
+  if (clamped < 0.72) return 1.1 * (1 - Math.pow(1 - clamped / 0.72, 3))
+  return 1.1 - 0.1 * (1 - Math.pow(1 - (clamped - 0.72) / 0.28, 2))
+}
+
+function layoutWords(el: TextElement, fontStyle: string) {
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')!
+  ctx.font = `${fontStyle ? `${fontStyle} ` : ''}${el.fontSize}px "${el.fontFamily}"`
+  const spaceW = ctx.measureText(' ').width + el.letterSpacing
+  const lineH = el.fontSize * el.lineHeight
+  const lines: Array<Array<{ text: string; x: number; y: number; width: number }>> = []
+
+  el.content.split('\n').forEach((paragraph, paragraphIndex) => {
+    if (paragraphIndex > 0 || lines.length === 0) lines.push([])
+    const words = paragraph.split(/\s+/).filter(Boolean)
+    let line = lines[lines.length - 1]
+    let x = 0
+    for (const word of words) {
+      const width = ctx.measureText(word).width
+      if (line.length > 0 && x + width > el.width) {
+        lines.push([])
+        line = lines[lines.length - 1]
+        x = 0
+      }
+      line.push({ text: word, x, y: (lines.length - 1) * lineH, width })
+      x += width + spaceW
+    }
+  })
+
+  return lines.flatMap(line => {
+    const lineWidth = line.length > 0 ? line[line.length - 1].x + line[line.length - 1].width : 0
+    const alignOffset = el.align === 'center' ? (el.width - lineWidth) / 2 : el.align === 'right' ? el.width - lineWidth : 0
+    return line.map(word => ({ ...word, x: word.x + alignOffset }))
+  })
+}
+
 export default function TextKonva({ el, konvaProps, textProgress, textMode, wipeProgress = 1, wipeDir, textColor }: Props) {
   const nodeRef = useRef<Konva.Text | null>(null)
   const [offscreen, setOffscreen] = useState<HTMLCanvasElement | null>(null)
@@ -95,6 +135,7 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
       el.width, el.height, !!el.perspectivePts])
 
   const content = (() => {
+    if (textMode === 'bounceWords') return el.content
     if (textProgress >= 1 || textMode === 'draw') return el.content
     if (textMode === 'words') {
       const words = el.content.split(' ')
@@ -112,14 +153,70 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
     fontFamily: el.fontFamily,
     fontStyle: [el.italic ? 'italic' : '', WEIGHT_MAP[el.fontWeight] ?? 'normal'].join(' ').trim(),
     textDecoration: el.underline ? 'underline' : '',
-    fill: effectiveColor,
     align: el.align,
     lineHeight: el.lineHeight,
     letterSpacing: el.letterSpacing,
     wrap: 'word' as const,
     perfectDrawEnabled: false,
+    ...(textColor ? { fill: effectiveColor } : textFillProps({ ...el, color: effectiveColor }, el.width)),
     ...effectProps,
   }
+  const innerShadow = innerShadowOrDefault(el.innerShadow)
+  const innerOffset = {
+    x: Math.cos((innerShadow.angle * Math.PI) / 180) * innerShadow.distance,
+    y: Math.sin((innerShadow.angle * Math.PI) / 180) * innerShadow.distance,
+  }
+  const textInnerShadowNode = hasInnerShadow(el.innerShadow) ? (
+    <Text
+      {...textStyleProps}
+      text={content}
+      x={-innerOffset.x}
+      y={-innerOffset.y}
+      fill="rgba(0,0,0,0)"
+      shadowColor={innerShadow.color}
+      shadowBlur={innerShadow.blur}
+      shadowOffsetX={innerOffset.x}
+      shadowOffsetY={innerOffset.y}
+      shadowOpacity={innerShadow.opacity}
+      shadowEnabled
+      strokeEnabled={false}
+      listening={false}
+      globalCompositeOperation="source-atop"
+      fillPriority="color"
+      fillLinearGradientColorStops={undefined}
+      fillLinearGradientStartPoint={undefined}
+      fillLinearGradientEndPoint={undefined}
+    />
+  ) : null
+
+  const bounceWordsNode = textMode === 'bounceWords' ? (
+    <Group>
+      {layoutWords(el, textStyleProps.fontStyle).map((word, index, words) => {
+        const stagger = words.length <= 1 ? 0 : index / Math.max(1, words.length - 1) * 0.45
+        const local = Math.max(0, Math.min(1, (textProgress - stagger) / 0.55))
+        const eased = bounceEase(local)
+        const y = word.y + (1 - eased) * 42
+        const wordWidth = word.width + el.fontSize
+        const wordFillProps = textColor
+          ? { fill: effectiveColor, fillPriority: 'color' as const }
+          : textFillProps({ ...el, color: effectiveColor }, wordWidth)
+        return (
+          <Text
+            key={`${word.text}-${index}`}
+            {...textStyleProps}
+            {...wordFillProps}
+            text={word.text}
+            x={word.x}
+            y={y}
+            width={wordWidth}
+            opacity={Math.min(1, local * 1.4)}
+            align="left"
+            wrap="none"
+          />
+        )
+      })}
+    </Group>
+  ) : null
 
   // Text background box — sits behind the text, hugs it with padding.
   const bgPadX = el.bgPadX ?? 16
@@ -182,7 +279,8 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
         clipHeight={Math.max(0, clipH)}
       >
         {bgNode}
-        <Text ref={nodeRef} {...textStyleProps} text={content} />
+        {bounceWordsNode ?? <Text ref={nodeRef} {...textStyleProps} text={content} />}
+        {textInnerShadowNode}
       </Group>
     )
   }
@@ -198,7 +296,8 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
         clipHeight={el.height + el.fontSize * 2}
       >
         {bgNode}
-        <Text ref={nodeRef} {...textStyleProps} text={content} />
+        {bounceWordsNode ?? <Text ref={nodeRef} {...textStyleProps} text={content} />}
+        {textInnerShadowNode}
       </Group>
     )
   }
@@ -208,17 +307,28 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
     return (
       <Group {...(konvaProps as Record<string, unknown>)}>
         {bgNode}
-        <Text ref={nodeRef} {...textStyleProps} text={content} />
+        {bounceWordsNode ?? <Text ref={nodeRef} {...textStyleProps} text={content} />}
+        {textInnerShadowNode}
       </Group>
     )
   }
 
-  return (
-    <Text
-      ref={nodeRef}
-      {...konvaProps}
-      {...textStyleProps}
-      text={content}
-    />
-  )
+  if (textInnerShadowNode) {
+    return (
+      <Group {...(konvaProps as Record<string, unknown>)}>
+        {bounceWordsNode ?? <Text ref={nodeRef} {...textStyleProps} text={content} />}
+        {textInnerShadowNode}
+      </Group>
+    )
+  }
+
+  if (bounceWordsNode) {
+    return (
+      <Group {...(konvaProps as Record<string, unknown>)}>
+        {bounceWordsNode}
+      </Group>
+    )
+  }
+
+  return <Text ref={nodeRef} {...konvaProps} {...textStyleProps} text={content} />
 }

@@ -55,8 +55,8 @@ export default function PerspectiveHandles({ el }: Props) {
         <Circle
           key={key}
           x={pt[0]} y={pt[1]}
-          radius={5}
-          fill="#ffffff" stroke="#6366f1" strokeWidth={2}
+          radius={12}
+          fill="#ff6600" stroke="#c0c0c0" strokeWidth={2}
           draggable
           onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => {
             updPts({ ...pts, [key]: [e.target.x(), e.target.y()] as Pt })
@@ -68,8 +68,8 @@ export default function PerspectiveHandles({ el }: Props) {
         <Circle
           key={key}
           x={pt[0]} y={pt[1]}
-          radius={4}
-          fill="#ff0015" stroke="#ffffff" strokeWidth={1.5}
+          radius={12}
+          fill="#ff0015" stroke="#c0c0c0" strokeWidth={1.5}
           draggable
           onDragStart={(e: Konva.KonvaEventObject<DragEvent>) => {
             edgeStart.current[key] = {

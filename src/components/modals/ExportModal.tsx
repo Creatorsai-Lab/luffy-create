@@ -236,7 +236,7 @@ export default function ExportModal() {
               key={t}
               onClick={() => setTab(t)}
               className={[
-                'flex items-center gap-1.5 px-3 py-1.5 text-base rounded-t transition-colors',
+                'flex items-center gap-1.5 px-3 py-1.5 text-lg rounded-t transition-colors',
                 tab === t
                   ? 'bg-editor-accent text-editor-text'
                   : 'text-[#f2f2f2] hover:text-editor-text'

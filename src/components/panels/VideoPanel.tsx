@@ -6,6 +6,7 @@ import { PanelHeader, Row, Slider, NumberInput } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
 import { sourceVideoClipDuration } from '../../utils/videoClip'
+import BoxShadowControls, { InnerShadowControls } from './BoxShadowControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade In',   value: 'fadeIn'   },
@@ -153,6 +154,11 @@ export default function VideoPanel() {
                 <Slider value={el.cornerRadius} min={0} max={200} step={1}
                   onChange={v => upd({ cornerRadius: v })} display={`${el.cornerRadius}px`} />
               </Row>
+            </div>
+
+            <div className="px-3 py-2">
+              <BoxShadowControls value={el.boxShadow} onChange={boxShadow => upd({ boxShadow })} />
+              <InnerShadowControls value={el.innerShadow} onChange={innerShadow => upd({ innerShadow })} />
             </div>
 
             {/* ── Playback ─────────────────────────────────────────── */}

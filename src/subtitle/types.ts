@@ -1,21 +1,35 @@
-// Subtitle module types. Kept separate so future multilingual + AI-refinement
-// work can grow here without touching the rest of the editor.
+import type { SubtitleCue, SubtitleStyle, SubtitleTrack } from '../types/editor'
 
-export interface SubtitleCue {
-  id: string
-  start: number   // seconds
-  end: number     // seconds
-  text: string
-}
-
-export interface SubtitleTrack {
-  id: string
-  language: string        // BCP-47-ish, e.g. 'en'. Multilingual support comes later.
-  label: string
-  cues: SubtitleCue[]
-  sourceVideoId?: string  // which video element these captions belong to
-}
+export type { SubtitleCue, SubtitleStyle, SubtitleTrack }
 
 export function makeCue(start: number, end: number, text = ''): SubtitleCue {
   return { id: crypto.randomUUID(), start, end, text }
+}
+
+export function defaultSubtitleStyle(): SubtitleStyle {
+  return {
+    fontFamily: 'Inter',
+    fontSize: 54,
+    fontWeight: 'semibold',
+    color: '#ffffff',
+    backgroundColor: '#000000',
+    backgroundOpacity: 0.72,
+    position: 'bottom',
+    align: 'center',
+    maxWidthPct: 82,
+    paddingX: 24,
+    paddingY: 14,
+    radius: 8,
+  }
+}
+
+export function makeSubtitleTrack(name = 'Timeline Captions'): SubtitleTrack {
+  return {
+    id: crypto.randomUUID(),
+    name,
+    language: 'en',
+    enabled: true,
+    cues: [],
+    style: defaultSubtitleStyle(),
+  }
 }

@@ -35,12 +35,12 @@ jobs:
           node-version: 24
           cache: npm
 
-      # Linux needs these libs for Electron to build an AppImage
+      # Linux needs these libs for Electron to build an AppImage  
       - name: Install Linux build dependencies
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopenjp2-tools rpm fakeroot dpkg pkg-config libcairo2-dev libpango1.0-dev
+          sudo apt-get install -y libopenjp2-tools rpm fakeroot dpkg pkg-config libcairo2-dev libpango1.0-dev cmake
 
       - name: Install dependencies
         run: npm ci
@@ -50,6 +50,11 @@ jobs:
 
       - name: Prepare bundled Python Sandbox
         run: npm run prepare-python-sandbox
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare local Whisper captions engine
+        run: npm run prepare-local-whisper
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

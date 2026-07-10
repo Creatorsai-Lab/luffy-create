@@ -14,7 +14,8 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "prepare-python-sandbox": "node scripts/prepare-python-sandbox.mjs",
-    "package": "electron-vite build && npm run prepare-python-sandbox && electron-builder"
+    "prepare-local-whisper": "node scripts/prepare-local-whisper.mjs",
+    "package": "electron-vite build && npm run prepare-python-sandbox && npm run prepare-local-whisper && electron-builder"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
@@ -28,7 +29,6 @@
     "@fontsource/caveat-brush": "^5.2.8",
     "@fontsource/chewy": "^5.2.7",
     "@fontsource/eb-garamond": "^5.2.7",
-    "@fontsource/fredoka": "^5.2.10",
     "@fontsource/handlee": "^5.2.7",
     "@fontsource/imperial-script": "^5.2.8",
     "@fontsource/indie-flower": "^5.2.7",
@@ -40,11 +40,8 @@
     "@fontsource/playfair-display": "^5.2.8",
     "@fontsource/poppins": "^5.2.7",
     "@fontsource/quicksand": "^5.2.10",
-    "@fontsource/raleway": "^5.2.8",
-    "@fontsource/reggae-one": "^5.2.8",
     "@fontsource/roboto": "^5.2.10",
     "@fontsource/shadows-into-light": "^5.2.8",
-    "@fontsource/spectral": "^5.2.8",
     "@monaco-editor/react": "^4.6.0",
     "clsx": "^2.1.1",
     "electron-updater": "^6.3.9",
@@ -100,6 +97,13 @@
       {
         "from": "build/python-sandbox",
         "to": "python-sandbox",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "build/whisper",
+        "to": "whisper",
         "filter": [
           "**/*"
         ]

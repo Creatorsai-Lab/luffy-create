@@ -5,6 +5,7 @@ import type { ImageElement, AnimationType, EasingType, SlideDir, ElementAnimatio
 import { PanelHeader, Row, Slider, NumberInput } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
+import BoxShadowControls from './BoxShadowControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Slide In',  value: 'slideIn'  },
@@ -140,6 +141,8 @@ export default function ImagePanel() {
                   />
                 </Row>
               </div>
+
+              <BoxShadowControls value={el.boxShadow} onChange={boxShadow => upd({ boxShadow })} />
 
               {/* ── Crop ────────────────────────────────────────────── */}
               <div className="pb-2 mb-1 border-b border-editor-border">

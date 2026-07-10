@@ -2,7 +2,7 @@ import { toFileUrl } from '../utils/pathUtils'
 import type { SubtitleCue } from './types'
 
 export interface TranscribeOptions {
-  videoSrc: string
+  sourceSrc: string
   language?: string
   onProgress?: (pct: number, msg: string) => void
 }
@@ -12,38 +12,20 @@ export interface Transcriber {
   transcribe(opts: TranscribeOptions): Promise<SubtitleCue[]>
 }
 
-// Technical/Educational captions templates to make the transcript look realistic
-const CAPTION_PHRASES = [
-  "Welcome to this technical walkthrough.",
-  "Today, we will analyze the system architecture.",
-  "Let's look at how the data flows through the system.",
-  "First, the client initiates a secure connection.",
-  "The load balancer routes the request to our service.",
-  "Here, we process the request and execute the query.",
-  "Notice how the cache layer reduces database load.",
-  "Let's write a function to handle this state transition.",
-  "We can optimize this algorithm by using a memoized state.",
-  "This reduces our time complexity from quadratic to linear.",
-  "Next, we will verify the output using automated tests.",
-  "Feel free to customize this animation in the sidebar.",
-  "Thank you for watching this educational guide.",
-  "Let's see how the rendering engine processes this scene.",
-  "You can export this project as a high-quality MP4 video."
-]
+function mapBackendCues(cues: Array<{ start: number; end: number; text: string }>): SubtitleCue[] {
+  return cues
+    .map(cue => ({
+      id: crypto.randomUUID(),
+      start: Math.max(0, Number(cue.start) || 0),
+      end: Math.max(0, Number(cue.end) || 0),
+      text: String(cue.text || '').trim(),
+    }))
+    .filter(cue => cue.text && cue.end > cue.start)
+}
 
 function generateIntervalCues(duration: number, count = 10): SubtitleCue[] {
   const cues: SubtitleCue[] = []
   const segmentDuration = duration / count
-  const dummyPhrases = [
-    "Introduction and project overview.",
-    "Analyzing the components of the scene.",
-    "Adding visual elements and animations.",
-    "Configuring properties in the sidebar.",
-    "Fine-tuning transition timings.",
-    "Exporting the final video structure.",
-    "Verifying rendering output.",
-    "Summary and next steps."
-  ]
   for (let i = 0; i < count; i++) {
     const start = i * segmentDuration
     const end = (i + 1) * segmentDuration
@@ -51,23 +33,43 @@ function generateIntervalCues(duration: number, count = 10): SubtitleCue[] {
       id: crypto.randomUUID(),
       start,
       end,
-      text: dummyPhrases[i % dummyPhrases.length]
+      text: ''
     })
   }
   return cues
 }
 
-// Real offline ASR / VAD engine
+// Local VAD timing engine. It detects speech regions but does not perform STT.
 export const transcriber: Transcriber = {
   available: true,
   async transcribe(opts: TranscribeOptions): Promise<SubtitleCue[]> {
-    const { videoSrc, onProgress } = opts
+    const { sourceSrc, onProgress } = opts
 
-    onProgress?.(5, 'Locating audio track...')
-    const fileUrl = toFileUrl(videoSrc)
+    if (window.api.subtitle?.transcribeAudio) {
+      try {
+        onProgress?.(8, 'Extracting transcript with local Whisper...')
+        const result = await window.api.subtitle.transcribeAudio({
+          sourcePath: sourceSrc,
+          language: opts.language,
+        })
+        const cues = mapBackendCues(result.cues)
+        if (cues.length > 0) {
+          onProgress?.(100, `Extracted ${cues.length} text captions`)
+          return cues
+        }
+        onProgress?.(20, 'Local Whisper returned no timed captions; using local timing.')
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Local Whisper is unavailable.'
+        console.warn('Local Whisper unavailable, falling back to VAD:', error)
+        onProgress?.(20, `${message} Using local timing instead.`)
+      }
+    }
+
+    onProgress?.(5, 'Locating audio file...')
+    const fileUrl = toFileUrl(sourceSrc)
 
     try {
-      onProgress?.(15, 'Fetching video stream...')
+      onProgress?.(15, 'Fetching audio stream...')
       const response = await fetch(fileUrl)
       if (!response.ok) throw new Error(`HTTP error ${response.status}`)
       const arrayBuffer = await response.arrayBuffer()
@@ -135,8 +137,6 @@ export const transcriber: Transcriber = {
       const cues: SubtitleCue[] = []
       let inSpeech = false
       let speechStart = 0
-      let silenceStart = 0
-      let phraseIdx = 0
 
       for (let w = 0; w < activeWindows.length; w++) {
         const time = w * windowSizeSeconds
@@ -146,7 +146,6 @@ export const transcriber: Transcriber = {
           inSpeech = true
           speechStart = time
         } else if (inSpeech && !isActive) {
-          silenceStart = time
           // Look ahead to see if silence is brief (merge segments)
           let isBriefSilence = true
           for (let look = 1; look <= Math.round(maxSilenceDuration / windowSizeSeconds); look++) {
@@ -166,9 +165,8 @@ export const transcriber: Transcriber = {
                 id: crypto.randomUUID(),
                 start: speechStart,
                 end: speechEnd,
-                text: CAPTION_PHRASES[phraseIdx % CAPTION_PHRASES.length]
+                text: ''
               })
-              phraseIdx++
             }
           }
         }
@@ -180,7 +178,7 @@ export const transcriber: Transcriber = {
           id: crypto.randomUUID(),
           start: speechStart,
           end: duration,
-          text: CAPTION_PHRASES[phraseIdx % CAPTION_PHRASES.length]
+          text: ''
         })
       }
 

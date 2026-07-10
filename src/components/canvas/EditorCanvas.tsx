@@ -8,8 +8,8 @@ import { easeInOutCubic } from '../../engine/transitionRenderer'
 import { drawBackground } from '../../engine/backgroundRenderer'
 import { registerStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
-import { makeShape, makeArrow, makeCode, makeTable, makeChart, makeVideo, makeCounter } from '../../utils/defaults'
-import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement } from '../../types/editor'
+import { makeShape, makeArrow, makeTable, makeChart, makeHandDrawLayer } from '../../utils/defaults'
+import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
 import CanvasElement from './CanvasElement'
@@ -19,6 +19,7 @@ import CanvasGuides from './CanvasGuides'
 import CanvasSafeArea from './CanvasSafeArea'
 import CanvasToolbar from './CanvasToolbar'
 import ContextMenu from '../ui/ContextMenu'
+import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
 
 export default function EditorCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -35,6 +36,10 @@ export default function EditorCanvas() {
   const [offsetY,  setOffsetY]  = useState(0)
 
   const [drawingArrow, setDrawingArrow] = useState<{x1:number;y1:number;x2:number;y2:number}|null>(null)
+  const [drawingStroke, setDrawingStroke] = useState<HandDrawStroke | null>(null)
+  const drawingStrokeRef = useRef<HandDrawStroke | null>(null)
+  const drawingLayerIdRef = useRef<string | null>(null)
+  const drawingBaseStrokesRef = useRef<HandDrawStroke[]>([])
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; elementId: string } | null>(null)
   const [localPlayingIds, setLocalPlayingIds] = useState<Set<string>>(new Set())
   const [cropState, setCropState] = useState<{ elId: string; pendingCrop: { x: number; y: number; w: number; h: number } } | null>(null)
@@ -54,7 +59,7 @@ export default function EditorCanvas() {
 
   const {
     project, currentSceneId, selectedIds,
-    playhead, isPlaying, activeTool, activePanel, pendingChartType,
+    playhead, isPlaying, activeTool, activePanel, pendingChartType, handDrawSettings,
     cropElementId, setCropElement,
     addElement, selectElement, deselectAll,
     removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
@@ -66,7 +71,7 @@ export default function EditorCanvas() {
   // ── Auto-select sidebar panel based on selected element ──────────────────────
   useEffect(() => {
     if (selectedIds.length === 0) return
-    const stickyPanels: ActivePanel[] = ['perspective', 'move']
+    const stickyPanels: ActivePanel[] = ['perspective', 'move', 'handDraw']
     if (stickyPanels.includes(activePanel)) return
     
     const scene = project?.scenes.find(s => s.id === currentSceneId)
@@ -88,6 +93,7 @@ export default function EditorCanvas() {
       audio: 'audio',
       latex: 'latex',
       counter: 'counter',
+      handDraw: 'handDraw',
     }
     
     const homePanel = ELEMENT_PANEL[firstSelected.type]
@@ -154,6 +160,7 @@ export default function EditorCanvas() {
     const sync = () => {
       if (!trRef.current || !stageRef.current) return
       const nodes = selectedIds
+        .filter(id => currentScene?.elements.find(el => el.id === id)?.type !== 'handDraw')
         .map(id => stageRef.current!.findOne(`#${id}`))
         .filter((n): n is Konva.Node => !!n && !!n.getStage?.())
       trRef.current.nodes(nodes)
@@ -162,7 +169,7 @@ export default function EditorCanvas() {
     sync()
     const raf = requestAnimationFrame(sync)
     return () => cancelAnimationFrame(raf)
-  }, [selectedIds, currentSceneId, playhead])
+  }, [selectedIds, currentScene, currentSceneId, playhead])
 
   // ── Global keyboard shortcuts ──────────────────────────────────────────────────
   useEffect(() => {
@@ -449,6 +456,7 @@ export default function EditorCanvas() {
   function handleStageClick(e: Konva.KonvaEventObject<MouseEvent>) {
     if (cropState) { exitCropMode(); return }
     if (!currentScene) return
+    if (activeTool === 'handDraw') return
     const { x, y } = toProjectCoords(e.evt.clientX, e.evt.clientY)
 
     switch (activeTool) {
@@ -501,18 +509,99 @@ export default function EditorCanvas() {
   }
 
   function handleMouseDown(e: Konva.KonvaEventObject<MouseEvent>) {
+    if (activeTool === 'handDraw') {
+      if (!project || !currentScene) return
+      e.evt.preventDefault()
+      const { x, y } = toProjectCoords(e.evt.clientX, e.evt.clientY)
+      const width = handDrawSettings.tool === 'eraser' ? handDrawSettings.eraserSize : handDrawSettings.strokeWidth
+      const stroke: HandDrawStroke = {
+        id: crypto.randomUUID(),
+        tool: handDrawSettings.tool,
+        points: [x, y],
+        color: handDrawSettings.tool === 'eraser' ? '#000000' : handDrawSettings.strokeColor,
+        width,
+        opacity: handDrawSettings.tool === 'eraser' ? 1 : handDrawSettings.strokeOpacity,
+        hardness: handDrawSettings.eraserHardness,
+        grainColor: handDrawSettings.tool === 'paint' ? handDrawSettings.paintGrainColor : undefined,
+        spread: handDrawSettings.spraySpread,
+      }
+
+      const existing = currentScene.elements.find((el): el is HandDrawElement => el.type === 'handDraw')
+      if (existing) {
+        drawingLayerIdRef.current = existing.id
+        drawingBaseStrokesRef.current = existing.strokes
+        updateElement(existing.id, {
+          x: 0,
+          y: 0,
+          rotation: 0,
+          width: project.width,
+          height: project.height,
+          strokes: [...existing.strokes, stroke],
+        } as Partial<EditorElement>)
+        selectElement(existing.id, false)
+      } else {
+        const layer = makeHandDrawLayer(project.width, project.height)
+        layer.strokes = [stroke]
+        drawingLayerIdRef.current = layer.id
+        drawingBaseStrokesRef.current = []
+        addElement(layer)
+      }
+
+      drawingStrokeRef.current = stroke
+      setDrawingStroke(stroke)
+      return
+    }
+
     if (activeTool !== 'arrow') return
     const { x, y } = toProjectCoords(e.evt.clientX, e.evt.clientY)
     setDrawingArrow({ x1: x, y1: y, x2: x, y2: y })
   }
 
   function handleMouseMove(e: Konva.KonvaEventObject<MouseEvent>) {
+    if (drawingStrokeRef.current) {
+      if (!project) return
+      e.evt.preventDefault()
+      const { x, y } = toProjectCoords(e.evt.clientX, e.evt.clientY)
+      const stroke = drawingStrokeRef.current
+      const lastX = stroke.points[stroke.points.length - 2]
+      const lastY = stroke.points[stroke.points.length - 1]
+      if (Math.hypot(x - lastX, y - lastY) < 1.25) return
+
+      const next: HandDrawStroke = {
+        ...stroke,
+        points: [...stroke.points, x, y],
+      }
+      drawingStrokeRef.current = next
+      setDrawingStroke(next)
+
+      if (drawingLayerIdRef.current) {
+        updateElement(drawingLayerIdRef.current, {
+          x: 0,
+          y: 0,
+          rotation: 0,
+          width: project.width,
+          height: project.height,
+          strokes: [...drawingBaseStrokesRef.current, next],
+        } as Partial<EditorElement>)
+      }
+      return
+    }
+
     if (!drawingArrow) return
     const { x, y } = toProjectCoords(e.evt.clientX, e.evt.clientY)
     setDrawingArrow(a => a ? { ...a, x2: x, y2: y } : null)
   }
 
   function handleMouseUp() {
+    if (drawingStrokeRef.current) {
+      if (drawingLayerIdRef.current) selectElement(drawingLayerIdRef.current, false)
+      drawingStrokeRef.current = null
+      drawingLayerIdRef.current = null
+      drawingBaseStrokesRef.current = []
+      setDrawingStroke(null)
+      return
+    }
+
     if (!drawingArrow) return
     const { x1, y1, x2, y2 } = drawingArrow
     if (Math.abs(x2 - x1) > 5 || Math.abs(y2 - y1) > 5) {
@@ -520,6 +609,30 @@ export default function EditorCanvas() {
     }
     setDrawingArrow(null)
     setActiveTool('select')
+  }
+
+  function drawHandDrawPreview(raw: CanvasRenderingContext2D, stroke: HandDrawStroke) {
+    raw.save()
+    raw.beginPath()
+    raw.rect(0, 0, project.width, project.height)
+    raw.clip()
+
+    if (stroke.tool === 'eraser') {
+      const x = stroke.points[stroke.points.length - 2]
+      const y = stroke.points[stroke.points.length - 1]
+      raw.globalCompositeOperation = 'source-over'
+      raw.globalAlpha = 0.85
+      raw.strokeStyle = '#ffffff'
+      raw.lineWidth = 1.5
+      raw.setLineDash([6, 4])
+      raw.beginPath()
+      raw.arc(x, y, stroke.width / 2, 0, Math.PI * 2)
+      raw.stroke()
+      raw.restore()
+      return
+    }
+
+    raw.restore()
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────────
@@ -631,6 +744,7 @@ export default function EditorCanvas() {
                 />
               )
             })}
+            <SubtitleOverlay project={project} time={playhead} />
           </Layer>
 
           {/* Transformer + perspective handles + arrow preview */}
@@ -689,6 +803,17 @@ export default function EditorCanvas() {
                 stroke="#6366f1"
                 strokeWidth={2}
                 dash={[4, 4]}
+                listening={false}
+              />
+            )}
+
+            {drawingStroke?.tool === 'eraser' && (
+              <Shape
+                sceneFunc={(ctx, shape) => {
+                  const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
+                  drawHandDrawPreview(raw, drawingStroke)
+                  ctx.fillStrokeShape(shape)
+                }}
                 listening={false}
               />
             )}

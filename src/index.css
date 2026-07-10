@@ -13,7 +13,7 @@ html, body, #root {
 body {
   background: #000000;
   color: #ffffff;
-  font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   font-size: 12px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
