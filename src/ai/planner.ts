@@ -7,6 +7,8 @@ const SYSTEM_PROMPT = [
   'Return a JSON object that matches the provided schema. Do not return prose outside JSON.',
   'Use 1-based sceneIndex when the user says slide/scene 1, 2, etc.',
   'If the user does not name a scene, use currentSceneIndex from context.',
+  'Only create a scene when the user explicitly asks for a new scene/slide.',
+  'Treat @asset-name.ext mentions as references to available assets from context.',
   'Prefer selected:true when the user says this/selected/current item.',
   'Do not invent asset IDs. Use available asset IDs from context.',
   'Keep positions, sizes, timing, and colors within the project context.',
@@ -45,7 +47,7 @@ function planLocally(prompt: string, context: AiProjectContext): AiPlan {
   const wantsAdd = /\b(add|create|insert)\b/.test(lower)
   const size = readSize(lower)
   const commands: AiEditorCommand[] = []
-  const createsScene = wantsAdd && /\b(?:new\s+)?(?:scene|slide)\b/.test(lower)
+  const createsScene = wantsAdd && hasNewSceneIntent(lower)
   const targetScene: AiSceneRef = createsScene ? { sceneAlias: 'newScene' } : { sceneIndex }
 
   if (createsScene) {
@@ -159,8 +161,14 @@ function planLocally(prompt: string, context: AiProjectContext): AiPlan {
 }
 
 function readSceneIndex(text: string): number | null {
-  const match = text.match(/\b(?:scene|slide)\s*(?:number|no\.?)?\s*(\d+)\b/)
+  const match = text.match(/\b(?:on|in|to|for)?\s*(?:scene|slide)\s*(?:number|no\.?)?\s*(\d+)\b/)
   return match ? Math.max(1, Number(match[1])) : null
+}
+
+function hasNewSceneIntent(text: string) {
+  return /\b(?:add|create|insert)\s+(?:a\s+)?new\s+(?:scene|slide)\b/.test(text) ||
+    /\b(?:add|create|insert)\s+(?:a\s+)?(?:blank|empty)\s+(?:scene|slide)\b/.test(text) ||
+    /\bnew\s+(?:scene|slide)\s+with\b/.test(text)
 }
 
 function readSize(text: string): { width: number; height: number } | null {
@@ -212,7 +220,7 @@ function readAssetName(prompt: string, context: AiProjectContext, type: 'image' 
   const lower = prompt.toLowerCase()
   const asset = context.assets.find(item =>
     item.type === type &&
-    (lower.includes(item.filename.toLowerCase()) || lower.includes(item.name.toLowerCase()))
+    (lower.includes(item.filename.toLowerCase()) || lower.includes(`@${item.filename.toLowerCase()}`) || lower.includes(item.name.toLowerCase()))
   )
   if (asset) return asset.filename
 
@@ -221,8 +229,14 @@ function readAssetName(prompt: string, context: AiProjectContext, type: 'image' 
     : type === 'image'
       ? 'png|jpe?g|webp|gif|svg'
       : 'mp3|wav|m4a|ogg'
+  const mention = prompt.match(new RegExp('@([\\w._()\\-]+\\.(' + extensions + '))', 'i'))
+  if (mention?.[1]) return mention[1].trim()
   const match = prompt.match(new RegExp('([\\w ._()\\-]+\\.(' + extensions + '))', 'i'))
-  return match?.[1]?.trim().replace(/^[`'"]|[`'"]$/g, '') ?? null
+  return cleanAssetMention(match?.[1])
+}
+
+function cleanAssetMention(value?: string) {
+  return value?.trim().replace(/^[`'"]?@?/, '').replace(/[`'"]$/, '') ?? null
 }
 
 function summarizeLocalCommands(commands: AiEditorCommand[], sceneIndex: number) {

@@ -22,7 +22,9 @@ import { basename, dirname, join, normalize } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { mkdir, readFile, writeFile, copyFile, readdir, rm, stat, open, rename } from 'fs/promises'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
+import type { Dirent } from 'fs'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
+import { inferUploadAssetKind, makeAssetUploadName, randomAssetHash } from './assetNaming'
 
 const USER_DATA   = app.getPath('userData')
 const PROJECTS_DIR = join(USER_DATA, 'projects')
@@ -509,7 +511,7 @@ async function listPythonOutputs(dir: string): Promise<PythonOutputFile[]> {
   const outputs: PythonOutputFile[] = []
 
   async function walk(folder: string) {
-    let entries: Awaited<ReturnType<typeof readdir>>
+    let entries: Dirent<string>[]
     try {
       entries = await readdir(folder, { withFileTypes: true })
     } catch {
@@ -791,14 +793,20 @@ function registerIpcHandlers() {
 
   // Assets
   let assetCounter = 0
-  ipcMain.handle('assets:upload', async (_, projectId: string, sourcePath: string) => {
+  ipcMain.handle('assets:upload', async (_, projectId: string, sourcePath: string, requestedKind?: string) => {
     const idx    = await readIndex()
     const record = idx.find(r => r.id === projectId)
     if (!record) throw new Error('Project not found')
-    const ext      = sourcePath.split('.').pop() ?? 'bin'
     const assetId  = `asset_${Date.now()}_${assetCounter++}`
-    const filename = `${assetId}.${ext}`
-    const dest     = join(record.folder, 'assets', filename)
+    const kind     = requestedKind === 'image' || requestedKind === 'video' || requestedKind === 'audio'
+      ? requestedKind
+      : inferUploadAssetKind(sourcePath)
+    let filename   = makeAssetUploadName(sourcePath, kind)
+    let dest       = join(record.folder, 'assets', filename)
+    while (existsSync(dest)) {
+      filename = makeAssetUploadName(sourcePath, kind, randomAssetHash())
+      dest = join(record.folder, 'assets', filename)
+    }
     await copyFile(sourcePath, dest)
     return { id: assetId, filename, path: dest }
   })

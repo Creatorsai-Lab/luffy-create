@@ -39,7 +39,7 @@ export default function VideoUploadPanel() {
     if (!project) return
     setLoading(true)
     try {
-      const asset = await window.api.assets.upload(project.id, path)
+      const asset = await window.api.assets.upload(project.id, path, 'video')
       addAsset({ id: asset.id, filename: asset.filename, path: asset.path, type: 'video', name: asset.filename })
     } catch (e) {
       console.error('Video upload failed', e)

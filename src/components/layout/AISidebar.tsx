@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { BrainCircuit, Check, Loader2, Send, Settings, Sparkles, Trash2, X } from 'lucide-react'
+import { useEditorStore } from '../../store/editorStore'
 import {
   buildAiProjectContext,
   executeAiPlan,
@@ -19,6 +20,8 @@ type ChatItem = {
 const DEMO_API_KEY_STORAGE = 'luffy.ai.demoApiKey'
 
 export default function AISidebar() {
+  const project = useEditorStore(state => state.project)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [messages, setMessages] = useState<ChatItem[]>([])
@@ -34,6 +37,19 @@ export default function AISidebar() {
     if (!pendingPlan) return []
     return pendingPlan.commands.map((command, index) => `${index + 1}. ${describeCommand(command)}`)
   }, [pendingPlan])
+  const mention = getActiveAssetMention(input)
+  const mentionAssets = useMemo(() => {
+    if (!mention) return []
+    const query = mention.query.toLowerCase()
+    return (project?.assets ?? [])
+      .filter(asset => asset.type === 'image' || asset.type === 'video')
+      .filter(asset => {
+        const name = asset.name.toLowerCase()
+        const filename = asset.filename.toLowerCase()
+        return !query || name.includes(query) || filename.includes(query)
+      })
+      .slice(0, 6)
+  }, [mention, project?.assets])
 
   async function submit() {
     const prompt = input.trim()
@@ -88,6 +104,17 @@ export default function AISidebar() {
     localStorage.removeItem(DEMO_API_KEY_STORAGE)
     setSavedApiKey('')
     setApiKeyDraft('')
+  }
+
+  function insertAssetMention(filename: string) {
+    if (!mention) return
+    const next = `${input.slice(0, mention.start)}@${filename} ${input.slice(mention.end)}`
+    setInput(next)
+    requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      const caret = mention.start + filename.length + 2
+      inputRef.current?.setSelectionRange(caret, caret)
+    })
   }
 
   return (
@@ -236,11 +263,27 @@ export default function AISidebar() {
       </div>
 
       <div className="p-3 border-t border-editor-border flex-none">
+        {mention && mentionAssets.length > 0 && (
+          <div className="mb-2 max-h-44 overflow-y-auto rounded border border-editor-border bg-editor-elevated shadow-xl">
+            {mentionAssets.map(asset => (
+              <button
+                key={asset.id}
+                type="button"
+                onClick={() => insertAssetMention(asset.filename)}
+                className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-white/5"
+              >
+                <span className="min-w-0 truncate text-sm text-editor-text">@{asset.filename}</span>
+                <span className="flex-none text-xs uppercase text-editor-secondary">{asset.type}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <form
           className="flex items-center gap-1.5 bg-editor-elevated border border-editor-border rounded-lg px-2.5 py-2"
           onSubmit={e => { e.preventDefault(); void submit() }}
         >
           <textarea
+          ref={inputRef}
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Describe an edit with mentioning scene"
@@ -286,5 +329,17 @@ function readDemoApiKey() {
     return localStorage.getItem(DEMO_API_KEY_STORAGE) ?? ''
   } catch {
     return ''
+  }
+}
+
+function getActiveAssetMention(input: string) {
+  const match = input.match(/(?:^|\s)@([\w._()-]*)$/)
+  if (!match || match.index == null) return null
+  const atOffset = match[0].lastIndexOf('@')
+  const start = match.index + atOffset
+  return {
+    start,
+    end: input.length,
+    query: match[1] ?? '',
   }
 }

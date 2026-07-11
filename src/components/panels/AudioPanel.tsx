@@ -24,7 +24,7 @@ export default function AudioPanel() {
       if (!result) return
 
       // Copy the file into the project's assets folder via the API
-      const uploaded = await window.api.assets.upload(project.id, result)
+      const uploaded = await window.api.assets.upload(project.id, result, 'audio')
       const originalName = result.split(/[\\/]/).pop() || 'audio'
 
       const asset: AssetMeta = {

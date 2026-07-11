@@ -16,7 +16,7 @@ const api = {
     rename: (id: string, name: string) => ipcRenderer.invoke('projects:rename', id, name)
   },
   assets: {
-    upload: (projectId: string, src: string) => ipcRenderer.invoke('assets:upload', projectId, src),
+    upload: (projectId: string, src: string, kind?: 'image' | 'video' | 'audio') => ipcRenderer.invoke('assets:upload', projectId, src, kind),
     list:   (projectId: string)              => ipcRenderer.invoke('assets:list', projectId)
   },
   dialog: {

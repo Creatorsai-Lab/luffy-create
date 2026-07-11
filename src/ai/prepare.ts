@@ -198,7 +198,7 @@ function findAsset(
   command: { assetId?: string; assetName?: string },
   type: 'image' | 'video' | 'audio'
 ) {
-  const wantedName = command.assetName?.trim().toLowerCase()
+  const wantedName = cleanAssetName(command.assetName)
   return context.assets.find(item =>
     item.type === type &&
     (
@@ -209,6 +209,10 @@ function findAsset(
       ))
     )
   )
+}
+
+function cleanAssetName(value?: string) {
+  return value?.trim().replace(/^[`'"]?@?/, '').replace(/[`'"]$/, '').toLowerCase()
 }
 
 function canResolveElement(command: { elementId?: string; elementName?: string; selected?: boolean; sceneIndex?: number; sceneId?: string }, context: AiProjectContext) {

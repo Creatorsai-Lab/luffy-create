@@ -327,7 +327,7 @@ function findAsset(
   command: { assetId?: string; assetName?: string },
   type: 'image' | 'video' | 'audio'
 ) {
-  const wantedName = command.assetName?.trim().toLowerCase()
+  const wantedName = cleanAssetName(command.assetName)
   return assets.find(item =>
     item.type === type &&
     (
@@ -338,6 +338,10 @@ function findAsset(
       ))
     )
   )
+}
+
+function cleanAssetName(value?: string) {
+  return value?.trim().replace(/^[`'"]?@?/, '').replace(/[`'"]$/, '').toLowerCase()
 }
 
 function centerX(scene: Scene, width: number) {

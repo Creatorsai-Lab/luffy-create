@@ -84,7 +84,7 @@ declare global {
         rename: (id: string, name: string) => Promise<void>
       }
       assets: {
-        upload: (projectId: string, src: string) => Promise<UploadedAsset>
+        upload: (projectId: string, src: string, kind?: 'image' | 'video' | 'audio') => Promise<UploadedAsset>
         list:   (projectId: string)              => Promise<AssetRecord[]>
       }
       dialog: {

@@ -24,7 +24,7 @@ export default function ImageUploadPanel() {
     if (!project) return
     setLoading(true)
     try {
-      const asset = await window.api.assets.upload(project.id, path)
+      const asset = await window.api.assets.upload(project.id, path, 'image')
       addAsset({ id: asset.id, filename: asset.filename, path: asset.path, type: 'image', name: asset.filename })
     } catch (e) {
       console.error('Upload failed', e)
