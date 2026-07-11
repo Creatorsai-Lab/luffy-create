@@ -30,13 +30,29 @@ export default function BackgroundPanel() {
     setBackground(scene!.id, { ...bg, ...patch } as Background)
   }
 
+  function animatedDefaults(variant: AnimatedBg['variant']) {
+    if (variant === 'sand-grain-gradient') return ['#d8b46a', '#f0d9a0', '#8f6b3e']
+    if (variant === 'three-color-drift') return ['#6366f1', '#22d3ee', '#f97316']
+    return ['#6366f1', '#d6d6fc', '#22d3ee']
+  }
+
+  function setAnimatedVariant(variant: AnimatedBg['variant']) {
+    if (bg.type !== 'animated') return
+    const needsThreeColors = variant === 'three-color-drift' || variant === 'sand-grain-gradient'
+    const defaults = animatedDefaults(variant)
+    const colors = needsThreeColors
+      ? [bg.colors[0] ?? defaults[0], bg.colors[1] ?? defaults[1], bg.colors[2] ?? defaults[2]]
+      : bg.colors
+    setBg({ variant, colors })
+  }
+
   function changeBgType(type: BgType) {
     const defaults: Record<BgType, Background> = {
       solid:    { type: 'solid', color: '#1a1a2e' },
       gradient: { type: 'gradient', from: '#6366f1', to: '#f5f5ff', angle: 290, fromStop: 0, toStop: 1, gradientType: 'linear' },
       grid:     { type: 'grid', bgColor: '#0f0f1a', lineColor: '#2a2a2a', cellSize: 40 },
       dots:     { type: 'dots', bgColor: '#0f0f1a', dotColor: '#2a2a2a', spacing: 64, radius: 3.5 },
-      animated: { type: 'animated', variant: 'gradient-flow', colors: ['#6366f1', '#d6d6fc'], speed: 3 },
+      animated: { type: 'animated', variant: 'gradient-flow', colors: ['#6366f1', '#d6d6fc', '#22d3ee'], speed: 3 },
       transparent: { type: 'transparent' },
     }
     setBackground(scene!.id, defaults[type])
@@ -161,11 +177,13 @@ export default function BackgroundPanel() {
             <Row label="Variant">
               <select
                 value={bg.variant}
-                onChange={e => setBg({ variant: e.target.value as AnimatedBg['variant'] })}
+                onChange={e => setAnimatedVariant(e.target.value as AnimatedBg['variant'])}
                 className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
               >
                 <option value="gradient-flow">Gradient Flow</option>
                 <option value="gradient-shift">Gradient Shift</option>
+                <option value="three-color-drift">Three Color Drift</option>
+                <option value="sand-grain-gradient">Grainy Sand Gradient</option>
                 <option value="conic-rotate">Conic Rotate</option>
                 <option value="aurora">Aurora</option>
                 <option value="wave">Wave</option>
@@ -181,6 +199,13 @@ export default function BackgroundPanel() {
                 const colors = [...bg.colors]; colors[1] = c; setBg({ colors })
               }} />
             </Row>
+            {(bg.variant === 'three-color-drift' || bg.variant === 'sand-grain-gradient') && (
+              <Row label="Color 3">
+                <ColorInput value={bg.colors[2] ?? animatedDefaults(bg.variant)[2]} onChange={c => {
+                  const colors = [...bg.colors]; colors[2] = c; setBg({ colors })
+                }} />
+              </Row>
+            )}
             <Row label="Speed">
               <Slider value={bg.speed} min={0.5} max={10} step={0.5}
                 onChange={v => setBg({ speed: v })} display={`${bg.speed}x`} />

@@ -196,7 +196,7 @@ export default function CounterPanel() {
               </Row>
 
               <Row label="Shadow Blur">
-                <Slider value={el.shadowBlur ?? 0} min={0} max={40} step={1}
+                <Slider value={el.shadowBlur ?? 0} min={0} max={80} step={1}
                   onChange={v => upd({ shadowBlur: v })} display={`${el.shadowBlur ?? 0}`} />
               </Row>
 
@@ -256,7 +256,7 @@ export default function CounterPanel() {
                     <ColorInput value={el.bgShadowColor || '#000000'} onChange={v => upd({ bgShadowColor: v })} />
                   </Row>
                   <Row label="Shadow Blur">
-                    <Slider value={el.bgShadowBlur ?? 0} min={0} max={60} step={1}
+                    <Slider value={el.bgShadowBlur ?? 0} min={0} max={80} step={1}
                       onChange={v => upd({ bgShadowBlur: v })} display={`${el.bgShadowBlur ?? 0}`} />
                   </Row>
                   <Row label="Shadow Offset">

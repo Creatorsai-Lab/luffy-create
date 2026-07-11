@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { BrainCircuit, Check, Loader2, Send, Sparkles, X } from 'lucide-react'
+import { BrainCircuit, Check, Loader2, Send, Settings, Sparkles, Trash2, X } from 'lucide-react'
 import {
   buildAiProjectContext,
   executeAiPlan,
@@ -16,6 +16,8 @@ type ChatItem = {
   text: string
 }
 
+const DEMO_API_KEY_STORAGE = 'luffy.ai.demoApiKey'
+
 export default function AISidebar() {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
@@ -24,6 +26,9 @@ export default function AISidebar() {
   const [planIssues, setPlanIssues] = useState<AiPlanIssue[]>([])
   const [results, setResults] = useState<AiCommandResult[]>([])
   const [warning, setWarning] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [savedApiKey, setSavedApiKey] = useState(() => readDemoApiKey())
+  const [apiKeyDraft, setApiKeyDraft] = useState(() => readDemoApiKey())
 
   const commandLabels = useMemo(() => {
     if (!pendingPlan) return []
@@ -67,18 +72,84 @@ export default function AISidebar() {
     setResults(applied)
     setMessages(prev => [
       ...prev,
-      { id: crypto.randomUUID(), role: 'system', text: `${applied.filter(item => item.ok).length}/${applied.length} commands applied.` },
+      { id: crypto.randomUUID(), role: 'system', text: `${applied.filter(item => item.ok).length}/${applied.length} Edits Done` },
     ])
     setPendingPlan(null)
     setPlanIssues([])
   }
 
+  function saveDemoApiKey() {
+    const next = apiKeyDraft.trim()
+    localStorage.setItem(DEMO_API_KEY_STORAGE, next)
+    setSavedApiKey(next)
+  }
+
+  function deleteDemoApiKey() {
+    localStorage.removeItem(DEMO_API_KEY_STORAGE)
+    setSavedApiKey('')
+    setApiKeyDraft('')
+  }
+
   return (
-    <aside className="w-80 flex-none bg-[#171717] flex flex-col h-full border-l border-editor-border">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-editor-border flex-none">
-        <BrainCircuit size={15} className="text-editor-accent" />
-        <span className="text-xs font-medium text-editor-text">AI Agents</span>
+    <aside className="relative w-80 flex-none bg-[#171717] flex flex-col h-full border-l border-editor-border">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-editor-border flex-none">
+        <div className="flex items-center gap-2 min-w-0">
+          <BrainCircuit size={15} className="text-editor-accent" />
+          <span className="text-xs font-medium text-editor-text truncate">AI Agents Edits <i className="text-orange-400">beta</i></span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(open => !open)}
+          className="flex-none text-white"
+          title="AI settings"
+        >
+          <Settings size={15} />
+        </button>
       </div>
+
+      {settingsOpen && (
+        <div className="absolute right-3 top-10 z-20 w-72 rounded border border-editor-border bg-editor-elevated shadow-xl">
+          <div className="flex items-center justify-between px-2.5 py-2 border-b border-editor-border">
+            <span className="text-sm font-medium text-editor-text">AI API Settings</span>
+            <button type="button" onClick={() => setSettingsOpen(false)} className="text-editor-secondary hover:text-editor-text">
+              <X size={12} />
+            </button>
+          </div>
+          <div className="p-2.5 space-y-2">
+            <p className="text-xs text-editor-secondary">Demo only. This key is saved locally and is not used for planning yet.</p>
+            <input
+              type="password"
+              value={apiKeyDraft}
+              onChange={e => setApiKeyDraft(e.target.value)}
+              placeholder="Enter API key"
+              className="w-full rounded border border-editor-border bg-[#111] px-2 py-1.5 text-sm text-editor-text outline-none focus:border-editor-accent"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-editor-secondary truncate">
+                {savedApiKey ? 'Demo key saved' : 'No key saved'}
+              </span>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={saveDemoApiKey}
+                  disabled={apiKeyDraft.trim().length === 0}
+                  className="inline-flex items-center gap-1 rounded bg-editor-accent px-2 py-1 text-xs text-white disabled:opacity-40"
+                >
+                  <Check size={11} /> Save
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteDemoApiKey}
+                  disabled={!savedApiKey && !apiKeyDraft}
+                  className="inline-flex items-center gap-1 rounded border border-editor-border px-2 py-1 text-xs text-editor-text disabled:opacity-40"
+                >
+                  <Trash2 size={11} /> Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
         {messages.length === 0 && !pendingPlan && (
@@ -169,19 +240,18 @@ export default function AISidebar() {
           className="flex items-center gap-1.5 bg-editor-elevated border border-editor-border rounded-lg px-2.5 py-2"
           onSubmit={e => { e.preventDefault(); void submit() }}
         >
-          <input
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="Describe an edit with mentioning scene"
-            className="flex-1 bg-transparent text-base tracking-wide text-editor-text placeholder:text-editor-secondary outline-none min-w-0"
-          />
+          <textarea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="Describe an edit with mentioning scene"
+          className="flex-1 bg-transparent text-base text-editor-text placeholder:text-editor-secondary outline-none min-w-0 resize-none h-[calc(2*1.5rem)] leading-6"
+        />  
           <button
             type="submit"
             disabled={busy || input.trim().length === 0}
             className="flex-none text-editor-text disabled:text-editor-secondary disabled:cursor-not-allowed"
           >
-            {busy ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
           </button>
         </form>
       </div>
@@ -193,6 +263,7 @@ function describeCommand(command: AiPlan['commands'][number]) {
   if (command.type === 'addText') return `Add text "${command.text}"${sceneSuffix(command.sceneIndex)}`
   if (command.type === 'addShape') return `Add ${command.shapeType}${sizeSuffix(command.width, command.height)}${sceneSuffix(command.sceneIndex)}`
   if (command.type === 'addImageFromAsset') return `Add image asset ${command.assetName ?? command.assetId ?? ''}${sceneSuffix(command.sceneIndex)}`
+  if (command.type === 'addVideoFromAsset') return `Add video asset ${command.assetName ?? command.assetId ?? ''}${sizeSuffix(command.width, command.height)}${sceneSuffix(command.sceneIndex)}`
   if (command.type === 'setBackground') return `Set background${sceneSuffix(command.sceneIndex)}`
   if (command.type === 'updateElement') return `Update element ${command.elementName ?? command.elementId ?? 'selection'}`
   if (command.type === 'styleElement') return `Style element ${command.elementName ?? command.elementId ?? 'selection'}`
@@ -208,4 +279,12 @@ function sceneSuffix(sceneIndex?: number) {
 
 function sizeSuffix(width?: number, height?: number) {
   return width && height ? ` ${width}x${height}` : ''
+}
+
+function readDemoApiKey() {
+  try {
+    return localStorage.getItem(DEMO_API_KEY_STORAGE) ?? ''
+  } catch {
+    return ''
+  }
 }

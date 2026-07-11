@@ -4,6 +4,7 @@ import type { ArrowElement, ArrowHeadType, AnimationType, EasingType, SlideDir, 
 import { PanelHeader, Row, ColorInput, Slider, NumberInput } from './TextPanel'
 import { makeAnimation } from '../../utils/defaults'
 import { cn } from '../../utils/cn'
+import { ScaleSizeControl } from './AnimationParamControls'
 
 const HEADS: { label: string; value: ArrowHeadType }[] = [
   { label: 'None', value: 'none' },
@@ -319,6 +320,8 @@ function AnimBlock({
           />
         </Row>
       )}
+
+      <ScaleSizeControl anim={anim} onChange={upd} />
 
       <Row label="Start (s)">
         <input type="number" min={0} max={60} step={0.1}

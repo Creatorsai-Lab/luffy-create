@@ -3,6 +3,7 @@ import type { AlignType, Background, SceneTransition, ShapeType, SlideDir, Trans
 export type AiSceneRef = {
   sceneId?: string
   sceneIndex?: number
+  sceneAlias?: string
 }
 
 export type AiElementRef = AiSceneRef & {
@@ -25,11 +26,12 @@ export type AiEditorCommand =
   | ({ type: 'addText'; text: string; name?: string; fontSize?: number; color?: string; align?: AlignType } & AiSceneRef & AiPoint & AiSize)
   | ({ type: 'addShape'; shapeType: ShapeType; name?: string; fill?: string; stroke?: string; strokeWidth?: number } & AiSceneRef & AiPoint & AiSize)
   | ({ type: 'addImageFromAsset'; assetId?: string; assetName?: string; name?: string } & AiSceneRef & AiPoint & AiSize)
+  | ({ type: 'addVideoFromAsset'; assetId?: string; assetName?: string; name?: string; duration?: number } & AiSceneRef & AiPoint & AiSize)
   | ({ type: 'setBackground'; background: Background } & AiSceneRef)
   | ({ type: 'updateElement'; patch: Record<string, unknown> } & AiElementRef)
   | ({ type: 'styleElement'; patch: Record<string, unknown> } & AiElementRef)
   | ({ type: 'applyMove'; direction: 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'; speed?: number; delay?: number; moveOutside?: boolean } & AiElementRef)
-  | ({ type: 'addScene'; name?: string; duration?: number })
+  | ({ type: 'addScene'; name?: string; duration?: number; alias?: string })
   | ({ type: 'setTransition'; transition: SceneTransition | { type: TransitionType; duration?: number; direction?: SlideDir } } & AiSceneRef)
   | ({ type: 'generateStoryboard'; scenes: Array<{ name?: string; duration?: number; title?: string; subtitle?: string; backgroundColor?: string }> })
 

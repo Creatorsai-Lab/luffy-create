@@ -40,7 +40,7 @@ export default function PerspectivePanel() {
 
       <div className="px-3 py-3 flex flex-col gap-3">
         <p className="text-[10px] text-[#f2f2f2] leading-relaxed">
-          Drag corner handles to distort the element. Edge handles move two corners simultaneously.
+          Drag orange corner handles for individual corners. Drag red edge handles to move a full side. The fields below use the element's local pixels.
         </p>
 
         {!selectedEl && (
@@ -51,7 +51,7 @@ export default function PerspectivePanel() {
 
         {unsupported && (
           <p className="text-xs text-[#d9d9d9] text-center py-4">
-            Perspective works on visual elements such as text, shapes, images, icons, and LaTeX.
+            Perspective works on visual elements such as text, shapes, images, videos, icons, and LaTeX.
           </p>
         )}
 
@@ -72,8 +72,10 @@ export default function PerspectivePanel() {
                 const pts = el.perspectivePts ?? makePerspectivePts(el.width, el.height)
                 return (
                   <div key={corner} className="rounded border border-editor-border bg-editor-elevated px-2 py-1.5">
-                    <div className="text-[10px] uppercase text-editor-secondary mb-1">{corner}</div>
-                    <Row label="X">
+                    <div className="text-[10px] uppercase text-editor-secondary mb-1">
+                      {corner === 'tl' ? 'Top Left' : corner === 'tr' ? 'Top Right' : corner === 'br' ? 'Bottom Right' : 'Bottom Left'}
+                    </div>
+                    <Row label="X Position">
                       <input
                         type="number"
                         step={1}
@@ -82,7 +84,7 @@ export default function PerspectivePanel() {
                         className="w-full bg-[#171717] border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
                       />
                     </Row>
-                    <Row label="Y">
+                    <Row label="Y Position">
                       <input
                         type="number"
                         step={1}

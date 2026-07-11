@@ -21,6 +21,15 @@ function ease(t: number, fn: EasingType): number {
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t }
 
+function scaleAmount(anim: ElementAnimation, fallback: number) {
+  const amount = anim.params?.scaleAmount
+  return amount != null && isFinite(amount) ? Math.max(1, Math.min(20, amount)) : fallback
+}
+
+function hasConfiguredScaleAmount(anim: ElementAnimation) {
+  return anim.params?.scaleAmount != null && isFinite(anim.params.scaleAmount)
+}
+
 // ─── Animated props snapshot ──────────────────────────────────────────────────
 
 export interface AnimatedProps {
@@ -239,36 +248,46 @@ function applyAnim(
     }
 
     case 'scaleIn':
+      {
+      const configuredScale = hasConfiguredScaleAmount(anim)
+      const targetScale = configuredScale ? scaleAmount(anim, 1) : 1
       if (anim.timing === 'onExit') {
-        if (after)  { out.scaleX = 0; out.scaleY = 0; out.opacity = 0; return }
+        const exitTarget = configuredScale ? targetScale : 0
+        if (after)  { out.scaleX = exitTarget; out.scaleY = exitTarget; out.opacity = 0; return }
         if (before) return
-        out.scaleX  = lerp(1, 0, t)
-        out.scaleY  = lerp(1, 0, t)
+        out.scaleX  = lerp(1, exitTarget, t)
+        out.scaleY  = lerp(1, exitTarget, t)
         out.opacity = lerp(el.opacity, 0, t)
       } else {
         if (before) { out.scaleX = 0; out.scaleY = 0; out.opacity = 0; return }
-        if (after)  { out.scaleX = 1; out.scaleY = 1; out.opacity = el.opacity; return }
-        out.scaleX  = lerp(0, 1, t)
-        out.scaleY  = lerp(0, 1, t)
+        if (after)  { out.scaleX = targetScale; out.scaleY = targetScale; out.opacity = el.opacity; return }
+        out.scaleX  = lerp(0, targetScale, t)
+        out.scaleY  = lerp(0, targetScale, t)
         out.opacity = lerp(0, el.opacity, t)
       }
       break
+      }
 
     case 'scaleOut':
+      {
+      const configuredScale = hasConfiguredScaleAmount(anim)
+      const startScale = scaleAmount(anim, 2.5)
+      const endScale = configuredScale ? 1 / scaleAmount(anim, 5) : 0
       if (anim.timing === 'onEnter') {
-        if (before) { out.scaleX = 2.5; out.scaleY = 2.5; out.opacity = 0; return }
+        if (before) { out.scaleX = startScale; out.scaleY = startScale; out.opacity = 0; return }
         if (after)  { out.scaleX = 1; out.scaleY = 1; out.opacity = el.opacity; return }
-        out.scaleX  = lerp(2.5, 1, t)
-        out.scaleY  = lerp(2.5, 1, t)
+        out.scaleX  = lerp(startScale, 1, t)
+        out.scaleY  = lerp(startScale, 1, t)
         out.opacity = lerp(0, el.opacity, t)
       } else {
-        if (after)  { out.scaleX = 0; out.scaleY = 0; out.opacity = 0; return }
+        if (after)  { out.scaleX = endScale; out.scaleY = endScale; out.opacity = 0; return }
         if (before) return
-        out.scaleX  = lerp(1, 0, t)
-        out.scaleY  = lerp(1, 0, t)
+        out.scaleX  = lerp(1, endScale, t)
+        out.scaleY  = lerp(1, endScale, t)
         out.opacity = lerp(el.opacity, 0, t)
       }
       break
+      }
 
     case 'typewriter':
       if (before) { out.textProgress = 0; return }
@@ -486,6 +505,62 @@ function hexA(hex: string, a: number): string {
   return `rgba(${r},${g},${b},${a})`
 }
 
+function addThreeStops(grad: CanvasGradient, colors: string[], fallback: [string, string, string]) {
+  grad.addColorStop(0, colors[0] ?? fallback[0])
+  grad.addColorStop(0.5, colors[1] ?? fallback[1])
+  grad.addColorStop(1, colors[2] ?? fallback[2])
+}
+
+function pseudo(seed: number) {
+  const x = Math.sin(seed * 12.9898) * 43758.5453
+  return x - Math.floor(x)
+}
+
+function drawGrain(ctx: CanvasRenderingContext2D, w: number, h: number, time: number, strength = 1) {
+  const tileSize = 180
+  const tick = Math.floor(time * 5)
+  const tile = document.createElement('canvas')
+  tile.width = tileSize
+  tile.height = tileSize
+  const tileCtx = tile.getContext('2d')
+  if (!tileCtx) return
+
+  const image = tileCtx.createImageData(tileSize, tileSize)
+  for (let y = 0; y < tileSize; y++) {
+    for (let x = 0; x < tileSize; x++) {
+      const i = (y * tileSize + x) * 4
+      const n = pseudo(x * 2.13 + y * 7.91 + tick * 11.7)
+      const fine = pseudo(x * 13.37 + y * 3.71 + tick * 2.3)
+      const value = Math.round(105 + n * 150)
+      image.data[i] = value
+      image.data[i + 1] = value
+      image.data[i + 2] = value
+      image.data[i + 3] = Math.round((55 + fine * 135) * strength)
+    }
+  }
+  tileCtx.putImageData(image, 0, 0)
+
+  ctx.save()
+  ctx.filter = 'none'
+  ctx.globalAlpha = 0.42
+  ctx.globalCompositeOperation = 'overlay'
+  const pattern = ctx.createPattern(tile, 'repeat')
+  if (pattern) {
+    ctx.fillStyle = pattern
+    ctx.fillRect(0, 0, w, h)
+  }
+
+  ctx.globalAlpha = 0.18
+  ctx.globalCompositeOperation = 'screen'
+  const sparkle = ctx.createPattern(tile, 'repeat')
+  if (sparkle) {
+    ctx.translate((tick % tileSize) * 0.37, (tick % tileSize) * 0.19)
+    ctx.fillStyle = sparkle
+    ctx.fillRect(-tileSize, -tileSize, w + tileSize * 2, h + tileSize * 2)
+  }
+  ctx.restore()
+}
+
 export function drawAnimatedBg(
   ctx: CanvasRenderingContext2D,
   time: number,
@@ -562,6 +637,60 @@ export function drawAnimatedBg(
     const c2 = colors[1] ?? '#0f0f1a'
     g.addColorStop(0, c1); g.addColorStop(0.5, c2); g.addColorStop(1, c1)
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h)
+  } else if (variant === 'three-color-drift') {
+    const c1 = colors[0] ?? '#6366f1'
+    const c2 = colors[1] ?? '#22d3ee'
+    const c3 = colors[2] ?? '#f97316'
+    const phase = t * Math.PI * 2
+    const base = ctx.createLinearGradient(
+      w / 2 + Math.cos(phase) * w * 0.55,
+      h / 2 + Math.sin(phase) * h * 0.55,
+      w / 2 - Math.cos(phase) * w * 0.55,
+      h / 2 - Math.sin(phase) * h * 0.55,
+    )
+    addThreeStops(base, [c1, c2, c3], ['#6366f1', '#22d3ee', '#f97316'])
+    ctx.fillStyle = base
+    ctx.fillRect(0, 0, w, h)
+
+    const blob = (cx: number, cy: number, color: string, alpha: number) => {
+      const r = Math.max(w, h) * 0.52
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+      g.addColorStop(0, hexA(color, alpha))
+      g.addColorStop(1, hexA(color, 0))
+      ctx.fillStyle = g
+      ctx.fillRect(0, 0, w, h)
+    }
+    blob(w * (0.5 + 0.28 * Math.cos(phase * 0.8)), h * (0.5 + 0.22 * Math.sin(phase * 1.1)), c2, 0.42)
+    blob(w * (0.5 + 0.25 * Math.cos(phase + 2.1)), h * (0.5 + 0.24 * Math.sin(phase + 1.5)), c3, 0.36)
+  } else if (variant === 'sand-grain-gradient') {
+    const c1 = colors[0] ?? '#d8b46a'
+    const c2 = colors[1] ?? '#f0d9a0'
+    const c3 = colors[2] ?? '#8f6b3e'
+    const phase = t * Math.PI * 2
+    const base = ctx.createLinearGradient(
+      Math.cos(phase * 0.45) * w * 0.15,
+      0,
+      w,
+      h + Math.sin(phase * 0.55) * h * 0.18,
+    )
+    addThreeStops(base, [c1, c2, c3], ['#d8b46a', '#f0d9a0', '#8f6b3e'])
+    ctx.fillStyle = base
+    ctx.fillRect(0, 0, w, h)
+
+    const light = ctx.createRadialGradient(
+      w * (0.45 + 0.1 * Math.cos(phase)),
+      h * (0.35 + 0.08 * Math.sin(phase * 0.9)),
+      0,
+      w * 0.5,
+      h * 0.5,
+      Math.max(w, h) * 0.85,
+    )
+    light.addColorStop(0, 'rgba(255,244,203,0.28)')
+    light.addColorStop(1, 'rgba(99,67,28,0)')
+    ctx.fillStyle = light
+    ctx.fillRect(0, 0, w, h)
+
+    drawGrain(ctx, w, h, time, 1)
   } else {
     // gradient-shift (and fallback): linear gradient whose angle sweeps over time
     const ang = t * Math.PI * 2

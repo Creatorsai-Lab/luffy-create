@@ -6,6 +6,7 @@ import { AlignLeft, AlignCenter, AlignRight, Italic, Underline, Type, Plus, Tras
 import { cn } from '../../utils/cn'
 import { makeAnimation, makeText } from '../../utils/defaults'
 import { InnerShadowControls } from './BoxShadowControls'
+import { ScaleSizeControl } from './AnimationParamControls'
 
 const WEIGHTS: { label: string; value: FontWeight }[] = [
   { label: 'Normal',   value: 'normal' },
@@ -259,7 +260,7 @@ export default function TextPanel() {
               </Row>
 
               <Row label="Shadow Blur">
-                <Slider value={el.shadowBlur ?? 0} min={0} max={40} step={1}
+                <Slider value={el.shadowBlur ?? 0} min={0} max={80} step={1}
                   onChange={v => upd({ shadowBlur: v })} display={`${el.shadowBlur ?? 0}`} />
               </Row>
 
@@ -320,7 +321,7 @@ export default function TextPanel() {
                     <ColorInput value={el.bgShadowColor || '#000000'} onChange={v => upd({ bgShadowColor: v })} />
                   </Row>
                   <Row label="Shadow Blur">
-                    <Slider value={el.bgShadowBlur ?? 0} min={0} max={60} step={1}
+                    <Slider value={el.bgShadowBlur ?? 0} min={0} max={80} step={1}
                       onChange={v => upd({ bgShadowBlur: v })} display={`${el.bgShadowBlur ?? 0}`} />
                   </Row>
                   <Row label="Shadow Offset">
@@ -632,6 +633,8 @@ function AnimBlock({
           />
         </Row>
       )}
+
+      <ScaleSizeControl anim={anim} onChange={upd} />
 
       {!isColorPulse && (
         <Row label="Start (s)">

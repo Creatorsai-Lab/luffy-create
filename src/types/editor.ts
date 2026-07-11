@@ -66,6 +66,7 @@ export interface ElementAnimation {
     moveOutside?: boolean
     pulseColor?: string
     pulseCount?: number
+    scaleAmount?: number
   }
 }
 
@@ -411,7 +412,7 @@ export interface SolidBg     { type: 'solid';    color: string }
 export interface GradientBg  { type: 'gradient'; from: string; to: string; angle: number; fromStop: number; toStop: number; gradientType?: GradientKind; via?: string }
 export interface GridBg      { type: 'grid';     bgColor: string; lineColor: string; cellSize: number }
 export interface DotsBg      { type: 'dots';     bgColor: string; dotColor: string; spacing: number; radius: number }
-export type AnimatedVariant = 'gradient-flow' | 'particles' | 'wave' | 'aurora' | 'conic-rotate' | 'gradient-shift'
+export type AnimatedVariant = 'gradient-flow' | 'particles' | 'wave' | 'aurora' | 'conic-rotate' | 'gradient-shift' | 'three-color-drift' | 'sand-grain-gradient'
 export interface AnimatedBg  { type: 'animated'; variant: AnimatedVariant; colors: string[]; speed: number }
 export interface ImageBg     { type: 'image';    src: string; fit: 'cover' | 'fill' }
 export interface TransparentBg { type: 'transparent' }

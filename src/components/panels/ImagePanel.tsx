@@ -6,6 +6,7 @@ import { PanelHeader, Row, Slider, NumberInput } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
 import BoxShadowControls from './BoxShadowControls'
+import { ScaleSizeControl } from './AnimationParamControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Slide In',  value: 'slideIn'  },
@@ -380,6 +381,8 @@ function AnimBlock({
           />
         </Row>
       )}
+
+      <ScaleSizeControl anim={anim} onChange={upd} />
 
       <Row label="Start (s)">
         <input type="number" min={0} max={60} step={0.1}

@@ -132,6 +132,8 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [el.content, effectiveColor, el.fontSize, el.fontFamily, el.fontWeight, el.italic, el.align,
       el.lineHeight, el.letterSpacing, el.textStroke, el.textStrokeWidth,
+      el.fillMode, el.gradientColor1, el.gradientColor2, el.gradientColor3,
+      el.gradientOpacity1, el.gradientOpacity2, el.gradientOpacity3, el.gradientUseColor3,
       el.width, el.height, !!el.perspectivePts])
 
   const content = (() => {

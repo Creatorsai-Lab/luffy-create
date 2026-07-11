@@ -4,6 +4,7 @@ import type { AnimationType, AnimationTiming, EasingType, SlideDir, ElementAnima
 import { makeAnimation } from '../../utils/defaults'
 import { PanelHeader, Row, Slider } from './TextPanel'
 import { cn } from '../../utils/cn'
+import { ScaleSizeControl } from './AnimationParamControls'
 
 const ANIM_TYPES: { label: string; value: AnimationType; group?: string }[] = [
   { label: 'Fade In',      value: 'fadeIn',      group: 'Entrance' },
@@ -159,6 +160,8 @@ function AnimBlock({ anim, index, elId, elType }: {
           />
         </div>
       )}
+
+      <ScaleSizeControl anim={anim} onChange={upd} />
 
       {/* Timing */}
       <div className="flex gap-2">

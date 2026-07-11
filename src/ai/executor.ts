@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
-import type { EditorElement, MoveDirection, Scene, ShapeType } from '../types/editor'
-import { makeImage, makeScene, makeShape, makeText } from '../utils/defaults'
+import type { AssetMeta, EditorElement, MoveDirection, Scene, ShapeType } from '../types/editor'
+import { makeImage, makeScene, makeShape, makeText, makeVideo } from '../utils/defaults'
 import { computeMoveDelta, durationFromMove } from '../utils/moveAnimation'
 import { useEditorStore } from '../store/editorStore'
 import type { AiCommandResult, AiEditorCommand, AiElementRef, AiPlan, AiSceneRef } from './types'
@@ -30,9 +30,15 @@ export function executeAiPlan(plan: AiPlan): AiCommandResult[] {
   }
 
   const results: AiCommandResult[] = []
+  const sceneAliases: Record<string, string> = {}
   for (const command of plan.commands) {
     try {
-      results.push(executeAiCommand(command))
+      const resolvedCommand = resolveSceneAlias(command, sceneAliases)
+      const result = executeAiCommand(resolvedCommand)
+      if (command.type === 'addScene' && command.alias && result.sceneIds?.[0]) {
+        sceneAliases[command.alias] = result.sceneIds[0]
+      }
+      results.push(result)
     } catch (error) {
       results.push({ ok: false, message: error instanceof Error ? error.message : 'Command failed.' })
     }
@@ -48,6 +54,8 @@ function executeAiCommand(command: AiEditorCommand): AiCommandResult {
       return addShape(command)
     case 'addImageFromAsset':
       return addImageFromAsset(command)
+    case 'addVideoFromAsset':
+      return addVideoFromAsset(command)
     case 'setBackground':
       return setBackground(command)
     case 'updateElement':
@@ -108,10 +116,7 @@ function addImageFromAsset(command: Extract<AiEditorCommand, { type: 'addImageFr
   const { project } = useEditorStore.getState()
   if (!project) throw new Error('No project is open.')
   const scene = requireScene(command)
-  const asset = project.assets.find(item =>
-    item.type === 'image' &&
-    (item.id === command.assetId || item.name.toLowerCase() === command.assetName?.toLowerCase() || item.filename.toLowerCase() === command.assetName?.toLowerCase())
-  )
+  const asset = findAsset(project.assets, command, 'image')
   if (!asset) throw new Error('Could not find the requested image asset.')
 
   const width = command.width ?? 480
@@ -120,6 +125,22 @@ function addImageFromAsset(command: Extract<AiEditorCommand, { type: 'addImageFr
   el.name = command.name ?? asset.name
   addToScene(scene, el, 'upload')
   return { ok: true, message: `Added image to ${scene.name}.`, elementIds: [el.id], sceneIds: [scene.id] }
+}
+
+function addVideoFromAsset(command: Extract<AiEditorCommand, { type: 'addVideoFromAsset' }>): AiCommandResult {
+  const { project } = useEditorStore.getState()
+  if (!project) throw new Error('No project is open.')
+  const scene = requireScene(command)
+  const asset = findAsset(project.assets, command, 'video')
+  if (!asset) throw new Error('Could not find the requested video asset.')
+
+  const width = command.width ?? 640
+  const height = command.height ?? 360
+  const duration = Math.max(0.1, command.duration ?? asset.duration ?? 10)
+  const el = makeVideo(command.x ?? centerX(scene, width), command.y ?? centerY(scene, height), asset.path, asset.id, width, height, duration)
+  el.name = command.name ?? asset.name
+  addToScene(scene, el, 'video')
+  return { ok: true, message: `Added video to ${scene.name}.`, elementIds: [el.id], sceneIds: [scene.id] }
 }
 
 function setBackground(command: Extract<AiEditorCommand, { type: 'setBackground' }>): AiCommandResult {
@@ -231,6 +252,7 @@ function generateStoryboard(command: Extract<AiEditorCommand, { type: 'generateS
 function requireScene(ref: AiSceneRef): Scene {
   const { project, currentSceneId } = useEditorStore.getState()
   if (!project) throw new Error('No project is open.')
+  if (ref.sceneAlias) throw new Error(`Could not resolve scene alias "${ref.sceneAlias}".`)
   const scene = ref.sceneId
     ? project.scenes.find(item => item.id === ref.sceneId)
     : ref.sceneIndex != null
@@ -238,6 +260,13 @@ function requireScene(ref: AiSceneRef): Scene {
       : project.scenes.find(item => item.id === currentSceneId)
   if (!scene) throw new Error('Could not resolve the target scene.')
   return scene
+}
+
+function resolveSceneAlias(command: AiEditorCommand, sceneAliases: Record<string, string>): AiEditorCommand {
+  if (!('sceneAlias' in command) || !command.sceneAlias) return command
+  const sceneId = sceneAliases[command.sceneAlias]
+  if (!sceneId) throw new Error(`Could not resolve scene alias "${command.sceneAlias}".`)
+  return { ...command, sceneId, sceneIndex: undefined }
 }
 
 function requireElement(ref: AiElementRef): EditorElement {
@@ -291,6 +320,24 @@ function findElement(scenes: Scene[], id?: string) {
     if (found) return found
   }
   return null
+}
+
+function findAsset(
+  assets: AssetMeta[],
+  command: { assetId?: string; assetName?: string },
+  type: 'image' | 'video' | 'audio'
+) {
+  const wantedName = command.assetName?.trim().toLowerCase()
+  return assets.find(item =>
+    item.type === type &&
+    (
+      item.id === command.assetId ||
+      Boolean(wantedName && (
+        item.name.toLowerCase() === wantedName ||
+        item.filename.toLowerCase() === wantedName
+      ))
+    )
+  )
 }
 
 function centerX(scene: Scene, width: number) {

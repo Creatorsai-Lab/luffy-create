@@ -4,6 +4,7 @@ import type { AnimationType, EasingType, SlideDir, AnimationTiming, ElementAnima
 import { makeAnimation } from '../../utils/defaults'
 import { PanelHeader, Row } from './TextPanel'
 import { cn } from '../../utils/cn'
+import { ScaleSizeControl } from './AnimationParamControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Draw On',      value: 'drawPath' },
@@ -161,6 +162,8 @@ function AnimBlock({ anim, index, elId }: {
           </select>
         </Row>
       )}
+
+      <ScaleSizeControl anim={anim} onChange={upd} />
 
       <Row label="Start Time (s)">
         <input

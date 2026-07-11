@@ -1,4 +1,4 @@
-import type { AiPlan, AiPlanResult, AiProjectContext } from './types'
+import type { AiEditorCommand, AiPlan, AiPlanResult, AiProjectContext, AiSceneRef } from './types'
 import { AI_PLAN_JSON_SCHEMA, validateAiPlan } from './schema'
 
 const SYSTEM_PROMPT = [
@@ -42,45 +42,79 @@ export async function planAiEdit(prompt: string, context: AiProjectContext): Pro
 function planLocally(prompt: string, context: AiProjectContext): AiPlan {
   const lower = prompt.toLowerCase()
   const sceneIndex = readSceneIndex(lower) ?? context.currentSceneIndex
+  const wantsAdd = /\b(add|create|insert)\b/.test(lower)
   const size = readSize(lower)
+  const commands: AiEditorCommand[] = []
+  const createsScene = wantsAdd && /\b(?:new\s+)?(?:scene|slide)\b/.test(lower)
+  const targetScene: AiSceneRef = createsScene ? { sceneAlias: 'newScene' } : { sceneIndex }
 
-  if (/\b(square|rectangle|rect)\b/.test(lower)) {
+  if (createsScene) {
+    commands.push({
+      type: 'addScene',
+      alias: 'newScene',
+      duration: readNumberAfter(lower, 'duration') ?? undefined,
+    })
+  }
+
+  if (/\b(square|rectangle|rect)\b/.test(lower) && (wantsAdd || createsScene)) {
     const isSquare = lower.includes('square')
     const width = size?.width ?? (isSquare ? 300 : 420)
     const height = size?.height ?? (isSquare ? width : 260)
-    return {
-      summary: `Add a ${isSquare ? 'square' : 'rectangle'} to Scene ${sceneIndex}.`,
-      commands: [{
-        type: 'addShape',
-        sceneIndex,
-        shapeType: 'rect',
-        width,
-        height,
-        fill: readColor(prompt) ?? '#6366f1',
-      }],
-      needsConfirmation: true,
-    }
+    commands.push({
+      type: 'addShape',
+      ...targetScene,
+      shapeType: 'rect',
+      width,
+      height,
+      fill: readColor(prompt) ?? '#6366f1',
+    })
   }
 
   const quotedText = prompt.match(/"([^"]+)"/)?.[1] ?? prompt.match(/'([^']+)'/)?.[1]
-  if (/\b(add|create|insert)\b/.test(lower) && /\b(text|title|heading)\b/.test(lower)) {
-    return {
-      summary: `Add text to Scene ${sceneIndex}.`,
-      commands: [{
-        type: 'addText',
-        sceneIndex,
-        text: quotedText ?? 'New text',
-        fontSize: readNumberAfter(lower, 'font size') ?? undefined,
-        color: readColor(prompt) ?? undefined,
-      }],
-      needsConfirmation: true,
-    }
+  if (/\b(text|title|heading|written)\b/.test(lower) && (wantsAdd || createsScene || quotedText)) {
+    commands.push({
+      type: 'addText',
+      ...targetScene,
+      text: quotedText ?? 'New text',
+      fontSize: readNumberAfter(lower, 'font size') ?? undefined,
+      color: readColor(prompt) ?? undefined,
+    })
   }
 
-  if (/\b(add|create|insert)\b/.test(lower) && /\b(scene|slide)\b/.test(lower)) {
+  const videoAssetName = readAssetName(prompt, context, 'video')
+  if ((/\b(video|mp4|webm|mov|avi|mkv|gif)\b/.test(lower) || videoAssetName) && (wantsAdd || createsScene)) {
+    commands.push({
+      type: 'addVideoFromAsset',
+      ...targetScene,
+      assetName: videoAssetName ?? undefined,
+      width: size?.width,
+      height: size?.height,
+    })
+  }
+
+  const imageAssetName = readAssetName(prompt, context, 'image')
+  if ((/\b(image|photo|picture|png|jpe?g|webp)\b/.test(lower) || imageAssetName) && (wantsAdd || createsScene)) {
+    commands.push({
+      type: 'addImageFromAsset',
+      ...targetScene,
+      assetName: imageAssetName ?? undefined,
+      width: size?.width,
+      height: size?.height,
+    })
+  }
+
+  if (/\b(background|bg)\b/.test(lower)) {
+    commands.push({
+      type: 'setBackground',
+      ...targetScene,
+      background: { type: 'solid', color: readColor(prompt) ?? '#111111' },
+    })
+  }
+
+  if (commands.length > 0) {
     return {
-      summary: 'Add a new scene.',
-      commands: [{ type: 'addScene', duration: readNumberAfter(lower, 'duration') ?? undefined }],
+      summary: summarizeLocalCommands(commands, sceneIndex),
+      commands,
       needsConfirmation: true,
     }
   }
@@ -117,18 +151,6 @@ function planLocally(prompt: string, context: AiProjectContext): AiPlan {
     }
   }
 
-  if (/\b(background|bg)\b/.test(lower)) {
-    return {
-      summary: `Set the background on Scene ${sceneIndex}.`,
-      commands: [{
-        type: 'setBackground',
-        sceneIndex,
-        background: { type: 'solid', color: readColor(prompt) ?? '#111111' },
-      }],
-      needsConfirmation: true,
-    }
-  }
-
   return {
     summary: 'I can turn this into editor commands after the model planner is configured.',
     commands: [],
@@ -142,6 +164,9 @@ function readSceneIndex(text: string): number | null {
 }
 
 function readSize(text: string): { width: number; height: number } | null {
+  const labelled = text.match(/\bwidth\s*(\d{2,5})\b[\s\S]{0,24}?\bhei(?:ght|gh)?\s*(\d{2,5})\b/i)
+  if (labelled) return { width: Number(labelled[1]), height: Number(labelled[2]) }
+
   const match = text.match(/(\d{2,5})\s*(?:px)?\s*(?:x|×|by)\s*(\d{2,5})\s*(?:px)?/)
   if (!match) return null
   return { width: Number(match[1]), height: Number(match[2]) }
@@ -181,4 +206,36 @@ function readMoveDirection(text: string): 'left' | 'right' | 'top' | 'bottom' | 
   if (text.includes('top') || text.includes('up')) return 'top'
   if (text.includes('bottom') || text.includes('down')) return 'bottom'
   return 'left'
+}
+
+function readAssetName(prompt: string, context: AiProjectContext, type: 'image' | 'video' | 'audio'): string | null {
+  const lower = prompt.toLowerCase()
+  const asset = context.assets.find(item =>
+    item.type === type &&
+    (lower.includes(item.filename.toLowerCase()) || lower.includes(item.name.toLowerCase()))
+  )
+  if (asset) return asset.filename
+
+  const extensions = type === 'video'
+    ? 'mp4|webm|mov|avi|mkv|gif'
+    : type === 'image'
+      ? 'png|jpe?g|webp|gif|svg'
+      : 'mp3|wav|m4a|ogg'
+  const match = prompt.match(new RegExp('([\\w ._()\\-]+\\.(' + extensions + '))', 'i'))
+  return match?.[1]?.trim().replace(/^[`'"]|[`'"]$/g, '') ?? null
+}
+
+function summarizeLocalCommands(commands: AiEditorCommand[], sceneIndex: number) {
+  const parts: string[] = []
+  if (commands.some(command => command.type === 'addScene')) parts.push('add a new scene')
+  if (commands.some(command => command.type === 'addText')) parts.push('add text')
+  if (commands.some(command => command.type === 'addVideoFromAsset')) parts.push('add video')
+  if (commands.some(command => command.type === 'addImageFromAsset')) parts.push('add image')
+  if (commands.some(command => command.type === 'addShape')) parts.push('add shape')
+  if (commands.some(command => command.type === 'setBackground')) parts.push('set background')
+  return `${capitalize(parts.join(', ') || 'prepare edits')} ${commands.some(command => command.type === 'addScene') ? 'in a new scene' : `on Scene ${sceneIndex}`}.`
+}
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }

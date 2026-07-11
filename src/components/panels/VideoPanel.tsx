@@ -7,6 +7,7 @@ import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
 import { sourceVideoClipDuration } from '../../utils/videoClip'
 import BoxShadowControls, { InnerShadowControls } from './BoxShadowControls'
+import { ScaleSizeControl } from './AnimationParamControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade In',   value: 'fadeIn'   },
@@ -497,6 +498,8 @@ function AnimBlock({ anim, index, elId, types, isLoop }: {
           />
         </Row>
       )}
+
+      <ScaleSizeControl anim={anim} onChange={upd} />
 
       <Row label="Start (s)">
         <input type="number" min={0} max={60} step={0.1} value={anim.startTime}

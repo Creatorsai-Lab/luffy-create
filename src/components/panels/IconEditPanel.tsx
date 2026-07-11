@@ -4,6 +4,7 @@ import type { IconElement, AnimationType, EasingType, SlideDir, ElementAnimation
 import { PanelHeader, Row, ColorInput } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
+import { ScaleSizeControl } from './AnimationParamControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Slide In',  value: 'slideIn'  },
@@ -225,6 +226,8 @@ function AnimBlock({
           />
         </Row>
       )}
+
+      <ScaleSizeControl anim={anim} onChange={upd} />
 
       <Row label="Start (s)">
         <input type="number" min={0} max={60} step={0.1}

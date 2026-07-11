@@ -4,6 +4,7 @@ const COMMAND_TYPES = new Set([
   'addText',
   'addShape',
   'addImageFromAsset',
+  'addVideoFromAsset',
   'setBackground',
   'updateElement',
   'styleElement',

@@ -15,7 +15,7 @@ export function makePerspectivePts(w: number, h: number): PerspectivePts {
 
 type Pt = [number, number]
 
-function expandedTri(d0: Pt, d1: Pt, d2: Pt, amount = 1.15): [Pt, Pt, Pt] {
+function expandedTri(d0: Pt, d1: Pt, d2: Pt, amount = 1.4): [Pt, Pt, Pt] {
   const cx = (d0[0] + d1[0] + d2[0]) / 3
   const cy = (d0[1] + d1[1] + d2[1]) / 3
   const expand = (p: Pt): Pt => {
@@ -73,7 +73,7 @@ export function drawPerspectiveWarp(
   pts: PerspectivePts,
   srcW: number,
   srcH: number,
-  N = 1,
+  N = 4,
 ) {
   const { tl, tr, br, bl } = pts
   const oldSmoothing = ctx.imageSmoothingEnabled

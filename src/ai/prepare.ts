@@ -80,10 +80,7 @@ function prepareCommand(
     }
 
     case 'addImageFromAsset': {
-      const asset = context.assets.find(item =>
-        item.type === 'image' &&
-        (item.id === command.assetId || item.name.toLowerCase() === command.assetName?.toLowerCase() || item.filename.toLowerCase() === command.assetName?.toLowerCase())
-      )
+      const asset = findAsset(context, command, 'image')
       if (!asset) {
         issues.push({ level: 'error', commandIndex: index, message: 'Image command removed because the referenced asset was not found.' })
         return null
@@ -97,6 +94,25 @@ function prepareCommand(
         y: clampOptional(command.y, 0, context.project.height),
         width: clampOptional(command.width, 20, context.project.width),
         height: clampOptional(command.height, 20, context.project.height),
+      }
+    }
+
+    case 'addVideoFromAsset': {
+      const asset = findAsset(context, command, 'video')
+      if (!asset) {
+        issues.push({ level: 'error', commandIndex: index, message: 'Video command removed because the referenced asset was not found.' })
+        return null
+      }
+      return {
+        ...command,
+        assetId: asset.id,
+        assetName: asset.name,
+        sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues),
+        x: clampOptional(command.x, 0, context.project.width),
+        y: clampOptional(command.y, 0, context.project.height),
+        width: clampOptional(command.width, 20, context.project.width),
+        height: clampOptional(command.height, 20, context.project.height),
+        duration: clampOptional(command.duration, 0.1, 120),
       }
     }
 
@@ -175,6 +191,24 @@ function normalizeSceneIndex(sceneIndex: number | undefined, context: AiProjectC
     issues.push({ level: 'warning', commandIndex, message: `Scene ${sceneIndex} was clamped to Scene ${next}.` })
   }
   return next
+}
+
+function findAsset(
+  context: AiProjectContext,
+  command: { assetId?: string; assetName?: string },
+  type: 'image' | 'video' | 'audio'
+) {
+  const wantedName = command.assetName?.trim().toLowerCase()
+  return context.assets.find(item =>
+    item.type === type &&
+    (
+      item.id === command.assetId ||
+      Boolean(wantedName && (
+        item.name.toLowerCase() === wantedName ||
+        item.filename.toLowerCase() === wantedName
+      ))
+    )
+  )
 }
 
 function canResolveElement(command: { elementId?: string; elementName?: string; selected?: boolean; sceneIndex?: number; sceneId?: string }, context: AiProjectContext) {

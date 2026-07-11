@@ -7,6 +7,7 @@ import { getVideoClipState } from '../../../utils/videoClip'
 import { videoRegistry } from '../../../engine/videoRegistry'
 import { buildCssFilter, applyCanvasAdjustments } from '../../../engine/imageFilters'
 import { drawBoxShadow, drawInnerShadow } from '../../../engine/boxShadow'
+import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
 
 interface Props {
   el: VideoElement
@@ -167,6 +168,65 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
 
         const w = el.width, h = el.height
         const frame = el.frameType ?? 'none'
+
+        if (el.perspectivePts) {
+          const source = document.createElement('canvas')
+          source.width = w
+          source.height = h
+          const sourceCtx = source.getContext('2d')!
+          const vw = video.videoWidth || w
+          const vh = video.videoHeight || h
+
+          sourceCtx.save()
+          if (frame === 'circle') {
+            sourceCtx.beginPath()
+            sourceCtx.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2)
+            sourceCtx.closePath()
+            sourceCtx.clip()
+          } else if (frame === 'triangle') {
+            sourceCtx.beginPath()
+            sourceCtx.moveTo(w / 2, 0)
+            sourceCtx.lineTo(w, h)
+            sourceCtx.lineTo(0, h)
+            sourceCtx.closePath()
+            sourceCtx.clip()
+          } else if (el.cornerRadius > 0) {
+            const r = Math.min(el.cornerRadius, w / 2, h / 2)
+            sourceCtx.beginPath()
+            sourceCtx.moveTo(r, 0)
+            sourceCtx.arcTo(w, 0, w, h, r)
+            sourceCtx.arcTo(w, h, 0, h, r)
+            sourceCtx.arcTo(0, h, 0, 0, r)
+            sourceCtx.arcTo(0, 0, w, 0, r)
+            sourceCtx.closePath()
+            sourceCtx.clip()
+          }
+          sourceCtx.filter = buildCssFilter(el) || 'none'
+          if (el.crop) {
+            sourceCtx.drawImage(
+              video,
+              el.crop.x * vw, el.crop.y * vh,
+              el.crop.w * vw, el.crop.h * vh,
+              0, 0, w, h
+            )
+          } else {
+            sourceCtx.drawImage(video, 0, 0, w, h)
+          }
+          if (el.glass) {
+            sourceCtx.filter = 'none'
+            sourceCtx.fillStyle = 'rgba(255,255,255,0.18)'
+            sourceCtx.fillRect(0, 0, w, h)
+          }
+          applyCanvasAdjustments(sourceCtx, el)
+          sourceCtx.restore()
+
+          raw.filter = 'none'
+          drawBoxShadow(raw, el.boxShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
+          drawPerspectiveWarp(raw, source, el.perspectivePts, w, h)
+          drawInnerShadow(raw, el.innerShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
+          raw.restore()
+          return
+        }
 
         drawBoxShadow(raw, el.boxShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
 

@@ -5,6 +5,7 @@ import { PanelHeader, Row, ColorInput, Slider, NumberInput } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { makeAnimation, makeShape } from '../../utils/defaults'
 import BoxShadowControls, { InnerShadowControls } from './BoxShadowControls'
+import { ScaleSizeControl } from './AnimationParamControls'
 
 
 
@@ -358,6 +359,8 @@ function AnimBlock({
           />
         </Row>
       )}
+
+      <ScaleSizeControl anim={anim} onChange={upd} />
 
       <Row label="Start (s)">
         <input type="number" min={0} max={60} step={0.1}
