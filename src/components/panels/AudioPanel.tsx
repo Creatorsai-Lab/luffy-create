@@ -3,10 +3,12 @@ import { Music, Trash2, Plus, Play, Pause, FileAudio } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { toFileUrl } from '../../utils/pathUtils'
 import { makeAudio } from '../../utils/defaults'
+import { AUDIO_ASSET_DRAG_TYPE } from '../../utils/dragPayloads'
+import { clampAudioDuration, readAudioMetadataDuration, remainingTimelineDuration, resolveStoredAudioDuration } from '../../utils/audioMetadata'
 import type { AssetMeta } from '../../types/editor'
 
 export default function AudioPanel() {
-  const { project, addAsset, removeAsset, addElement } = useEditorStore()
+  const { project, addAsset, updateAsset, removeAsset, addElementToScene, getTotalDuration } = useEditorStore()
   const [uploading, setUploading] = useState(false)
   const [playingId, setPlayingId] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -26,14 +28,16 @@ export default function AudioPanel() {
       // Copy the file into the project's assets folder via the API
       const uploaded = await window.api.assets.upload(project.id, result, 'audio')
       const originalName = result.split(/[\\/]/).pop() || 'audio'
+      const assetName = originalName.replace(/\.[^.]+$/, '')
+      const duration = await readAudioMetadataDuration(uploaded.path)
 
       const asset: AssetMeta = {
         id: uploaded.id,
         filename: uploaded.filename,
         path: uploaded.path,
         type: 'audio',
-        name: originalName.replace(/\.[^.]+$/, ''),
-        duration: 0
+        name: assetName,
+        duration: duration ?? undefined
       }
 
       addAsset(asset)
@@ -67,11 +71,21 @@ export default function AudioPanel() {
     }
   }
 
-  function handleAddToTimeline(asset: AssetMeta) {
+  async function handleAddToTimeline(asset: AssetMeta) {
     if (!project) return
-    const el = makeAudio(asset.path, asset.id, asset.duration || 30)
+    const firstScene = project.scenes[0]
+    if (!firstScene) return
+
+    const maxDuration = remainingTimelineDuration(getTotalDuration(), 0)
+    const storedDuration = resolveStoredAudioDuration(asset)
+    const loadedDuration = storedDuration == null ? await readAudioMetadataDuration(asset.path) : null
+    if (loadedDuration != null) updateAsset(asset.id, { duration: loadedDuration })
+    const duration = clampAudioDuration(storedDuration ?? loadedDuration ?? maxDuration, maxDuration)
+
+    const el = makeAudio(asset.path, asset.id, duration)
     el.name = asset.name || asset.filename
-    addElement(el)
+    el.x = 0
+    addElementToScene(firstScene.id, el)
   }
 
   return (
@@ -88,7 +102,14 @@ export default function AudioPanel() {
             {audioAssets.map(asset => (
               <div
                 key={asset.id}
+                draggable
+                onDragStart={e => {
+                  e.dataTransfer.effectAllowed = 'copy'
+                  e.dataTransfer.setData(AUDIO_ASSET_DRAG_TYPE, asset.id)
+                  e.dataTransfer.setData('text/plain', asset.name || asset.filename)
+                }}
                 className="flex items-center justify-between gap-2 bg-editor-elevated rounded p-2 border border-editor-border hover:border-editor-accent transition-colors"
+                title="Drag to the timeline audio area to place this audio under a scene"
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   {/* Play button */}

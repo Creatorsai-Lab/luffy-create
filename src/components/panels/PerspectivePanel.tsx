@@ -1,8 +1,8 @@
-import { Focus } from 'lucide-react'
+import { Focus, RotateCcw } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
-import type { EditorElement } from '../../types/editor'
-import { makePerspectivePts } from '../../engine/perspectiveUtils'
-import { PanelHeader, Row } from './TextPanel'
+import type { EditorElement, PerspectiveControls } from '../../types/editor'
+import { makePerspectiveControls, makePerspectivePts, makePerspectivePtsFromControls } from '../../engine/perspectiveUtils'
+import { PanelHeader, Row, Slider } from './TextPanel'
 
 type CornerKey = 'tl' | 'tr' | 'br' | 'bl'
 type Axis = 0 | 1
@@ -17,7 +17,28 @@ export default function PerspectivePanel() {
   function reset() {
     if (!el) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    updateElement(el.id, { perspectivePts: undefined } as any)
+    updateElement(el.id, { perspectivePts: undefined, perspectiveControls: undefined } as any)
+  }
+
+  function controlsFor(target: EditorElement): PerspectiveControls {
+    return { ...makePerspectiveControls(), ...(target.perspectiveControls ?? {}) }
+  }
+
+  function setControls(target: EditorElement, patch: Partial<PerspectiveControls>) {
+    if (target.type === 'arrow' || target.type === 'audio') return
+    const nextControls = { ...controlsFor(target), ...patch }
+    const nextPts = makePerspectivePtsFromControls(target.width, target.height, nextControls)
+    updateElement(target.id, {
+      perspectivePts: nextPts,
+      perspectiveControls: nextControls,
+    } as Partial<EditorElement>)
+  }
+
+  function resetControls(target: EditorElement) {
+    updateElement(target.id, {
+      perspectivePts: undefined,
+      perspectiveControls: undefined,
+    } as Partial<EditorElement>)
   }
 
   function setCorner(target: EditorElement, corner: CornerKey, axis: Axis, value: number) {
@@ -31,7 +52,7 @@ export default function PerspectivePanel() {
     }
     next[corner][axis] = value
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    updateElement(target.id, { perspectivePts: next } as any)
+    updateElement(target.id, { perspectivePts: next, perspectiveControls: undefined } as any)
   }
 
   return (
@@ -66,6 +87,82 @@ export default function PerspectivePanel() {
                 Perspective active
               </div>
             )}
+
+            <div className="rounded border border-editor-border bg-editor-elevated px-2 py-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-editor-text">Transform Sliders</span>
+                <button
+                  onClick={() => resetControls(el)}
+                  className="flex items-center gap-1 text-[10px] text-[#f2f2f2] hover:text-editor-text transition-colors"
+                  title="Reset slider-generated perspective"
+                >
+                  <RotateCcw size={10} />
+                  Reset
+                </button>
+              </div>
+
+              <p className="text-[10px] text-[#a99fc9] leading-relaxed mb-2">
+                Use these for quick editor-style perspective angles, then refine corners on the scene if needed.
+              </p>
+
+              {(() => {
+                const controls = controlsFor(el)
+                return (
+                  <>
+                    <Row label="Y-Axis Tilt">
+                      <Slider
+                        value={controls.horizontalTilt}
+                        min={-100}
+                        max={100}
+                        step={1}
+                        onChange={v => setControls(el, { horizontalTilt: v })}
+                        display={`${controls.horizontalTilt}`}
+                      />
+                    </Row>
+                    <Row label="X-Axis Tilt">
+                      <Slider
+                        value={controls.verticalTilt}
+                        min={-100}
+                        max={100}
+                        step={1}
+                        onChange={v => setControls(el, { verticalTilt: v })}
+                        display={`${controls.verticalTilt}`}
+                      />
+                    </Row>
+                    <Row label="Skew X">
+                      <Slider
+                        value={controls.skewX}
+                        min={-100}
+                        max={100}
+                        step={1}
+                        onChange={v => setControls(el, { skewX: v })}
+                        display={`${controls.skewX}`}
+                      />
+                    </Row>
+                    <Row label="Skew Y">
+                      <Slider
+                        value={controls.skewY}
+                        min={-100}
+                        max={100}
+                        step={1}
+                        onChange={v => setControls(el, { skewY: v })}
+                        display={`${controls.skewY}`}
+                      />
+                    </Row>
+                    <Row label="Depth">
+                      <Slider
+                        value={controls.depth}
+                        min={0}
+                        max={100}
+                        step={1}
+                        onChange={v => setControls(el, { depth: v })}
+                        display={`${controls.depth}%`}
+                      />
+                    </Row>
+                  </>
+                )
+              })()}
+            </div>
 
             <div className="grid grid-cols-2 gap-2">
               {(['tl', 'tr', 'br', 'bl'] as CornerKey[]).map(corner => {

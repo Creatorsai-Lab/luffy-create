@@ -1,5 +1,6 @@
-import type { Background, ShapeType, TransitionType } from '../types/editor'
-import type { AiEditorCommand, AiPlan, AiPlanIssue, AiPreparedPlan, AiProjectContext } from './types'
+import { FONT_FAMILIES } from '../types/editor'
+import type { AnimationType, Background, EasingType, ShapeType, TransitionType } from '../types/editor'
+import type { AiAnimationSpec, AiEditorCommand, AiPlan, AiPlanIssue, AiPreparedPlan, AiProjectContext } from './types'
 
 const SHAPE_TYPES = new Set<ShapeType>([
   'rect', 'circle', 'triangle', 'star', 'pentagon', 'hexagon', 'octagon', 'diamond',
@@ -8,6 +9,7 @@ const SHAPE_TYPES = new Set<ShapeType>([
 ])
 
 const TRANSITION_TYPES = new Set<TransitionType>(['none', 'fade', 'slide', 'zoom', 'wipe', 'push', 'morph'])
+const ANIMATION_TYPES = new Set<AnimationType>(['fadeIn', 'fadeOut', 'slideIn', 'slideOut', 'scaleIn', 'scaleOut', 'wipeIn', 'wipeOut', 'typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'textFade'])
 const MOVE_DIRECTIONS = new Set(['left', 'right', 'top', 'bottom', 'topLeft', 'topRight', 'bottomRight', 'bottomLeft'])
 const COLOR_NAMES: Record<string, string> = {
   black: '#111111',
@@ -51,13 +53,15 @@ function prepareCommand(
       return {
         ...command,
         sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues),
-        x: clampOptional(command.x, 0, context.project.width),
-        y: clampOptional(command.y, 0, context.project.height),
-        width: clampOptional(command.width, 20, context.project.width),
-        height: clampOptional(command.height, 20, context.project.height),
+        x: clampOptionalPosition(command.x, context.project.width),
+        y: clampOptionalPosition(command.y, context.project.height),
+        width: clampOptionalDimension(command.width, context.project.width),
+        height: clampOptionalDimension(command.height, context.project.height),
         fontSize: clampOptional(command.fontSize, 8, 260),
+        fontFamily: normalizeFontFamily(command.fontFamily),
         color: normalizeColor(command.color),
         text: command.text.slice(0, 2000),
+        animation: normalizeAnimation(command.animation),
       }
 
     case 'addShape': {
@@ -69,10 +73,10 @@ function prepareCommand(
         ...command,
         sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues),
         shapeType,
-        x: clampOptional(command.x, 0, context.project.width),
-        y: clampOptional(command.y, 0, context.project.height),
-        width: clampOptional(command.width, 20, context.project.width),
-        height: clampOptional(command.height, 20, context.project.height),
+        x: clampOptionalPosition(command.x, context.project.width),
+        y: clampOptionalPosition(command.y, context.project.height),
+        width: clampOptionalDimension(command.width, context.project.width),
+        height: clampOptionalDimension(command.height, context.project.height),
         fill: normalizeColor(command.fill),
         stroke: normalizeColor(command.stroke),
         strokeWidth: clampOptional(command.strokeWidth, 0, 80),
@@ -90,10 +94,10 @@ function prepareCommand(
         assetId: asset.id,
         assetName: asset.name,
         sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues),
-        x: clampOptional(command.x, 0, context.project.width),
-        y: clampOptional(command.y, 0, context.project.height),
-        width: clampOptional(command.width, 20, context.project.width),
-        height: clampOptional(command.height, 20, context.project.height),
+        x: clampOptionalPosition(command.x, context.project.width),
+        y: clampOptionalPosition(command.y, context.project.height),
+        width: clampOptionalDimension(command.width, context.project.width),
+        height: clampOptionalDimension(command.height, context.project.height),
       }
     }
 
@@ -108,11 +112,27 @@ function prepareCommand(
         assetId: asset.id,
         assetName: asset.name,
         sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues),
-        x: clampOptional(command.x, 0, context.project.width),
-        y: clampOptional(command.y, 0, context.project.height),
-        width: clampOptional(command.width, 20, context.project.width),
-        height: clampOptional(command.height, 20, context.project.height),
+        x: clampOptionalPosition(command.x, context.project.width),
+        y: clampOptionalPosition(command.y, context.project.height),
+        width: clampOptionalDimension(command.width, context.project.width),
+        height: clampOptionalDimension(command.height, context.project.height),
         duration: clampOptional(command.duration, 0.1, 120),
+      }
+    }
+
+    case 'addAudioFromAsset': {
+      const asset = findAsset(context, command, 'audio')
+      if (!asset) {
+        issues.push({ level: 'error', commandIndex: index, message: 'Audio command removed because the referenced asset was not found.' })
+        return null
+      }
+      return {
+        ...command,
+        assetId: asset.id,
+        assetName: asset.name,
+        sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues),
+        duration: clampOptional(command.duration, 0.1, 3600),
+        timelineX: clampOptional(command.timelineX, 0, context.project.totalDuration),
       }
     }
 
@@ -279,8 +299,35 @@ function normalizeColor(value?: string) {
   return COLOR_NAMES[trimmed.toLowerCase()]
 }
 
+function normalizeFontFamily(value?: string) {
+  if (!value) return undefined
+  const normalized = value.trim().toLowerCase()
+  return FONT_FAMILIES.find(font => font.toLowerCase() === normalized)
+}
+
+function normalizeAnimation(animation?: AiAnimationSpec) {
+  if (!animation || !ANIMATION_TYPES.has(animation.type)) return undefined
+  const easing: EasingType = animation.easing === 'linear' || animation.easing === 'easeIn' || animation.easing === 'easeInOut' || animation.easing === 'bounce'
+    ? animation.easing
+    : 'easeOut'
+  return {
+    type: animation.type,
+    duration: clampOptional(animation.duration, 0.05, 60),
+    delay: clampOptional(animation.delay, 0, 60),
+    easing,
+  }
+}
+
 function clampOptional(value: number | undefined, min: number, max: number) {
   return typeof value === 'number' && Number.isFinite(value) ? clamp(value, min, max) : undefined
+}
+
+function clampOptionalPosition(value: number | undefined, projectSize: number) {
+  return clampOptional(value, -projectSize * 4, projectSize * 4)
+}
+
+function clampOptionalDimension(value: number | undefined, projectSize: number) {
+  return clampOptional(value, 20, projectSize * 4)
 }
 
 function clamp(value: number, min: number, max: number) {

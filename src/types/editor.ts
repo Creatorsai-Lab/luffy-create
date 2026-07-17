@@ -19,13 +19,14 @@ export type SlideDir      = 'left' | 'right' | 'up' | 'down'
 export type MoveDirection = 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
 export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push' | 'morph'
 export type BgType        = 'solid' | 'gradient' | 'grid' | 'dots' | 'animated' | 'transparent'
-export type FontWeight    = 'normal' | 'medium' | 'semibold' | 'bold'
+export type FontWeight    = 'thin' | 'normal' | 'semibold' | 'bold'
 export type ActiveTool    = 'select' | 'text' | 'shape-rect' | 'shape-circle' | 'shape-triangle' | 'shape-star' | 'shape-pentagon' | 'shape-hexagon' | 'shape-octagon' | 'shape-diamond' | 'shape-oval' | 'shape-speechBubble' | 'shape-roundedSpeech' | 'shape-cone' | 'shape-cube' | 'shape-rect-hand' | 'shape-circle-hand' | 'shape-square-hand' | 'shape-heart' | 'shape-rect-sketch' | 'arrow' | 'code' | 'table' | 'image' | 'chart' | 'video' | 'latex' | 'counter'
   | 'handDraw'
 export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'move' | 'latex' | 'counter' | 'handDraw' | null
 export type HandDrawTool = 'pen' | 'paint' | 'spray' | 'eraser'
 export type ShapeFillMode = 'solid' | 'linearGradient' | 'radialGradient'
 export type TextFillMode = 'solid' | 'linearGradient'
+export type BorderFillMode = 'solid' | 'linearGradient'
 
 export interface BoxShadow {
   enabled: boolean
@@ -46,6 +47,14 @@ export interface InnerShadow {
   distance: number
 }
 
+export interface PerspectiveControls {
+  horizontalTilt: number
+  verticalTilt: number
+  skewX: number
+  skewY: number
+  depth: number
+}
+
 // ─── Animation ───────────────────────────────────────────────────────────────
 
 export interface ElementAnimation {
@@ -62,8 +71,15 @@ export interface ElementAnimation {
     moveDirection?: MoveDirection
     deltaX?: number
     deltaY?: number
+    startOffsetX?: number
+    startOffsetY?: number
     speed?: number
     moveOutside?: boolean
+    moveMode?: 'direction' | 'coordinates'
+    startCenterX?: number
+    startCenterY?: number
+    endCenterX?: number
+    endCenterY?: number
     pulseColor?: string
     pulseCount?: number
     scaleAmount?: number
@@ -88,7 +104,14 @@ export interface BaseElement {
   animations: ElementAnimation[]
   boxShadow?: BoxShadow
   innerShadow?: InnerShadow
+  borderFillMode?: BorderFillMode
+  borderGradientFrom?: string
+  borderGradientTo?: string
+  borderGradientAngle?: number
+  borderAnimate?: boolean
+  borderAnimationSpeed?: number
   perspectivePts?: { tl: [number, number]; tr: [number, number]; br: [number, number]; bl: [number, number] }
+  perspectiveControls?: PerspectiveControls
   groupId?: string   // elements sharing a groupId move together when group-locked
 }
 
@@ -185,6 +208,8 @@ export interface ImageElement extends BaseElement {
   src: string
   assetId: string
   cornerRadius: number
+  borderColor: string
+  borderWidth: number
   lockRatio?: boolean
   crop?: { x: number; y: number; w: number; h: number }  // normalized 0-1
   // Basic
@@ -271,6 +296,8 @@ export interface VideoElement extends BaseElement {
   src: string
   assetId: string
   cornerRadius: number
+  borderColor: string
+  borderWidth: number
   lockRatio?: boolean
   crop?: { x: number; y: number; w: number; h: number }
   volume: number
@@ -395,6 +422,8 @@ export interface AudioElement extends BaseElement {
   saturation?: number // Harmonic saturation -100..100, default 0
   fadeIn: number
   fadeOut: number
+  fadeInVolume?: number
+  fadeOutVolume?: number
   startTime: number  // Trim start (seconds)
   duration: number   // Trim duration (seconds)
   loop: boolean
@@ -414,7 +443,26 @@ export interface GridBg      { type: 'grid';     bgColor: string; lineColor: str
 export interface DotsBg      { type: 'dots';     bgColor: string; dotColor: string; spacing: number; radius: number }
 export type AnimatedVariant = 'gradient-flow' | 'particles' | 'wave' | 'aurora' | 'conic-rotate' | 'gradient-shift' | 'three-color-drift' | 'sand-grain-gradient'
 export interface AnimatedBg  { type: 'animated'; variant: AnimatedVariant; colors: string[]; speed: number }
-export interface ImageBg     { type: 'image';    src: string; fit: 'cover' | 'fill' }
+export interface ImageBg {
+  type: 'image'
+  src: string
+  fit: 'cover' | 'fill'
+  opacity?: number
+  brightness?: number
+  contrast?: number
+  saturation?: number
+  hueRotate?: number
+  blur?: number
+  glass?: boolean
+  exposure?: number
+  highlights?: number
+  shadows?: number
+  whites?: number
+  blacks?: number
+  temperature?: number
+  tint?: number
+  vibrance?: number
+}
 export interface TransparentBg { type: 'transparent' }
 export type Background = SolidBg | GradientBg | GridBg | DotsBg | AnimatedBg | ImageBg | TransparentBg
 
@@ -462,7 +510,17 @@ export interface SubtitleStyle {
   fontFamily: string
   fontSize: number
   fontWeight: FontWeight
+  italic?: boolean
+  fillMode?: TextFillMode
   color: string
+  gradientColor1?: string
+  gradientColor2?: string
+  gradientColor3?: string
+  gradientOpacity1?: number
+  gradientOpacity2?: number
+  gradientOpacity3?: number
+  gradientUseColor3?: boolean
+  backgroundEnabled?: boolean
   backgroundColor: string
   backgroundOpacity: number
   position: 'bottom' | 'middle' | 'top'
@@ -471,6 +529,11 @@ export interface SubtitleStyle {
   paddingX: number
   paddingY: number
   radius: number
+  marginTop?: number
+  marginRight?: number
+  marginBottom?: number
+  marginLeft?: number
+  animation?: 'none' | 'fade' | 'slideUp' | 'pop'
 }
 
 export interface SubtitleTrack {

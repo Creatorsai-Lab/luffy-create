@@ -63,6 +63,43 @@ export function computeMoveDelta(
   }
 }
 
+export function elementCenter(el: EditorElement) {
+  const b = elementMoveBounds(el)
+  return {
+    x: Math.round(b.x + b.width / 2),
+    y: Math.round(b.y + b.height / 2),
+  }
+}
+
+export function computeCenterMoveDelta(
+  el: EditorElement,
+  startCenterX: number,
+  startCenterY: number,
+  endCenterX: number,
+  endCenterY: number,
+) {
+  const b = elementMoveBounds(el)
+  const centerX = b.x + b.width / 2
+  const centerY = b.y + b.height / 2
+  const startX = startCenterX - b.width / 2
+  const startY = startCenterY - b.height / 2
+  const endX = endCenterX - b.width / 2
+  const endY = endCenterY - b.height / 2
+
+  return {
+    startOffsetX: Math.round(startX - b.x),
+    startOffsetY: Math.round(startY - b.y),
+    deltaX: Math.round(endX - startX),
+    deltaY: Math.round(endY - startY),
+    startCenterX: Math.round(startCenterX),
+    startCenterY: Math.round(startCenterY),
+    endCenterX: Math.round(endCenterX),
+    endCenterY: Math.round(endCenterY),
+    currentCenterX: Math.round(centerX),
+    currentCenterY: Math.round(centerY),
+  }
+}
+
 export function durationFromMove(deltaX: number, deltaY: number, speed: number) {
   const distance = Math.hypot(deltaX, deltaY)
   return Math.max(0.1, Number((distance / Math.max(1, speed)).toFixed(2)))

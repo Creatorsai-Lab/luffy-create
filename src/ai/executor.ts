@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import type { AssetMeta, EditorElement, MoveDirection, Scene, ShapeType } from '../types/editor'
-import { makeImage, makeScene, makeShape, makeText, makeVideo } from '../utils/defaults'
+import { makeAudio, makeImage, makeScene, makeShape, makeText, makeVideo } from '../utils/defaults'
+import { clampAudioDuration, finitePositiveDuration, remainingTimelineDuration } from '../utils/audioMetadata'
 import { computeMoveDelta, durationFromMove } from '../utils/moveAnimation'
 import { useEditorStore } from '../store/editorStore'
 import type { AiCommandResult, AiEditorCommand, AiElementRef, AiPlan, AiSceneRef } from './types'
@@ -35,8 +36,10 @@ export function executeAiPlan(plan: AiPlan): AiCommandResult[] {
     try {
       const resolvedCommand = resolveSceneAlias(command, sceneAliases)
       const result = executeAiCommand(resolvedCommand)
-      if (command.type === 'addScene' && command.alias && result.sceneIds?.[0]) {
-        sceneAliases[command.alias] = result.sceneIds[0]
+      if (command.type === 'addScene' && result.sceneIds?.[0]) {
+        const createdSceneId = result.sceneIds[0]
+        sceneAliases[command.alias ?? 'newScene'] = createdSceneId
+        sceneAliases.newScene ??= createdSceneId
       }
       results.push(result)
     } catch (error) {
@@ -56,6 +59,8 @@ function executeAiCommand(command: AiEditorCommand): AiCommandResult {
       return addImageFromAsset(command)
     case 'addVideoFromAsset':
       return addVideoFromAsset(command)
+    case 'addAudioFromAsset':
+      return addAudioFromAsset(command)
     case 'setBackground':
       return setBackground(command)
     case 'updateElement':
@@ -85,9 +90,21 @@ function addText(command: Extract<AiEditorCommand, { type: 'addText' }>): AiComm
     x: command.x ?? centerX(scene, width),
     y: command.y ?? centerY(scene, height),
     fontSize: command.fontSize ?? el.fontSize,
+    fontFamily: command.fontFamily ?? el.fontFamily,
     color: command.color ?? el.color,
     align: command.align ?? el.align,
   })
+  if (command.animation) {
+    el.animations = [{
+      id: uuid(),
+      type: command.animation.type,
+      timing: 'onEnter',
+      startTime: 0,
+      duration: Math.max(0.05, command.animation.duration ?? 0.8),
+      delay: Math.max(0, command.animation.delay ?? 0),
+      easing: command.animation.easing ?? 'easeOut',
+    }]
+  }
   addToScene(scene, el, 'text')
   return { ok: true, message: `Added text to ${scene.name}.`, elementIds: [el.id], sceneIds: [scene.id] }
 }
@@ -141,6 +158,25 @@ function addVideoFromAsset(command: Extract<AiEditorCommand, { type: 'addVideoFr
   el.name = command.name ?? asset.name
   addToScene(scene, el, 'video')
   return { ok: true, message: `Added video to ${scene.name}.`, elementIds: [el.id], sceneIds: [scene.id] }
+}
+
+function addAudioFromAsset(command: Extract<AiEditorCommand, { type: 'addAudioFromAsset' }>): AiCommandResult {
+  const { project } = useEditorStore.getState()
+  if (!project) throw new Error('No project is open.')
+  const scene = requireScene(command)
+  const asset = findAsset(project.assets, command, 'audio')
+  if (!asset) throw new Error('Could not find the requested audio asset.')
+
+  const timelineX = Math.max(0, command.timelineX ?? 0)
+  const duration = clampAudioDuration(
+    command.duration ?? finitePositiveDuration(asset.duration) ?? 0.1,
+    remainingTimelineDuration(totalProjectDuration(project), sceneStartTime(project, scene) + timelineX)
+  )
+  const el = makeAudio(asset.path, asset.id, duration)
+  el.name = command.name ?? asset.name
+  el.x = timelineX
+  addToScene(scene, el, 'audio')
+  return { ok: true, message: `Added audio to ${scene.name}.`, elementIds: [el.id], sceneIds: [scene.id] }
 }
 
 function setBackground(command: Extract<AiEditorCommand, { type: 'setBackground' }>): AiCommandResult {
@@ -264,9 +300,10 @@ function requireScene(ref: AiSceneRef): Scene {
 
 function resolveSceneAlias(command: AiEditorCommand, sceneAliases: Record<string, string>): AiEditorCommand {
   if (!('sceneAlias' in command) || !command.sceneAlias) return command
-  const sceneId = sceneAliases[command.sceneAlias]
+  const sceneId = sceneAliases[command.sceneAlias] ??
+    (command.sceneAlias === 'newScene' ? useEditorStore.getState().currentSceneId ?? undefined : undefined)
   if (!sceneId) throw new Error(`Could not resolve scene alias "${command.sceneAlias}".`)
-  return { ...command, sceneId, sceneIndex: undefined }
+  return { ...command, sceneId, sceneIndex: undefined, sceneAlias: undefined }
 }
 
 function requireElement(ref: AiElementRef): EditorElement {
@@ -352,6 +389,19 @@ function centerX(scene: Scene, width: number) {
 function centerY(_scene: Scene, height: number) {
   const { project } = useEditorStore.getState()
   return Math.round(((project?.height ?? 1080) - height) / 2)
+}
+
+function totalProjectDuration(project: { scenes: Scene[] }) {
+  return project.scenes.reduce((sum, item) => sum + item.duration, 0)
+}
+
+function sceneStartTime(project: { scenes: Scene[] }, scene: Scene) {
+  let elapsed = 0
+  for (const item of project.scenes) {
+    if (item.id === scene.id) return elapsed
+    elapsed += item.duration
+  }
+  return 0
 }
 
 function panelForElement(type: EditorElement['type']) {

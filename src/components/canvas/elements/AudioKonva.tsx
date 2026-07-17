@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import type { AudioElement } from '../../../types/editor'
 import { toFileUrl } from '../../../utils/pathUtils'
+import { clampAudioVolume } from '../../../utils/audioEffects'
 
 interface Props {
   el: AudioElement
@@ -25,7 +26,7 @@ export default function AudioKonva({ el, konvaProps }: Props) {
     audio.addEventListener('ended', () => setIsPlaying(false))
 
     // Update audio properties
-    audio.volume = el.volume
+    audio.volume = Math.min(1, clampAudioVolume(el.volume))
     audio.loop = el.loop
 
     audioRef.current = audio

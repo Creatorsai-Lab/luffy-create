@@ -7,13 +7,7 @@ import { cn } from '../../utils/cn'
 import { makeAnimation, makeText } from '../../utils/defaults'
 import { InnerShadowControls } from './BoxShadowControls'
 import { ScaleSizeControl } from './AnimationParamControls'
-
-const WEIGHTS: { label: string; value: FontWeight }[] = [
-  { label: 'Normal',   value: 'normal' },
-  { label: 'Medium',   value: 'medium' },
-  { label: 'Semibold', value: 'semibold' },
-  { label: 'Bold',     value: 'bold' },
-]
+import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../../utils/fontWeight'
 
 const TEXT_EFFECTS: { label: string; value: TextEffectType }[] = [
   { label: 'Shadow',  value: 'shadow'  },
@@ -143,11 +137,11 @@ export default function TextPanel() {
 
               <Row label="Weight">
                 <select
-                  value={el.fontWeight}
+                  value={normalizeFontWeightForControl(el.fontWeight)}
                   onChange={e => upd({ fontWeight: e.target.value as FontWeight })}
                   className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
-                  {WEIGHTS.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
+                  {FONT_WEIGHT_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
                 </select>
               </Row>
 

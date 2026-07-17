@@ -8,7 +8,7 @@ import { drawBackground } from '../../engine/backgroundRenderer'
 import { easeInOutCubic } from '../../engine/transitionRenderer'
 import CanvasElement from '../canvas/CanvasElement'
 import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
-import type { Background, TransitionType, SlideDir, AudioElement, VideoElement } from '../../types/editor'
+import type { Background, TransitionType, SlideDir, AudioElement, VideoElement, ImageBg } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
 import {
@@ -284,10 +284,22 @@ export default function PreviewModal() {
 }
 
 function BgShape({ bg, w, h, time }: { bg: Background; w: number; h: number; time: number }) {
+  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null)
+  const bgSrc = bg.type === 'image' ? (bg as ImageBg).src : ''
+
+  useEffect(() => {
+    if (!bgSrc) { setBgImage(null); return }
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => setBgImage(img)
+    img.onerror = () => setBgImage(null)
+    img.src = toFileUrl(bgSrc)
+  }, [bgSrc])
+
   const sceneFunc = useCallback((ctx: Konva.Context) => {
     const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
-    drawBackground(raw, bg, w, h, time)
-  }, [bg, w, h, time])
+    drawBackground(raw, bg, w, h, time, bgImage)
+  }, [bg, w, h, time, bgImage])
 
   return <Shape width={w} height={h} sceneFunc={sceneFunc} listening={false} />
 }

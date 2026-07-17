@@ -10,6 +10,7 @@ import {
   type AiPlan,
   type AiPlanIssue,
 } from '../../ai'
+import { filterMentionAssets, getActiveAssetMention } from '../../ai/assetMentions'
 
 type ChatItem = {
   id: string
@@ -32,24 +33,20 @@ export default function AISidebar() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [savedApiKey, setSavedApiKey] = useState(() => readDemoApiKey())
   const [apiKeyDraft, setApiKeyDraft] = useState(() => readDemoApiKey())
+  const [caret, setCaret] = useState(0)
 
   const commandLabels = useMemo(() => {
     if (!pendingPlan) return []
     return pendingPlan.commands.map((command, index) => `${index + 1}. ${describeCommand(command)}`)
   }, [pendingPlan])
-  const mention = getActiveAssetMention(input)
+  const mention = getActiveAssetMention(input, caret)
   const mentionAssets = useMemo(() => {
-    if (!mention) return []
-    const query = mention.query.toLowerCase()
-    return (project?.assets ?? [])
-      .filter(asset => asset.type === 'image' || asset.type === 'video')
-      .filter(asset => {
-        const name = asset.name.toLowerCase()
-        const filename = asset.filename.toLowerCase()
-        return !query || name.includes(query) || filename.includes(query)
-      })
-      .slice(0, 6)
+    return filterMentionAssets(project?.assets ?? [], mention)
   }, [mention, project?.assets])
+
+  function syncCaret() {
+    setCaret(inputRef.current?.selectionStart ?? input.length)
+  }
 
   async function submit() {
     const prompt = input.trim()
@@ -114,6 +111,7 @@ export default function AISidebar() {
       inputRef.current?.focus()
       const caret = mention.start + filename.length + 2
       inputRef.current?.setSelectionRange(caret, caret)
+      setCaret(caret)
     })
   }
 
@@ -279,15 +277,21 @@ export default function AISidebar() {
           </div>
         )}
         <form
-          className="flex items-center gap-1.5 bg-editor-elevated border border-editor-border rounded-lg px-2.5 py-2"
+          className="flex items-center gap-1.5 bg-editor-elevated border border-editor-border rounded-xl px-2.5 py-2"
           onSubmit={e => { e.preventDefault(); void submit() }}
         >
           <textarea
           ref={inputRef}
           value={input}
-          onChange={e => setInput(e.target.value)}
+          onChange={e => {
+            setInput(e.target.value)
+            setCaret(e.target.selectionStart)
+          }}
+          onClick={syncCaret}
+          onKeyUp={syncCaret}
+          onSelect={syncCaret}
           placeholder="Describe an edit with mentioning scene"
-          className="flex-1 bg-transparent text-base text-editor-text placeholder:text-editor-secondary outline-none min-w-0 resize-none h-[calc(2*1.5rem)] leading-6"
+          className="flex-1 bg-transparent text-base text-editor-text placeholder:text-editor-secondary outline-none min-w-0 resize-none h-[calc(4*1.5rem)] leading-6"
         />  
           <button
             type="submit"
@@ -307,6 +311,7 @@ function describeCommand(command: AiPlan['commands'][number]) {
   if (command.type === 'addShape') return `Add ${command.shapeType}${sizeSuffix(command.width, command.height)}${sceneSuffix(command.sceneIndex)}`
   if (command.type === 'addImageFromAsset') return `Add image asset ${command.assetName ?? command.assetId ?? ''}${sceneSuffix(command.sceneIndex)}`
   if (command.type === 'addVideoFromAsset') return `Add video asset ${command.assetName ?? command.assetId ?? ''}${sizeSuffix(command.width, command.height)}${sceneSuffix(command.sceneIndex)}`
+  if (command.type === 'addAudioFromAsset') return `Add audio asset ${command.assetName ?? command.assetId ?? ''}${sceneSuffix(command.sceneIndex)}`
   if (command.type === 'setBackground') return `Set background${sceneSuffix(command.sceneIndex)}`
   if (command.type === 'updateElement') return `Update element ${command.elementName ?? command.elementId ?? 'selection'}`
   if (command.type === 'styleElement') return `Style element ${command.elementName ?? command.elementId ?? 'selection'}`
@@ -329,17 +334,5 @@ function readDemoApiKey() {
     return localStorage.getItem(DEMO_API_KEY_STORAGE) ?? ''
   } catch {
     return ''
-  }
-}
-
-function getActiveAssetMention(input: string) {
-  const match = input.match(/(?:^|\s)@([\w._()-]*)$/)
-  if (!match || match.index == null) return null
-  const atOffset = match[0].lastIndexOf('@')
-  const start = match.index + atOffset
-  return {
-    start,
-    end: input.length,
-    query: match[1] ?? '',
   }
 }

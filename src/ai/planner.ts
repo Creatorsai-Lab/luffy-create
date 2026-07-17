@@ -1,5 +1,6 @@
-import type { AiEditorCommand, AiPlan, AiPlanResult, AiProjectContext, AiSceneRef } from './types'
+import type { AiAnimationSpec, AiEditorCommand, AiPlan, AiPlanResult, AiProjectContext, AiSceneRef } from './types'
 import { AI_PLAN_JSON_SCHEMA, validateAiPlan } from './schema'
+import { FONT_FAMILIES } from '../types/editor'
 
 const SYSTEM_PROMPT = [
   'You are an editor command planner for a scene-based video editor.',
@@ -43,65 +44,92 @@ export async function planAiEdit(prompt: string, context: AiProjectContext): Pro
 
 function planLocally(prompt: string, context: AiProjectContext): AiPlan {
   const lower = prompt.toLowerCase()
+  const steps = splitPromptSteps(prompt)
   const sceneIndex = readSceneIndex(lower) ?? context.currentSceneIndex
   const wantsAdd = /\b(add|create|insert)\b/.test(lower)
-  const size = readSize(lower)
   const commands: AiEditorCommand[] = []
   const createsScene = wantsAdd && hasNewSceneIntent(lower)
   const targetScene: AiSceneRef = createsScene ? { sceneAlias: 'newScene' } : { sceneIndex }
 
   if (createsScene) {
+    const sceneStep = findStep(steps, /\bnew\s+(?:scene|slide)\b/i) ?? prompt
     commands.push({
       type: 'addScene',
       alias: 'newScene',
-      duration: readNumberAfter(lower, 'duration') ?? undefined,
+      duration: readNumberAfter(sceneStep.toLowerCase(), 'duration') ?? undefined,
     })
   }
 
   if (/\b(square|rectangle|rect)\b/.test(lower) && (wantsAdd || createsScene)) {
+    const shapeStep = findStep(steps, /\b(square|rectangle|rect)\b/i) ?? prompt
+    const shapeSize = readSize(shapeStep)
     const isSquare = lower.includes('square')
-    const width = size?.width ?? (isSquare ? 300 : 420)
-    const height = size?.height ?? (isSquare ? width : 260)
+    const width = shapeSize?.width ?? (isSquare ? 300 : 420)
+    const height = shapeSize?.height ?? (isSquare ? width : 260)
     commands.push({
       type: 'addShape',
       ...targetScene,
+      ...readPlacement(shapeStep, context, { width, height }),
       shapeType: 'rect',
       width,
       height,
-      fill: readColor(prompt) ?? '#6366f1',
+      fill: readColor(shapeStep) ?? '#6366f1',
     })
   }
 
-  const quotedText = prompt.match(/"([^"]+)"/)?.[1] ?? prompt.match(/'([^']+)'/)?.[1]
-  if (/\b(text|title|heading|written)\b/.test(lower) && (wantsAdd || createsScene || quotedText)) {
-    commands.push({
-      type: 'addText',
-      ...targetScene,
-      text: quotedText ?? 'New text',
-      fontSize: readNumberAfter(lower, 'font size') ?? undefined,
-      color: readColor(prompt) ?? undefined,
-    })
+  const textSteps = findTextSteps(steps, prompt)
+  if (/\b(text|title|heading|written)\b/.test(lower) && (wantsAdd || createsScene || textSteps.length > 0)) {
+    for (const textStep of textSteps.length > 0 ? textSteps : [prompt]) {
+      commands.push({
+        type: 'addText',
+        ...targetScene,
+        ...readPlacement(textStep, context, { width: 600, height: 60 }),
+        text: readQuotedText(textStep) ?? 'New text',
+        fontSize: readNumberAfter(textStep.toLowerCase(), 'font size') ?? undefined,
+        fontFamily: readFontFamily(textStep) ?? undefined,
+        color: readColor(textStep) ?? undefined,
+        animation: readTextAnimation(textStep.toLowerCase()) ?? undefined,
+      })
+    }
   }
 
   const videoAssetName = readAssetName(prompt, context, 'video')
-  if ((/\b(video|mp4|webm|mov|avi|mkv|gif)\b/.test(lower) || videoAssetName) && (wantsAdd || createsScene)) {
+  if ((/\b(video|mp4|webm|mov|avi|mkv)\b/.test(lower) || videoAssetName) && (wantsAdd || createsScene)) {
+    const videoStep = findAssetStep(steps, videoAssetName, /\b(video|mp4|webm|mov|avi|mkv)\b/i) ?? prompt
+    const videoSize = readSize(videoStep)
     commands.push({
       type: 'addVideoFromAsset',
       ...targetScene,
+      ...readPlacement(videoStep, context, videoSize ?? {}),
       assetName: videoAssetName ?? undefined,
-      width: size?.width,
-      height: size?.height,
+      width: videoSize?.width,
+      height: videoSize?.height,
     })
   }
 
   const imageAssetName = readAssetName(prompt, context, 'image')
-  if ((/\b(image|photo|picture|png|jpe?g|webp)\b/.test(lower) || imageAssetName) && (wantsAdd || createsScene)) {
+  if ((/\b(image|photo|picture|png|jpe?g|webp|gif)\b/.test(lower) || imageAssetName) && (wantsAdd || createsScene)) {
+    const imageStep = findAssetStep(steps, imageAssetName, /\b(image|photo|picture|png|jpe?g|webp|gif)\b/i) ?? prompt
+    const imageSize = readSize(imageStep)
     commands.push({
       type: 'addImageFromAsset',
       ...targetScene,
+      ...readPlacement(imageStep, context, imageSize ?? {}),
       assetName: imageAssetName ?? undefined,
-      width: size?.width,
-      height: size?.height,
+      width: imageSize?.width,
+      height: imageSize?.height,
+    })
+  }
+
+  const audioAssetName = readAssetName(prompt, context, 'audio')
+  if ((/\b(audio|sound|music|mp3|wav|m4a|ogg|aac)\b/.test(lower) || audioAssetName) && (wantsAdd || createsScene)) {
+    const audioStep = findAssetStep(steps, audioAssetName, /\b(audio|sound|music|mp3|wav|m4a|ogg|aac)\b/i) ?? prompt
+    commands.push({
+      type: 'addAudioFromAsset',
+      ...targetScene,
+      assetName: audioAssetName ?? undefined,
+      timelineX: readTimelineX(audioStep.toLowerCase()) ?? 0,
+      duration: readNumberAfter(audioStep.toLowerCase(), 'audio duration') ?? undefined,
     })
   }
 
@@ -114,9 +142,10 @@ function planLocally(prompt: string, context: AiProjectContext): AiPlan {
   }
 
   if (commands.length > 0) {
+    const orderedCommands = orderLocalCommands(commands)
     return {
-      summary: summarizeLocalCommands(commands, sceneIndex),
-      commands,
+      summary: summarizeLocalCommands(orderedCommands, sceneIndex),
+      commands: orderedCommands,
       needsConfirmation: true,
     }
   }
@@ -160,6 +189,83 @@ function planLocally(prompt: string, context: AiProjectContext): AiPlan {
   }
 }
 
+function splitPromptSteps(prompt: string) {
+  return prompt
+    .split(/\r?\n+/)
+    .map(line => line.trim().replace(/^\d+\s*[.)-]\s*/, ''))
+    .filter(Boolean)
+}
+
+function orderLocalCommands(commands: AiEditorCommand[]) {
+  const priority: Record<AiEditorCommand['type'], number> = {
+    addScene: 0,
+    setBackground: 1,
+    addShape: 2,
+    addImageFromAsset: 2,
+    addVideoFromAsset: 2,
+    addText: 3,
+    addAudioFromAsset: 4,
+    setTransition: 5,
+    applyMove: 5,
+    updateElement: 5,
+    styleElement: 5,
+    generateStoryboard: 5,
+  }
+  return commands
+    .map((command, index) => ({ command, index }))
+    .sort((a, b) => priority[a.command.type] - priority[b.command.type] || a.index - b.index)
+    .map(item => item.command)
+}
+
+function findStep(steps: string[], pattern: RegExp) {
+  return steps.find(step => pattern.test(step))
+}
+
+function findTextSteps(steps: string[], prompt: string) {
+  const matches = steps.filter(step =>
+    Boolean(readQuotedText(step)) ||
+    /\b(text|title|heading|written)\b/i.test(step) ||
+    /\bcontent\s*["':]/i.test(step)
+  )
+  if (matches.length > 0) return matches
+  return readQuotedText(prompt) ? [prompt] : []
+}
+
+function readQuotedText(text: string) {
+  return text.match(/"([^"]+)"/)?.[1] ?? text.match(/'([^']+)'/)?.[1] ?? null
+}
+
+function findAssetStep(steps: string[], assetName: string | null, fallback: RegExp) {
+  if (assetName) {
+    const wanted = assetName.toLowerCase()
+    const exact = steps.find(step => step.toLowerCase().includes(wanted) || step.toLowerCase().includes(`@${wanted}`))
+    if (exact) return exact
+  }
+  return findStep(steps, fallback)
+}
+
+function readPlacement(
+  text: string,
+  context: AiProjectContext,
+  size: { width?: number; height?: number }
+): { x?: number; y?: number } {
+  const lower = text.toLowerCase()
+  const margin = 80
+  const out: { x?: number; y?: number } = {}
+  const hasHorizontalSize = typeof size.width === 'number'
+  const hasVerticalSize = typeof size.height === 'number'
+
+  if (/\b(?:top|upper)\b/.test(lower)) out.y = margin
+  else if (/\b(?:bottom|lower)\b/.test(lower)) out.y = hasVerticalSize ? context.project.height - size.height! : undefined
+  else if (/\b(?:middle|center|centre)\b/.test(lower) && hasVerticalSize) out.y = Math.round((context.project.height - size.height!) / 2)
+
+  if (/\bleft\b/.test(lower)) out.x = margin
+  else if (/\bright\b/.test(lower)) out.x = hasHorizontalSize ? context.project.width - size.width! - margin : undefined
+  else if (/\b(?:top|bottom|middle|center|centre)\b/.test(lower) && hasHorizontalSize) out.x = Math.round((context.project.width - size.width!) / 2)
+
+  return out
+}
+
 function readSceneIndex(text: string): number | null {
   const match = text.match(/\b(?:on|in|to|for)?\s*(?:scene|slide)\s*(?:number|no\.?)?\s*(\d+)\b/)
   return match ? Math.max(1, Number(match[1])) : null
@@ -171,13 +277,27 @@ function hasNewSceneIntent(text: string) {
     /\bnew\s+(?:scene|slide)\s+with\b/.test(text)
 }
 
-function readSize(text: string): { width: number; height: number } | null {
-  const labelled = text.match(/\bwidth\s*(\d{2,5})\b[\s\S]{0,24}?\bhei(?:ght|gh)?\s*(\d{2,5})\b/i)
-  if (labelled) return { width: Number(labelled[1]), height: Number(labelled[2]) }
+function readSize(text: string): { width?: number; height?: number } | null {
+  const widthLabel = text.match(/\bwidth\s*(?:is|:|=)?\s*(\d{2,5})\s*(?:px)?\b/i)
+  const heightLabel = text.match(/\bhei(?:ght|gh)?\s*(?:is|:|=)?\s*(\d{2,5})\s*(?:px)?\b/i)
+  if (widthLabel || heightLabel) {
+    return {
+      width: widthLabel ? Number(widthLabel[1]) : undefined,
+      height: heightLabel ? Number(heightLabel[1]) : undefined,
+    }
+  }
 
   const match = text.match(/(\d{2,5})\s*(?:px)?\s*(?:x|×|by)\s*(\d{2,5})\s*(?:px)?/)
-  if (!match) return null
-  return { width: Number(match[1]), height: Number(match[2]) }
+  if (match) return { width: Number(match[1]), height: Number(match[2]) }
+
+  const widthOnly = text.match(/\bwidth\s*(\d{2,5})\s*(?:px)?\b/i)
+  if (widthOnly) return { width: Number(widthOnly[1]) }
+  return null
+}
+
+function readTimelineX(text: string): number | null {
+  if (/\b(?:start|beginning|below last scene|timeline below)\b/.test(text)) return 0
+  return readNumberAfter(text, 'timeline')
 }
 
 function readNumberAfter(text: string, label: string): number | null {
@@ -205,6 +325,16 @@ function readColor(text: string): string | null {
   return Object.entries(colors).find(([name]) => lower.includes(name))?.[1] ?? null
 }
 
+function readFontFamily(text: string): string | null {
+  const lower = text.toLowerCase()
+  const labelled = lower.match(/\bfont\s*family\s*:?\s*([a-z][a-z\s-]{1,40})/i) ??
+    lower.match(/\bfontfamily\s*:?\s*([a-z][a-z\s-]{1,40})/i)
+  const search = labelled?.[1]?.replace(/\b(?:and|with|color|font|size|duration|seconds|animation|at|left|right|center|centre|top|bottom)\b.*$/i, '').trim()
+  const exact = FONT_FAMILIES.find(font => search && font.toLowerCase() === search)
+  if (exact) return exact
+  return FONT_FAMILIES.find(font => lower.includes(font.toLowerCase())) ?? null
+}
+
 function readMoveDirection(text: string): 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft' {
   if (text.includes('top left')) return 'topLeft'
   if (text.includes('top right')) return 'topRight'
@@ -216,6 +346,20 @@ function readMoveDirection(text: string): 'left' | 'right' | 'top' | 'bottom' | 
   return 'left'
 }
 
+function readTextAnimation(text: string): AiAnimationSpec | null {
+  if (!/\banimation\b/.test(text)) return null
+  const type = text.includes('fade') ? 'fadeIn'
+    : text.includes('typewriter') ? 'typewriter'
+    : text.includes('bounce') ? 'textBounceIn'
+    : text.includes('scale') ? 'scaleIn'
+    : null
+  if (!type) return null
+  return {
+    type,
+    duration: readNumberAfter(text, 'duration') ?? undefined,
+  }
+}
+
 function readAssetName(prompt: string, context: AiProjectContext, type: 'image' | 'video' | 'audio'): string | null {
   const lower = prompt.toLowerCase()
   const asset = context.assets.find(item =>
@@ -225,10 +369,10 @@ function readAssetName(prompt: string, context: AiProjectContext, type: 'image' 
   if (asset) return asset.filename
 
   const extensions = type === 'video'
-    ? 'mp4|webm|mov|avi|mkv|gif'
+    ? 'mp4|webm|mov|avi|mkv'
     : type === 'image'
       ? 'png|jpe?g|webp|gif|svg'
-      : 'mp3|wav|m4a|ogg'
+      : 'mp3|wav|m4a|ogg|aac'
   const mention = prompt.match(new RegExp('@([\\w._()\\-]+\\.(' + extensions + '))', 'i'))
   if (mention?.[1]) return mention[1].trim()
   const match = prompt.match(new RegExp('([\\w ._()\\-]+\\.(' + extensions + '))', 'i'))
@@ -245,6 +389,7 @@ function summarizeLocalCommands(commands: AiEditorCommand[], sceneIndex: number)
   if (commands.some(command => command.type === 'addText')) parts.push('add text')
   if (commands.some(command => command.type === 'addVideoFromAsset')) parts.push('add video')
   if (commands.some(command => command.type === 'addImageFromAsset')) parts.push('add image')
+  if (commands.some(command => command.type === 'addAudioFromAsset')) parts.push('add audio')
   if (commands.some(command => command.type === 'addShape')) parts.push('add shape')
   if (commands.some(command => command.type === 'setBackground')) parts.push('set background')
   return `${capitalize(parts.join(', ') || 'prepare edits')} ${commands.some(command => command.type === 'addScene') ? 'in a new scene' : `on Scene ${sceneIndex}`}.`

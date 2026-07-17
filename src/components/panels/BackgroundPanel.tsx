@@ -1,8 +1,7 @@
-import { useState } from 'react'
-import { Settings2 } from 'lucide-react'
+import { RotateCcw, Settings2 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
-import type { Background, BgType, AnimatedBg, GradientBg, GradientKind } from '../../types/editor'
-import { PanelHeader, Row, ColorInput, Slider, NumberInput } from './TextPanel'
+import type { Background, BgType, AnimatedBg, GradientBg, GradientKind, ImageBg } from '../../types/editor'
+import { PanelHeader, Row, ColorInput, Slider } from './TextPanel'
 import { cn } from '../../utils/cn'
 
 const BG_TYPES: { label: string; value: BgType }[] = [
@@ -28,6 +27,32 @@ export default function BackgroundPanel() {
 
   function setBg(patch: Partial<Background>) {
     setBackground(scene!.id, { ...bg, ...patch } as Background)
+  }
+
+  function setImageBg(patch: Partial<ImageBg>) {
+    if (bg.type !== 'image') return
+    setBackground(scene!.id, { ...bg, ...patch })
+  }
+
+  function resetImageAdjustments() {
+    if (bg.type !== 'image') return
+    setImageBg({
+      opacity: 1,
+      brightness: 100,
+      contrast: 100,
+      saturation: 100,
+      hueRotate: 0,
+      blur: 0,
+      glass: false,
+      exposure: 0,
+      highlights: 0,
+      shadows: 0,
+      whites: 0,
+      blacks: 0,
+      temperature: 0,
+      tint: 0,
+      vibrance: 0,
+    })
   }
 
   function animatedDefaults(variant: AnimatedBg['variant']) {
@@ -63,15 +88,121 @@ export default function BackgroundPanel() {
       <PanelHeader icon={<Settings2 size={12} />} title="Background" />
 
       {bg.type === 'image' && (
-        <div className="px-3 py-2 border-b border-editor-border flex flex-col gap-2">
-          <p className="text-xs text-editor-accent">Image background active</p>
-          <p className="text-2xs text-[#f2f2f2]">Set via right-click → Set Background on an image element.</p>
-          <button
-            onClick={() => setBackground(scene.id, { type: 'solid', color: '#1a1a2e' })}
-            className="text-xs px-2 py-1 rounded bg-editor-elevated border border-editor-border text-[#f2f2f2] hover:text-editor-text transition-colors"
-          >
-            Reset to Solid
-          </button>
+        <div className="px-3 py-2 border-b border-editor-border flex flex-col gap-0.5">
+          <div className="pb-2 mb-1 border-b border-editor-border">
+            <p className="text-xs font-medium text-editor-text">Image Background</p>
+            <p className="text-2xs text-[#a99fc9] mt-1 leading-relaxed">
+              Click the scene background to return here and tune the image.
+            </p>
+          </div>
+
+          <Row label="Fit">
+            <div className="flex gap-1">
+              {(['cover', 'fill'] as const).map(fit => (
+                <button
+                  key={fit}
+                  onClick={() => setImageBg({ fit })}
+                  className={cn(
+                    'flex-1 text-xs px-2 py-1 rounded border capitalize transition-colors',
+                    bg.fit === fit
+                      ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
+                      : 'bg-editor-elevated border-editor-border text-[#f2f2f2] hover:text-editor-text'
+                  )}
+                >
+                  {fit}
+                </button>
+              ))}
+            </div>
+          </Row>
+
+          <div className="pt-2 mt-1 border-t border-editor-border">
+            <span className="text-xs font-medium text-editor-text block mb-1">Adjustments</span>
+            <Row label="Opacity">
+              <Slider value={Math.round((bg.opacity ?? 1) * 100)} min={0} max={100} step={1}
+                onChange={v => setImageBg({ opacity: v / 100 })} display={`${Math.round((bg.opacity ?? 1) * 100)}%`} />
+            </Row>
+            <Row label="Exposure">
+              <Slider value={bg.exposure ?? 0} min={-100} max={100} step={1}
+                onChange={v => setImageBg({ exposure: v })} display={`${bg.exposure ?? 0}`} />
+            </Row>
+            <Row label="Brightness">
+              <Slider value={bg.brightness ?? 100} min={0} max={200} step={1}
+                onChange={v => setImageBg({ brightness: v })} display={`${bg.brightness ?? 100}`} />
+            </Row>
+            <Row label="Contrast">
+              <Slider value={bg.contrast ?? 100} min={0} max={200} step={1}
+                onChange={v => setImageBg({ contrast: v })} display={`${bg.contrast ?? 100}`} />
+            </Row>
+            <Row label="Highlights">
+              <Slider value={bg.highlights ?? 0} min={-100} max={100} step={1}
+                onChange={v => setImageBg({ highlights: v })} display={`${bg.highlights ?? 0}`} />
+            </Row>
+            <Row label="Shadows">
+              <Slider value={bg.shadows ?? 0} min={-100} max={100} step={1}
+                onChange={v => setImageBg({ shadows: v })} display={`${bg.shadows ?? 0}`} />
+            </Row>
+            <Row label="Whites">
+              <Slider value={bg.whites ?? 0} min={-100} max={100} step={1}
+                onChange={v => setImageBg({ whites: v })} display={`${bg.whites ?? 0}`} />
+            </Row>
+            <Row label="Blacks">
+              <Slider value={bg.blacks ?? 0} min={-100} max={100} step={1}
+                onChange={v => setImageBg({ blacks: v })} display={`${bg.blacks ?? 0}`} />
+            </Row>
+            <Row label="Saturation">
+              <Slider value={bg.saturation ?? 100} min={0} max={200} step={1}
+                onChange={v => setImageBg({ saturation: v })} display={`${bg.saturation ?? 100}`} />
+            </Row>
+            <Row label="Vibrance">
+              <Slider value={bg.vibrance ?? 0} min={-100} max={100} step={1}
+                onChange={v => setImageBg({ vibrance: v })} display={`${bg.vibrance ?? 0}`} />
+            </Row>
+            <Row label="Temperature">
+              <Slider value={bg.temperature ?? 0} min={-100} max={100} step={1}
+                onChange={v => setImageBg({ temperature: v })} display={`${bg.temperature ?? 0}`} />
+            </Row>
+            <Row label="Tint">
+              <Slider value={bg.tint ?? 0} min={-100} max={100} step={1}
+                onChange={v => setImageBg({ tint: v })} display={`${bg.tint ?? 0}`} />
+            </Row>
+            <Row label="Hue Rotate">
+              <Slider value={bg.hueRotate ?? 0} min={-180} max={180} step={1}
+                onChange={v => setImageBg({ hueRotate: v })} display={`${bg.hueRotate ?? 0}°`} />
+            </Row>
+            <Row label="Blur">
+              <Slider value={bg.blur ?? 0} min={0} max={20} step={0.5}
+                onChange={v => setImageBg({ blur: v })} display={`${bg.blur ?? 0}px`} />
+            </Row>
+            <Row label="Glass">
+              <button
+                onClick={() => setImageBg({ glass: !bg.glass })}
+                className={cn(
+                  'px-2 py-1 rounded text-xs border transition-colors',
+                  bg.glass
+                    ? 'bg-editor-accent text-white border-editor-accent'
+                    : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border-editor-border'
+                )}
+              >
+                {bg.glass ? 'On' : 'Off'}
+              </button>
+            </Row>
+          </div>
+
+          <div className="flex gap-2 pt-2 mt-1 border-t border-editor-border">
+            <button
+              onClick={resetImageAdjustments}
+              className="flex-1 flex items-center justify-center gap-1.5 text-xs px-2 py-1 rounded bg-editor-elevated border border-editor-border text-[#f2f2f2] hover:text-editor-text transition-colors"
+            >
+              <RotateCcw size={10} />
+              Reset Effects
+            </button>
+            <button
+              onClick={() => setBackground(scene.id, { type: 'solid', color: '#1a1a2e' })}
+              className="flex-1 text-xs px-2 py-1 rounded bg-editor-elevated border border-editor-border text-[#f2f2f2] hover:text-editor-text transition-colors"
+            >
+              Reset to Solid
+            </button>
+          </div>
         </div>
       )}
 

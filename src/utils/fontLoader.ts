@@ -10,7 +10,7 @@
  */
 
 // ── Import @fontsource packages ───────────────────────────────────────────────
-// Only the weights we actually use (400 normal + 700 bold).  Importing the
+// Only the weights we actually use.  Importing the
 // specific weight CSS is optional but keeps the bundle smaller.
 import '@fontsource/bangers/400.css'
 import '@fontsource/bebas-neue/400.css'
@@ -23,7 +23,9 @@ import '@fontsource/eb-garamond/700.css'
 import '@fontsource/handlee/400.css'
 import '@fontsource/imperial-script/400.css'
 import '@fontsource/indie-flower/400.css'
+import '@fontsource/inter/100.css'
 import '@fontsource/inter/400.css'
+import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 import '@fontsource/kalam/400.css'
 import '@fontsource/kalam/700.css'
@@ -53,7 +55,7 @@ const CANVAS_FONTS: Array<{ family: string; weights: string[] }> = [
   { family: 'Handlee',            weights: ['400'] },
   { family: 'Imperial Script',    weights: ['400'] },
   { family: 'Indie Flower',       weights: ['400'] },
-  { family: 'Inter',              weights: ['400', '700'] },
+  { family: 'Inter',              weights: ['100', '400', '600', '700'] },
   { family: 'Kalam',              weights: ['400', '700'] },
   { family: 'Montserrat',         weights: ['400', '700'] },
   { family: 'Noto Serif',         weights: ['400', '700'] },
@@ -78,14 +80,17 @@ export function preloadFonts(): Promise<void> {
   preloadPromise = (async () => {
     await document.fonts.ready
 
-    const loads = CANVAS_FONTS.flatMap(({ family, weights }) =>
-      weights.map(w => document.fonts.load(`${w} 16px "${family}"`))
+    const loadEntries = CANVAS_FONTS.flatMap(({ family, weights }) =>
+      weights.map(weight => ({ family, weight }))
+    )
+    const loads = loadEntries.map(({ family, weight }) =>
+      document.fonts.load(`${weight} 16px "${family}"`)
     )
 
     const results = await Promise.allSettled(loads)
 
     const failed = results
-      .map((r, i) => (r.status === 'rejected' ? CANVAS_FONTS[Math.floor(i / 2)]?.family : null))
+      .map((r, i) => (r.status === 'rejected' ? loadEntries[i]?.family : null))
       .filter(Boolean)
 
     if (failed.length) {

@@ -1,4 +1,5 @@
 import type { AudioElement } from '../types/editor'
+import { audioFadeMultiplierAt } from './audioFade'
 
 type AudioContextCtor = typeof AudioContext
 
@@ -18,6 +19,11 @@ export type AudioEffectGraphMap = Map<string, AudioEffectGraph>
 export function clampAudioEffect(value: number | undefined, min: number, max: number) {
   if (!Number.isFinite(value)) return 0
   return Math.max(min, Math.min(max, Number(value)))
+}
+
+export function clampAudioVolume(value: number | undefined) {
+  if (!Number.isFinite(value)) return 1
+  return Math.max(0, Math.min(2, Number(value)))
 }
 
 export function audioPitchRatio(pitch: number | undefined) {
@@ -81,13 +87,23 @@ export function ensureAudioEffectGraph(
   return graph
 }
 
-export function applyAudioEffects(graph: AudioEffectGraph, audio: AudioElement) {
-  const volume = Math.max(0, Math.min(1, audio.volume ?? 1))
+export function applyAudioEffects(graph: AudioEffectGraph, audio: AudioElement, clipTime?: number) {
+  const volume = clampAudioVolume(audio.volume)
+  const fadeMultiplier = clipTime == null
+    ? 1
+    : audioFadeMultiplierAt({
+      duration: audio.duration ?? 0,
+      fadeIn: audio.fadeIn ?? 0,
+      fadeInVolume: audio.fadeInVolume ?? 1,
+      fadeOut: audio.fadeOut ?? 0,
+      fadeOutVolume: audio.fadeOutVolume ?? 0,
+      clipTime,
+    })
   const bass = clampAudioEffect(audio.bass, -12, 12)
   const voice = clampAudioEffect(audio.voice, -100, 100)
   const saturation = clampAudioEffect(audio.saturation, -100, 100)
 
-  graph.gain.gain.value = volume
+  graph.gain.gain.value = volume * fadeMultiplier
   graph.bass.gain.value = bass
 
   graph.voiceLow.gain.value = voice < 0 ? Math.abs(voice) * 0.12 : -voice * 0.035

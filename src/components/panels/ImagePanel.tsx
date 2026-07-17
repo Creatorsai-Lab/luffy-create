@@ -7,6 +7,7 @@ import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
 import BoxShadowControls from './BoxShadowControls'
 import { ScaleSizeControl } from './AnimationParamControls'
+import BorderControls from './BorderControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Slide In',  value: 'slideIn'  },
@@ -141,6 +142,7 @@ export default function ImagePanel() {
                     display={`${el.cornerRadius}px`}
                   />
                 </Row>
+                <BorderControls value={el} onChange={upd} />
               </div>
 
               <BoxShadowControls value={el.boxShadow} onChange={boxShadow => upd({ boxShadow })} />

@@ -164,7 +164,9 @@ export default function AudioEffectsPanel({ element, onClose }: AudioEffectsPane
             updateElement(element.id, {
               volume: 1,
               fadeIn: 0,
-              fadeOut: 0
+              fadeInVolume: 1,
+              fadeOut: 0,
+              fadeOutVolume: 0
             })
           }}
           className="w-full px-2 py-1.5 bg-editor-border hover:bg-editor-border-strong text-[#888888] hover:text-white rounded text-2xs transition-colors"

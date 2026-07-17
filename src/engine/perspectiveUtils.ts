@@ -1,6 +1,8 @@
-import type { ShapeElement, TextElement } from '../types/editor'
+import type { PerspectiveControls, ShapeElement, TextElement } from '../types/editor'
 import { shapeCanvasFill } from './shapeFill'
 import { textCanvasFill } from './textFill'
+import { borderCanvasStrokeStyle, getElementBorderColor, getElementBorderWidth, hasElementBorder } from './borderRenderer'
+import { fontWeightToKonvaStyle } from '../utils/fontWeight'
 
 export interface PerspectivePts {
   tl: [number, number]
@@ -11,6 +13,68 @@ export interface PerspectivePts {
 
 export function makePerspectivePts(w: number, h: number): PerspectivePts {
   return { tl: [0, 0], tr: [w, 0], br: [w, h], bl: [0, h] }
+}
+
+export function makePerspectiveControls(): PerspectiveControls {
+  return {
+    horizontalTilt: 0,
+    verticalTilt: 0,
+    skewX: 0,
+    skewY: 0,
+    depth: 50,
+  }
+}
+
+function clampControl(value: number, min = -100, max = 100) {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(min, Math.min(max, value))
+}
+
+export function makePerspectivePtsFromControls(
+  w: number,
+  h: number,
+  controls: PerspectiveControls,
+): PerspectivePts {
+  const safeW = Math.max(1, w)
+  const safeH = Math.max(1, h)
+  const horizontalTilt = clampControl(controls.horizontalTilt)
+  const verticalTilt = clampControl(controls.verticalTilt)
+  const skewX = clampControl(controls.skewX)
+  const skewY = clampControl(controls.skewY)
+  const depth = Math.max(0, Math.min(100, Number.isFinite(controls.depth) ? controls.depth : 50)) / 100
+
+  const pts = makePerspectivePts(safeW, safeH)
+
+  const hTilt = Math.abs(horizontalTilt) / 100
+  const hInset = safeW * 0.25 * hTilt * depth
+  const hVertical = safeH * 0.25 * hTilt * depth
+  if (horizontalTilt > 0) {
+    pts.tl = [pts.tl[0] + hInset, pts.tl[1] + hVertical]
+    pts.bl = [pts.bl[0] + hInset, pts.bl[1] - hVertical]
+  } else if (horizontalTilt < 0) {
+    pts.tr = [pts.tr[0] - hInset, pts.tr[1] + hVertical]
+    pts.br = [pts.br[0] - hInset, pts.br[1] - hVertical]
+  }
+
+  const vTilt = Math.abs(verticalTilt) / 100
+  const vInset = safeW * 0.25 * vTilt * depth
+  const vVertical = safeH * 0.25 * vTilt * depth
+  if (verticalTilt < 0) {
+    pts.tl = [pts.tl[0] + vInset, pts.tl[1] + vVertical]
+    pts.tr = [pts.tr[0] - vInset, pts.tr[1] + vVertical]
+  } else if (verticalTilt > 0) {
+    pts.bl = [pts.bl[0] + vInset, pts.bl[1] - vVertical]
+    pts.br = [pts.br[0] - vInset, pts.br[1] - vVertical]
+  }
+
+  const skewXOffset = safeW * 0.0025 * skewX
+  const skewYOffset = safeH * 0.0025 * skewY
+  pts.tl = [pts.tl[0] + skewXOffset, pts.tl[1] + skewYOffset]
+  pts.tr = [pts.tr[0] + skewXOffset, pts.tr[1] - skewYOffset]
+  pts.br = [pts.br[0] - skewXOffset, pts.br[1] - skewYOffset]
+  pts.bl = [pts.bl[0] - skewXOffset, pts.bl[1] + skewYOffset]
+
+  return pts
 }
 
 type Pt = [number, number]
@@ -105,6 +169,193 @@ export function drawPerspectiveWarp(
   ctx.imageSmoothingEnabled = oldSmoothing
   ctx.imageSmoothingQuality = oldQuality
   ctx.restore()
+}
+
+export interface PerspectiveStrokeOutline {
+  closed: boolean
+  points: Pt[]
+}
+
+export function perspectiveShapeStrokeOutlines(el: ShapeElement): PerspectiveStrokeOutline[] {
+  if (!el.perspectivePts) return []
+  const w = el.width
+  const h = el.height
+  if (w <= 0 || h <= 0) return []
+
+  return localShapeStrokeOutlines(el)
+    .map(outline => ({
+      closed: outline.closed,
+      points: outline.points.map(([x, y]) => mapLocalToPerspective(el.perspectivePts!, w, h, x, y)),
+    }))
+    .filter(outline => outline.points.length > 1)
+}
+
+export function drawPerspectiveShapeStroke(ctx: CanvasRenderingContext2D, el: ShapeElement, time = 0) {
+  const sw = getElementBorderWidth(el)
+  if (!el.perspectivePts || !hasElementBorder(el)) return
+
+  const outlines = perspectiveShapeStrokeOutlines(el)
+  if (outlines.length === 0) return
+
+  ctx.save()
+  ctx.strokeStyle = borderCanvasStrokeStyle(ctx, el, el.width, el.height, time)
+  ctx.lineWidth = sw
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  for (const outline of outlines) {
+    const [first, ...rest] = outline.points
+    ctx.beginPath()
+    ctx.moveTo(first[0], first[1])
+    for (const pt of rest) ctx.lineTo(pt[0], pt[1])
+    if (outline.closed) ctx.closePath()
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+export function drawShapeBorder(ctx: CanvasRenderingContext2D, el: ShapeElement, time = 0) {
+  if (!hasElementBorder(el)) return
+  const sw = getElementBorderWidth(el)
+  const outlines = localShapeStrokeOutlines(el)
+  if (outlines.length === 0) return
+
+  ctx.save()
+  ctx.strokeStyle = borderCanvasStrokeStyle(ctx, el, el.width, el.height, time)
+  ctx.lineWidth = sw
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  for (const outline of outlines) {
+    const [first, ...rest] = outline.points
+    ctx.beginPath()
+    ctx.moveTo(first[0], first[1])
+    for (const pt of rest) ctx.lineTo(pt[0], pt[1])
+    if (outline.closed) ctx.closePath()
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function mapLocalToPerspective(pts: PerspectivePts, w: number, h: number, x: number, y: number): Pt {
+  return bilerp(pts.tl, pts.tr, pts.br, pts.bl, clamp01(x / w), clamp01(y / h))
+}
+
+function localShapeStrokeOutlines(el: ShapeElement): PerspectiveStrokeOutline[] {
+  const w = el.width
+  const h = el.height
+  const cx = w / 2
+  const cy = h / 2
+  const r = Math.min(w, h) / 2
+
+  switch (el.shapeType) {
+    case 'rect':
+      return [{ closed: true, points: roundedRectOutlinePoints(w, h, el.cornerRadius || 0) }]
+    case 'circle':
+      return [{ closed: true, points: ellipseOutlinePoints(cx, cy, r, r) }]
+    case 'oval':
+      return [{ closed: true, points: ellipseOutlinePoints(cx, cy, w / 2, h / 2) }]
+    case 'triangle':
+      return [{ closed: true, points: regularPolygonOutlinePoints(cx, cy, r, 3) }]
+    case 'pentagon':
+      return [{ closed: true, points: regularPolygonOutlinePoints(cx, cy, r, 5) }]
+    case 'hexagon':
+      return [{ closed: true, points: regularPolygonOutlinePoints(cx, cy, r, 6) }]
+    case 'octagon':
+      return [{ closed: true, points: regularPolygonOutlinePoints(cx, cy, r, 8) }]
+    case 'star':
+      return [{ closed: true, points: starOutlinePoints(cx, cy, r, r * 0.4) }]
+    case 'diamond':
+      return [{ closed: true, points: [[cx, 0], [w, cy], [cx, h], [0, cy]] }]
+    case 'speechBubble':
+      return [{ closed: true, points: speechBubbleOutlinePoints(w, h, el.cornerRadius || 8) }]
+    case 'roundedSpeech':
+      return [
+        { closed: true, points: ellipseOutlinePoints(cx, h * 0.40, w / 2, h * 0.40) },
+        { closed: true, points: ellipseOutlinePoints(w * 0.22, h * 0.76, Math.max(w * 0.07, 4), Math.max(w * 0.07, 4), 16) },
+        { closed: true, points: ellipseOutlinePoints(w * 0.12, h * 0.92, Math.max(w * 0.05, 3), Math.max(w * 0.05, 3), 16) },
+      ]
+    case 'heart':
+      return [{ closed: true, points: heartOutlinePoints(w, h) }]
+    case 'cone':
+      return [{ closed: true, points: [[cx, 0], [w, h - Math.max(6, Math.min(h * 0.14, 28))], [cx, h], [0, h - Math.max(6, Math.min(h * 0.14, 28))]] }]
+    case 'cube':
+      return [{ closed: true, points: [[0, h], [0, h * 0.25], [w * 0.25, 0], [w, 0], [w, h * 0.72], [w * 0.72, h], [0, h]] }]
+    case 'rect-hand':
+    case 'rect-sketch':
+      return [{ closed: true, points: roundedRectOutlinePoints(w, h, Math.min(w, h) * 0.06) }]
+    case 'circle-hand':
+      return [{ closed: true, points: ellipseOutlinePoints(cx, cy, r, r) }]
+    case 'square-hand': {
+      const s = Math.min(w, h)
+      return [{ closed: true, points: [[0, 0], [s, 0], [s, s], [0, s]] }]
+    }
+    default:
+      return [{ closed: true, points: [[0, 0], [w, 0], [w, h], [0, h]] }]
+  }
+}
+
+function roundedRectOutlinePoints(w: number, h: number, radius: number): Pt[] {
+  const r = Math.max(0, Math.min(radius, w / 2, h / 2))
+  if (r <= 0) return [[0, 0], [w, 0], [w, h], [0, h]]
+
+  const pts: Pt[] = []
+  const arc = (cx: number, cy: number, start: number, end: number) => {
+    const steps = 6
+    for (let i = 0; i <= steps; i++) {
+      const a = start + (end - start) * (i / steps)
+      pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r])
+    }
+  }
+  arc(w - r, r, -Math.PI / 2, 0)
+  arc(w - r, h - r, 0, Math.PI / 2)
+  arc(r, h - r, Math.PI / 2, Math.PI)
+  arc(r, r, Math.PI, Math.PI * 1.5)
+  return pts
+}
+
+function ellipseOutlinePoints(cx: number, cy: number, rx: number, ry: number, steps = 48): Pt[] {
+  return Array.from({ length: steps }, (_, i) => {
+    const a = (i / steps) * Math.PI * 2
+    return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry] as Pt
+  })
+}
+
+function regularPolygonOutlinePoints(cx: number, cy: number, r: number, sides: number): Pt[] {
+  return Array.from({ length: sides }, (_, i) => {
+    const a = -Math.PI / 2 + (i / sides) * Math.PI * 2
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as Pt
+  })
+}
+
+function starOutlinePoints(cx: number, cy: number, outer: number, inner: number): Pt[] {
+  return Array.from({ length: 10 }, (_, i) => {
+    const a = -Math.PI / 2 + (i / 10) * Math.PI * 2
+    const r = i % 2 === 0 ? outer : inner
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as Pt
+  })
+}
+
+function speechBubbleOutlinePoints(w: number, h: number, radius: number): Pt[] {
+  const r = Math.min(radius, w * 0.15, h * 0.15)
+  const bh = h * 0.78
+  return [
+    [r, 0], [w - r, 0], [w, r], [w, bh - r], [w - r, bh],
+    [w * 0.38, bh], [w * 0.22, h], [w * 0.14, bh], [r, bh], [0, bh - r], [0, r],
+  ]
+}
+
+function heartOutlinePoints(w: number, h: number): Pt[] {
+  const pts: Pt[] = []
+  for (let i = 0; i < 64; i++) {
+    const t = (i / 64) * Math.PI * 2
+    const x = 16 * Math.pow(Math.sin(t), 3)
+    const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)
+    pts.push([w / 2 + (x / 34) * w, h * 0.54 - (y / 34) * h])
+  }
+  return pts
+}
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value))
 }
 
 // ── Shape canvas renderer ──────────────────────────────────────────────────
@@ -280,8 +531,8 @@ export function drawShapeToCtx(el: ShapeElement, ctx: CanvasRenderingContext2D) 
   const cx = w / 2, cy = h / 2
 
   ctx.fillStyle = shapeCanvasFill(ctx, el, w, h)
-  ctx.strokeStyle = el.stroke || 'transparent'
-  ctx.lineWidth = el.strokeWidth || 0
+  ctx.strokeStyle = getElementBorderColor(el)
+  ctx.lineWidth = getElementBorderWidth(el)
 
   // Identify if the shape is one of the hand-drawn variants
   const isHandStyle = el.shapeType.includes('sketch') || el.shapeType.includes('hand')
@@ -289,24 +540,24 @@ export function drawShapeToCtx(el: ShapeElement, ctx: CanvasRenderingContext2D) 
   const fillStroke = () => {
     ctx.fill()
     
-    if ((el.strokeWidth || 0) > 0) {
+    if (getElementBorderWidth(el) > 0) {
       if (isHandStyle) {
         // MULTI-PASS STROKE: Creates the uneven marker bleed effect
         ctx.save()
         
         // Pass 1: Main solid line
-        ctx.lineWidth = el.strokeWidth
+        ctx.lineWidth = getElementBorderWidth(el)
         ctx.globalAlpha = 0.9
         ctx.stroke()
 
         // Pass 2: Slightly thinner, offset slightly, lower opacity
-        ctx.lineWidth = (el.strokeWidth || 0) * 0.7
+        ctx.lineWidth = getElementBorderWidth(el) * 0.7
         ctx.translate(0.5, -0.5) 
         ctx.globalAlpha = 0.5
         ctx.stroke()
 
         // Pass 3: Even thinner, offset in a different direction
-        ctx.lineWidth = (el.strokeWidth || 0) * 0.4
+        ctx.lineWidth = getElementBorderWidth(el) * 0.4
         ctx.translate(-1, 1)
         ctx.globalAlpha = 0.3
         ctx.stroke()
@@ -360,7 +611,7 @@ export function drawShapeToCtx(el: ShapeElement, ctx: CanvasRenderingContext2D) 
     case 'cone': {
       const baseRY = Math.max(6, Math.min(h * 0.14, 28))
       const baseY = h - baseRY
-      const sw = el.strokeWidth || 0, sk = el.stroke || 'transparent'
+      const sw = getElementBorderWidth(el), sk = getElementBorderColor(el)
 
       ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(0, baseY)
       ctx.ellipse(cx, baseY, cx, baseRY, 0, Math.PI, 0, false); ctx.closePath()
@@ -382,7 +633,7 @@ export function drawShapeToCtx(el: ShapeElement, ctx: CanvasRenderingContext2D) 
       const ANGLE = Math.PI / 6
       const ox = depth * Math.cos(ANGLE), oy = depth * Math.sin(ANGLE)
       const fw = w - ox, fh = h - oy
-      const sw = el.strokeWidth || 0, sk = el.stroke || 'transparent'
+      const sw = getElementBorderWidth(el), sk = getElementBorderColor(el)
       const drawFace = (pts: number[], fill: string | CanvasGradient) => {
         ctx.beginPath(); ctx.moveTo(pts[0], pts[1])
         for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1])
@@ -447,12 +698,8 @@ export function drawShapeToCtx(el: ShapeElement, ctx: CanvasRenderingContext2D) 
 
 // ── Text canvas renderer ───────────────────────────────────────────────────
 
-const WEIGHT_MAP_P: Record<string, string> = {
-  normal: 'normal', medium: '500', semibold: '600', bold: 'bold'
-}
-
 export function drawTextToCtx(el: TextElement, ctx: CanvasRenderingContext2D) {
-  const weight = WEIGHT_MAP_P[el.fontWeight] ?? 'normal'
+  const weight = fontWeightToKonvaStyle(el.fontWeight)
   ctx.font = `${el.italic ? 'italic ' : ''}${weight} ${el.fontSize}px "${el.fontFamily}"`
   ctx.textBaseline = 'top'
   ctx.textAlign = el.align as CanvasTextAlign

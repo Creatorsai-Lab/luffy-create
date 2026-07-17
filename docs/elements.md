@@ -19,7 +19,7 @@ Click **Text** in the left sidebar, then click anywhere on the canvas to place a
 |---|---|---|
 | Font Family | 30+ fonts | Inter, Roboto, Poppins, Montserrat, Bebas Neue, and more |
 | Font Size | 8–400 px | |
-| Font Weight | Normal / Medium / Semibold / Bold | |
+| Font Weight | Thin / Normal / Semibold / Bold | Thin is useful for light Inter headings and minimal UI-style typography |
 | Italic / Underline | toggle | |
 | Color | hex picker | |
 | Alignment | Left / Center / Right | |
@@ -114,8 +114,14 @@ Click **Images** → **Upload** to select a file. Supported formats: PNG, JPG, J
 | Lock Ratio | keeps proportions when resizing from the panel |
 | Corner Radius | 0–200 px (rounded corners) |
 | Crop | see [Crop](#crop) below |
+| Border / Gradient Border | frame an image as a polished card |
+| Animated Border | moving border highlight around the image |
+| Box Shadow / Inner Shadow | add depth or inset styling |
+| Perspective | warp an image onto an angled surface |
 
 For brightness, contrast, color, and blur adjustments see the [Adjustments](./adjustments.md) guide.
+
+Images are often the main visual anchor of a scene. After placing one, try corner radius, shadow, crop, and a subtle border before animating it. A screenshot with a small radius and soft shadow usually reads more professionally than a raw rectangular image.
 
 ### Crop
 Click **Edit Crop** in the panel, or **double-click** the image on the canvas.
@@ -142,10 +148,16 @@ Click **Video** → **Upload** to select an MP4, WebM, or MOV file. The file is 
 | Playback Speed | 0.25× · 0.5× · 0.75× · 1× · 1.25× · 1.5× · 2× |
 | Loop | loops video when playback reaches the end |
 | Muted | suppresses audio |
+| Timeline Start | position the clip inside the scene |
+| Start Time | trim into the source video |
+| Duration | control how long the clip plays |
+| Border / Shadow | style the video like a card or device frame |
 
 Video elements support the full set of image adjustments (brightness, contrast, color, crop, blur, etc.) — see [Adjustments](./adjustments.md).
 
 A **Play / Pause** button appears over the video on the canvas. Use it to preview playback without starting the full scene preview.
+
+For a full walkthrough, see the dedicated [Video](./video.md) guide.
 
 ---
 
@@ -161,10 +173,15 @@ Click **Audio** → **Upload** to add a sound file. Supported formats: MP3, WAV,
 | Duration | trim length |
 | Fade In | 0–5 s |
 | Fade Out | 0–5 s |
+| Fade Volume | target volume multiplier for fade control |
 | Loop | loop to fill scene duration |
 | Track | Background or Voiceover |
+| Markers | timing marks for narration, beats, and edit cues |
 
 Click the **▶ Play** button in the asset list to preview a clip before placing it.
+Drag an audio item from the asset list directly onto the timeline audio area under the scene where it should start. The clip is created in that scene at the exact drop time, which avoids adding it to the first scene and dragging it across the timeline.
+
+Audio is edited from the timeline and properties panel. Balance voiceover first, then add music and sound effects around it. For a full workflow, see the dedicated [Audio](./audio.md) guide.
 
 ---
 
@@ -227,8 +244,9 @@ Click **Icons** to open the searchable Lucide icon library.
 | Property | |
 |---|---|
 | Color | hex picker |
+| Size | 8–1000 px, keeps the icon square and resizes from its center |
 | Stroke Width | 0.5–4 (step 0.5) |
-| Size | resize via canvas handles or width/height in panel |
+| Canvas Handles | resize directly on the scene when preferred |
 
 ---
 

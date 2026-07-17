@@ -6,6 +6,7 @@ import { cn } from '../../utils/cn'
 import { makeAnimation, makeShape } from '../../utils/defaults'
 import BoxShadowControls, { InnerShadowControls } from './BoxShadowControls'
 import { ScaleSizeControl } from './AnimationParamControls'
+import BorderControls from './BorderControls'
 
 
 
@@ -181,13 +182,7 @@ export default function ShapePanel() {
                 )}
               </>
             )}
-            <Row label="Stroke">
-              <ColorInput value={el.stroke} onChange={v => upd({ stroke: v })} />
-            </Row>
-            <Row label="Stroke Width">
-              <Slider value={el.strokeWidth} min={0} max={40} step={0.5}
-                onChange={v => upd({ strokeWidth: v })} display={`${el.strokeWidth}px`} />
-            </Row>
+            <BorderControls value={el} onChange={upd} />
             {el.shapeType === 'rect' && (
               <Row label="Corner Radius">
                 <Slider value={el.cornerRadius} min={0} max={250} step={1}

@@ -7,9 +7,12 @@ import { getWaveform } from '../../utils/waveform'
 import type { WaveformData } from '../../utils/waveform'
 import Tooltip from '../ui/Tooltip'
 import ContextMenu from '../ui/ContextMenu'
-import type { AudioElement, VideoElement } from '../../types/editor'
+import type { AssetMeta, AudioElement, VideoElement } from '../../types/editor'
 import { maxVideoClipDuration } from '../../utils/videoClip'
 import { TRANS_COLOR } from '../../utils/transitions'
+import { makeAudio } from '../../utils/defaults'
+import { AUDIO_ASSET_DRAG_TYPE } from '../../utils/dragPayloads'
+import { clampAudioDuration, readAudioMetadataDuration, remainingTimelineDuration, resolveStoredAudioDuration } from '../../utils/audioMetadata'
 import {
   applyAudioEffects,
   audioPreviewPlaybackRate,
@@ -55,7 +58,7 @@ export default function Timeline() {
     addScene, addSceneAfter, splitScene, setCurrentScene, updateScene, reorderScenes, removeScene, duplicateScene,
     setPlayhead, play, pause, stop,
     getTotalDuration, setTimelineZoom, 
-    updateElement, removeElement, addElementToScene,
+    updateElement, removeElement, addElementToScene, updateAsset,
     addAudioMarker, removeAudioMarker,
     setActivePanel, selectElement, deselectAll,
   } = useEditorStore()
@@ -77,6 +80,7 @@ export default function Timeline() {
   } | null>(null)
   const [resizingVideo, setResizingVideo] = useState<{ id: string; edge: 'start' | 'end' } | null>(null)
   const [timelineContextMenu, setTimelineContextMenu] = useState<{ x: number; y: number; time: number } | null>(null)
+  const [audioAssetDropTime, setAudioAssetDropTime] = useState<number | null>(null)
   const [panelHeight, setPanelHeight] = useState(160)
   const [shiftHeld, setShiftHeld] = useState(false)
 
@@ -180,14 +184,15 @@ export default function Timeline() {
             }
 
             const graph = ensureAudioEffectGraph(audio.id, player, audioGraphsRef.current)
-            applyAudioEffects(graph, audio)
+            const timeWithinClip = ph - absStart
+            applyAudioEffects(graph, audio, timeWithinClip)
             syncAudioPlaybackSettings(player, audio)
 
             if (player.paused) {
               // Calculate current time based on playhead position within this audio element
               // account for trim start (startTime) and playback speed
               const trimStart = audio.startTime ?? 0
-              const timeWithinAudio = (ph - absStart) * audioPreviewPlaybackRate(audio)
+              const timeWithinAudio = timeWithinClip * audioPreviewPlaybackRate(audio)
               player.currentTime = Math.max(trimStart, trimStart + timeWithinAudio)
               void graph.context.resume().catch(() => {})
               player.play().catch(() => {})
@@ -346,6 +351,8 @@ export default function Timeline() {
     const wasSelected = selectedAudioId === audioId
     const startMouseX = e.clientX
     const pxPerSec    = PX_PER_SEC
+    const sourceInfo   = findAudioScene(audioId)
+    const startAbsTime = (sourceInfo?.sceneStart ?? 0) + audioX
     let moved         = false
 
     if (!wasSelected) {
@@ -360,10 +367,12 @@ export default function Timeline() {
       if (!moved && Math.abs(mv.clientX - startMouseX) < 3) return
       moved = true
       setSelectedAudioId(audioId)
-      setCurrentScene(sceneId)
-      selectElement(audioId, false)
       setActivePanel('audio')
-      updateElement(audioId, { x: Math.max(0, audioX + (mv.clientX - startMouseX) / pxPerSec) })
+
+      const nextAbsTime = startAbsTime + (mv.clientX - startMouseX) / pxPerSec
+      const movedTo = moveAudioToTimelineTime(audioId, nextAbsTime)
+      if (movedTo) setCurrentScene(movedTo.sceneId)
+      selectElement(audioId, false)
     }
 
     const handleMouseUp = () => {
@@ -377,6 +386,61 @@ export default function Timeline() {
 
     document.addEventListener('mousemove', handleMouseMove)
     document.addEventListener('mouseup', handleMouseUp)
+  }
+
+  function moveAudioToTimelineTime(audioId: string, absoluteTime: number): { sceneId: string; x: number } | null {
+    if (!project) return null
+
+    const total = getTotalDuration()
+    const clampedTime = snapTime(Math.max(0, Math.min(Math.max(0, total - 0.01), absoluteTime)))
+    let movedTo: { sceneId: string; x: number } | null = null
+
+    useEditorStore.setState(s => {
+      if (!s.project || s.project.scenes.length === 0) return
+
+      let sourceSceneIndex = -1
+      let audioIndex = -1
+      for (let i = 0; i < s.project.scenes.length; i++) {
+        audioIndex = s.project.scenes[i].elements.findIndex(el => el.id === audioId && el.type === 'audio')
+        if (audioIndex !== -1) {
+          sourceSceneIndex = i
+          break
+        }
+      }
+      if (sourceSceneIndex === -1 || audioIndex === -1) return
+
+      let elapsed = 0
+      let targetSceneIndex = s.project.scenes.length - 1
+      let targetSceneStart = 0
+      for (let i = 0; i < s.project.scenes.length; i++) {
+        const sc = s.project.scenes[i]
+        const sceneStart = elapsed
+        const sceneEnd = sceneStart + sc.duration
+        if (clampedTime < sceneEnd || i === s.project.scenes.length - 1) {
+          targetSceneIndex = i
+          targetSceneStart = sceneStart
+          break
+        }
+        elapsed = sceneEnd
+      }
+
+      const targetScene = s.project.scenes[targetSceneIndex]
+      const nextX = Math.max(0, clampedTime - targetSceneStart)
+
+      if (sourceSceneIndex === targetSceneIndex) {
+        const audio = s.project.scenes[sourceSceneIndex].elements[audioIndex] as AudioElement
+        audio.x = nextX
+      } else {
+        const audio = s.project.scenes[sourceSceneIndex].elements.splice(audioIndex, 1)[0] as AudioElement
+        audio.x = nextX
+        targetScene.elements.push(audio)
+      }
+
+      s.isDirty = true
+      movedTo = { sceneId: targetScene.id, x: nextX }
+    })
+
+    return movedTo
   }
 
   function handleAudioResizeMouseDown(e: React.MouseEvent, audioEl: AudioElement, edge: 'start' | 'end', sceneId: string) {
@@ -638,6 +702,53 @@ export default function Timeline() {
       elapsed += sc.duration
     }
     return null
+  }
+
+  function isAudioAssetDrag(e: React.DragEvent) {
+    return Array.from(e.dataTransfer.types).includes(AUDIO_ASSET_DRAG_TYPE)
+  }
+
+  function timelineTimeFromClientX(clientX: number) {
+    if (!containerRef.current) return 0
+    const rect = containerRef.current.getBoundingClientRect()
+    const x = clientX - rect.left + containerRef.current.scrollLeft
+    return snapTime(Math.max(0, Math.min(getTotalDuration(), x / PX_PER_SEC)))
+  }
+
+  function sceneAtTimelineTime(time: number) {
+    let elapsed = 0
+    for (const sc of project!.scenes) {
+      const start = elapsed
+      const end = start + sc.duration
+      if (time < end || sc === project!.scenes[project!.scenes.length - 1]) {
+        return { scene: sc, localTime: Math.max(0, Math.min(sc.duration, time - start)), sceneStart: start }
+      }
+      elapsed = end
+    }
+    return null
+  }
+
+  async function addAudioAssetAtTimelineTime(assetId: string, time: number) {
+    const asset = project!.assets.find(a => a.id === assetId && a.type === 'audio') as AssetMeta | undefined
+    const target = sceneAtTimelineTime(time)
+    if (!asset || !target) return
+
+    const maxDuration = remainingTimelineDuration(getTotalDuration(), target.sceneStart + target.localTime)
+    const storedDuration = resolveStoredAudioDuration(asset)
+    const loadedDuration = storedDuration == null ? await readAudioMetadataDuration(asset.path) : null
+    if (loadedDuration != null) updateAsset(asset.id, { duration: loadedDuration })
+    const duration = clampAudioDuration(storedDuration ?? loadedDuration ?? maxDuration, maxDuration)
+
+    const el = makeAudio(asset.path, asset.id, duration)
+    el.name = asset.name || asset.filename
+    el.x = target.localTime
+
+    addElementToScene(target.scene.id, el)
+    setCurrentScene(target.scene.id)
+    setSelectedAudioId(el.id)
+    setSelectedVideoId(null)
+    selectElement(el.id, false)
+    setActivePanel('audio')
   }
 
   function trimAtPlayhead() {
@@ -959,9 +1070,9 @@ export default function Timeline() {
                 <div
                   key={video.id}
                   className={cn(
-                    'absolute rounded overflow-hidden transition-shadow select-none cursor-grab',
-                    isSelected ? 'ring-2 ring-sky-300 shadow-lg shadow-black/40' : 'hover:ring-1 hover:ring-white/45',
-                    isResizing && 'ring-2 ring-white',
+                    'absolute rounded overflow-hidden border transition-shadow select-none cursor-grab',
+                    isSelected ? 'border-yellow-300 ring-2 ring-yellow-300 shadow-lg shadow-yellow-300/25' : 'border-transparent hover:ring-1 hover:ring-white/45',
+                    isResizing && 'border-white ring-2 ring-white',
                   )}
                   style={{
                     left: startPx,
@@ -1121,7 +1232,42 @@ export default function Timeline() {
           })}
 
           {/* Audio tracks — lane-packed so non-overlapping clips share a row */}
-          <div className="absolute left-0 right-0" style={{ top: AUDIO_TOP, height: (maxLane + 1) * TRACK_HEIGHT }}>
+          <div
+            className={cn(
+              'absolute left-0 right-0 rounded-sm',
+              audioAssetDropTime !== null && 'bg-editor-accent/10 outline outline-1 outline-editor-accent/45'
+            )}
+            style={{ top: AUDIO_TOP, height: (maxLane + 1) * TRACK_HEIGHT }}
+            onDragOver={e => {
+              if (!isAudioAssetDrag(e)) return
+              e.preventDefault()
+              e.stopPropagation()
+              e.dataTransfer.dropEffect = 'copy'
+              setAudioAssetDropTime(timelineTimeFromClientX(e.clientX))
+            }}
+            onDragLeave={e => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAudioAssetDropTime(null)
+            }}
+            onDrop={e => {
+              if (!isAudioAssetDrag(e)) return
+              e.preventDefault()
+              e.stopPropagation()
+              const assetId = e.dataTransfer.getData(AUDIO_ASSET_DRAG_TYPE)
+              void addAudioAssetAtTimelineTime(assetId, timelineTimeFromClientX(e.clientX))
+              setAudioAssetDropTime(null)
+            }}
+          >
+            {audioAssetDropTime !== null && (
+              <div
+                className="absolute top-0 bottom-0 z-30 pointer-events-none"
+                style={{ left: audioAssetDropTime * PX_PER_SEC }}
+              >
+                <div className="absolute top-0 bottom-0 w-px bg-editor-accent shadow-[0_0_8px_rgba(139,92,246,0.9)]" />
+                <div className="absolute -top-5 left-1 rounded bg-editor-accent px-1.5 py-0.5 text-[10px] font-medium text-white whitespace-nowrap">
+                  Drop audio
+                </div>
+              </div>
+            )}
             {allAudioClips.map(({ audio, sc, scStart }) => {
               const audioDur     = audio.duration ?? 30
               const audioStartPx = (scStart + (audio.x ?? 0)) * PX_PER_SEC
@@ -1199,14 +1345,14 @@ export default function Timeline() {
                       <div
                         className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-yellow-400/40 to-transparent rounded-l pointer-events-none"
                         style={{ width: Math.max(audio.fadeIn * PX_PER_SEC, 2) }}
-                        title={`Fade in: ${audio.fadeIn.toFixed(1)}s`}
+                        title={`Fade in: ${audio.fadeIn.toFixed(1)}s to ${(audio.fadeInVolume ?? 1).toFixed(2)}x`}
                       />
                     )}
                     {audio.fadeOut > 0 && (
                       <div
                         className="absolute right-0 top-0 bottom-0 bg-gradient-to-l from-yellow-400/40 to-transparent rounded-r pointer-events-none"
                         style={{ width: Math.max(audio.fadeOut * PX_PER_SEC, 2) }}
-                        title={`Fade out: ${audio.fadeOut.toFixed(1)}s`}
+                        title={`Fade out: ${audio.fadeOut.toFixed(1)}s to ${(audio.fadeOutVolume ?? 0).toFixed(2)}x`}
                       />
                     )}
 

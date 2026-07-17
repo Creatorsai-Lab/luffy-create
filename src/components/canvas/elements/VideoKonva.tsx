@@ -8,6 +8,7 @@ import { videoRegistry } from '../../../engine/videoRegistry'
 import { buildCssFilter, applyCanvasAdjustments } from '../../../engine/imageFilters'
 import { drawBoxShadow, drawInnerShadow } from '../../../engine/boxShadow'
 import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
+import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
 
 interface Props {
   el: VideoElement
@@ -224,6 +225,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
           drawBoxShadow(raw, el.boxShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
           drawPerspectiveWarp(raw, source, el.perspectivePts, w, h)
           drawInnerShadow(raw, el.innerShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
+          drawPerspectiveQuadBorder(raw, el, localTime)
           raw.restore()
           return
         }
@@ -468,6 +470,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
         drawInnerShadow(raw, el.innerShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
 
         raw.restore()
+        drawMediaBorder(raw, el, w, h, localTime, frame)
 
         ctx.fillStrokeShape(shape)
       }}

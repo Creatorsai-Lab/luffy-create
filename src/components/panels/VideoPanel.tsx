@@ -8,6 +8,7 @@ import { makeAnimation } from '../../utils/defaults'
 import { sourceVideoClipDuration } from '../../utils/videoClip'
 import BoxShadowControls, { InnerShadowControls } from './BoxShadowControls'
 import { ScaleSizeControl } from './AnimationParamControls'
+import BorderControls from './BorderControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade In',   value: 'fadeIn'   },
@@ -155,6 +156,7 @@ export default function VideoPanel() {
                 <Slider value={el.cornerRadius} min={0} max={200} step={1}
                   onChange={v => upd({ cornerRadius: v })} display={`${el.cornerRadius}px`} />
               </Row>
+              <BorderControls value={el} onChange={upd} />
             </div>
 
             <div className="px-3 py-2">

@@ -32,7 +32,7 @@ export default function PerspectiveHandles({ el }: Props) {
 
   function updPts(newPts: typeof pts) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    updateElement(el.id, { perspectivePts: newPts } as any)
+    updateElement(el.id, { perspectivePts: newPts, perspectiveControls: undefined } as any)
   }
 
   const corners: { key: CornerKey; pt: Pt }[] = [

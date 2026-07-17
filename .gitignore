@@ -32,6 +32,9 @@ out/
 recovery_*/
 shadow_recovery_*/
 shadow_mount/
+launch_plan.md
+launch_video_script.md
+video_scene.md
 
 # Testing
 coverage/

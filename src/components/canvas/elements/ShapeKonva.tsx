@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { Rect, Circle, RegularPolygon, Star, Line, Ellipse, Shape, Group } from 'react-konva'
 import type Konva from 'konva'
 import type { ShapeElement, SlideDir } from '../../../types/editor'
-import { drawPerspectiveWarp, drawShapeToCtx, heartPath, drawSketchRect, type PathCtx } from '../../../engine/perspectiveUtils'
+import { drawPerspectiveShapeStroke, drawPerspectiveWarp, drawShapeToCtx, heartPath, drawSketchRect, type PathCtx } from '../../../engine/perspectiveUtils'
 import { drawBoxShadow, drawInnerShadow, hasBoxShadow, hasInnerShadow } from '../../../engine/boxShadow'
+import { borderCanvasStrokeStyle, borderKonvaStrokeProps, getElementBorderWidth } from '../../../engine/borderRenderer'
 import { shapeCanvasFill, shapeFillProps } from '../../../engine/shapeFill'
 
 // ─── Color helpers ────────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ interface Props {
   wipeProgress?: number
   wipeDir?: SlideDir
   dashOffset?: number
+  localTime?: number
 }
 
 function addWave(x: number, y: number, seed: number = 0): [number, number] {
@@ -63,17 +65,20 @@ function addWave(x: number, y: number, seed: number = 0): [number, number] {
   return [x + wave * (0.5 + (seed % 10) * 0.05), y + wave * (0.3 + (seed % 7) * 0.05)]
 }
 
-export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, dashOffset = 0 }: Props) {
+export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, dashOffset = 0, localTime = 0 }: Props) {
   const [offscreen, setOffscreen] = useState<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
     if (!el.perspectivePts) return
     const canvas = document.createElement('canvas')
     canvas.width = el.width; canvas.height = el.height
-    drawShapeToCtx(el, canvas.getContext('2d')!)
+    const sourceEl = (el.strokeWidth || 0) > 0
+      ? ({ ...el, stroke: 'transparent', strokeWidth: 0 } as ShapeElement)
+      : el
+    drawShapeToCtx(sourceEl, canvas.getContext('2d')!)
     setOffscreen(canvas)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [el.width, el.height, el.fill, el.stroke, el.strokeWidth, el.cornerRadius, el.shapeType,
+  }, [el.width, el.height, el.fill, el.cornerRadius, el.shapeType,
       el.fillMode, el.gradientFrom, el.gradientTo, el.gradientFromOpacity, el.gradientToOpacity, el.gradientAngle,
       (el as { depth?: number }).depth, (el as { faceColor?: string }).faceColor, !!el.perspectivePts])
 
@@ -91,6 +96,7 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
           sceneFunc={(ctx, _shape) => {
             const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
             drawPerspectiveWarp(raw, offscreen, el.perspectivePts!, el.width, el.height)
+            drawPerspectiveShapeStroke(raw, el, localTime)
           }}
         />
       </>
@@ -105,14 +111,19 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
   const fStroke    = flowStroke(el, hasFlow)
   const fStrokeW   = flowStrokeWidth(el, hasFlow)
   const fDash      = hasFlow ? flowDash(fStrokeW) : undefined
+  const strokeProps = borderKonvaStrokeProps(
+    hasFlow ? { ...el, stroke: fStroke, strokeWidth: fStrokeW, borderAnimate: false } : el,
+    w,
+    h,
+    localTime,
+  )
 
   const wipeActive = wipeProgress < 1 && wipeDir != null
 
   // When wipe is active, Group owns konvaProps; inner shapes use only visual props
   const shared = {
     ...(wipeActive ? {} : konvaProps),
-    stroke:      fStroke,
-    strokeWidth: fStrokeW,
+    ...strokeProps,
     ...shapeFillProps(el, w, h),
     ...(fDash ? { dash: fDash, dashOffset } : {}),
     perfectDrawEnabled: false,
@@ -220,8 +231,7 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
       const baseY   = h - baseRY
       const topColor  = topFaceColor(el.fill, el.faceColor)
       const darkColor = sideFaceColor(el.fill, el.faceColor)
-      const sw = el.strokeWidth || 0
-      const sk = el.stroke || 'transparent'
+      const sw = getElementBorderWidth(el)
       return wipe(
         <Shape
           {...shapeKonvaProps}
@@ -240,13 +250,13 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
             raw.closePath()
             raw.fillStyle = shapeCanvasFill(raw, el, w, h)
             raw.fill()
-            if (sw > 0) { raw.strokeStyle = sk; raw.lineWidth = sw; raw.stroke() }
+            if (sw > 0) { raw.strokeStyle = borderCanvasStrokeStyle(raw, el, w, h, localTime); raw.lineWidth = sw; raw.stroke() }
 
             raw.beginPath()
             raw.ellipse(w / 2, baseY, w / 2, baseRY, 0, 0, Math.PI * 2)
             raw.fillStyle = topColor
             raw.fill()
-            if (sw > 0) { raw.strokeStyle = sk; raw.lineWidth = sw; raw.stroke() }
+            if (sw > 0) { raw.strokeStyle = borderCanvasStrokeStyle(raw, el, w, h, localTime); raw.lineWidth = sw; raw.stroke() }
 
             raw.beginPath()
             raw.ellipse(w / 2, baseY, w / 2, baseRY, 0, Math.PI, Math.PI * 2, false)
@@ -288,8 +298,7 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
       const frontFill = el.fill
       const topFill   = topFaceColor(el.fill, el.faceColor)
       const rightFill = sideFaceColor(el.fill, el.faceColor)
-      const sw = el.strokeWidth || 0
-      const sk = el.stroke || 'transparent'
+      const sw = getElementBorderWidth(el)
 
       return wipe(
         <Shape
@@ -309,7 +318,7 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
               raw.closePath()
               raw.fillStyle = fill
               raw.fill()
-              if (sw > 0) { raw.strokeStyle = sk; raw.lineWidth = sw; raw.stroke() }
+              if (sw > 0) { raw.strokeStyle = borderCanvasStrokeStyle(raw, el, w, h, localTime); raw.lineWidth = sw; raw.stroke() }
             }
 
             drawFace([0, oy, fw, oy, fw, h, 0, h], shapeCanvasFill(raw, el, w, h))

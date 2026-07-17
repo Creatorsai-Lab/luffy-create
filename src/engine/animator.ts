@@ -75,9 +75,11 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
   // incorrectly stored with timing='onEnter'.
   const LOOP_TYPES = new Set(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop', 'colorPulse'])
   const isLoop = (a: ElementAnimation) => LOOP_TYPES.has(a.type) || a.timing === 'loop'
+  const textRevealTypes = new Set(['typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn'])
 
-  const enters = anims.filter(a => !isLoop(a) && a.timing === 'onEnter')
-  const exits  = anims.filter(a => !isLoop(a) && a.timing === 'onExit')
+  const moves  = anims.filter(a => a.type === 'move')
+  const enters = anims.filter(a => a.type !== 'move' && !isLoop(a) && a.timing === 'onEnter')
+  const exits  = anims.filter(a => a.type !== 'move' && !isLoop(a) && a.timing === 'onExit')
   const loops  = anims.filter(a => isLoop(a))
 
   // Guard against NaN from undefined/missing fields on older saved animations
@@ -126,11 +128,23 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
     const after  = localTime >= end
     const raw    = (localTime - start) / anim.duration
     const t      = ease(Math.max(0, Math.min(1, raw)), anim.easing)
-    applyAnim(anim, t, before, after, el, props, localTime)
+    applyAnim(anim, t, before, after, el, props, localTime, undefined, enters.length > 1 && textRevealTypes.has(anim.type))
   }
 
   // ── Exit animations ────────────────────────────────────────────────────────
   for (const anim of exits) {
+    const start  = safe(anim.startTime) + safe(anim.delay)
+    const end    = start + safe(anim.duration)
+    const before = localTime < start
+    const after  = localTime >= end
+    const raw    = (localTime - start) / anim.duration
+    const t      = ease(Math.max(0, Math.min(1, raw)), anim.easing)
+    applyAnim(anim, t, before, after, el, props, localTime)
+  }
+
+  // Move is timeline motion, not a visibility enter/exit animation. Keep it out
+  // of the enter window so loop effects such as arrow flow can run while moving.
+  for (const anim of moves) {
     const start  = safe(anim.startTime) + safe(anim.delay)
     const end    = start + safe(anim.duration)
     const before = localTime < start
@@ -191,7 +205,8 @@ function applyAnim(
   el: EditorElement,
   out: AnimatedProps,
   localTime: number,
-  loopStart?: number
+  loopStart?: number,
+  composeTextReveal = false
 ) {
   const dist = anim.params?.distance ?? 80
 
@@ -290,7 +305,7 @@ function applyAnim(
       }
 
     case 'typewriter':
-      if (before) { out.textProgress = 0; return }
+      if (before) { if (!composeTextReveal) out.opacity = 0; out.textProgress = 0; return }
       if (after)  { out.textProgress = 1; return }
       out.textProgress = t
       break
@@ -310,14 +325,16 @@ function applyAnim(
     case 'move': {
       const dx = anim.params?.deltaX ?? 0
       const dy = anim.params?.deltaY ?? 0
+      const startOffsetX = anim.params?.moveMode === 'coordinates' ? (anim.params?.startOffsetX ?? 0) : 0
+      const startOffsetY = anim.params?.moveMode === 'coordinates' ? (anim.params?.startOffsetY ?? 0) : 0
       if (before) return
       if (after) {
-        out.x = el.x + dx
-        out.y = el.y + dy
+        out.x = el.x + startOffsetX + dx
+        out.y = el.y + startOffsetY + dy
         return
       }
-      out.x = lerp(el.x, el.x + dx, t)
-      out.y = lerp(el.y, el.y + dy, t)
+      out.x = lerp(el.x + startOffsetX, el.x + startOffsetX + dx, t)
+      out.y = lerp(el.y + startOffsetY, el.y + startOffsetY + dy, t)
       break
     }
 
@@ -341,21 +358,21 @@ function applyAnim(
 
     // ─── Text-specific animations ───────────────────────────────────────────
     case 'typewriterChars':
-      if (before) { out.opacity = 0; out.textProgress = 0; out.textMode = 'chars'; return }
+      if (before) { if (!composeTextReveal) out.opacity = 0; out.textProgress = 0; out.textMode = 'chars'; return }
       if (after)  { out.textProgress = 1; out.textMode = 'chars'; return }
       out.textProgress = t
       out.textMode = 'chars'
       break
 
     case 'typewriterWords':
-      if (before) { out.opacity = 0; out.textProgress = 0; out.textMode = 'words'; return }
+      if (before) { if (!composeTextReveal) out.opacity = 0; out.textProgress = 0; out.textMode = 'words'; return }
       if (after)  { out.textProgress = 1; out.textMode = 'words'; return }
       out.textProgress = t
       out.textMode = 'words'
       break
 
     case 'textBounceIn':
-      if (before) { out.opacity = 0; out.textProgress = 0; out.textMode = 'bounceWords'; return }
+      if (before) { if (!composeTextReveal) out.opacity = 0; out.textProgress = 0; out.textMode = 'bounceWords'; return }
       if (after)  { out.textProgress = 1; out.textMode = 'bounceWords'; return }
       out.textProgress = t
       out.textMode = 'bounceWords'

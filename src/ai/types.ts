@@ -1,4 +1,4 @@
-import type { AlignType, Background, SceneTransition, ShapeType, SlideDir, TransitionType } from '../types/editor'
+import type { AlignType, AnimationType, Background, EasingType, SceneTransition, ShapeType, SlideDir, TransitionType } from '../types/editor'
 
 export type AiSceneRef = {
   sceneId?: string
@@ -22,11 +22,19 @@ export type AiSize = {
   height?: number
 }
 
+export type AiAnimationSpec = {
+  type: AnimationType
+  duration?: number
+  delay?: number
+  easing?: EasingType
+}
+
 export type AiEditorCommand =
-  | ({ type: 'addText'; text: string; name?: string; fontSize?: number; color?: string; align?: AlignType } & AiSceneRef & AiPoint & AiSize)
+  | ({ type: 'addText'; text: string; name?: string; fontSize?: number; fontFamily?: string; color?: string; align?: AlignType; animation?: AiAnimationSpec } & AiSceneRef & AiPoint & AiSize)
   | ({ type: 'addShape'; shapeType: ShapeType; name?: string; fill?: string; stroke?: string; strokeWidth?: number } & AiSceneRef & AiPoint & AiSize)
   | ({ type: 'addImageFromAsset'; assetId?: string; assetName?: string; name?: string } & AiSceneRef & AiPoint & AiSize)
   | ({ type: 'addVideoFromAsset'; assetId?: string; assetName?: string; name?: string; duration?: number } & AiSceneRef & AiPoint & AiSize)
+  | ({ type: 'addAudioFromAsset'; assetId?: string; assetName?: string; name?: string; duration?: number; timelineX?: number } & AiSceneRef)
   | ({ type: 'setBackground'; background: Background } & AiSceneRef)
   | ({ type: 'updateElement'; patch: Record<string, unknown> } & AiElementRef)
   | ({ type: 'styleElement'; patch: Record<string, unknown> } & AiElementRef)

@@ -6,6 +6,7 @@ import { toFileUrl } from '../../../utils/pathUtils'
 import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
 import { buildCssFilter, applyCanvasAdjustments } from '../../../engine/imageFilters'
 import { drawBoxShadow } from '../../../engine/boxShadow'
+import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
 
 function drawCropped(ctx: CanvasRenderingContext2D, img: HTMLImageElement, el: ImageElement) {
   if (el.crop) {
@@ -26,9 +27,10 @@ interface Props {
   textProgress?: number
   wipeProgress?: number
   wipeDir?: SlideDir
+  localTime?: number
 }
 
-export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgress = 1, wipeDir }: Props) {
+export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgress = 1, wipeDir, localTime = 0 }: Props) {
   const shapeRef = useRef<Konva.Shape | null>(null)
   const [img, setImg] = useState<HTMLImageElement | null>(null)
   const [error, setError] = useState(false)
@@ -125,6 +127,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
           drawBoxShadow(raw, el.boxShadow, el.width, el.height, el.cornerRadius)
           const source = isGif ? buildPerspectiveSource() : offscreen
           if (source) drawPerspectiveWarp(raw, source, el.perspectivePts!, el.width, el.height)
+          drawPerspectiveQuadBorder(raw, el, localTime)
         }}
       />
     )
@@ -240,6 +243,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
         applyCanvasAdjustments(raw, el)
 
         raw.restore()
+        drawMediaBorder(raw, el, el.width, el.height, localTime)
 
         ctx.fillStrokeShape(shape)
       }}

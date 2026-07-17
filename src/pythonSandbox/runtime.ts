@@ -16,12 +16,13 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib import animation
 
 try:
     from manim import *
 except Exception:
     pass
+
+from matplotlib import animation
 
 out = os.environ["LUFFY_OUTPUT_DIR"]
 WIDTH = int(os.environ.get("LUFFY_WIDTH", "1920"))

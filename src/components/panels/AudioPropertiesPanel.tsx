@@ -1,7 +1,8 @@
 import { Mic2, Volume2, Zap, Sliders, X } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { AudioElement } from '../../types/editor'
-import { clampAudioEffect } from '../../utils/audioEffects'
+import { clampAudioEffect, clampAudioVolume } from '../../utils/audioEffects'
+import { clampFadeVolume } from '../../utils/audioFade'
 
 const AUDIO_SPEED_OPTIONS = [
   0.25,
@@ -22,7 +23,7 @@ export default function AudioPropertiesPanel({ element, onClose }: AudioProperti
   }
 
   const handleVolumeChange = (volume: number) => {
-    updateElement(element.id, { volume: Math.max(0, Math.min(1, volume)) })
+    updateElement(element.id, { volume: clampAudioVolume(volume) })
   }
 
   const currentSpeed = Number((element.speed ?? 1).toFixed(2))
@@ -41,12 +42,22 @@ export default function AudioPropertiesPanel({ element, onClose }: AudioProperti
     })
   }
 
+  const maxFadeDuration = Math.max(10, Math.min(60, element.duration ?? 30))
+
   const handleFadeIn = (fadeIn: number) => {
-    updateElement(element.id, { fadeIn: Math.max(0, Math.min(5, fadeIn)) })
+    updateElement(element.id, { fadeIn: Math.max(0, Math.min(maxFadeDuration, fadeIn)) })
   }
 
   const handleFadeOut = (fadeOut: number) => {
-    updateElement(element.id, { fadeOut: Math.max(0, Math.min(5, fadeOut)) })
+    updateElement(element.id, { fadeOut: Math.max(0, Math.min(maxFadeDuration, fadeOut)) })
+  }
+
+  const handleFadeInVolume = (fadeInVolume: number) => {
+    updateElement(element.id, { fadeInVolume: clampFadeVolume(fadeInVolume) })
+  }
+
+  const handleFadeOutVolume = (fadeOutVolume: number) => {
+    updateElement(element.id, { fadeOutVolume: clampFadeVolume(fadeOutVolume) })
   }
 
   const handleVoiceEffectChange = (
@@ -80,14 +91,14 @@ export default function AudioPropertiesPanel({ element, onClose }: AudioProperti
           <div className="flex items-center gap-2">
             <Volume2 size={13} className="text-editor-accent flex-none" />
             <label className="text-xs font-medium text-white flex-1">Volume</label>
-            <span className="text-2xs text-[#888888]">{Math.round(element.volume * 100)}%</span>
+            <span className="text-2xs text-[#888888]">{Math.round(clampAudioVolume(element.volume) * 100)}%</span>
           </div>
           <input
             type="range"
             min={0}
-            max={1}
+            max={2}
             step={0.05}
-            value={element.volume}
+            value={clampAudioVolume(element.volume)}
             onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
             className="w-full h-1.5 bg-editor-border rounded-lg appearance-none cursor-pointer"
           />
@@ -180,39 +191,104 @@ export default function AudioPropertiesPanel({ element, onClose }: AudioProperti
             <label className="text-xs font-medium text-white">Fades</label>
           </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-2xs text-[#888888]">
-              <span>Fade In (s)</span>
-              <span className="text-white">{element.fadeIn.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={5}
-              step={0.1}
-              value={element.fadeIn}
-              onChange={(e) => handleFadeIn(parseFloat(e.target.value))}
-              className="w-full h-1.5 bg-editor-border rounded-lg appearance-none cursor-pointer"
-            />
-          </div>
+          <FadeControl
+            title="Fade In"
+            duration={element.fadeIn ?? 0}
+            multiplier={element.fadeInVolume ?? 1}
+            multiplierLabel="Target"
+            maxDuration={maxFadeDuration}
+            onDurationChange={handleFadeIn}
+            onMultiplierChange={handleFadeInVolume}
+          />
 
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-2xs text-[#888888]">
-              <span>Fade Out (s)</span>
-              <span className="text-white">{element.fadeOut.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={5}
-              step={0.1}
-              value={element.fadeOut}
-              onChange={(e) => handleFadeOut(parseFloat(e.target.value))}
-              className="w-full h-1.5 bg-editor-border rounded-lg appearance-none cursor-pointer"
-            />
-          </div>
+          <FadeControl
+            title="Fade Out"
+            duration={element.fadeOut ?? 0}
+            multiplier={element.fadeOutVolume ?? 0}
+            multiplierLabel="End"
+            maxDuration={maxFadeDuration}
+            onDurationChange={handleFadeOut}
+            onMultiplierChange={handleFadeOutVolume}
+          />
         </div>
 
+      </div>
+    </div>
+  )
+}
+
+function FadeControl({
+  title,
+  duration,
+  multiplier,
+  multiplierLabel,
+  maxDuration,
+  onDurationChange,
+  onMultiplierChange,
+}: {
+  title: string
+  duration: number
+  multiplier: number
+  multiplierLabel: string
+  maxDuration: number
+  onDurationChange: (value: number) => void
+  onMultiplierChange: (value: number) => void
+}) {
+  return (
+    <div className="space-y-2 rounded border border-editor-border/60 bg-editor-elevated/20 p-2">
+      <div className="flex items-center justify-between text-2xs">
+        <span className="font-medium text-white">{title}</span>
+        <span className="text-[#888888]">
+          {duration.toFixed(1)}s · {multiplier.toFixed(2)}x
+        </span>
+      </div>
+
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2 text-2xs text-[#888888]">
+          <span>Duration</span>
+          <input
+            type="number"
+            min={0}
+            max={maxDuration}
+            step={0.1}
+            value={Number(duration.toFixed(1))}
+            onChange={e => onDurationChange(parseFloat(e.target.value) || 0)}
+            className="w-16 rounded border border-editor-border-strong bg-editor-border px-1 py-0.5 text-right text-white"
+          />
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={maxDuration}
+          step={0.1}
+          value={duration}
+          onChange={e => onDurationChange(parseFloat(e.target.value))}
+          className="w-full h-1.5 bg-editor-border rounded-lg appearance-none cursor-pointer"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2 text-2xs text-[#888888]">
+          <span>{multiplierLabel} Volume</span>
+          <input
+            type="number"
+            min={0}
+            max={2}
+            step={0.05}
+            value={Number(multiplier.toFixed(2))}
+            onChange={e => onMultiplierChange(parseFloat(e.target.value) || 0)}
+            className="w-16 rounded border border-editor-border-strong bg-editor-border px-1 py-0.5 text-right text-white"
+          />
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={2}
+          step={0.05}
+          value={multiplier}
+          onChange={e => onMultiplierChange(parseFloat(e.target.value))}
+          className="w-full h-1.5 bg-editor-border rounded-lg appearance-none cursor-pointer"
+        />
       </div>
     </div>
   )

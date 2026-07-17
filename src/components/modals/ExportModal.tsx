@@ -354,7 +354,7 @@ export default function ExportModal() {
               <div className="flex flex-col gap-3 bg-editor-elevated rounded-lg p-3">
                 <div className="flex items-center gap-2 text-ms text-editor-text">
                   <Settings size={12} />
-                  <span className="font-medium">Image Settings</span>
+                  <span className="font-base">Image Settings</span>
                 </div>
 
                 {/* Scene selector */}
@@ -362,7 +362,7 @@ export default function ExportModal() {
                   <select
                     value={imgScene}
                     onChange={e => setImgScene(Number(e.target.value))}
-                    className="w-full bg-editor-base border border-editor-border rounded text-ms text-editor-text px-2 py-1.5"
+                    className="w-full bg-editor-accent border border-editor-border rounded-xl text-base text-white px-2 py-3 border-white"
                   >
                     {project.scenes.map((scene, i) => (
                       <option key={scene.id} value={i}>
@@ -389,6 +389,7 @@ export default function ExportModal() {
                       </button>
                     ))}
                   </div>
+
                 </div>
               </div>
 

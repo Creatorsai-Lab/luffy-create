@@ -21,6 +21,33 @@ import CanvasToolbar from './CanvasToolbar'
 import ContextMenu from '../ui/ContextMenu'
 import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
 
+const IMAGE_BG_ADJUSTMENT_KEYS: (keyof ImageBg)[] = [
+  'opacity',
+  'brightness',
+  'contrast',
+  'saturation',
+  'hueRotate',
+  'blur',
+  'glass',
+  'exposure',
+  'highlights',
+  'shadows',
+  'whites',
+  'blacks',
+  'temperature',
+  'tint',
+  'vibrance',
+]
+
+function imageElementToBackground(imgEl: ImageElement, fit: ImageBg['fit']): ImageBg {
+  const bg: ImageBg = { type: 'image', src: imgEl.src, fit }
+  for (const key of IMAGE_BG_ADJUSTMENT_KEYS) {
+    const value = imgEl[key as keyof ImageElement]
+    if (value !== undefined) (bg as Record<string, unknown>)[key] = value
+  }
+  return bg
+}
+
 export default function EditorCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef     = useRef<Konva.Stage | null>(null)
@@ -44,6 +71,7 @@ export default function EditorCanvas() {
   const [localPlayingIds, setLocalPlayingIds] = useState<Set<string>>(new Set())
   const [cropState, setCropState] = useState<{ elId: string; pendingCrop: { x: number; y: number; w: number; h: number } } | null>(null)
   const [cropDrag, setCropDrag] = useState<{ handle: string; startX: number; startY: number; startCrop: { x: number; y: number; w: number; h: number } } | null>(null)
+  const [cursorCoord, setCursorCoord] = useState<{ x: number; y: number } | null>(null)
   const clipboardRef  = useRef<EditorElement[]>([])
 
   // ── Live transition overlay ───────────────────────────────────────────────────
@@ -67,6 +95,11 @@ export default function EditorCanvas() {
   } = useEditorStore()
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
+
+  const setStageRef = useCallback((stage: Konva.Stage | null) => {
+    stageRef.current = stage
+    registerStage(stage)
+  }, [])
 
   // ── Auto-select sidebar panel based on selected element ──────────────────────
   useEffect(() => {
@@ -101,12 +134,6 @@ export default function EditorCanvas() {
       setActivePanel(homePanel)
     }
   }, [selectedIds, project, currentSceneId, activePanel, setActivePanel])
-
-  // ── Register stage in module registry (never stored in Zustand/Immer) ─────────
-  useEffect(() => {
-    registerStage(stageRef.current)
-    return () => registerStage(null)
-  }, [])
 
   // ── Fit slide canvas to available space ────────────────────────────────────────
   useEffect(() => {
@@ -504,6 +531,7 @@ export default function EditorCanvas() {
       default:
         if (e.target === e.target.getStage() || e.target.name() === 'bg') {
           deselectAll()
+          if (currentScene.background.type === 'image') setActivePanel('background')
         }
     }
   }
@@ -558,6 +586,11 @@ export default function EditorCanvas() {
   }
 
   function handleMouseMove(e: Konva.KonvaEventObject<MouseEvent>) {
+    if (activePanel === 'move') {
+      const { x, y } = toProjectCoords(e.evt.clientX, e.evt.clientY)
+      setCursorCoord({ x: Math.round(x), y: Math.round(y) })
+    }
+
     if (drawingStrokeRef.current) {
       if (!project) return
       e.evt.preventDefault()
@@ -612,6 +645,7 @@ export default function EditorCanvas() {
   }
 
   function drawHandDrawPreview(raw: CanvasRenderingContext2D, stroke: HandDrawStroke) {
+    if (!project) return
     raw.save()
     raw.beginPath()
     raw.rect(0, 0, project.width, project.height)
@@ -693,7 +727,7 @@ export default function EditorCanvas() {
         }}
       >
         <Stage
-          ref={stageRef}
+          ref={setStageRef}
           width={canvasW}
           height={canvasH}
           scaleX={scale}
@@ -702,6 +736,7 @@ export default function EditorCanvas() {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onMouseLeave={() => setCursorCoord(null)}
           onContextMenu={handleStageContextMenu}
         >
           {/* Background */}
@@ -819,6 +854,29 @@ export default function EditorCanvas() {
             )}
           </Layer>
         </Stage>
+
+        {activePanel === 'move' && cursorCoord && (
+          <div
+            style={{
+              position: 'absolute',
+              right: 10,
+              bottom: 10,
+              zIndex: 35,
+              pointerEvents: 'none',
+              padding: '5px 8px',
+              borderRadius: 6,
+              border: '1px solid rgba(255,255,255,0.16)',
+              background: 'rgba(10,12,18,0.82)',
+              color: '#f8fafc',
+              fontSize: 11,
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            X {cursorCoord.x} · Y {cursorCoord.y}
+          </div>
+        )}
       </div>
 
       {/* Transition overlay — FROM-scene snapshot fades/slides out while TO scene plays under */}
@@ -1052,7 +1110,7 @@ export default function EditorCanvas() {
                   onClick: () => {
                     if (currentSceneId) {
                       const imgEl = ctxEl as ImageElement
-                      setBackground(currentSceneId, { type: 'image', src: imgEl.src, fit: 'cover' } as ImageBg)
+                      setBackground(currentSceneId, imageElementToBackground(imgEl, 'cover'))
                     }
                     setContextMenu(null)
                   }
@@ -1063,7 +1121,7 @@ export default function EditorCanvas() {
                   onClick: () => {
                     if (currentSceneId) {
                       const imgEl = ctxEl as ImageElement
-                      setBackground(currentSceneId, { type: 'image', src: imgEl.src, fit: 'fill' } as ImageBg)
+                      setBackground(currentSceneId, imageElementToBackground(imgEl, 'fill'))
                     }
                     setContextMenu(null)
                   }

@@ -6,6 +6,7 @@ import { loadFont } from '../../../utils/fontLoader'
 import { drawPerspectiveWarp, drawTextToCtx } from '../../../engine/perspectiveUtils'
 import { hasInnerShadow, innerShadowOrDefault } from '../../../engine/boxShadow'
 import { textFillProps } from '../../../engine/textFill'
+import { fontWeightToCssValue, fontWeightToKonvaStyle } from '../../../utils/fontWeight'
 
 interface Props {
   el: TextElement
@@ -15,10 +16,6 @@ interface Props {
   wipeProgress?: number
   wipeDir?: SlideDir
   textColor?: string
-}
-
-const WEIGHT_MAP: Record<string, string> = {
-  normal: 'normal', medium: '500', semibold: '600', bold: 'bold'
 }
 
 function resolveEffectProps(el: TextElement, effectiveColor: string) {
@@ -114,16 +111,14 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
   })
 
   useEffect(() => {
-    const weight = el.fontWeight === 'bold' ? '700' : el.fontWeight === 'semibold' ? '600' : el.fontWeight === 'medium' ? '500' : '400'
-    loadFont(el.fontFamily, weight).then(() => {
+    loadFont(el.fontFamily, fontWeightToCssValue(el.fontWeight)).then(() => {
       nodeRef.current?.getLayer()?.batchDraw()
     }).catch(() => {})
   }, [el.fontFamily, el.fontWeight])
 
   useEffect(() => {
     if (!el.perspectivePts) return
-    const weight = el.fontWeight === 'bold' ? '700' : el.fontWeight === 'semibold' ? '600' : el.fontWeight === 'medium' ? '500' : '400'
-    loadFont(el.fontFamily, weight).then(() => {
+    loadFont(el.fontFamily, fontWeightToCssValue(el.fontWeight)).then(() => {
       const canvas = document.createElement('canvas')
       canvas.width = el.width; canvas.height = el.height + el.fontSize * 4
       drawTextToCtx({ ...el, color: effectiveColor }, canvas.getContext('2d')!)
@@ -153,7 +148,7 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
     width: el.width,
     fontSize: el.fontSize,
     fontFamily: el.fontFamily,
-    fontStyle: [el.italic ? 'italic' : '', WEIGHT_MAP[el.fontWeight] ?? 'normal'].join(' ').trim(),
+    fontStyle: [el.italic ? 'italic' : '', fontWeightToKonvaStyle(el.fontWeight)].join(' ').trim(),
     textDecoration: el.underline ? 'underline' : '',
     align: el.align,
     lineHeight: el.lineHeight,

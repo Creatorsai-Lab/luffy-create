@@ -4,6 +4,7 @@ import type { Project, AudioElement, VideoElement } from '../types/editor'
 import type Konva from 'konva'
 import { renderTransition } from './transitionRenderer'
 import { toFileUrl } from '../utils/pathUtils'
+import { buildFfmpegFadeVolumeExpression } from '../utils/audioFade'
 
 export interface FFmpegExportOptions {
   project: Project
@@ -23,6 +24,10 @@ let ffmpegLoaded = false
 // load() pending forever. Cap it so the UI surfaces an error instead of hanging.
 const FFMPEG_LOAD_TIMEOUT_MS = 30_000
 const FALLBACK_EXPORT_AUDIO_GAIN = 4.0
+
+async function deleteIfExists(ffmpeg: FFmpeg, path: string) {
+  try { await ffmpeg.deleteFile(path) } catch {}
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -267,9 +272,11 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
 
   const outputFile = 'output.mp4'
   const crf = quality === '1080p' ? '16' : '18'
+  await deleteIfExists(ffmpeg, outputFile)
 
   // Build FFmpeg command
   const ffmpegArgs = [
+    '-y',
     '-framerate', String(fps),
     '-i', 'frame%06d.jpg',
     '-c:v', 'libx264',
@@ -312,7 +319,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     src: string; absStart: number; startTime: number
     duration: number; speed: number; volume: number
     voice: number; pitch: number; bass: number; saturation: number
-    fadeIn: number; fadeOut: number
+    fadeIn: number; fadeInVolume: number; fadeOut: number; fadeOutVolume: number
   }[] = []
 
   let audioElapsed = 0
@@ -333,7 +340,9 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
           bass:      a.bass      ?? 0,
           saturation: a.saturation ?? 0,
           fadeIn:    a.fadeIn    ?? 0,
+          fadeInVolume: a.fadeInVolume ?? 1,
           fadeOut:   a.fadeOut   ?? 0,
+          fadeOutVolume: a.fadeOutVolume ?? 0,
         })
       } else if (el.type === 'video') {
         const v = el as VideoElement
@@ -351,7 +360,9 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
             bass:      0,
             saturation: 0,
             fadeIn:    0,
+            fadeInVolume: 1,
             fadeOut:   0,
+            fadeOutVolume: 0,
           })
         }
       }
@@ -414,10 +425,15 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
             ...buildAtempoFilters(clip.speed),
             ...buildAudioToneFilters(clip.voice, clip.bass, clip.saturation),
           ]
-          if (clip.volume !== 1) filt.push(`volume=${clip.volume.toFixed(4)}`)
-          if (clip.fadeIn  > 0)  filt.push(`afade=t=in:st=0:d=${clip.fadeIn.toFixed(3)}`)
-          if (clip.fadeOut > 0 && clip.duration - clip.fadeOut > 0)
-            filt.push(`afade=t=out:st=${(clip.duration - clip.fadeOut).toFixed(3)}:d=${clip.fadeOut.toFixed(3)}`)
+          const volumeFilter = buildFfmpegFadeVolumeExpression({
+            duration: clip.duration,
+            baseVolume: clip.volume,
+            fadeIn: clip.fadeIn,
+            fadeInVolume: clip.fadeInVolume,
+            fadeOut: clip.fadeOut,
+            fadeOutVolume: clip.fadeOutVolume,
+          })
+          if (volumeFilter) filt.push(volumeFilter)
           if (delayMs > 0) filt.push(`adelay=${delayMs}:all=1`)
           filt.push(`apad=whole_dur=${totalDuration.toFixed(3)}`)
 
@@ -435,11 +451,13 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
 
         const masteredAudioLabel = `[amastered_${suffix}]`
         const finalFile = `with_audio_output_${suffix}.mp4`
+        await deleteIfExists(ffmpeg, finalFile)
         const allSegments = [
           ...filterSegments,
           `${mixedAudioLabel}${masterFilters.join(',')}${masteredAudioLabel}`,
         ]
         const muxArgs = [
+          '-y',
           '-i', outputFile,
           ...audioInArgs,
           '-filter_complex', allSegments.join(';'),
@@ -448,6 +466,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
           '-c:v', 'copy',
           '-c:a', 'aac',
           '-b:a', '192k',
+          '-t', totalDuration.toFixed(3),
           finalFile,
         ]
         onLog?.(`Audio mux command (${suffix}): ${muxArgs.join(' ')}`)

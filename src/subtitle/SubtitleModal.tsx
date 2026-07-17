@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { X, Captions, Wand2, Plus, Trash2, Download, Mic, Save, FileText } from 'lucide-react'
 import { useEditorStore } from '../store/editorStore'
-import type { AudioElement, Project, SubtitleCue, SubtitleTrack } from '../types/editor'
-import { makeCue, makeSubtitleTrack } from './types'
+import { FONT_FAMILIES } from '../types/editor'
+import type { AlignType, AudioElement, FontWeight, Project, SubtitleCue, SubtitleStyle, SubtitleTrack } from '../types/editor'
+import { ColorInput, Slider } from '../components/panels/TextPanel'
+import { makeCue, makeSubtitleTrack, normalizeSubtitleStyle } from './types'
 import { cuesToSrt, fmt } from './srt'
 import { transcriber } from './transcriber'
 import { getSceneGlobalStart, splitScriptIntoCueTexts } from './timeline'
+import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../utils/fontWeight'
 
 interface TimelineAudioClip {
   id: string
@@ -22,14 +25,14 @@ export default function SubtitleModal() {
 
   const audioClips = useMemo(() => collectTimelineAudioClips(project), [project])
   const existingTrack = project?.subtitleTracks?.[0] ?? null
-  const [track, setTrack] = useState<SubtitleTrack>(() => existingTrack ?? makeSubtitleTrack())
+  const [track, setTrack] = useState<SubtitleTrack>(() => normalizeTrack(existingTrack ?? makeSubtitleTrack()))
   const [sourceId, setSourceId] = useState<CaptionSourceId>('all')
   const [script, setScript] = useState('')
   const [status, setStatus] = useState<string>('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    setTrack(existingTrack ?? makeSubtitleTrack())
+    setTrack(normalizeTrack(existingTrack ?? makeSubtitleTrack()))
   }, [existingTrack?.id])
 
   const hasVoiceover = audioClips.some(c => c.audio.track === 'voiceover')
@@ -37,12 +40,16 @@ export default function SubtitleModal() {
   const selectedClips = selectAudioClips(audioClips, sourceId)
 
   function commit(next = track) {
-    upsertSubtitleTrack(next)
+    upsertSubtitleTrack(normalizeTrack(next))
     setStatus(`Saved ${next.cues.length} captions to project.`)
   }
 
   function patchTrack(patch: Partial<SubtitleTrack>) {
     setTrack(t => ({ ...t, ...patch }))
+  }
+
+  function patchStyle(patch: Partial<SubtitleStyle>) {
+    setTrack(t => ({ ...t, style: { ...normalizeSubtitleStyle(t.style), ...patch } }))
   }
 
   function updateCue(id: string, patch: Partial<SubtitleCue>) {
@@ -142,8 +149,17 @@ export default function SubtitleModal() {
     if (existingTrack) removeSubtitleTrack(existingTrack.id)
     const next = makeSubtitleTrack()
     setTrack(next)
-    setStatus('Removed saved captions.')
+    setStatus('Removed captions from the project.')
   }
+
+  function toggleEnabled() {
+    const next = normalizeTrack({ ...track, enabled: !track.enabled })
+    setTrack(next)
+    upsertSubtitleTrack(next)
+    setStatus(next.enabled ? 'Captions enabled.' : 'Captions hidden.')
+  }
+
+  const style = normalizeSubtitleStyle(track.style)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
@@ -248,14 +264,25 @@ export default function SubtitleModal() {
               </button>
               <button onClick={deleteTrack}
                 className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated border border-editor-border text-red-300 hover:bg-editor-hover transition-colors">
-                <Trash2 size={13} /> Clear
+                <Trash2 size={13} /> Remove
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={toggleEnabled}
+                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated border border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
+                {track.enabled ? 'Hide captions' : 'Show captions'}
+              </button>
+              <button onClick={deleteTrack}
+                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-red-500/12 border border-red-500/30 text-red-200 hover:bg-red-500/20 transition-colors">
+                Remove all
               </button>
             </div>
 
             {status && <p className="text-[11px] text-[#c9c4dd] mt-1">{status}</p>}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 min-w-0 overflow-y-auto p-4">
             {track.cues.length === 0 ? (
               <div className="h-full flex items-center justify-center">
                 <p className="text-sm text-editor-secondary text-center">
@@ -287,6 +314,205 @@ export default function SubtitleModal() {
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="w-96 flex-none border-l border-editor-border p-4 overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-editor-secondary">Caption style</span>
+              <button
+                onClick={() => commit({ ...track, style })}
+                className="text-[11px] px-2 py-1 rounded bg-editor-accent text-white hover:bg-editor-accent-hover transition-colors"
+              >
+                Save style
+              </button>
+            </div>
+
+            <StyleRow label="Font family">
+              <select
+                value={style.fontFamily}
+                onChange={e => patchStyle({ fontFamily: e.target.value })}
+                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+              >
+                {FONT_FAMILIES.map(font => <option key={font} value={font}>{font}</option>)}
+              </select>
+            </StyleRow>
+
+            <StyleRow label="Size">
+              <Slider value={style.fontSize} min={14} max={160} step={1}
+                onChange={fontSize => patchStyle({ fontSize })} display={`${style.fontSize}px`} />
+            </StyleRow>
+
+            <StyleRow label="Weight">
+              <select
+                value={normalizeFontWeightForControl(style.fontWeight)}
+                onChange={e => patchStyle({ fontWeight: e.target.value as FontWeight })}
+                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+              >
+                {FONT_WEIGHT_OPTIONS.map(weight => (
+                  <option key={weight.value} value={weight.value}>{weight.label}</option>
+                ))}
+              </select>
+            </StyleRow>
+
+            <StyleRow label="Style">
+              <button
+                onClick={() => patchStyle({ italic: !style.italic })}
+                className={`px-2 py-1 rounded text-xs border transition-colors ${style.italic ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated text-editor-text border-editor-border hover:bg-editor-hover'}`}
+              >
+                Italic
+              </button>
+            </StyleRow>
+
+            <StyleRow label="Text fill">
+              <select
+                value={style.fillMode ?? 'solid'}
+                onChange={e => patchStyle({ fillMode: e.target.value as SubtitleStyle['fillMode'] })}
+                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+              >
+                <option value="solid">Solid</option>
+                <option value="linearGradient">Gradient</option>
+              </select>
+            </StyleRow>
+
+            {(style.fillMode ?? 'solid') === 'solid' ? (
+              <StyleRow label="Color">
+                <ColorInput value={style.color} onChange={color => patchStyle({ color })} />
+              </StyleRow>
+            ) : (
+              <>
+                <StyleRow label="Color 1">
+                  <ColorInput value={style.gradientColor1 ?? style.color} onChange={gradientColor1 => patchStyle({ gradientColor1 })} />
+                </StyleRow>
+                <StyleRow label="Color 1 opacity">
+                  <Slider value={Math.round((style.gradientOpacity1 ?? 1) * 100)} min={0} max={100} step={1}
+                    onChange={value => patchStyle({ gradientOpacity1: value / 100 })} display={`${Math.round((style.gradientOpacity1 ?? 1) * 100)}%`} />
+                </StyleRow>
+                <StyleRow label="Color 2">
+                  <ColorInput value={style.gradientColor2 ?? '#8b5cf6'} onChange={gradientColor2 => patchStyle({ gradientColor2 })} />
+                </StyleRow>
+                <StyleRow label="Color 2 opacity">
+                  <Slider value={Math.round((style.gradientOpacity2 ?? 1) * 100)} min={0} max={100} step={1}
+                    onChange={value => patchStyle({ gradientOpacity2: value / 100 })} display={`${Math.round((style.gradientOpacity2 ?? 1) * 100)}%`} />
+                </StyleRow>
+                <StyleRow label="Third color">
+                  <button
+                    onClick={() => patchStyle({ gradientUseColor3: !style.gradientUseColor3 })}
+                    className={`px-2 py-1 rounded text-xs border transition-colors ${style.gradientUseColor3 ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated text-editor-text border-editor-border hover:bg-editor-hover'}`}
+                  >
+                    {style.gradientUseColor3 ? 'On' : 'Off'}
+                  </button>
+                </StyleRow>
+                {style.gradientUseColor3 && (
+                  <>
+                    <StyleRow label="Color 3">
+                      <ColorInput value={style.gradientColor3 ?? '#22d3ee'} onChange={gradientColor3 => patchStyle({ gradientColor3 })} />
+                    </StyleRow>
+                    <StyleRow label="Color 3 opacity">
+                      <Slider value={Math.round((style.gradientOpacity3 ?? 1) * 100)} min={0} max={100} step={1}
+                        onChange={value => patchStyle({ gradientOpacity3: value / 100 })} display={`${Math.round((style.gradientOpacity3 ?? 1) * 100)}%`} />
+                    </StyleRow>
+                  </>
+                )}
+              </>
+            )}
+
+            <div className="border-t border-editor-border my-3" />
+
+            <StyleRow label="Text background">
+              <button
+                onClick={() => patchStyle({ backgroundEnabled: !style.backgroundEnabled })}
+                className={`px-2 py-1 rounded text-xs border transition-colors ${style.backgroundEnabled ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated text-editor-text border-editor-border hover:bg-editor-hover'}`}
+              >
+                {style.backgroundEnabled ? 'On' : 'Off'}
+              </button>
+            </StyleRow>
+            {style.backgroundEnabled && (
+              <>
+                <StyleRow label="Background color">
+                  <ColorInput value={style.backgroundColor} onChange={backgroundColor => patchStyle({ backgroundColor })} />
+                </StyleRow>
+                <StyleRow label="Background opacity">
+                  <Slider value={Math.round(style.backgroundOpacity * 100)} min={0} max={100} step={1}
+                    onChange={value => patchStyle({ backgroundOpacity: value / 100 })} display={`${Math.round(style.backgroundOpacity * 100)}%`} />
+                </StyleRow>
+                <StyleRow label="Padding X">
+                  <Slider value={style.paddingX} min={0} max={100} step={1}
+                    onChange={paddingX => patchStyle({ paddingX })} display={`${style.paddingX}px`} />
+                </StyleRow>
+                <StyleRow label="Padding Y">
+                  <Slider value={style.paddingY} min={0} max={80} step={1}
+                    onChange={paddingY => patchStyle({ paddingY })} display={`${style.paddingY}px`} />
+                </StyleRow>
+                <StyleRow label="Corner radius">
+                  <Slider value={style.radius} min={0} max={80} step={1}
+                    onChange={radius => patchStyle({ radius })} display={`${style.radius}px`} />
+                </StyleRow>
+              </>
+            )}
+
+            <div className="border-t border-editor-border my-3" />
+
+            <StyleRow label="Position">
+              <select
+                value={style.position}
+                onChange={e => patchStyle({ position: e.target.value as SubtitleStyle['position'] })}
+                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+              >
+                <option value="top">Top</option>
+                <option value="middle">Middle</option>
+                <option value="bottom">Bottom</option>
+              </select>
+            </StyleRow>
+            <StyleRow label="Align">
+              <select
+                value={style.align}
+                onChange={e => patchStyle({ align: e.target.value as AlignType })}
+                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+              >
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </StyleRow>
+            <StyleRow label="Max width">
+              <Slider value={style.maxWidthPct} min={20} max={100} step={1}
+                onChange={maxWidthPct => patchStyle({ maxWidthPct })} display={`${style.maxWidthPct}%`} />
+            </StyleRow>
+            <div className="grid grid-cols-2 gap-2">
+              <StyleRow label="Top margin">
+                <input type="number" min={0} max={1000} value={style.marginTop ?? 80}
+                  onChange={e => patchStyle({ marginTop: Math.max(0, Number(e.target.value) || 0) })}
+                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
+              </StyleRow>
+              <StyleRow label="Right margin">
+                <input type="number" min={0} max={1000} value={style.marginRight ?? 120}
+                  onChange={e => patchStyle({ marginRight: Math.max(0, Number(e.target.value) || 0) })}
+                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
+              </StyleRow>
+              <StyleRow label="Bottom margin">
+                <input type="number" min={0} max={1000} value={style.marginBottom ?? 80}
+                  onChange={e => patchStyle({ marginBottom: Math.max(0, Number(e.target.value) || 0) })}
+                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
+              </StyleRow>
+              <StyleRow label="Left margin">
+                <input type="number" min={0} max={1000} value={style.marginLeft ?? 120}
+                  onChange={e => patchStyle({ marginLeft: Math.max(0, Number(e.target.value) || 0) })}
+                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
+              </StyleRow>
+            </div>
+
+            <StyleRow label="Subtitle animation">
+              <select
+                value={style.animation ?? 'fade'}
+                onChange={e => patchStyle({ animation: e.target.value as SubtitleStyle['animation'] })}
+                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+              >
+                <option value="none">None</option>
+                <option value="fade">Fade</option>
+                <option value="slideUp">Slide up</option>
+                <option value="pop">Pop</option>
+              </select>
+            </StyleRow>
           </div>
         </div>
       </div>
@@ -325,4 +551,17 @@ function collectTimelineAudioClips(project: Project | null): TimelineAudioClip[]
 
 function roundTime(value: number) {
   return Math.round(value * 100) / 100
+}
+
+function normalizeTrack(track: SubtitleTrack): SubtitleTrack {
+  return { ...track, style: normalizeSubtitleStyle(track.style) }
+}
+
+function StyleRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block mb-2.5">
+      <span className="block text-[10px] uppercase tracking-wider text-editor-secondary mb-1">{label}</span>
+      {children}
+    </label>
+  )
 }

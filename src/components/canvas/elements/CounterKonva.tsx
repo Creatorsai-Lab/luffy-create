@@ -3,6 +3,7 @@ import { Group, Text, Rect } from 'react-konva'
 import type Konva from 'konva'
 import type { CounterElement } from '../../../types/editor'
 import { loadFont } from '../../../utils/fontLoader'
+import { fontWeightToCssValue } from '../../../utils/fontWeight'
 
 interface Props {
   el: CounterElement
@@ -21,8 +22,7 @@ export default function CounterKonva({ el, konvaProps, localTime }: Props) {
   })
 
   useEffect(() => {
-    const weight = el.fontWeight === 'bold' ? '700' : el.fontWeight === 'semibold' ? '600' : el.fontWeight === 'medium' ? '500' : '400'
-    loadFont(el.fontFamily, weight).then(() => {
+    loadFont(el.fontFamily, fontWeightToCssValue(el.fontWeight)).then(() => {
       nodeRef.current?.getLayer()?.batchDraw()
     }).catch(() => {})
   }, [el.fontFamily, el.fontWeight])
@@ -88,7 +88,7 @@ export default function CounterKonva({ el, konvaProps, localTime }: Props) {
     }
   }, [el, localTime])
 
-  const weight = el.fontWeight === 'bold' ? '700' : el.fontWeight === 'semibold' ? '600' : el.fontWeight === 'medium' ? '500' : '400'
+  const weight = fontWeightToCssValue(el.fontWeight)
 
   const effectProps = {
     shadowEnabled: (el.shadowBlur ?? 0) > 0,

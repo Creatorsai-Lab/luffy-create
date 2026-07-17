@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, BookOpen, LayoutGrid, Sparkles, Image as ImageIcon, Shuffle, Keyboard, Download, Clapperboard, BrainCircuit, Terminal } from 'lucide-react'
+import { X, BookOpen, LayoutGrid, Sparkles, Image as ImageIcon, Shuffle, Keyboard, Download, Clapperboard, BrainCircuit, Terminal, Volume2, Video } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 
 interface Section {
@@ -72,6 +72,9 @@ const SECTIONS: Section[] = [
           <LI>Select an element and add enter / loop / exit animations.</LI>
           <LI>Preview, then Export to MP4 or an image.</LI>
         </ul>
+        <H>How to think while editing</H>
+        <P>Build each scene in layers: background first, then media, then shapes and charts, then text and icons. After the visual layout feels right, use the right Options panel to refine every selected item. Most creative control in Luffy Create lives in those property panels: size, color, opacity, shadows, borders, crop, perspective, timing, and animation settings.</P>
+        <P>The timeline is not just for playback. It is where you control scene duration, clip placement, audio timing, transitions, and the order of the story. Use preview often, make small adjustments, then export when the rhythm feels clean.</P>
       </>
     ),
   },
@@ -96,6 +99,9 @@ const SECTIONS: Section[] = [
         ]} />
         <H>Editing an element</H>
         <P>Select it, then use the right Options panel. Move with the mouse or arrow keys: <Kbd>Arrow</Kbd> nudges, <Kbd>Shift</Kbd> faster, <Kbd>Ctrl</Kbd> fastest. Right-click for Copy, Duplicate, Center Horizontally/Vertically, and Delete.</P>
+        <H>Property panels are the power layer</H>
+        <P>Every element has a different set of controls. Text can use fonts, gradient fills, text backgrounds, shadows, outlines, and multiple animations. Shapes can use solid or gradient fills, borders, shadows, inner shadows, perspective, and animated borders. Images and videos can be cropped, rounded, color-adjusted, bordered, shadowed, and warped. Spend time experimenting with these controls because small property changes often create the difference between a rough slide and a polished video frame.</P>
+        <P>When a scene feels crowded, use the Layers panel to rename items, hide experiments, lock finished objects, and reorder what appears above or below. Keeping layers organized makes complex scenes easier to edit later.</P>
       </>
     ),
   },
@@ -112,7 +118,9 @@ const SECTIONS: Section[] = [
         <P>Plays once as the element leaves: Fade Out, Slide Out, Scale Out, Wipe Out (and Draw Off for arrows).</P>
         <H>Easing</H>
         <P>Linear, Ease In, Ease Out, Ease In-Out, Bounce — controls the acceleration of the motion.</P>
-        <P>Tip: clear every animation on the current slide with the eraser button on the canvas toolbar (top-right).</P>
+        <H>Combining animations</H>
+        <P>Use On Enter for how an element arrives, Loop for what it does while visible, and On Exit for how it leaves. A useful pattern is Fade In plus a gentle Pulse loop for emphasis, or Scale In plus Typewriter for text that feels more alive. Keep durations short for UI-like motion, and use longer durations for educational reveals where the viewer needs time to follow the idea.</P>
+        <P>Tip: clear every animation on the current slide with the eraser button on the canvas toolbar (top-right). When an animation feels wrong, adjust duration, delay, easing, and direction before replacing the whole effect.</P>
       </>
     ),
   },
@@ -130,6 +138,9 @@ const SECTIONS: Section[] = [
           ['Transparent', 'Checkerboard in the editor; real alpha in PNG/WebP export (MP4 has no alpha).'],
           ['Image', 'Right-click an image element → Set Background (cover/fill).'],
         ]} />
+        <H>Design tips</H>
+        <P>Use quiet backgrounds when the scene contains important text, code, charts, or UI screenshots. Strong gradients and animated backgrounds work best behind short titles, logos, or simple hero scenes. If the foreground is visually busy, reduce background contrast or add blur so the viewer's eye stays on the message.</P>
+        <P>Animated gradients can make an intro feel modern, but keep the speed subtle for longer explanations. For transparent exports, use PNG or WebP because MP4 does not preserve alpha.</P>
       </>
     ),
   },
@@ -147,6 +158,56 @@ const SECTIONS: Section[] = [
           ['Morph', 'Smooth scale + drift blend (direction).'],
         ]} />
         <P>Each transition type has a fixed color shown on its timeline block for quick recognition.</P>
+        <H>When to use transitions</H>
+        <P>Use transitions to separate ideas, not to decorate every cut. Fade works well for calm narration, Push and Slide are useful for step-by-step movement, Wipe can reveal before/after comparisons, and Morph gives a smoother feeling when two scenes share similar layout. Keep transition durations short unless the transition itself is part of the explanation.</P>
+      </>
+    ),
+  },
+  {
+    id: 'audio', title: 'Audio', icon: <Volume2 size={15} />,
+    content: (
+      <>
+        <H>Adding audio</H>
+        <P>Open the Audio tool, upload MP3, WAV, OGG, AAC, or M4A files, then add them to the timeline. Audio clips appear below scenes and can be moved, trimmed, split, and arranged into lanes. Use background tracks for music and voiceover tracks for narration so your timeline stays readable.</P>
+        <H>Core controls</H>
+        <Table head={['Control', 'How to use it']} rows={[
+          ['Volume', 'Set the base loudness. Use up to boosted values when a clip is quiet, then balance it against narration.'],
+          ['Start Time', 'Trim from the beginning of the source file without editing the original file.'],
+          ['Duration', 'Control how long the clip plays on the timeline.'],
+          ['Playback Speed', 'Speed up or slow down audio when timing needs to match the scene.'],
+          ['Fade In / Fade Out', 'Smoothly enter or leave music, ambience, and voice clips.'],
+          ['Fade Volume', 'Choose the target fade level, useful for ducking music under speech.'],
+          ['Loop', 'Repeat a sound bed to fill a longer scene.'],
+          ['Markers', 'Place timing marks for beats, voice cues, and edit points.'],
+        ]} />
+        <H>Audio effects</H>
+        <P>The audio properties panel includes voice, pitch, bass, and saturation controls. Use them carefully: small changes can make a voice clearer or a sound effect more present, while large changes create stylized results. For launch demos, keep voiceover clean, lower the music under speech, and use short sound effects only where they support the visual beat.</P>
+        <H>Timeline workflow</H>
+        <P>Scrub the playhead while watching the canvas. Align key visual moments to audio markers, scene starts, or short pauses in the narration. If a clip starts on the wrong scene, move or split it in the timeline and verify the scene duration still matches your voiceover.</P>
+      </>
+    ),
+  },
+  {
+    id: 'video', title: 'Video', icon: <Video size={15} />,
+    content: (
+      <>
+        <H>Adding video</H>
+        <P>Open the Video tool, upload MP4, WebM, or MOV files, then place the clip on the canvas. A video element behaves like a visual layer: move it, resize it, crop it, round its corners, apply borders and shadows, adjust its colors, and animate it like other elements.</P>
+        <H>Core controls</H>
+        <Table head={['Control', 'How to use it']} rows={[
+          ['Width / Height', 'Set exact size or resize on the canvas. Lock ratio when preserving the source aspect matters.'],
+          ['Timeline Start', 'Place the video inside the scene timeline instead of always starting at 0 seconds.'],
+          ['Start Time', 'Trim into the source video without changing the original file.'],
+          ['Duration', 'Control how much of the clip plays in the scene.'],
+          ['Volume / Muted', 'Keep original audio, lower it under narration, or mute it entirely.'],
+          ['Playback Speed', 'Use slow motion for detail or faster playback for quick context.'],
+          ['Loop', 'Repeat short clips, GIF-like loops, and background motion.'],
+          ['Crop', 'Focus on the important area of a recording or remove unwanted edges.'],
+        ]} />
+        <H>Styling and visual control</H>
+        <P>Videos support many of the same controls as images: brightness, contrast, saturation, blur, temperature, tint, vibrance, crop, perspective, corner radius, border, gradient border, animated border, box shadow, and inner shadow. This means a raw screen recording can become a polished visual card, a phone mockup, a floating preview, or an angled product shot directly inside the editor.</P>
+        <H>Creative workflow</H>
+        <P>Use crop first to isolate the important content, then set size and position, then apply color and border styling. If a video sits behind text, reduce contrast or add blur so the text remains readable. For demo scenes, combine a subtle Scale In or Fade In with a clean border and shadow to make the video feel intentionally placed.</P>
       </>
     ),
   },
@@ -172,6 +233,8 @@ const SECTIONS: Section[] = [
           ['Change audio lane', 'Shift + click an audio clip'],
           ['Crop apply / cancel', 'Enter / Escape'],
         ]} />
+        <H>How to use shortcuts well</H>
+        <P>Use shortcuts while reviewing a scene repeatedly. Space starts and stops playback, arrow keys help with frame-by-frame checks, and copy/paste or duplicate lets you build repeated design patterns quickly. When positioning elements, combine arrow nudging with the Layers panel and center commands from the right-click menu for cleaner alignment.</P>
       </>
     ),
   },
@@ -181,6 +244,7 @@ const SECTIONS: Section[] = [
       <>
         <H>Video (MP4)</H>
         <P>Export → Video. Choose 720p or 1080p. Frames are rendered locally with FFmpeg and saved as an MP4. A progress bar shows status; do not interact with the canvas while it renders.</P>
+        <P>Before final export, preview the full project once from the beginning. Check that video clips start on the intended scene, audio fades feel natural, captions are readable, and transitions do not cut off important words or visuals.</P>
         <H>Image (PNG / WebP)</H>
         <P>Export → Image. Pick a scene; the snapshot is taken after enter animations finish. PNG/WebP keep transparency when the scene background is Transparent.</P>
         <H>Notes</H>
@@ -196,6 +260,7 @@ const SECTIONS: Section[] = [
     content: (
       <>
         <P>The AI Agent prepares scene edits as structured commands. It is best for focused changes such as adding elements, styling selected items, changing backgrounds, applying move animations, and setting transitions.</P>
+        <P>The local planner handles common edits instantly, while a configured model planner can understand richer creative instructions. Use the agent for repetitive setup, fast scene building, and precise edits where you can describe the target scene, element, size, color, and timing.</P>
         <H>Better prompts</H>
         <ul className="list-disc pl-5">
           <LI>Mention the scene number when the edit belongs to a specific scene.</LI>
@@ -219,6 +284,7 @@ const SECTIONS: Section[] = [
     content: (
       <>
         <P>Python Sandbox creates graph images and math animation outputs with preloaded Python tools, then saves or inserts the generated file into the editor.</P>
+        <P>Use it when a chart, mathematical explanation, or generated visual would be faster to create with code than by hand. It is especially useful for technical videos because the output becomes a normal editor asset that you can resize, animate, crop, and combine with text or narration.</P>
         <H>Workflow</H>
         <ul className="list-disc pl-5">
           <LI>Open Menu Sidebar → Python Sandbox.</LI>

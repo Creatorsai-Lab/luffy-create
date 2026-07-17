@@ -1,5 +1,6 @@
 import type { Background } from '../types/editor'
 import { drawAnimatedBg } from './animator'
+import { applyCanvasAdjustments, buildCssFilter } from './imageFilters'
 
 // Draw a checkerboard to signal transparency (like image editors do).
 function drawCheckerboard(ctx: CanvasRenderingContext2D, w: number, h: number) {
@@ -71,12 +72,22 @@ export function drawBackground(
       drawAnimatedBg(ctx, time, w, h, bg.colors, bg.variant, bg.speed); break
     case 'image':
       if (bgImage) {
+        ctx.save()
+        ctx.globalAlpha = bg.opacity ?? 1
+        ctx.filter = buildCssFilter({ ...bg, width: w, height: h }) || 'none'
         if (bg.fit === 'fill') { ctx.drawImage(bgImage, 0, 0, w, h) }
         else {
           const s = Math.max(w / bgImage.width, h / bgImage.height)
           const sw = bgImage.width * s, sh = bgImage.height * s
           ctx.drawImage(bgImage, (w - sw) / 2, (h - sh) / 2, sw, sh)
         }
+        if (bg.glass) {
+          ctx.filter = 'none'
+          ctx.fillStyle = 'rgba(255,255,255,0.18)'
+          ctx.fillRect(0, 0, w, h)
+        }
+        applyCanvasAdjustments(ctx, { ...bg, width: w, height: h })
+        ctx.restore()
       } else { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, w, h) }
       break
   }

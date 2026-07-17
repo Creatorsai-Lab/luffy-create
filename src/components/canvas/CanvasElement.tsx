@@ -127,10 +127,10 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
 
   switch (element.type) {
     case 'text':   return <TextKonva   el={element} konvaProps={props} textProgress={animProps?.textProgress ?? 1} textMode={animProps?.textMode} wipeProgress={wipeProgress} wipeDir={wipeDir} textColor={animProps?.textColor} />
-    case 'shape':  return <ShapeKonva  el={element} konvaProps={props} wipeProgress={wipeProgress} wipeDir={wipeDir} dashOffset={animProps?.dashOffset ?? 0} />
+    case 'shape':  return <ShapeKonva  el={element} konvaProps={props} wipeProgress={wipeProgress} wipeDir={wipeDir} dashOffset={animProps?.dashOffset ?? 0} localTime={localTime} />
     case 'arrow':  return <ArrowKonva  el={element} konvaProps={props} pathProgress={animProps?.textProgress ?? 1} dashOffset={animProps?.dashOffset ?? 0} />
     case 'code':   return <CodeKonva   el={element} konvaProps={props} />
-    case 'image':  return <ImageKonva  el={element} konvaProps={props} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} />
+    case 'image':  return <ImageKonva  el={element} konvaProps={props} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} localTime={localTime} />
     case 'table':  return <TableKonva  el={element} konvaProps={props} />
     case 'chart':  return <ChartKonva  el={element} konvaProps={props} animProgress={animProps?.chartAnimProgress ?? 1} />
     case 'video': {

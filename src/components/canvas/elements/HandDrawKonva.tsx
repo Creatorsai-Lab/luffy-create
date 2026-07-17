@@ -38,6 +38,7 @@ function drawDot(raw: CanvasRenderingContext2D, stroke: HandDrawStroke) {
   if (stroke.tool === 'eraser') raw.fill()
   else {
     raw.fillStyle = stroke.color
+    
     raw.fill()
   }
 }

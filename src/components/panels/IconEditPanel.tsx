@@ -55,6 +55,17 @@ export default function IconEditPanel() {
     if (iconEl) updateElement(iconEl.id, patch)
   }
 
+  function updateSize(size: number) {
+    if (!iconEl) return
+    const next = Math.max(8, Math.min(1000, size))
+    updateElement(iconEl.id, {
+      x: iconEl.x + (iconEl.width - next) / 2,
+      y: iconEl.y + (iconEl.height - next) / 2,
+      width: next,
+      height: next,
+    })
+  }
+
   if (!iconEl) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
@@ -76,6 +87,23 @@ export default function IconEditPanel() {
 
           <Row label="Color">
             <ColorInput value={iconEl.color} onChange={v => upd({ color: v })} />
+          </Row>
+
+          <Row label="Size">
+            <div className="flex items-center gap-2">
+              <input
+                type="range" min={30} max={1000} step={1}
+                value={Math.round(Math.max(iconEl.width, iconEl.height))}
+                onChange={e => updateSize(Number(e.target.value))}
+                className="flex-1 accent-editor-accent nodrag"
+              />
+              <input
+                type="number" min={30} max={1000} step={1}
+                value={Math.round(Math.max(iconEl.width, iconEl.height))}
+                onChange={e => updateSize(Number(e.target.value))}
+                className="w-16 bg-editor-elevated border border-editor-border rounded text-[10px] text-editor-text px-1.5 py-1 text-right nodrag"
+              />
+            </div>
           </Row>
 
           <Row label="Stroke Width">

@@ -11,6 +11,8 @@
 | [Elements](./elements.md) | Text, shapes, arrows, code blocks, images, video, audio, charts, tables, icons |
 | [Animations](./animations.md) | Enter / loop / exit animations, easing, timing |
 | [Adjustments](./adjustments.md) | Image & video filters — brightness, color, blur, crop |
+| [Video](./video.md) | Video timing, crop, trim, styling, and canvas workflow |
+| [Audio](./audio.md) | Voiceover, music, fades, effects, markers, and timeline workflow |
 | [Export](./export.md) | MP4, PNG, WebP — settings, quality, workflow |
 | [Shortcuts](./shortcuts.md) | Keyboard reference |
 | [AI Agent](./ai_agent.md) | Better prompts, plan review, and safer AI edits |
@@ -47,13 +49,14 @@ The main editing surface. Elements are placed and manipulated here.
 - **Right-click** for the context menu
 
 ### Right Sidebar — Properties
-Shows controls for whichever tool or element is active. Changes apply in real time.
+Shows controls for whichever tool or element is active. Changes apply in real time. This is where most polish happens: text styling, gradients, shadows, border controls, crop, perspective, audio fades, video adjustments, and animation timing all live in the property panels.
 
 ### Timeline
 - **Scenes** appear as labeled segments across the bottom
 - Click a scene to make it active
 - **Playhead** shows current time; drag to scrub
 - **Play / Pause** previews the animation in the canvas
+- Audio and video clips can be trimmed, moved, split, and aligned to narration or visual beats
 
 ---
 
@@ -99,6 +102,8 @@ A project is a sequence of scenes. Each scene has its own duration, background, 
 1. **New project** → pick a canvas size
 2. **Add a background** — open Background tool, choose Solid / Gradient / Grid
 3. **Add elements** — click Text, Shape, or any tool in the left sidebar
-4. **Animate** — select an element, open its Animation section, click **Add**
-5. **Preview** — click **Preview** in the sidebar or press the Play button in the timeline
-6. **Export** — click **Export** → choose MP4 or image format → Save
+4. **Refine properties** — play with font, color, crop, border, shadow, opacity, and position controls
+5. **Animate** — select an element, open its Animation section, click **Add**
+6. **Add media timing** — place audio/video clips on the timeline and line them up with scene duration
+7. **Preview** — click **Preview** in the sidebar or press the Play button in the timeline
+8. **Export** — click **Export** → choose MP4 or image format → Save

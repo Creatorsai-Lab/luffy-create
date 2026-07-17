@@ -2,11 +2,13 @@ import { Move, Trash2 } from 'lucide-react'
 import { v4 as uuid } from 'uuid'
 import { useEditorStore } from '../../store/editorStore'
 import type { EditorElement, ElementAnimation, MoveDirection } from '../../types/editor'
-import { PanelHeader, Row, Slider } from './TextPanel'
+import { NumberInput, PanelHeader, Row, Slider } from './TextPanel'
 import {
   MOVE_DIRECTIONS,
+  computeCenterMoveDelta,
   computeMoveDelta,
   durationFromMove,
+  elementCenter,
   isMoveAnimation,
 } from '../../utils/moveAnimation'
 
@@ -36,6 +38,15 @@ export default function MovePanel() {
   const moveOutside = moveAnim?.params?.moveOutside ?? false
   const deltaX = moveAnim?.params?.deltaX ?? 0
   const deltaY = moveAnim?.params?.deltaY ?? 0
+  const selectedCenter = el ? elementCenter(el) : { x: 0, y: 0 }
+  const canvasWidth = project?.width ?? 1920
+  const canvasHeight = project?.height ?? 1080
+  const edgeDelta = project && el ? computeMoveDelta(project, el, direction, moveOutside) : { deltaX: 0, deltaY: 0 }
+  const moveMode = moveAnim?.params?.moveMode ?? 'direction'
+  const startCenterX = moveAnim?.params?.startCenterX ?? selectedCenter.x
+  const startCenterY = moveAnim?.params?.startCenterY ?? selectedCenter.y
+  const endCenterX = moveAnim?.params?.endCenterX ?? selectedCenter.x + edgeDelta.deltaX
+  const endCenterY = moveAnim?.params?.endCenterY ?? selectedCenter.y + edgeDelta.deltaY
 
   function buildMoveAnimation(
     target: EditorElement,
@@ -44,6 +55,11 @@ export default function MovePanel() {
       speed?: number
       delay?: number
       moveOutside?: boolean
+      moveMode?: 'direction' | 'coordinates'
+      startCenterX?: number
+      startCenterY?: number
+      endCenterX?: number
+      endCenterY?: number
     } = {},
   ): ElementAnimation | null {
     if (!project) return null
@@ -51,7 +67,15 @@ export default function MovePanel() {
     const nextSpeed = patch.speed ?? speed
     const nextDelay = patch.delay ?? delay
     const nextOutside = patch.moveOutside ?? moveOutside
-    const delta = computeMoveDelta(project, target, nextDirection, nextOutside)
+    const nextMode = patch.moveMode ?? moveMode
+    const nextStartCenterX = patch.startCenterX ?? startCenterX
+    const nextStartCenterY = patch.startCenterY ?? startCenterY
+    const nextEndCenterX = patch.endCenterX ?? endCenterX
+    const nextEndCenterY = patch.endCenterY ?? endCenterY
+    const coordinateDelta = nextMode === 'coordinates'
+      ? computeCenterMoveDelta(target, nextStartCenterX, nextStartCenterY, nextEndCenterX, nextEndCenterY)
+      : null
+    const delta = coordinateDelta ?? computeMoveDelta(project, target, nextDirection, nextOutside)
     const duration = durationFromMove(delta.deltaX, delta.deltaY, nextSpeed)
 
     return {
@@ -63,9 +87,16 @@ export default function MovePanel() {
       delay: nextDelay,
       easing: 'linear',
       params: {
+        moveMode: nextMode,
         moveDirection: nextDirection,
         deltaX: delta.deltaX,
         deltaY: delta.deltaY,
+        startOffsetX: coordinateDelta?.startOffsetX,
+        startOffsetY: coordinateDelta?.startOffsetY,
+        startCenterX: coordinateDelta?.startCenterX,
+        startCenterY: coordinateDelta?.startCenterY,
+        endCenterX: coordinateDelta?.endCenterX,
+        endCenterY: coordinateDelta?.endCenterY,
         speed: nextSpeed,
         moveOutside: nextOutside,
       },
@@ -107,10 +138,57 @@ export default function MovePanel() {
               </button>
             )}
 
+            <div className="rounded border border-editor-border bg-editor-elevated px-2 py-2 text-[10px] text-[#d9d9d9]">
+              <div>Current center: {selectedCenter.x}px, {selectedCenter.y}px</div>
+              <div>Move coordinates use the item center.</div>
+            </div>
+
+            <Row label="Mode">
+              <select
+                value={moveMode}
+                onChange={e => applyMove({ moveMode: e.target.value as 'direction' | 'coordinates' })}
+                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
+              >
+                <option value="direction">Direction</option>
+                <option value="coordinates">Start / End coordinates</option>
+              </select>
+            </Row>
+
+            {moveMode === 'coordinates' && (
+              <div className="rounded border border-editor-border bg-editor-panel/70 px-2 py-2">
+                <div className="mb-2 text-[10px] uppercase text-editor-secondary">Center coordinates</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[10px] text-[#d9d9d9]">
+                    Start X
+                    <NumberInput value={startCenterX} min={-canvasWidth} max={canvasWidth * 2} onChange={v => applyMove({ startCenterX: v })} />
+                  </label>
+                  <label className="text-[10px] text-[#d9d9d9]">
+                    Start Y
+                    <NumberInput value={startCenterY} min={-canvasHeight} max={canvasHeight * 2} onChange={v => applyMove({ startCenterY: v })} />
+                  </label>
+                  <label className="text-[10px] text-[#d9d9d9]">
+                    End X
+                    <NumberInput value={endCenterX} min={-canvasWidth} max={canvasWidth * 2} onChange={v => applyMove({ endCenterX: v })} />
+                  </label>
+                  <label className="text-[10px] text-[#d9d9d9]">
+                    End Y
+                    <NumberInput value={endCenterY} min={-canvasHeight} max={canvasHeight * 2} onChange={v => applyMove({ endCenterY: v })} />
+                  </label>
+                </div>
+                <button
+                  onClick={() => applyMove({ startCenterX: selectedCenter.x, startCenterY: selectedCenter.y })}
+                  className="mt-2 w-full text-[10px] py-1.5 bg-editor-elevated border border-editor-border rounded text-[#d9d9d9] hover:text-editor-text transition-colors"
+                >
+                  Use current center as start
+                </button>
+              </div>
+            )}
+
             <Row label="Direction">
               <select
                 value={direction}
                 onChange={e => applyMove({ direction: e.target.value as MoveDirection })}
+                disabled={moveMode === 'coordinates'}
                 className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
               >
                 {MOVE_DIRECTIONS.map(item => (

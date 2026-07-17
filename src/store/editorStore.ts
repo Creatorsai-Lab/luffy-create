@@ -114,6 +114,7 @@ interface EditorActions {
 
   // Assets
   addAsset:         (a: AssetMeta) => void
+  updateAsset:      (id: string, patch: Partial<AssetMeta>) => void
   removeAsset:      (id: string) => void
   markDirty:        () => void
   markClean:        () => void
@@ -715,6 +716,13 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       addAsset: (a) => set(s => {
         if (!s.project) return
         s.project.assets.push(a)
+        s.isDirty = true
+      }),
+      updateAsset: (id, patch) => set(s => {
+        if (!s.project) return
+        const asset = s.project.assets.find(a => a.id === id)
+        if (!asset) return
+        Object.assign(asset, patch)
         s.isDirty = true
       }),
       removeAsset: (id) => set(s => {

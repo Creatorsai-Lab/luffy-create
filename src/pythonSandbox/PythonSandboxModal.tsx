@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import type { editor as MonacoEditorNS } from 'monaco-editor'
-import { AlertCircle, CheckCircle2, FileImage, Film, FolderOpen, Play, Plus, Square, Terminal, X, Check, Download } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Copy, FileImage, Film, FolderOpen, Play, Plus, Square, X, Check, Download } from 'lucide-react'
 import { useEditorStore } from '../store/editorStore'
 import { makeImage, makeVideo } from '../utils/defaults'
 import { toFileUrl } from '../utils/pathUtils'
@@ -36,6 +36,7 @@ export default function PythonSandboxModal() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [importedByPath, setImportedByPath] = useState<Record<string, { id: string; path: string; type: 'image' | 'video'; filename: string }>>({})
   const [error, setError] = useState<string | null>(null)
+  const [consoleCopied, setConsoleCopied] = useState(false)
 
   const selectedOutput = useMemo(
     () => result?.outputs.find(o => o.path === selectedPath) ?? result?.outputs[0] ?? null,
@@ -45,7 +46,7 @@ export default function PythonSandboxModal() {
   const codeWarning = useMemo(() => validatePythonSandboxCode(code), [code])
   const modeReady = kind === 'manim' ? Boolean(status?.manim) : Boolean(status?.matplotlib)
   const runtimeLabel = status?.runtimeSource === 'bundled'
-    ? 'Bundled sandbox'
+    ? 'Sandbox status:'
     : status?.runtimeSource === 'user'
       ? 'Local sandbox'
       : status?.runtimeSource === 'system'
@@ -187,19 +188,36 @@ export default function PythonSandboxModal() {
 
   const consoleText = result ? [result.stdout, result.stderr].filter(Boolean).join('\n') : ''
 
+  async function copyConsoleText() {
+    if (!consoleText) return
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(consoleText)
+    } else {
+      const input = document.createElement('textarea')
+      input.value = consoleText
+      input.style.position = 'fixed'
+      input.style.opacity = '0'
+      document.body.appendChild(input)
+      input.select()
+      document.execCommand('copy')
+      document.body.removeChild(input)
+    }
+    setConsoleCopied(true)
+    window.setTimeout(() => setConsoleCopied(false), 1200)
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85">
       <div className="bg-editor-panel border border-editor-border rounded-3xl shadow-2xl flex flex-col overflow-hidden w-[80vw] h-[80vh]">
         <div className="flex items-center justify-between border-b border-editor-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <Terminal size={16} className="text-editor-accent" />
             <div>
               <h2 className="text-sm font-semibold text-editor-text">Python Sandbox</h2>
               <p className="text-[11px] text-editor-secondary">
                 {checking
                   ? 'Checking Python...'
                   : status?.available
-                    ? `${runtimeLabel} ${status.sandboxReady ? 'ready' : 'not ready'} - Matplotlib ${status.matplotlib ? 'ready' : 'missing'} - Manim ${status.manim ? 'ready' : 'missing'}`
+                    ? `${runtimeLabel} ${status.sandboxReady ? 'Running' : 'Not Ready'} • Matplotlib: ${status.matplotlib ? 'Ready' : 'Missing'} • Manim: ${status.manim ? 'Ready' : 'missing'}`
                     : 'Python 3 not found'}
               </p>
             </div>
@@ -212,7 +230,7 @@ export default function PythonSandboxModal() {
           </button>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(420px,1fr)_360px] gap-0">
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(360px,3fr)_minmax(320px,2fr)] gap-0">
           <div className="flex min-h-0 flex-col border-r border-editor-border">
             <div className="flex flex-wrap items-center gap-2 border-b border-editor-border px-3 py-2">
               <select
@@ -255,7 +273,7 @@ export default function PythonSandboxModal() {
                   <button
                     onClick={runCode}
                     disabled={!project || checking || settingUp || !status?.available || !modeReady || Boolean(codeWarning)}
-                    className="flex items-center gap-1.5 rounded border border-editor-accent bg-editor-accent-dim px-3 py-1.5 text-xs text-editor-accent transition-colors hover:bg-editor-accent hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded border border-editor-accent bg-editor-accent px-3 py-1.5 text-xs text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Play size={13} /> Run
                   </button>
@@ -393,7 +411,18 @@ export default function PythonSandboxModal() {
               )}
 
               <div className="min-h-32 rounded border border-editor-border bg-[#0f0f0f] p-2">
-                <div className="mb-1 text-[10px] uppercase tracking-wide text-editor-secondary">Console</div>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <div className="text-[10px] uppercase tracking-wide text-editor-secondary">Console</div>
+                  <button
+                    onClick={copyConsoleText}
+                    disabled={!consoleText}
+                    className="flex items-center gap-1 rounded border border-editor-border bg-editor-elevated px-1.5 py-1 text-[10px] text-editor-secondary transition-colors hover:border-editor-accent hover:text-editor-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    title="Copy console text"
+                  >
+                    <Copy size={11} />
+                    {consoleCopied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
                 <pre className="max-h-44 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-editor-text">
                   {consoleText || 'No logs yet.'}
                 </pre>

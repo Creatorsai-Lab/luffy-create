@@ -19,7 +19,7 @@ Welcome to the Luffy Create documentation. The guides below are organized by top
 <tr>
 <td width="33%" valign="top">
 
-### 🚀 [Overview](index.md)
+### 🚀 [Overview](editor.md)
 
 Interface tour, projects, scenes, and a fast quick-start walkthrough.
 
@@ -47,6 +47,22 @@ Enter, loop, and exit effects with easing and precise timing.
 Image &amp; video filters, cropping, and perspective warp.
 
 </td>
+<td width="33%" valign="top">
+
+### 🎬 [Video](video.md)
+
+Video upload, trim, crop, styling, timing, and motion workflow.
+
+</td>
+<td width="33%" valign="top">
+
+### 🔊 [Audio](audio.md)
+
+Voiceover, music, fades, effects, markers, and timeline control.
+
+</td>
+</tr>
+<tr>
 <td width="33%" valign="top">
 
 ### 📤 [Export](export.md)
@@ -89,14 +105,16 @@ Create Matplotlib graphs and Manim math animations, then save or insert outputs.
 
 | # | Guide | Why |
 |---|-------|-----|
-| 1 | [Overview](index.md) | Understand the interface and create your first project |
+| 1 | [Overview](editor.md) | Understand the interface and create your first project |
 | 2 | [Elements](elements.md) | Learn what you can place on the canvas |
 | 3 | [Animations](animations.md) | Bring elements to life with motion |
 | 4 | [Adjustments](adjustments.md) | Polish images and video |
-| 5 | [Export](export.md) | Render your finished video or images |
-| 6 | [Shortcuts](shortcuts.md) | Speed up your workflow |
-| 7 | [AI Agent](ai_agent.md) | Prepare validated edits from natural-language requests |
-| 8 | [Python Sandbox](python_sandbox.md) | Generate graph and math animation assets |
+| 5 | [Video](video.md) | Control video timing, crop, styling, and motion |
+| 6 | [Audio](audio.md) | Balance voiceover, music, fades, and timing |
+| 7 | [Export](export.md) | Render your finished video or images |
+| 8 | [Shortcuts](shortcuts.md) | Speed up your workflow |
+| 9 | [AI Agent](ai_agent.md) | Prepare validated edits from natural-language requests |
+| 10 | [Python Sandbox](python_sandbox.md) | Generate graph and math animation assets |
 
 ---
 
