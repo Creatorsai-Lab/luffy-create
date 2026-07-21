@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public\images\luffy_create_logo.webp" alt="Luffy Create" width="84" />
+<img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy_create_logo.webp" alt="Luffy Create" width="84" />
 
 # Luffy Create Application User Guide
 
@@ -98,6 +98,11 @@ Create Matplotlib graphs and Manim math animations, then save or insert outputs.
 </td>
 </tr>
 </table>
+
+## Release notes
+
+- [v1.3.3 Launch Release](release-notes-v1.3.3.md)
+- [v1.3 Feature Release](release-notes-v1.3.md)
 
 ---
 

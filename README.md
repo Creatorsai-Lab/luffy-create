@@ -4,27 +4,29 @@
 
 # Luffy Create
 
-**A free, open-source desktop app for making animated videos for technical and educational content.**
+**A free, open-source AI video editor with real timeline control.**
 
-Code walkthroughs, system-design diagrams, and slide-based animations — with frame-accurate timing and direct MP4 export. Fully offline, no account required.
+Create launch videos, tutorials, explainers, code walkthroughs, product demos, and social clips with local offline editing, AI-assisted scene edits, captions, Python and Manim animation tools, precise timeline control, and direct MP4 export.
 
 [![Release](https://img.shields.io/github/v/release/Creatorsai-Lab/luffy-create?label=download&style=flat-square)](https://github.com/Creatorsai-Lab/luffy-create/releases/latest)
 [![License](https://img.shields.io/github/license/Creatorsai-Lab/luffy-create?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/Creatorsai-Lab/luffy-create/releases/latest)
 
-[🌏︎ Website](https://creatorsai-lab.github.io/luffy-create/) · [⇊ Download](https://github.com/Creatorsai-Lab/luffy-create/releases/latest) · [ 🖿 User GUIDE](https://github.com/Creatorsai-Lab/luffy-create/tree/main/docs#readme)
+[🌏︎ Website](https://creatorsai-lab.github.io/luffy-create/) · [⇊ Download](https://github.com/Creatorsai-Lab/luffy-create/releases/latest) · [Launch Blog](https://creatorsai-lab.github.io/luffy-create/blog/why-luffy-create.html) · [ 🖿 User GUIDE](https://github.com/Creatorsai-Lab/luffy-create/tree/main/docs#readme)
 </div>
 
 ---
 
 ## Features
 
-- **Scene-based editor** with a frame-accurate timeline and playback preview
-- **Rich elements** — text, shapes, arrows, syntax-highlighted code blocks, images, video, audio, charts, tables, and icons
-- **Animations** — enter / loop / exit effects with full easing control; typewriter, draw-path, flow, and more
-- **Image & video adjustments** — brightness, contrast, exposure, highlights, shadows, temperature, tint, vibrance, blur, crop, and perspective warp
-- **Scene transitions** — fade, slide, push, zoom, wipe, morph
-- **Export** — MP4 video (720p / 1080p) and PNG / WebP stills, rendered locally with FFmpeg
+- **Precise timeline editor** with scene blocks, media timing, audio lanes, markers, playback preview, and transition control
+- **AI Edits** — structured assistant commands for adding scenes, text, media, animation, backgrounds, and timeline audio
+- **Automatic captions** with editable cue timing and subtitle styling controls
+- **Rich elements** — text, gradients, shapes, arrows, hand drawing, syntax-highlighted code blocks, images, videos, audio, charts, tables, icons, counters, and LaTeX
+- **Python Sandbox** for charts, generated visuals, and Manim math animations that can be inserted into the editor
+- **Animations and transitions** — enter / loop / exit effects, text bounce, typewriter, draw-path, flow, move, scale, fade, zoom, and morph
+- **Image & video styling** — color adjustments, crop, blur, shadows, gradient borders, animated borders, background images, and perspective transforms
+- **Export** — MP4 video and PNG / WebP stills, rendered locally with FFmpeg
 - **Offline-first** — everything runs on your machine; no sign-up, no cloud, no telemetry
 
 ---
@@ -33,7 +35,7 @@ Code walkthroughs, system-design diagrams, and slide-based animations — with f
 
 <img src="public/images/luffy-ui-screenshot.webp" alt="Luffy Create editor interface" width="100%" />
 
-<sub>The Luffy Create editor: tools on the left, canvas in the center, properties on the right, ai agent at right most and timeline below.</sub>
+<sub>The Luffy Create editor: tools on the left, canvas in the center, properties on the right, AI edits at the side, and timeline below.</sub>
 
 </div>
 
@@ -45,7 +47,7 @@ You can download the app from `release` page or `site`
 
 ### Windows
 
-1. Download the latest `Luffy_Create_Installer_v1.exe` from the [**Releases page**](https://github.com/Creatorsai-Lab/luffy-create/releases/latest).
+1. Download the latest `Luffy-Create-Windows-Setup-*.exe` from the [**Releases page**](https://github.com/Creatorsai-Lab/luffy-create/releases/latest).
 2. Run the installer. Windows SmartScreen may show an *"Unknown publisher"* warning — click **More info → Run anyway**. The app is unsigned for now and completely safe (source is public, build it yourself if you prefer).
 3. Launch **Luffy Create** from the Start Menu.
 
@@ -72,7 +74,7 @@ You can download the app from `release` page or `site`
 5. **Preview** with the timeline play button
 6. **Export** → choose MP4 or an image format → Save
 
-Full walkthrough in the [**User Guide**](docs/index.md).
+Full walkthrough in the [**User Guide**](docs/README.md).
 
 ---
 
@@ -118,10 +120,14 @@ The packaged installer for your current OS lands in `dist/`.
 
 | Guide | Covers |
 |---|---|
-| [Overview](docs/index.md) | Interface tour, projects, scenes, quick start |
+| [Overview](docs/editor.md) | Interface tour, projects, scenes, quick start |
 | [Elements](docs/elements.md) | Every element type and its properties |
 | [Animations](docs/animations.md) | Timing, easing, all animation types |
 | [Adjustments](docs/adjustments.md) | Filters, crop, perspective warp |
+| [Audio](docs/audio.md) | Voiceover, music, fades, effects, markers, and timing |
+| [Video](docs/video.md) | Video upload, trim, crop, styling, timing, and motion |
+| [AI Agent](docs/ai_agent.md) | Safer AI edit requests and structured command plans |
+| [Python Sandbox](docs/python_sandbox.md) | Charts, generated assets, and Manim animation outputs |
 | [Export](docs/export.md) | MP4 / PNG / WebP export workflow |
 | [Shortcuts](docs/shortcuts.md) | Keyboard reference |
 
