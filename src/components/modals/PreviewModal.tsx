@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useCallback, useState, type CSSProperties } from 'react'
 import { Stage, Layer, Shape } from 'react-konva'
 import type Konva from 'konva'
 import { X, Play, Pause, SkipBack } from 'lucide-react'
@@ -6,9 +6,10 @@ import { useEditorStore } from '../../store/editorStore'
 import { getAnimatedProps } from '../../engine/animator'
 import { drawBackground } from '../../engine/backgroundRenderer'
 import { easeInOutCubic } from '../../engine/transitionRenderer'
+import { buildTransitionTimeline, getTransitionFrameState } from '../../utils/transitionTiming'
 import CanvasElement from '../canvas/CanvasElement'
 import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
-import type { Background, TransitionType, SlideDir, AudioElement, VideoElement, ImageBg } from '../../types/editor'
+import type { Background, AudioElement, VideoElement, ImageBg, Scene, Project, SlideDir, TransitionType } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
 import {
@@ -41,16 +42,6 @@ export default function PreviewModal() {
   const scale = project ? PREVIEW_W / project.width : 1
 
   const totalDur = project?.scenes.reduce((s, sc) => s + sc.duration, 0) ?? 0
-
-  function getSceneAt(t: number) {
-    if (!project) return null
-    let acc = 0
-    for (const sc of project.scenes) {
-      if (t < acc + sc.duration) return { scene: sc, localTime: t - acc }
-      acc += sc.duration
-    }
-    return null
-  }
 
   // RAF loop
   useEffect(() => {
@@ -140,49 +131,8 @@ export default function PreviewModal() {
 
   if (!project) return null
 
-  const at = getSceneAt(playhead)
-  const scene = at?.scene ?? project.scenes[0]
-  const localTime = at?.localTime ?? 0
-  const sorted = [...scene.elements].sort((a, b) => a.zIndex - b.zIndex)
-
-  // Transition computation
-  const tr = scene.transition
-  const inTrans = tr && tr.type !== 'none' && localTime < tr.duration
-  const transP = inTrans ? easeInOutCubic(Math.min(1, Math.max(0, localTime / tr.duration))) : 1
-
-  // CSS transform for legacy slide/push/zoom/morph transitions.
-  const transStyle: React.CSSProperties = (() => {
-    if (!inTrans || !tr) return {}
-    const p = transP
-    const off = (n: number) => `${n}%`
-    switch (tr.type as TransitionType) {
-      case 'slide': {
-        const d = (tr.direction ?? 'right') as SlideDir
-        const v = (1 - p) * 100
-        if (d === 'right') return { transform: `translateX(${off(v)})` }
-        if (d === 'left') return { transform: `translateX(${off(-v)})` }
-        if (d === 'down') return { transform: `translateY(${off(v)})` }
-        if (d === 'up') return { transform: `translateY(${off(-v)})` }
-        return {}
-      }
-      case 'push': {
-        const d = (tr.direction ?? 'left') as SlideDir
-        const v = (1 - p) * 100
-        if (d === 'left') return { transform: `translateX(${off(v)})` }
-        if (d === 'right') return { transform: `translateX(${off(-v)})` }
-        if (d === 'down') return { transform: `translateY(${off(-v)})` }
-        if (d === 'up') return { transform: `translateY(${off(v)})` }
-        return {}
-      }
-      case 'zoom': return { transform: `scale(${0.965 + p * 0.035})`, opacity: p, transformOrigin: 'center center' }
-      case 'morph': return { transform: `scale(${0.965 + p * 0.035})`, opacity: p, transformOrigin: 'center center' }
-      default: return {}
-    }
-  })()
-
-  // Overlay opacity for fade / wipe
-  const fadeOverlay = inTrans && tr?.type === 'fade' ? 1 - transP : 0
-  const wipeWidth = inTrans && tr?.type === 'wipe' ? (1 - transP) * 100 : 0
+  const timeline = buildTransitionTimeline(project.scenes)
+  const frameState = getTransitionFrameState(timeline, playhead)
 
   return (
     <div
@@ -203,47 +153,16 @@ export default function PreviewModal() {
           className="rounded-lg shadow-2xl bg-black relative overflow-hidden"
           style={{ width: PREVIEW_W, height: PREVIEW_H }}
         >
-          {/* Content with transition transform */}
-          <div style={{ width: '100%', height: '100%', ...transStyle }}>
-            <Stage width={PREVIEW_W} height={PREVIEW_H} scaleX={scale} scaleY={scale}>
-              <Layer>
-                <BgShape bg={scene.background} w={project.width} h={project.height} time={playhead} />
-              </Layer>
-              <Layer>
-                {sorted.filter(e => {
-                  if (!e.visible) return false
-                  if (e.type === 'video') return getVideoClipState(e as VideoElement, localTime).visible
-                  return true
-                }).map(el => (
-                  <CanvasElement
-                    key={el.id}
-                    element={el}
-                    animProps={getAnimatedProps(el, localTime)}
-                    isSelected={false}
-                    onSelect={() => { }}
-                    onDblClick={() => { }}
-                    stageScale={scale}
-                    localTime={localTime}
-                    syncVideoToTime
-                    videoPlaybackActive={isPlaying}
-                  />
-                ))}
-                <SubtitleOverlay project={project} time={playhead} />
-              </Layer>
-            </Stage>
-          </div>
-
-          {/* Fade overlay */}
-          {fadeOverlay > 0 && (
-            <div className="absolute inset-0 bg-black pointer-events-none" style={{ opacity: fadeOverlay }} />
-          )}
-          {/* Wipe overlay — black curtain shrinks from right */}
-          {wipeWidth > 0 && (
-            <div
-              className="absolute top-0 bottom-0 right-0 bg-black pointer-events-none"
-              style={{ width: `${wipeWidth}%` }}
-            />
-          )}
+          <PreviewFrame
+            project={project}
+            frameState={frameState}
+            timeline={timeline}
+            width={PREVIEW_W}
+            height={PREVIEW_H}
+            scale={scale}
+            playhead={playhead}
+            isPlaying={isPlaying}
+          />
         </div>
 
         {/* Controls */}
@@ -279,6 +198,187 @@ export default function PreviewModal() {
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+function PreviewFrame({
+  project,
+  frameState,
+  timeline,
+  width,
+  height,
+  scale,
+  playhead,
+  isPlaying,
+}: {
+  project: Project
+  frameState: ReturnType<typeof getTransitionFrameState>
+  timeline: ReturnType<typeof buildTransitionTimeline>
+  width: number
+  height: number
+  scale: number
+  playhead: number
+  isPlaying: boolean
+}) {
+  if (frameState.kind === 'scene') {
+    const scene = project.scenes[frameState.sceneIndex]
+    return (
+      <PreviewSceneStage
+        project={project}
+        scene={scene}
+        localTime={frameState.sceneTime}
+        globalTime={playhead}
+        width={width}
+        height={height}
+        scale={scale}
+        isPlaying={isPlaying}
+        style={{ position: 'absolute', inset: 0 }}
+      />
+    )
+  }
+
+  const fromScene = project.scenes[frameState.fromSceneIndex]
+  const toScene = project.scenes[frameState.toSceneIndex]
+  const fromLocalTime = Math.max(0, frameState.fromTime - timeline[frameState.fromSceneIndex].startTime)
+  const toLocalTime = Math.max(0, frameState.toTime - timeline[frameState.toSceneIndex].startTime)
+  const p = easeInOutCubic(frameState.progress)
+  const styles = transitionLayerStyles(frameState.transition.type, frameState.transition.direction, p)
+
+  return (
+    <>
+      <PreviewSceneStage
+        project={project}
+        scene={fromScene}
+        localTime={fromLocalTime}
+        globalTime={frameState.fromTime}
+        width={width}
+        height={height}
+        scale={scale}
+        isPlaying={false}
+        style={{ position: 'absolute', inset: 0, zIndex: 1, ...styles.from }}
+      />
+      <PreviewSceneStage
+        project={project}
+        scene={toScene}
+        localTime={toLocalTime}
+        globalTime={frameState.toTime}
+        width={width}
+        height={height}
+        scale={scale}
+        isPlaying={isPlaying}
+        style={{ position: 'absolute', inset: 0, zIndex: 2, ...styles.to }}
+      />
+    </>
+  )
+}
+
+function transitionLayerStyles(
+  type: TransitionType,
+  direction: SlideDir | undefined,
+  p: number
+): { from: CSSProperties; to: CSSProperties } {
+  const dir = direction ?? 'left'
+  const pct = (n: number) => `${n}%`
+
+  switch (type) {
+    case 'slide':
+    case 'push': {
+      let from: CSSProperties = {}
+      let to: CSSProperties = {}
+      if (dir === 'right') {
+        from = { transform: `translateX(${pct(-p * 100)})` }
+        to = { transform: `translateX(${pct((1 - p) * 100)})` }
+      } else if (dir === 'left') {
+        from = { transform: `translateX(${pct(p * 100)})` }
+        to = { transform: `translateX(${pct(-(1 - p) * 100)})` }
+      } else if (dir === 'down') {
+        from = { transform: `translateY(${pct(-p * 100)})` }
+        to = { transform: `translateY(${pct((1 - p) * 100)})` }
+      } else {
+        from = { transform: `translateY(${pct(p * 100)})` }
+        to = { transform: `translateY(${pct(-(1 - p) * 100)})` }
+      }
+      return { from, to }
+    }
+
+    case 'wipe': {
+      const to: CSSProperties =
+        dir === 'right' ? { clipPath: `inset(0 0 0 ${(1 - p) * 100}%)` } :
+        dir === 'left'  ? { clipPath: `inset(0 ${(1 - p) * 100}% 0 0)` } :
+        dir === 'down'  ? { clipPath: `inset(${(1 - p) * 100}% 0 0 0)` } :
+                          { clipPath: `inset(0 0 ${(1 - p) * 100}% 0)` }
+      return { from: {}, to }
+    }
+
+    case 'zoom':
+      return {
+        from: {},
+        to: {
+          opacity: p,
+          transform: `scale(${0.985 + p * 0.015})`,
+          transformOrigin: 'center center',
+        },
+      }
+
+    case 'morph':
+    case 'fade':
+    default:
+      return { from: {}, to: { opacity: p } }
+  }
+}
+
+function PreviewSceneStage({
+  project,
+  scene,
+  localTime,
+  globalTime,
+  width,
+  height,
+  scale,
+  isPlaying,
+  style,
+}: {
+  project: Project
+  scene: Scene
+  localTime: number
+  globalTime: number
+  width: number
+  height: number
+  scale: number
+  isPlaying: boolean
+  style?: CSSProperties
+}) {
+  const sorted = [...scene.elements].sort((a, b) => a.zIndex - b.zIndex)
+
+  return (
+    <div style={{ width: '100%', height: '100%', pointerEvents: 'none', ...style }}>
+      <Stage width={width} height={height} scaleX={scale} scaleY={scale}>
+        <Layer>
+          <BgShape bg={scene.background} w={project.width} h={project.height} time={globalTime} />
+        </Layer>
+        <Layer>
+          {sorted.filter(e => {
+            if (!e.visible) return false
+            if (e.type === 'video') return getVideoClipState(e as VideoElement, localTime).visible
+            return true
+          }).map(el => (
+            <CanvasElement
+              key={el.id}
+              element={el}
+              animProps={getAnimatedProps(el, localTime)}
+              isSelected={false}
+              onSelect={() => { }}
+              onDblClick={() => { }}
+              stageScale={scale}
+              localTime={localTime}
+              syncVideoToTime
+              videoPlaybackActive={isPlaying}
+            />
+          ))}
+          <SubtitleOverlay project={project} time={globalTime} />
+        </Layer>
+      </Stage>
     </div>
   )
 }

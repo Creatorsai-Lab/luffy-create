@@ -5,6 +5,7 @@ import type Konva from 'konva'
 import { renderTransition } from './transitionRenderer'
 import { toFileUrl } from '../utils/pathUtils'
 import { buildFfmpegFadeVolumeExpression } from '../utils/audioFade'
+import { buildTransitionTimeline, getTransitionFrameState } from '../utils/transitionTiming'
 
 export interface FFmpegExportOptions {
   project: Project
@@ -124,38 +125,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     willReadFrequently: false
   })!
 
-  // Build scene timeline with transition info
-  interface SceneTimeInfo {
-    sceneId: string
-    sceneIndex: number
-    startTime: number
-    endTime: number
-    transitionStart: number  // When transition to next scene starts
-    transitionDuration: number
-  }
-
-  const sceneTimeline: SceneTimeInfo[] = []
-  let elapsed = 0
-  for (let i = 0; i < project.scenes.length; i++) {
-    const scene = project.scenes[i]
-    const hasNext = i < project.scenes.length - 1
-    // Transition is stored on the ENTERING (next) scene — read from scene[i+1]
-    const nextScene = hasNext ? project.scenes[i + 1] : null
-    const transitionDuration = (nextScene && nextScene.transition?.type !== 'none')
-      ? (nextScene.transition?.duration ?? 0)
-      : 0
-
-    sceneTimeline.push({
-      sceneId: scene.id,
-      sceneIndex: i,
-      startTime: elapsed,
-      endTime: elapsed + scene.duration,
-      transitionStart: elapsed + scene.duration - transitionDuration,
-      transitionDuration
-    })
-
-    elapsed += scene.duration
-  }
+  const sceneTimeline = buildTransitionTimeline(project.scenes)
 
   const fromCanvas = document.createElement('canvas')
   fromCanvas.width = w
@@ -190,64 +160,39 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
 
   for (let i = 0; i < totalFrames; i++) {
     const time = i / fps
-
-    // Find current scene and check if we're in a transition
-    let currentSceneInfo: SceneTimeInfo | null = null
-    let nextSceneInfo: SceneTimeInfo | null = null
+    const frameState = getTransitionFrameState(sceneTimeline, time)
     let transitionProgress = 0
 
-    for (let j = 0; j < sceneTimeline.length; j++) {
-      const info = sceneTimeline[j]
-      if (time >= info.startTime && time < info.endTime) {
-        currentSceneInfo = info
-
-        // Check if we're in transition period
-        if (time >= info.transitionStart && info.transitionDuration > 0) {
-          nextSceneInfo = sceneTimeline[j + 1] ?? null
-          transitionProgress = (time - info.transitionStart) / info.transitionDuration
-        }
-        break
-      }
-    }
-
-    if (!currentSceneInfo) {
-      // Shouldn't happen, but fallback to last scene
-      currentSceneInfo = sceneTimeline[sceneTimeline.length - 1]
-    }
-
-    if (nextSceneInfo && currentSceneInfo.transitionDuration > 0) {
+    if (frameState.kind === 'transition') {
       if (!renderSceneFrame) {
         // Without scene-specific rendering, we can't reliably render both scenes.
         // Fallback: render only the current frame (no transition compositing).
         await renderFrame(time)
         await captureStageInto(compositeCtx)
       } else {
-        const fromScene = project.scenes[currentSceneInfo.sceneIndex]
-        const toScene = project.scenes[nextSceneInfo.sceneIndex]
+        const fromScene = project.scenes[frameState.fromSceneIndex]
+        const toScene = project.scenes[frameState.toSceneIndex]
 
-        const delta = time - currentSceneInfo.transitionStart
-        const progress = Math.max(0, Math.min(1, delta / currentSceneInfo.transitionDuration))
-
-        // Render FROM scene at its natural global time.
-        await renderSceneFrame(fromScene.id, time)
+        // Hold the previous scene on its final stable frame while the entering
+        // scene advances from local time 0. This avoids jumping the entering
+        // scene forward during the transition and then resetting it at the cut.
+        await renderSceneFrame(fromScene.id, frameState.fromTime)
         await captureStageInto(fromCtx)
 
-        // Render TO scene as if it starts at transitionStart (so its localTime begins at 0).
-        const toGlobalTime = nextSceneInfo.startTime + delta
-        await renderSceneFrame(toScene.id, toGlobalTime)
+        await renderSceneFrame(toScene.id, frameState.toTime)
         await captureStageInto(toCtx)
 
         renderTransition({
           ctx: compositeCtx,
           width: w,
           height: h,
-          progress,
-          type: toScene.transition.type,
-          direction: toScene.transition.direction,
+          progress: frameState.progress,
+          type: frameState.transition.type,
+          direction: frameState.transition.direction,
           fromCanvas,
           toCanvas
         })
-        transitionProgress = progress
+        transitionProgress = frameState.progress
       }
     } else {
       // Normal (non-transition) frame.
@@ -260,7 +205,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     await ffmpeg.writeFile(filename, bytes)
 
     const frameProgress = Math.round((i / totalFrames) * 70)
-    onProgress(5 + frameProgress, `Rendering frame ${i + 1}/${totalFrames} (${time.toFixed(2)}s${nextSceneInfo ? `, trans ${(transitionProgress * 100).toFixed(0)}%` : ''})`)
+    onProgress(5 + frameProgress, `Rendering frame ${i + 1}/${totalFrames} (${time.toFixed(2)}s${frameState.kind === 'transition' ? `, trans ${(transitionProgress * 100).toFixed(0)}%` : ''})`)
 
     // Log progress every 30 frames
     if (i % 30 === 0) {

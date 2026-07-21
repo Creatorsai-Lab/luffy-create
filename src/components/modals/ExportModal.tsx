@@ -4,7 +4,8 @@ import { useEditorStore } from '../../store/editorStore'
 import { exportToMP4WithFFmpeg, isFFmpegAvailable } from '../../engine/ffmpegExporter'
 import { getStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
-import type { Scene } from '../../types/editor'
+import type { Scene, VideoElement } from '../../types/editor'
+import { getVideoClipState } from '../../utils/videoClip'
 
 type Phase = 'idle' | 'exporting' | 'done' | 'error'
 type Quality = '720p' | '1080p'
@@ -64,6 +65,7 @@ export default function ExportModal() {
     // Let React commit + the video-seek effect run.
     await new Promise(r => setTimeout(r, 0))
     await new Promise(r => requestAnimationFrame(r))
+    if (sceneId) await waitForSceneVideos(sceneId, globalTime)
     // Wait for any video elements to finish seeking to this frame, so the
     // captured stage shows the correct video frame (not a stale one).
     await waitForVideoSeeks()
@@ -82,6 +84,28 @@ export default function ExportModal() {
       v.addEventListener('seeked', finish)
       setTimeout(finish, 250)  // safety cap so export can't hang
     }))).then(() => undefined)
+  }
+
+  async function waitForSceneVideos(sceneId: string, globalTime: number): Promise<void> {
+    const scene = project?.scenes.find(sc => sc.id === sceneId)
+    if (!scene) return
+
+    const sceneStart = sceneGlobalStart(project.scenes.findIndex(sc => sc.id === sceneId))
+    const localTime = Math.max(0, globalTime - sceneStart)
+    const visibleVideos = scene.elements.filter((el): el is VideoElement => {
+      return el.type === 'video' && el.visible && getVideoClipState(el, localTime).visible
+    })
+    if (visibleVideos.length === 0) return
+
+    const deadline = performance.now() + 900
+    while (performance.now() < deadline) {
+      const pending = visibleVideos.some(videoEl => {
+        const video = videoRegistry.get(videoEl.id)
+        return !video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.seeking
+      })
+      if (!pending) return
+      await new Promise(r => requestAnimationFrame(r))
+    }
   }
 
   function findSceneIdAtTime(t: number): string | null {

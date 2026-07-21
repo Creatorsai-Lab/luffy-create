@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Luffy Create — Free Open-Source Animated Video Editor for Technical Content</title>
-<meta name="description" content="Luffy Create is a free, open-source desktop video editor for technical and educational content — code walkthroughs, system-design diagrams, and slide animations with frame-accurate timing and direct MP4 export. Offline, no account required." />
-<meta name="keywords" content="video editor, animated video, free video editor, open source video editor, code animation, technical video, educational video, MP4 export, screencast, slide animation, FFmpeg, desktop video editor, Luffy Create" />
+<title>Luffy Create — Free Open-Source AI Video Editor with Timeline Control</title>
+<meta name="description" content="Luffy Create is a free, open-source AI video editor for creators who want precision, timeline control, local offline editing, captions, Python and Manim animation tools, media effects, and direct MP4 export." />
+<meta name="keywords" content="AI video editor, free video editor, open source video editor, offline video editor, timeline video editor, video creation app, captions, Python animation, Manim animation, MP4 export, Luffy Create" />
 <meta name="author" content="Creatorsai-Lab" />
 <meta name="robots" content="index, follow" />
 <meta name="theme-color" content="#6c4ff0" />
 <link rel="canonical" href="https://creatorsai-lab.github.io/luffy-create/" />
 
 <!-- Open Graph -->
-<meta property="og:title" content="Luffy Create — Free Open-Source Animated Video Editor" />
-<meta property="og:description" content="Make animated videos for technical and educational content — code walkthroughs, diagrams, and slide animations with direct MP4 export. Free, offline, open source." />
+<meta property="og:title" content="Luffy Create — Free Open-Source AI Video Editor" />
+<meta property="og:description" content="Create videos with precise timeline control, AI edits, captions, Python and Manim animation tools, local offline editing, and direct MP4 export." />
 <meta property="og:image" content="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy_app_template.png" />
 <meta property="og:url" content="https://creatorsai-lab.github.io/luffy-create/" />
 <meta property="og:type" content="website" />
@@ -21,8 +21,8 @@
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Luffy Create — Free Open-Source Animated Video Editor" />
-<meta name="twitter:description" content="Animated videos for technical and educational content, with direct MP4 export. Free, offline, open source." />
+<meta name="twitter:title" content="Luffy Create — Free Open-Source AI Video Editor" />
+<meta name="twitter:description" content="A free offline video editor with AI edits, captions, timeline control, Python sandbox tools, and direct MP4 export." />
 <meta name="twitter:image" content="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy_app_template.png" />
 
 <link rel="icon" href="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/favicon.svg" />
@@ -38,10 +38,10 @@
   "name": "Luffy Create",
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "Windows",
-  "description": "A free, open-source desktop app for making animated videos for technical and educational content with direct MP4 export.",
+  "description": "A free, open-source AI video editor with precise timeline control, captions, Python and Manim animation tools, offline editing, and direct MP4 export.",
   "url": "https://creatorsai-lab.github.io/luffy-create/",
   "downloadUrl": "https://github.com/Creatorsai-Lab/luffy-create/releases/latest",
-  "softwareVersion": "1.0.0",
+  "softwareVersion": "1.3.2",
   "license": "https://opensource.org/licenses/MIT",
   "author": { "@type": "Organization", "name": "Creatorsai-Lab" },
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
@@ -55,10 +55,10 @@
   "@type": "FAQPage",
   "mainEntity": [
     { "@type": "Question", "name": "Is Luffy Create free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Luffy Create is completely free and open source under the MIT License. There is no subscription, no paywall, and no account required." } },
-    { "@type": "Question", "name": "Which operating systems are supported?", "acceptedAnswer": { "@type": "Answer", "text": "Version 1.0.0 ships a Windows installer. macOS and Linux builds are planned, and you can already run from source on any platform." } },
+    { "@type": "Question", "name": "Which operating systems are supported?", "acceptedAnswer": { "@type": "Answer", "text": "Version 1.3 ships builds for Windows, macOS, and Linux. You can also run from source on any platform with Node.js installed." } },
     { "@type": "Question", "name": "Do I need an internet connection to use it?", "acceptedAnswer": { "@type": "Answer", "text": "No. Luffy Create is offline-first. Editing and MP4 export run entirely on your machine. There is no cloud upload and no telemetry." } },
     { "@type": "Question", "name": "What video formats can I export?", "acceptedAnswer": { "@type": "Answer", "text": "You can export MP4 video at 720p or 1080p, and still images in PNG or WebP. Rendering is handled locally with FFmpeg." } },
-    { "@type": "Question", "name": "Is it good for code walkthroughs and tutorials?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Luffy Create includes syntax-highlighted code blocks, typewriter and draw-path animations, arrows, shapes, and charts — purpose-built for technical and educational content." } },
+    { "@type": "Question", "name": "Is it only for technical videos?", "acceptedAnswer": { "@type": "Answer", "text": "No. Luffy Create is strong for technical videos, tutorials, launch demos, educational content, and social videos that need precise layout, text, media, audio, captions, and animation control." } },
     { "@type": "Question", "name": "Why does Windows show an 'Unknown publisher' warning?", "acceptedAnswer": { "@type": "Answer", "text": "The v1 installer is not yet code-signed. Click 'More info' then 'Run anyway'. The full source is public, so you can review or build it yourself." } },
     { "@type": "Question", "name": "Is my data collected or sent anywhere?", "acceptedAnswer": { "@type": "Answer", "text": "No. Luffy Create collects no data and contains no telemetry. Your projects are stored locally on your computer." } }
   ]
@@ -329,12 +329,13 @@
 <nav>
   <div class="wrap nav-inner">
     <a class="brand" href="#top">
-      <img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public\images\luffy_create_logo.webp" alt="Luffy Create" />
+      <img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy_create_logo.webp" alt="Luffy Create" />
       Luffy&nbsp;Create
     </a>
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#how">How it works</a>
+      <a href="blog/why-luffy-create.html">Blog</a>
       <a href="#docs">Docs</a>
       <a href="#faq">FAQ</a>
     </div>
@@ -343,9 +344,9 @@
 
 <!-- HERO -->
 <header class="hero wrap" id="top">
-  <span class="badge"><span class="dot"></span> v1.3 - Live | All OS Support with our major updates!</span>
-  <h1>Video creation,<br /><span class="grad">made lightweight.</span></h1>
-  <p>A free, open-source desktop app for animated videos built for technical and educational content — code walkthroughs, diagrams, and slide animations. Fully offline, with direct MP4 export.</p>
+  <span class="badge"><span class="dot"></span> v1.3.2 is live - AI edits, captions, sandbox tools, and all-OS builds</span>
+  <h1>Free AI video editing,<br /><span class="grad">with real timeline control.</span></h1>
+  <p>Luffy Create is a free, open-source video creation and editing app built for precision: local offline editing, AI-assisted scene edits, automatic captions, Python and Manim animation tools, media effects, transitions, and direct MP4 export.</p>
   <div class="hero-cta">
     <a class="btn btn-primary btn-lg dl-win" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest">
       <svg width="25" height="25" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.1 10.4 4v7.3H3V5.1Zm0 13.8 7.4 1v-7.2H3v6.2ZM11.3 3.9 21 2.5v9H11.3V3.9Zm0 16.2 9.7 1.4v-9H11.3v7.6Z"/></svg>
@@ -361,7 +362,7 @@
     </a>
   </div>
   <div class="hero-sub">Free forever · No account · No telemetry · Open source under MIT</div>
-  <div class="hero-sub" style="margin-top:8px"><a href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest" style="color:var(--accent-2);font-weight:600">All downloads &amp; release notes →</a></div>
+  <div class="hero-sub" style="margin-top:8px"><a href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest" style="color:var(--accent-2);font-weight:600">All downloads &amp; release notes →</a> · <a href="blog/why-luffy-create.html" style="color:var(--accent-2);font-weight:600">Read the launch blog →</a></div>
 
   <!-- SCREENSHOT -->
   <div class="shot reveal">
@@ -375,16 +376,19 @@
 <section id="features">
   <div class="wrap">
     <div class="sec-head reveal">
-      <h2>Everything you need to animate ideas</h2>
-      <p>A complete editor with a frame-accurate timeline, rich elements, and pro-grade controls — no subscription, no cloud.</p>
+      <h2>Everything you need to create controlled videos</h2>
+      <p>A complete editor with timeline precision, AI-assisted edits, captions, media effects, animation tools, and local export — no subscription, no cloud lock-in.</p>
     </div>
     <div class="grid">
-      <div class="card reveal"><div class="ico">🎬</div><h3>Scene Timeline</h3><p>Frame-accurate, scene-based timeline with live playback preview and smooth transitions.</p></div>
-      <div class="card reveal"><div class="ico">✏️</div><h3>Rich Elements</h3><p>Text, shapes, arrows, syntax-highlighted code, images, video, audio, charts, tables, and icons.</p></div>
-      <div class="card reveal"><div class="ico">✨</div><h3>Animations</h3><p>Enter, loop, and exit effects with full easing control — typewriter, draw-path, flow, and more.</p></div>
-      <div class="card reveal"><div class="ico">🎨</div><h3>Image & Video Tools</h3><p>Brightness, contrast, exposure, color, crop, blur, and perspective warp — all non-destructive.</p></div>
-      <div class="card reveal"><div class="ico">🔀</div><h3>Scene Transitions</h3><p>Fade, slide, push, zoom, wipe, and morph between scenes with adjustable timing.</p></div>
-      <div class="card reveal"><div class="ico">📤</div><h3>Local Export</h3><p>Render MP4 video (720p / 1080p) and PNG / WebP stills entirely on your machine with FFmpeg.</p></div>
+      <div class="card reveal"><div class="ico">🎬</div><h3>Precise Timeline</h3><p>Scene blocks, media tracks, audio lanes, markers, transitions, and minute timing controls for real editing precision.</p></div>
+      <div class="card reveal"><div class="ico">🤖</div><h3>AI Edits</h3><p>Use structured prompts to add scenes, text, media, animation, background changes, and timeline audio with reviewable plans.</p></div>
+      <div class="card reveal"><div class="ico">💬</div><h3>Automatic Captions</h3><p>Generate captions from audio, edit cue timing, style subtitles, and place them exactly where your video needs them.</p></div>
+      <div class="card reveal"><div class="ico">✏️</div><h3>Rich Elements</h3><p>Text, gradients, shapes, arrows, icons, hand drawing, images, videos, audio, charts, tables, counters, and code blocks.</p></div>
+      <div class="card reveal"><div class="ico">🐍</div><h3>Python Sandbox</h3><p>Create charts, generated visuals, and Manim math animations directly inside the editor, then insert outputs in one click.</p></div>
+      <div class="card reveal"><div class="ico">🎨</div><h3>Media Styling</h3><p>Crop, blur, color adjustments, shadows, animated borders, perspective transforms, gradients, and background controls.</p></div>
+      <div class="card reveal"><div class="ico">✨</div><h3>Animations</h3><p>Enter, loop, and exit effects with easing, typewriter, bounce text, draw-path, flow, scale, move, and timing controls.</p></div>
+      <div class="card reveal"><div class="ico">🔀</div><h3>Smooth Transitions</h3><p>Fade, zoom, morph, slide, wipe, and push transitions designed for subtle scene changes and launch demos.</p></div>
+      <div class="card reveal"><div class="ico">📤</div><h3>Local Export</h3><p>Render MP4 video and PNG/WebP stills locally with FFmpeg. No upload, no watermark, no account requirement.</p></div>
     </div>
   </div>
 </section>
@@ -393,13 +397,13 @@
 <section id="how">
   <div class="wrap">
     <div class="sec-head reveal">
-      <h2>From blank canvas to MP4 in minutes</h2>
-      <p>A workflow that gets out of your way.</p>
+      <h2>From idea to exported video in minutes</h2>
+      <p>A workflow that keeps creative control visible.</p>
     </div>
     <div class="steps">
-      <div class="step reveal"><div class="num">01</div><h3>Create & Add</h3><p>Pick a canvas size, set a background, and drop in text, code, shapes, or media.</p></div>
-      <div class="step reveal"><div class="num">02</div><h3>Animate</h3><p>Add enter, loop, and exit animations. Arrange timing on the scene timeline.</p></div>
-      <div class="step reveal"><div class="num">03</div><h3>Export</h3><p>Preview, then export to MP4 or image — rendered offline, no upload required.</p></div>
+      <div class="step reveal"><div class="num">01</div><h3>Build Scenes</h3><p>Add text, media, backgrounds, captions, icons, shapes, charts, code, or sandbox-generated visuals.</p></div>
+      <div class="step reveal"><div class="num">02</div><h3>Control Motion</h3><p>Animate elements, tune transitions, style media, adjust audio, and align everything on the timeline.</p></div>
+      <div class="step reveal"><div class="num">03</div><h3>Preview & Export</h3><p>Preview the full video, refine timing, then export MP4 or still images locally with no upload required.</p></div>
     </div>
   </div>
 </section>
@@ -409,21 +413,21 @@
   <div class="wrap">
     <div class="sec-head reveal">
       <h2>Why creators choose Luffy Create</h2>
-      <p>Built for people who explain things — engineers, educators, and content creators who need clear, animated visuals fast.</p>
+      <p>Built for creators who want modern AI help without losing the precision of a real editor.</p>
     </div>
     <div class="prose-block reveal">
       <p>
-        Most video editors are built for filmmakers, not for technical storytelling. Luffy Create flips that.
-        It is a lightweight, <strong>open-source animated video editor</strong> designed around scenes, code, and diagrams —
-        so you can turn a concept into a polished MP4 without wrestling with a heavyweight timeline tool or paying for a subscription.
+        Many AI video tools hide the timeline and ask you to trust a black box. Luffy Create takes the opposite approach.
+        It is a lightweight, <strong>open-source AI video editor</strong> built around scenes, media, captions, code, and precise timeline control —
+        so you can create launch videos, tutorials, demos, explainers, and educational content without giving up ownership of the edit.
       </p>
       <ul>
         <li><strong>Free and open source</strong> — MIT licensed, no subscription, no watermark, no locked features.</li>
         <li><strong>Offline-first</strong> — every project and export runs locally; nothing is uploaded to a server.</li>
-        <li><strong>Made for technical content</strong> — syntax-highlighted code blocks, arrows, charts, and diagram-friendly shapes.</li>
-        <li><strong>Frame-accurate animation</strong> — enter, loop, and exit effects with precise timing on a scene timeline.</li>
-        <li><strong>Direct MP4 export</strong> — render 720p or 1080p video locally with FFmpeg, plus PNG and WebP stills.</li>
-        <li><strong>Lightweight</strong> — fast to install, fast to launch, low on system resources.</li>
+        <li><strong>AI where it helps</strong> — plan and apply structured edits without abstracting away the editor.</li>
+        <li><strong>Made for visual explanation</strong> — code blocks, captions, arrows, charts, media, gradients, and diagram-friendly shapes.</li>
+        <li><strong>Frame-accurate animation</strong> — enter, loop, exit, movement, and transition controls on a real scene timeline.</li>
+        <li><strong>Direct MP4 export</strong> — render video locally with FFmpeg, plus PNG and WebP stills.</li>
       </ul>
 
       <div class="seo-table-wrap">
@@ -435,12 +439,32 @@
             <tr><td>Price</td><td>Free &amp; open source</td><td>Paid / subscription</td></tr>
             <tr><td>Works offline</td><td>Yes, fully</td><td>Usually requires internet</td></tr>
             <tr><td>Account required</td><td>No</td><td>Yes</td></tr>
-            <tr><td>Code-block animations</td><td>Built in</td><td>Rarely</td></tr>
+            <tr><td>Timeline control</td><td>Detailed scene and media timing</td><td>Often hidden or simplified</td></tr>
+            <tr><td>AI edits</td><td>Structured, reviewable commands</td><td>Often prompt-only and unpredictable</td></tr>
+            <tr><td>Code and Manim tools</td><td>Built in</td><td>Rarely</td></tr>
             <tr><td>Watermark on export</td><td>None</td><td>Common on free tiers</td></tr>
             <tr><td>Data &amp; telemetry</td><td>None collected</td><td>Varies</td></tr>
             <tr><td>MP4 / PNG / WebP export</td><td>Yes, local</td><td>Often limited</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BLOG -->
+<section id="blog">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>Launch blog</h2>
+      <p>The story behind Luffy Create and why it is built around precision, timeline control, and local-first editing.</p>
+    </div>
+    <div class="prose-block reveal">
+      <div class="card" style="text-align:left">
+        <div class="ico">📝</div>
+        <h3>Why Luffy Create exists: precision, not AI noise</h3>
+        <p>Read the launch note about building a free, open-source AI video editor that keeps creators in control instead of hiding the edit behind a prompt.</p>
+        <a class="btn btn-ghost" href="blog/why-luffy-create.html" style="margin-top:16px">Read the blog →</a>
       </div>
     </div>
   </div>
@@ -522,7 +546,7 @@
       </details>
       <details>
         <summary>Which operating systems are supported? <span class="chev">+</span></summary>
-        <div class="faq-body">Version 1.0.0 ships a Windows installer. macOS and Linux builds are planned, and you can already run from source on any platform with Node.js installed.</div>
+        <div class="faq-body">Version 1.3 ships builds for Windows, macOS, and Linux. You can also run from source on any platform with Node.js installed.</div>
       </details>
       <details>
         <summary>Do I need an internet connection to use it? <span class="chev">+</span></summary>
@@ -533,8 +557,8 @@
         <div class="faq-body">You can export MP4 video at 720p or 1080p, and still images in PNG or WebP. All rendering is handled locally with FFmpeg.</div>
       </details>
       <details>
-        <summary>Is it good for code walkthroughs and tutorials? <span class="chev">+</span></summary>
-        <div class="faq-body">Yes. Luffy Create includes syntax-highlighted code blocks, typewriter and draw-path animations, arrows, shapes, and charts — purpose-built for technical and educational content.</div>
+        <summary>Is it only for technical videos? <span class="chev">+</span></summary>
+        <div class="faq-body">No. Luffy Create is strong for technical videos, tutorials, launch demos, educational videos, product walkthroughs, and social content that needs precise text, media, audio, captions, and animation control.</div>
       </details>
       <details>
         <summary>Why does Windows show an "Unknown publisher" warning? <span class="chev">+</span></summary>
@@ -553,7 +577,7 @@
   <div class="wrap">
     <div class="cta-band reveal">
       <h2>Ready to create?</h2>
-      <p>Download Luffy Create and start animating your ideas today — completely free, on any platform.</p>
+      <p>Download Luffy Create and start building precise videos today — completely free, open source, and local-first.</p>
       <div class="hero-cta" style="justify-content:center">
         <a class="btn btn-secondary btn-lg dl-win" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest">
       <svg width="25" height="25" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.1 10.4 4v7.3H3V5.1Zm0 13.8 7.4 1v-7.2H3v6.2ZM11.3 3.9 21 2.5v9H11.3V3.9Zm0 16.2 9.7 1.4v-9H11.3v7.6Z"/></svg>
@@ -579,13 +603,14 @@
 <footer>
   <div class="wrap foot-inner">
     <a class="brand" href="#top">
-      <img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public\images\luffy_create_logo.webp" alt="Luffy Create" style="width:80px;height:80px;border-radius:6px;" />
+      <img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy_create_logo.webp" alt="Luffy Create" style="width:80px;height:80px;border-radius:6px;" />
       Luffy Create
     </a>
     <div class="foot-links">
       <a href="https://github.com/Creatorsai-Lab/luffy-create">GitHub</a>
       <a href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest">Releases</a>
       <a href="https://github.com/Creatorsai-Lab/luffy-create/tree/main/docs#readme">Docs</a>
+      <a href="blog/why-luffy-create.html">Blog</a>
       <a href="https://github.com/Creatorsai-Lab/luffy-create/issues">Report a Bug</a>
     </div>
     <div class="copyright">© 2026 Creators AI Lab · Released under the MIT License</div>

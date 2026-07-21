@@ -75,14 +75,14 @@ function renderFadeTransition(
   from: HTMLCanvasElement,
   to: HTMLCanvasElement
 ): void {
-  // Draw old scene
-  ctx.globalAlpha = 1 - t
+  // Keep the outgoing scene fully drawn and dissolve the incoming scene over it.
+  // Fading both layers against the cleared canvas creates a dark blink.
+  ctx.globalAlpha = 1
   ctx.drawImage(from, 0, 0, w, h)
-  
-  // Draw new scene
+
   ctx.globalAlpha = t
   ctx.drawImage(to, 0, 0, w, h)
-  
+
   ctx.globalAlpha = 1
 }
 
@@ -126,20 +126,13 @@ function renderZoomTransition(
   from: HTMLCanvasElement,
   to: HTMLCanvasElement
 ): void {
-  // Small, stable center zoom. Large scale deltas feel shaky in an editor canvas.
-  const fromScale = 1 + t * 0.035
-  const toScale = 0.965 + t * 0.035
-  
-  // Draw old scene (zooming out and fading)
-  ctx.globalAlpha = 1 - t
-  ctx.save()
-  ctx.translate(w / 2, h / 2)
-  ctx.scale(fromScale, fromScale)
-  ctx.translate(-w / 2, -h / 2)
+  const toScale = 0.985 + t * 0.015
+
+  // Keep the source scene stable. The zoom transition should feel like the
+  // incoming scene eases forward, not like both scenes lurch at the cut.
+  ctx.globalAlpha = 1
   ctx.drawImage(from, 0, 0, w, h)
-  ctx.restore()
-  
-  // Draw new scene (zooming in and fading in)
+
   ctx.globalAlpha = t
   ctx.save()
   ctx.translate(w / 2, h / 2)
@@ -229,21 +222,14 @@ function renderMorphTransition(
   from: HTMLCanvasElement,
   to: HTMLCanvasElement
 ): void {
-  // Stable "smart" morph baseline: no directional drift, no hard push.
-  // When matching objects change size between scenes, this reads as a controlled
-  // grow/blend instead of a whole-slide shake.
-  const drawScaled = (img: HTMLCanvasElement, scale: number, alpha: number) => {
-    ctx.globalAlpha = alpha
-    ctx.save()
-    ctx.translate(w / 2, h / 2)
-    ctx.scale(scale, scale)
-    ctx.translate(-w / 2, -h / 2)
-    ctx.drawImage(img, 0, 0, w, h)
-    ctx.restore()
-  }
+  // Morph is a layout merge, not an extra camera move. If matching media is
+  // resized/repositioned between scenes, this dissolve reveals that real layout
+  // change without adding a separate whole-canvas zoom.
+  ctx.globalAlpha = 1
+  ctx.drawImage(from, 0, 0, w, h)
 
-  drawScaled(from, 1 + t * 0.025, 1 - t)
-  drawScaled(to, 0.965 + t * 0.035, t)
+  ctx.globalAlpha = t
+  ctx.drawImage(to, 0, 0, w, h)
 
   ctx.globalAlpha = 1
 }
