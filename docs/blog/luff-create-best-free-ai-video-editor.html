@@ -3,219 +3,432 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Why Luffy Create Exists - Precision, Not AI Noise</title>
-<meta name="description" content="The launch story of Luffy Create: a free, open-source AI video editor built around timeline control, offline editing, captions, Python sandbox tools, and precise video creation." />
+<title>Luffy Create: Best Free Open Source AI Video Editor for 2026</title>
+<meta name="description" content="Meet Luffy Create, a free open-source AI video editor for creators who want timeline control, offline editing, captions, Python and Manim animation tools, media styling, and local MP4 export." />
 <meta name="author" content="Creators AI Lab" />
 <meta name="robots" content="index, follow" />
-<meta name="theme-color" content="#6c4ff0" />
+<meta name="theme-color" content="#7430f0" />
 <link rel="canonical" href="https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html" />
 
-<meta property="og:title" content="Why Luffy Create Exists - Precision, Not AI Noise" />
-<meta property="og:description" content="A launch note about building a free, open-source AI video editor that keeps creators in control." />
+<meta property="og:title" content="Luffy Create: Best Free Open Source AI Video Editor for 2026" />
+<meta property="og:description" content="A free, local-first AI video editor built for creators who want precision, timeline control, captions, Python tools, and direct export." />
 <meta property="og:image" content="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy-ui-screenshot.webp" />
-<meta property="og:url" content="https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html />
+<meta property="og:url" content="https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html" />
 <meta property="og:type" content="article" />
+<meta property="og:site_name" content="Luffy Create" />
 
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Why Luffy Create Exists - Precision, Not AI Noise" />
-<meta name="twitter:description" content="A free, open-source AI video editor built for timeline control, offline editing, and precise video creation." />
+<meta name="twitter:title" content="Luffy Create: Best Free Open Source AI Video Editor for 2026" />
+<meta name="twitter:description" content="Free, open source, offline-first, and built around timeline control instead of AI guesswork." />
 <meta name="twitter:image" content="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy-ui-screenshot.webp" />
 
 <link rel="icon" href="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../style.css" />
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
-  "headline": "Why Luffy Create Exists: Precision, Not AI Noise",
-  "description": "A launch note about Luffy Create, a free and open-source AI video editor built around timeline control, offline editing, captions, Python sandbox tools, and local export.",
+  "headline": "Luffy Create: Best Free Open Source AI Video Editor for 2026",
+  "description": "A launch article about Luffy Create, a free open-source AI video editor built around timeline control, offline editing, captions, Python and Manim animation tools, media styling, and local export.",
   "image": "https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy-ui-screenshot.webp",
   "author": { "@type": "Organization", "name": "Creators AI Lab" },
-  "publisher": { "@type": "Organization", "name": "Creators AI Lab" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Creators AI Lab",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy_create_logo.webp"
+    }
+  },
   "datePublished": "2026-07-21",
   "dateModified": "2026-07-22",
   "mainEntityOfPage": "https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html"
 }
 </script>
 
-<link rel="stylesheet" href="../style.css">
-
 <style>
-
-  header { padding: 86px 0 38px; }
-  h1 {
-    font-size: clamp(38px, 7vw, 72px);
-    line-height: 1.04;
-    letter-spacing: -1px;
-    font-weight: 900;
-    margin-bottom: 22px;
+  .blog-hero {
+    padding: 72px 0 40px;
   }
-  .lead {
-    max-width: 760px;
+
+  .blog-hero h1 {
+    max-width: 980px;
+    margin-inline: auto;
+  }
+
+  .blog-hero .lead {
+    max-width: 790px;
+    margin: 0 auto;
+    text-align: center;
     color: var(--muted);
     font-size: clamp(17px, 2vw, 21px);
   }
-  .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    border-radius: 11px;
-    padding: 12px 18px;
-    font-size: 14px;
-    font-weight: 750;
-    transition: transform 0.16s, background 0.18s;
-  }
-  .btn-primary { background: #6c4ff0; color: white; }
-  .btn-secondary { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); }
-  .btn:hover { transform: translateY(-2px); }
 
-  .cover {
-    margin: 34px 0 54px;
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    overflow: hidden;
-    background: var(--panel);
-    box-shadow: 0 28px 90px rgba(0,0,0,0.45);
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 30px;
   }
-  .cover img { display: block; width: 100%; }
+
+  .blog-cover {
+    margin: 34px auto 0;
+    overflow: hidden;
+  }
+
+  .blog-cover img {
+    display: block;
+    width: 100%;
+  }
+
+  .article-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 42px;
+    align-items: start;
+    padding: 26px 0 78px;
+  }
+
   article {
     max-width: 820px;
-    margin: 0 auto;
-    padding-bottom: 72px;
   }
-  article h2 {
-    font-size: clamp(26px, 4vw, 38px);
-    line-height: 1.2;
-    margin: 46px 0 14px;
-    letter-spacing: -0.4px;
-  }
-  article h3 { font-size: 22px; margin: 32px 0 10px; }
-  article p { color: var(--muted); margin: 16px 0; font-size: 17px; }
-  article strong { color: var(--text); }
-  article ul { display: grid; gap: 11px; margin: 18px 0 26px; list-style: none; }
-  article li {
+
+  article p {
     color: var(--muted);
-    padding-left: 28px;
+    margin: 16px 0;
+    font-size: 17px;
+  }
+
+  article strong {
+    color: var(--text);
+  }
+
+  article h2 {
+    font-size: clamp(28px, 4vw, 42px);
+    line-height: 1.16;
+    margin: 50px 0 14px;
+  }
+
+  article h3 {
+    font-size: 22px;
+    margin: 30px 0 10px;
+  }
+
+  article ul {
+    display: grid;
+    gap: 12px;
+    margin: 18px 0 28px;
+    list-style: none;
+  }
+
+  article li {
     position: relative;
+    padding-left: 30px;
+    color: var(--muted);
     font-size: 16px;
   }
+
   article li::before {
-    content: "✓";
+    content: "";
     position: absolute;
     left: 0;
-    top: 0;
-    color: var(--accent-secondary);
-    font-weight: 900;
+    top: 10px;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 0 5px rgba(116, 48, 240, 0.11);
   }
-  .note {
+
+  .reader-note {
     margin: 34px 0;
-    padding: 22px;
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    background: linear-gradient(180deg, rgba(31,22,64,0.95), rgba(26,16,51,0.95));
+    padding: 24px;
+    background: linear-gradient(135deg, #ffffff, #e8e2f6);
   }
-  .note p { margin: 0; color: var(--text); }
-  .cta {
-    margin-top: 44px;
-    padding: 30px;
-    border-radius: 20px;
-    background: #fff;
-    color: #411aad;
-    text-align: center;
+
+  .reader-note p {
+    margin: 0;
+    color: var(--text);
+    font-size: 18px;
   }
-  .cta h2 { margin: 0 0 10px; color: #411aad; }
-  .cta p { color: #4f4784; margin-bottom: 22px; }
-  footer {
-    border-top: 1px solid var(--border);
-    background: #1c1a30;
-    padding: 34px 0;
+
+  .quick-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin: 24px 0 34px;
+  }
+
+  .quick-list div {
+    padding: 18px;
+  }
+
+  .quick-list strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .quick-list span {
     color: var(--muted);
     font-size: 14px;
   }
-  .foot { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+  .compare {
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+    border-radius: 14px;
+    margin: 24px 0 32px;
+    background: white;
+    border: 1px solid var(--border);
+  }
+
+  .compare th,
+  .compare td {
+    padding: 14px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .compare th {
+    color: var(--text);
+    background: #e7e0f5;
+  }
+
+  .compare td {
+    color: var(--muted);
+  }
+
+  .compare tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .toc {
+    position: sticky;
+    top: 86px;
+    padding: 20px;
+  }
+
+  .toc strong {
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  .toc a {
+    display: block;
+    color: var(--muted);
+    font-size: 14px;
+    margin: 8px 0;
+  }
+
+  .toc a:hover {
+    color: var(--accent);
+  }
+
+  .blog-cta {
+    margin-top: 48px;
+    padding: 34px;
+    text-align: center;
+    background: white;
+  }
+
+  .blog-cta h2 {
+    margin-top: 0;
+    color: #411aad;
+  }
+
+  .blog-cta p {
+    max-width: 620px;
+    margin: 0 auto 22px;
+  }
+
+  .foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 860px) {
+    .article-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .toc {
+      position: static;
+      order: -1;
+    }
+
+    .quick-list {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 </head>
 <body>
-
-
-<header class="wrap">
-  <h1>Why Luffy Create? Precision, Not AI Noise.</h1>
-  <p class="lead">Luffy Create is a free, open-source AI video editor built for creators who want modern assistance without losing control of the timeline, media, audio, captions, and final export.</p>
-  <div class="hero-actions">
-    <a class="btn btn-primary" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest">Download Luffy Create</a>
-    <a class="btn btn-secondary" href="https://github.com/Creatorsai-Lab/luffy-create">View source on GitHub</a>
+<nav>
+  <div class="nav-inner wrap">
+    <a class="brand" href="../index.html">
+      <img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy_create_logo.webp" alt="Luffy Create logo" />
+      Luffy Create
+    </a>
+    <div class="nav-links">
+      <a href="../index.html#features">Features</a>
+      <a href="../index.html#docs">Docs</a>
+      <a href="https://github.com/Creatorsai-Lab/luffy-create">GitHub</a>
+      <a class="btn-primary" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest">Download</a>
+    </div>
   </div>
-  <div class="cover">
-    <img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy-ui-screenshot.webp" alt="Luffy Create editor screenshot" />
+</nav>
+
+<header class="blog-hero wrap">
+  <h1>Best Free <span class="grad-text">Open Source AI Video Editor</span> for Creators Who Need Control</h1>
+  <p class="lead">
+    Luffy Create is a free, open-source AI video editor built for creators who want modern assistance without losing control of the timeline, media, audio, captions, styling, and final export.
+  </p>
+  <div class="blog-cover surface-panel">
+    <img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy-ui-screenshot.webp" alt="Luffy Create video editor timeline and canvas interface" />
   </div>
 </header>
 
-<article>
-  <p>
-    Video creation is moving fast. Every week, new AI video tools appear with bigger promises:
-    write a prompt, wait a moment, and receive a finished video. That can be impressive, but it also creates a problem for real editing work.
-  </p>
-  <p>
-    A serious video is not only an output. It is timing, visual hierarchy, audio placement, caption readability, transitions, motion, and small decisions that make the final result feel intentional.
-    When those controls disappear behind a prompt, creators lose the part of editing that actually shapes the message.
-  </p>
+<main class="wrap article-layout">
+  <article>
+    <p>
+      Video creation is changing quickly. Every week, a new AI video tool promises to turn a prompt into a finished video. That can be useful for fast drafts, but serious editing still needs something a prompt cannot fully replace: precision.
+    </p>
+    <p>
+      A good video is built from timing, layout, audio placement, readable captions, transitions, motion, visual hierarchy, and many small choices that make the final result feel intentional. When those controls disappear behind an AI prompt, the creator loses the part of editing that shapes the message.
+    </p>
 
-  <div class="note">
-    <p><strong>Luffy Create is built on a simple belief:</strong> AI should help the editor, not replace the editor.</p>
-  </div>
+    <div class="reader-note surface-panel">
+      <p><strong>Luffy Create is built on a simple idea:</strong> use AI where it helps, but keep the editor in control.</p>
+    </div>
 
-  <h2>The editor-first principle</h2>
-  <p>
-    Luffy Create starts with the timeline. Scenes are visible. Media is visible. Audio is placed where it belongs. Captions can be styled.
-    Animations can be adjusted. Transitions can be tuned. The user can touch the edit directly.
-  </p>
-  <p>
-    AI edits are added on top of that foundation. They can add scenes, text, media, backgrounds, animations, and audio, but the result still lands inside a real editor where you can inspect and refine every choice.
-  </p>
+    <h2 id="why">Why Luffy Create exists</h2>
+    <p>
+      Luffy Create was created for people who want the speed of modern video tools without giving up the practical control of a real editor. It starts with the timeline. Scenes are visible. Media is visible. Audio is placed where it belongs. Captions can be styled. Animations can be adjusted. Transitions can be tuned.
+    </p>
+    <p>
+      AI Edits are added on top of that foundation. They can help create scenes, place text, insert media, set backgrounds, add animations, and use named assets. The important difference is that the result still lands inside a real editor where you can inspect and refine every choice.
+    </p>
 
-  <h2>What makes Luffy Create different</h2>
-  <ul>
-    <li><strong>Free and open source:</strong> no subscription, no watermark, no locked export tier.</li>
-    <li><strong>Offline-first:</strong> projects and exports stay on your device.</li>
-    <li><strong>Precise timeline control:</strong> scene blocks, media timing, audio lanes, transitions, and captions stay visible.</li>
-    <li><strong>AI-assisted editing:</strong> structured AI edits help with repetitive work without hiding the full edit.</li>
-    <li><strong>Python and Manim sandbox:</strong> generate charts, diagrams, and mathematical animations inside the editor workflow.</li>
-    <li><strong>Rich creative controls:</strong> text gradients, shapes, hand drawing, icons, shadows, perspective transforms, media adjustments, and smooth transitions.</li>
-    <li><strong>Local export:</strong> render MP4 videos and still images directly from your machine.</li>
-  </ul>
+    <h2 id="different">What makes it different</h2>
+    <div class="quick-list">
+      <div class="surface-panel">
+        <strong>Free and open source</strong>
+        <span>No subscription, no watermark, no locked export tier.</span>
+      </div>
+      <div class="surface-panel">
+        <strong>Local and offline-first</strong>
+        <span>Your projects and exports stay on your device.</span>
+      </div>
+      <div class="surface-panel">
+        <strong>Timeline-first AI edits</strong>
+        <span>AI can assist without hiding the scene and media structure.</span>
+      </div>
+      <div class="surface-panel">
+        <strong>Built for explainers</strong>
+        <span>Text, captions, arrows, charts, code visuals, and Manim workflows.</span>
+      </div>
+    </div>
 
-  <h2>Who it is for</h2>
-  <p>
-    Luffy Create is useful for launch videos, product demos, educational videos, technical explainers, coding walkthroughs, social clips, and visual presentations.
-    It is especially useful when you need the speed of a modern editor but still care about exact positioning, timing, and readable structure.
-  </p>
+    <p>
+      Luffy Create is not trying to be another over-abstracted AI video generator. It is a practical video creation workspace where AI, code, media, and manual editing work together.
+    </p>
 
-  <h2>Why local and open source matters</h2>
-  <p>
-    Creators should not need to upload every draft to a cloud editor just to make a video. A local-first editor is faster to trust, easier to inspect, and better for private work.
-    Open source also means the tool can improve in public instead of hiding behind a black box.
-  </p>
+    <h2 id="features">Main features readers should know</h2>
+    <ul>
+      <li><strong>Timeline video editing:</strong> scene blocks, media timing, audio lanes, transitions, and preview controls.</li>
+      <li><strong>AI-assisted editing:</strong> structured AI Edits for adding scenes, text, media, backgrounds, animations, and audio.</li>
+      <li><strong>Automatic captions:</strong> generate captions from timeline audio and style them for the final video.</li>
+      <li><strong>Text and design controls:</strong> gradients, font weights, shadows, animations, borders, icons, shapes, and hand drawing.</li>
+      <li><strong>Image and video styling:</strong> crop, adjustment controls, perspective transforms, border radius, shadows, and animated gradient borders.</li>
+      <li><strong>Python and Manim sandbox:</strong> create charts, visual explanations, and math animations from code inside the editor workflow.</li>
+      <li><strong>Local export:</strong> render MP4 videos and still images directly from your machine.</li>
+    </ul>
 
-  <h2>The road ahead</h2>
-  <p>
-    This first launch is only the beginning. The goal is to keep improving the core editor, timeline, AI edits, export quality, captions, templates, and animation control while keeping the product lightweight and accessible.
-  </p>
-  <p>
-    Luffy Create is not trying to be another over-abstracted AI video generator. It is trying to become a practical video creation workspace where AI, code, media, and manual editing work together.
-  </p>
+    <h2 id="comparison">Luffy Create vs typical AI video editors</h2>
+    <table class="compare">
+      <thead>
+        <tr>
+          <th>Need</th>
+          <th>Luffy Create</th>
+          <th>Typical online AI editors</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Price</td>
+          <td>Free and open source</td>
+          <td>Often subscription-based or limited by credits</td>
+        </tr>
+        <tr>
+          <td>Workflow</td>
+          <td>Timeline-first with AI assistance</td>
+          <td>Often prompt-first with limited manual control</td>
+        </tr>
+        <tr>
+          <td>Privacy</td>
+          <td>Local projects and offline editing</td>
+          <td>Usually cloud upload or account-based workflows</td>
+        </tr>
+        <tr>
+          <td>Precision</td>
+          <td>Manual control over text, media, audio, timing, and export</td>
+          <td>Can be harder to inspect and tune exact details</td>
+        </tr>
+        <tr>
+          <td>Technical visuals</td>
+          <td>Python and Manim tools are part of the workflow</td>
+          <td>Often requires external tools</td>
+        </tr>
+      </tbody>
+    </table>
 
-  <div class="cta">
-    <h2>Try Luffy Create</h2>
-    <p>Download the latest release, build a small scene, test the timeline, and share feedback on GitHub.</p>
-    <a class="btn btn-primary" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest">Download latest release</a>
-  </div>
-</article>
+    <h2 id="who">Who should try it</h2>
+    <p>
+      Luffy Create is useful for launch videos, product demos, educational videos, technical explainers, coding walkthroughs, social clips, visual presentations, and tutorials. It is especially useful when you need modern editing speed but still care about exact positioning, timing, captions, and readable structure.
+    </p>
 
-<footer>
+    <h2 id="local">Why local and open source matters</h2>
+    <p>
+      Creators should not need to upload every draft to a cloud editor just to make a video. A local-first editor is easier to trust, easier to inspect, and better for private work. Open source also means the tool can improve in public instead of hiding behind a black box.
+    </p>
+
+    <h2 id="road">The road ahead</h2>
+    <p>
+      This first launch version is only the beginning. The goal is to keep improving the core editor, timeline, AI Edits, export quality, captions, templates, transitions, and animation control while keeping the product lightweight and accessible.
+    </p>
+    <p>
+      The product direction is clear: AI should reduce repetitive work, not remove creative control.
+    </p>
+
+    <div class="blog-cta surface-panel">
+      <h2>Try Luffy Create</h2>
+      <p>Download the latest release, build a small scene, test the timeline, and share feedback on GitHub.</p>
+      <a class="btn-primary" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest">Download latest release</a>
+    </div>
+  </article>
+
+  <aside class="toc surface-panel" aria-label="Article sections">
+    <strong>In this article</strong>
+    <a href="#why">Why it exists</a>
+    <a href="#different">What is different</a>
+    <a href="#features">Main features</a>
+    <a href="#comparison">Comparison</a>
+    <a href="#who">Who should try it</a>
+    <a href="#local">Local and open source</a>
+    <a href="#road">Road ahead</a>
+  </aside>
+</main>
+
+<footer class="site-footer">
   <div class="wrap foot">
     <span>© 2026 Creators AI Lab · Released under the MIT License</span>
     <span><a href="../index.html">Home</a> · <a href="https://github.com/Creatorsai-Lab/luffy-create/issues">Report a bug</a></span>

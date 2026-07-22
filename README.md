@@ -12,7 +12,7 @@ Create launch videos, tutorials, explainers, code walkthroughs, product demos, a
 [![License](https://img.shields.io/github/license/Creatorsai-Lab/luffy-create?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/Creatorsai-Lab/luffy-create/releases/latest)
 
-[🌏︎ Website](https://creatorsai-lab.github.io/luffy-create/) · [⇊ Download](https://github.com/Creatorsai-Lab/luffy-create/releases/latest) · [Launch Blog](https://creatorsai-lab.github.io/luffy-create/blog/why-luffy-create.html) · [ 🖿 User GUIDE](https://github.com/Creatorsai-Lab/luffy-create/tree/main/docs#readme)
+[🌏︎ Website](https://creatorsai-lab.github.io/luffy-create/) · [⇊ Download](https://github.com/Creatorsai-Lab/luffy-create/releases/latest) · [Launch Blog](https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html) · [ 🖿 User GUIDE](https://github.com/Creatorsai-Lab/luffy-create/tree/main/docs#readme)
 </div>
 
 ---

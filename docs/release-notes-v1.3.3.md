@@ -62,7 +62,7 @@ This release prepares Luffy Create for public launch with stronger AI editing wo
 ## Documentation And Launch Assets
 
 - Updated the GitHub Pages homepage with the improved product positioning and feature list.
-- Added `docs/blog/why-luffy-create.html` as the first launch blog page.
+- Added `docs/blog/luff-create-best-free-ai-video-editor.html` as the first launch blog page.
 - Updated README feature descriptions, install notes, docs links, and public messaging.
 - Added release notes for this launch-ready version.
 
