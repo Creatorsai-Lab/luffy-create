@@ -8,12 +8,12 @@
 <meta name="author" content="Creators AI Lab" />
 <meta name="robots" content="index, follow" />
 <meta name="theme-color" content="#6c4ff0" />
-<link rel="canonical" href="https://creatorsai-lab.github.io/luffy-create/blog/why-luffy-create.html" />
+<link rel="canonical" href="https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html" />
 
 <meta property="og:title" content="Why Luffy Create Exists - Precision, Not AI Noise" />
 <meta property="og:description" content="A launch note about building a free, open-source AI video editor that keeps creators in control." />
 <meta property="og:image" content="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy-ui-screenshot.webp" />
-<meta property="og:url" content="https://creatorsai-lab.github.io/luffy-create/blog/why-luffy-create.html" />
+<meta property="og:url" content="https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html />
 <meta property="og:type" content="article" />
 
 <meta name="twitter:card" content="summary_large_image" />
@@ -36,66 +36,17 @@
   "author": { "@type": "Organization", "name": "Creators AI Lab" },
   "publisher": { "@type": "Organization", "name": "Creators AI Lab" },
   "datePublished": "2026-07-21",
-  "dateModified": "2026-07-21",
-  "mainEntityOfPage": "https://creatorsai-lab.github.io/luffy-create/blog/why-luffy-create.html"
+  "dateModified": "2026-07-22",
+  "mainEntityOfPage": "https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html"
 }
 </script>
 
+<link rel="stylesheet" href="../style.css">
+
 <style>
-  :root {
-    --bg: #120a26;
-    --bg-2: #1a1033;
-    --panel: #1f1640;
-    --accent: #6c4ff0;
-    --accent-2: #8b6cff;
-    --text: #f4f1ff;
-    --muted: #b6acd6;
-    --border: rgba(140,108,255,0.2);
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body {
-    font-family: Inter, system-ui, sans-serif;
-    background:
-      radial-gradient(70vw 52vw at 75% -10%, rgba(108,79,240,0.28), transparent 62%),
-      radial-gradient(60vw 48vw at 8% 20%, rgba(139,108,255,0.16), transparent 58%),
-      var(--bg);
-    color: var(--text);
-    line-height: 1.7;
-  }
-  a { color: inherit; text-decoration: none; }
-  .wrap { max-width: 1050px; margin: 0 auto; padding: 0 24px; }
-  nav {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    backdrop-filter: blur(14px);
-    background: rgba(18,10,38,0.76);
-    border-bottom: 1px solid var(--border);
-  }
-  .nav-inner { display: flex; align-items: center; justify-content: space-between; min-height: 64px; gap: 18px; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; }
-  .brand img { width: 34px; height: 34px; border-radius: 8px; }
-  .nav-links { display: flex; align-items: center; gap: 20px; color: var(--muted); font-size: 14px; font-weight: 600; }
-  .nav-links a:hover { color: var(--text); }
-  @media (max-width: 680px) { .nav-links { gap: 12px; font-size: 13px; } }
 
   header { padding: 86px 0 38px; }
-  .eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid var(--border);
-    background: rgba(108,79,240,0.12);
-    color: #c8bbff;
-    border-radius: 999px;
-    padding: 7px 13px;
-    font-size: 13px;
-    font-weight: 700;
-    margin-bottom: 24px;
-  }
   h1 {
-    max-width: 880px;
     font-size: clamp(38px, 7vw, 72px);
     line-height: 1.04;
     letter-spacing: -1px;
@@ -118,7 +69,7 @@
     font-weight: 750;
     transition: transform 0.16s, background 0.18s;
   }
-  .btn-primary { background: #fff; color: #411aad; }
+  .btn-primary { background: #6c4ff0; color: white; }
   .btn-secondary { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); }
   .btn:hover { transform: translateY(-2px); }
 
@@ -157,7 +108,7 @@
     position: absolute;
     left: 0;
     top: 0;
-    color: var(--accent-2);
+    color: var(--accent-secondary);
     font-weight: 900;
   }
   .note {
@@ -189,24 +140,10 @@
 </style>
 </head>
 <body>
-<nav>
-  <div class="wrap nav-inner">
-    <a class="brand" href="../index.html">
-      <img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy_create_logo.webp" alt="Luffy Create" />
-      Luffy Create
-    </a>
-    <div class="nav-links">
-      <a href="../index.html">Home</a>
-      <a href="../index.html#features">Features</a>
-      <a href="../index.html#docs">Docs</a>
-      <a href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest">Download</a>
-    </div>
-  </div>
-</nav>
+
 
 <header class="wrap">
-  <span class="eyebrow">Launch note · July 21, 2026</span>
-  <h1>Why Luffy Create exists: precision, not AI noise.</h1>
+  <h1>Why Luffy Create? Precision, Not AI Noise.</h1>
   <p class="lead">Luffy Create is a free, open-source AI video editor built for creators who want modern assistance without losing control of the timeline, media, audio, captions, and final export.</p>
   <div class="hero-actions">
     <a class="btn btn-primary" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest">Download Luffy Create</a>
