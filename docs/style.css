@@ -42,7 +42,7 @@ nav {
 @media (max-width: 680px) { .nav-links { gap: 12px; font-size: 13px; } }
 
 /* Texts Classes */
-a{text-decoration: none;}
+a{text-decoration: none; color: #411aad;}
 
 h1 {
 font-size: clamp(2.375rem, 1.589rem + 3.22vw, 4.5rem);
