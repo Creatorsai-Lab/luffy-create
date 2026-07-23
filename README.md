@@ -31,6 +31,15 @@
 
 Luffy Create has been built with the principle of providing a lightweight and fast editing experience. **Goal:** Our aim is to make 'Luffy Create' the best editing app for **_animations, transitions, and effects_**.
 
+Luffy Create specially built for technical and educational content — ML diagrams, code walkthroughs, system design animations, and more. Think PowerPoint, but with frame-accurate animation and direct MP4 export.
+
+[![Watch the video](https://youtu.be/nHnfZ-duLA8?si=Q-XJrR1zRMCzIfW2)](https://youtu.be/nHnfZ-duLA8?si=Q-XJrR1zRMCzIfW2)
+<p align="center">
+  <a href="https://youtu.be/nHnfZ-duLA8?si=Q-XJrR1zRMCzIfW2">
+    <img src="https://youtube.com" alt="Watch the video" width="560">
+  </a>
+</p>
+
 
 
 ## Features
