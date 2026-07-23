@@ -14,16 +14,16 @@
 <table style="width: 100%; border-collapse: collapse; border: 1px solid #cccccc;">
     <tr>
       <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
-        <a href="https://creatorsai-lab.github.io/luffy-create/">🌏︎ Website</a>
+        <a href="https://creatorsai-lab.github.io/luffy-create/" style="text-decoration: none;>🌏︎ Website</a>
       </td>
       <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
-        <a href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest">[↧] Download</a>
+        <a href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest" style="text-decoration: none;>[↧] Download</a>
       </td>
       <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
-        <a href="https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html">✉ Blogs </a>
+        <a href="https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html" style="text-decoration: none;>✉ Blogs </a>
       </td>
       <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
-        <a href="https://github.com/Creatorsai-Lab/luffy-create/tree/main/docs#readme">🗐 User Guide</a>
+        <a href="https://github.com/Creatorsai-Lab/luffy-create/tree/main/docs#readme" style="text-decoration: none;>🗐 User Guide</a>
       </td>
     </tr>
 </table>
