@@ -4,15 +4,30 @@
 
 # Luffy Create
 
-**A free, open-source AI video editor with real timeline control.**
-
-Create launch videos, tutorials, explainers, code walkthroughs, product demos, and social clips with local offline editing, AI-assisted scene edits, captions, Python and Manim animation tools, precise timeline control, and direct MP4 export.
+<span style="color: #7d33ff; font-weight: bold; ">Luffy Create</span> is a **free** and **open source** AI _video editing, video creation, image editing_ and _graphic designing_ web **app**.
 
 [![Release](https://img.shields.io/github/v/release/Creatorsai-Lab/luffy-create?label=download&style=flat-square)](https://github.com/Creatorsai-Lab/luffy-create/releases/latest)
 [![License](https://img.shields.io/github/license/Creatorsai-Lab/luffy-create?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/Creatorsai-Lab/luffy-create/releases/latest)
 
-[🌏︎ Website](https://creatorsai-lab.github.io/luffy-create/) · [⇊ Download](https://github.com/Creatorsai-Lab/luffy-create/releases/latest) · [Launch Blog](https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html) · [ 🖿 User GUIDE](https://github.com/Creatorsai-Lab/luffy-create/tree/main/docs#readme)
+
+<table style="width: 100%; border-collapse: collapse; border: 1px solid #cccccc;">
+    <tr>
+      <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
+        <a href="https://creatorsai-lab.github.io/luffy-create/">🌏︎ Website</a>
+      </td>
+      <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
+        <a href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest">[↧] Download</a>
+      </td>
+      <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
+        <a href="https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html">✉ Blogs </a>
+      </td>
+      <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
+        <a href="https://github.com/Creatorsai-Lab/luffy-create/tree/main/docs#readme">🗐 User Guide</a>
+      </td>
+    </tr>
+</table>
+
 </div>
 
 ---
