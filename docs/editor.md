@@ -1,10 +1,13 @@
-# Luffy Editor — User Guide
+# 'Luffy Create' Editor Overview
 
-**Luffy Editor** is a desktop video creation tool built for technical and educational content — ML diagrams, code walkthroughs, system design animations, and more. Think PowerPoint, but with frame-accurate animation and direct MP4 export.
+**Luffy Create** is a **_free_** and **_open source_** AI _video editing, video creation, image editing_ and _graphic designing_ web **app**.
 
----
+Luffy Create has been built with the principle of providing a lightweight and fast editing experience. **Goal:** Our aim is to make 'Luffy Create' the best editing app for **_animations, transitions, and effects_**.
 
-## Table of Contents
+Luffy Create specially built for technical and educational content — ML diagrams, code walkthroughs, system design animations, and more. Think PowerPoint, but with frame-accurate animation and direct MP4 export.
+
+
+### Table of Contents
 
 | Guide | What's covered |
 |---|---|
@@ -23,17 +26,17 @@
 ## Interface Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Header: logo · project switcher · window controls           │
-├──────────────┬──────────────────────────────┬───────────────┤
-│              │                              │               │
-│  Left        │        Canvas                │  Right        │
-│  Sidebar     │   (slide editing area)       │  Sidebar      │
-│  (Tools)     │                              │  (Properties) │
-│              │                              │               │
-├──────────────┴──────────────────────────────┴───────────────┤
-│  Timeline: scenes · playhead · playback controls             │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  logo · project switcher                                window controls │
+├──────────────┬──────────────────────────────┬──────────────┬────────────┤
+│              │                              │              │ AI Edits   │ 
+│  Left        │        Canvas                │  Right       │ Panel      │
+│  Sidebar     │   (slide editing area)       │  Sidebar     │            │
+│  (Tools)     │                              │  (Properties)│            │
+│              │                              │              │            │
+├──────────────┴──────────────────────────────┴───────────────────────────┤
+│            Timeline: scenes · playhead · playback controls              │            
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Left Sidebar — Tools
@@ -50,6 +53,9 @@ The main editing surface. Elements are placed and manipulated here.
 
 ### Right Sidebar — Properties
 Shows controls for whichever tool or element is active. Changes apply in real time. This is where most polish happens: text styling, gradients, shadows, border controls, crop, perspective, audio fades, video adjustments, and animation timing all live in the property panels.
+
+### AI Edits Panel (Right to Properties Sidebar)
+Chat with AI to edit the video
 
 ### Timeline
 - **Scenes** appear as labeled segments across the bottom

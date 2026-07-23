@@ -1,17 +1,12 @@
 <div align="center">
-
 <img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy_create_logo.webp" alt="Luffy Create" width="84" />
 
-# Luffy Create Application User Guide
-
+# Luffy Create User Guide
 **Everything you need to go from a blank canvas to a professional video**
-
-[🌏︎ Website](https://creatorsai-lab.github.io/luffy-create/) · [⇊ Download](https://github.com/Creatorsai-Lab/luffy-create/releases/latest) · [ 🖿 Repository](https://github.com/Creatorsai-Lab/luffy-create)
-
 </div>
 
 
-Welcome to the Luffy Create documentation. The guides below are organized by topic — pick a card to jump in. New here? Start with **Overview**, then **Elements**, then **Animations**.
+Welcome to the **Luffy Create** documentation. The guides below are organized by topic — pick a card to jump in. New here? Start with **Overview**, then **Elements**, then **Animations**.
 
 ##  Documentation
 
@@ -121,10 +116,3 @@ Create Matplotlib graphs and Manim math animations, then save or insert outputs.
 | 9 | [AI Agent](ai_agent.md) | Prepare validated edits from natural-language requests |
 | 10 | [Python Sandbox](python_sandbox.md) | Generate graph and math animation assets |
 
----
-
-<div align="center">
-
-Made with care for creators of technical content · [MIT License](https://github.com/Creatorsai-Lab/luffy-create/blob/main/LICENSE)
-
-</div>

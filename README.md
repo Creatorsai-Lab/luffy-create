@@ -4,7 +4,7 @@
 
 # Luffy Create
 
-<span style="color: #7d33ff; font-weight: bold; ">Luffy Create</span> is a **free** and **open source** AI _video editing, video creation, image editing_ and _graphic designing_ web **app**.
+**Luffy Create** is a **_free_** and **_open source_** AI _video editing, video creation, image editing_ and _graphic designing_ web **app**.
 
 [![Release](https://img.shields.io/github/v/release/Creatorsai-Lab/luffy-create?label=download&style=flat-square)](https://github.com/Creatorsai-Lab/luffy-create/releases/latest)
 [![License](https://img.shields.io/github/license/Creatorsai-Lab/luffy-create?style=flat-square)](LICENSE)
@@ -27,10 +27,11 @@
       </td>
     </tr>
 </table>
-
 </div>
 
----
+Luffy Create has been built with the principle of providing a lightweight and fast editing experience. **Goal:** Our aim is to make 'Luffy Create' the best editing app for **_animations, transitions, and effects_**.
+
+
 
 ## Features
 
