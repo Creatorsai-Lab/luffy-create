@@ -16,6 +16,14 @@ import SubtitleModal from './subtitle/SubtitleModal'
 import { PythonSandboxModal } from './pythonSandbox'
 
 const AUTO_SAVE_DELAY = 2500
+const OPTIONS_MIN_WIDTH = 220
+const OPTIONS_MAX_WIDTH = 380
+const AI_MIN_WIDTH = 320
+const AI_MAX_WIDTH = 480
+
+function clampPanelWidth(width: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, Math.round(width)))
+}
 
 // ── Error boundary ─────────────────────────────────────────────────────────────
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -50,26 +58,35 @@ export default function App() {
   } = useEditorStore()
 
   const [ready, setReady] = useState(false)
-  const [optionsWidth, setOptionsWidth] = useState(256)
+  const [optionsWidth, setOptionsWidth] = useState(280)
+  const [aiWidth, setAiWidth] = useState(380)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isDragging = useRef(false)
 
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
+  const startPanelResize = useCallback((
+    e: React.MouseEvent,
+    currentWidth: number,
+    setWidth: (width: number) => void,
+    minWidth: number,
+    maxWidth: number,
+  ) => {
     e.preventDefault()
-    isDragging.current = true
+    e.stopPropagation()
+    const startX = e.clientX
 
     const onMouseMove = (ev: MouseEvent) => {
-      if (!isDragging.current) return
-      const newWidth = window.innerWidth - ev.clientX - 10
-      setOptionsWidth(Math.min(480, Math.max(180, newWidth)))
+      const delta = startX - ev.clientX
+      setWidth(clampPanelWidth(currentWidth + delta, minWidth, maxWidth))
     }
 
     const onMouseUp = () => {
-      isDragging.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
 
+    document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
   }, [])
@@ -144,22 +161,33 @@ export default function App() {
           {/* Canvas in the middle */}
           <EditorCanvas />
 
-          {/* Drag handle for OptionsSidebar */}
-          <div
-            className="flex-none w-0.5 cursor-ew-resize hover:bg-editor-accent/40 transition-colors rounded"
-            onMouseDown={handleDragStart}
-          />
-
           {/* OptionsSidebar on the right */}
           <div
-            className="flex-none border border-editor-border bg-[#171717] rounded-lg overflow-hidden shadow-[0_1px_6px_rgba(0,0,0,0.4)]"
+            className="relative flex-none border border-editor-border bg-[#171717] rounded-lg overflow-hidden shadow-[0_1px_6px_rgba(0,0,0,0.4)]"
             style={{ width: optionsWidth }}
           >
+            <div
+              onMouseDown={e => startPanelResize(e, optionsWidth, setOptionsWidth, OPTIONS_MIN_WIDTH, OPTIONS_MAX_WIDTH)}
+              className="absolute left-0 top-1/2 z-30 flex h-24 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center group"
+              title="Drag to resize properties panel"
+            >
+              <div className="h-16 w-1 rounded-full bg-editor-border group-hover:bg-editor-accent transition-colors" />
+            </div>
             <OptionsSidebar />
           </div>
 
-          {/* AI assistant sidebar — rightmost (placeholder) */}
-          <div className="flex-none border border-editor-border bg-[#171717] rounded-lg overflow-hidden shadow-[0_1px_6px_rgba(0,0,0,0.4)]">
+          {/* AI assistant sidebar — rightmost */}
+          <div
+            className="relative flex-none border border-editor-border bg-[#171717] rounded-lg overflow-hidden shadow-[0_1px_6px_rgba(0,0,0,0.4)]"
+            style={{ width: aiWidth }}
+          >
+            <div
+              onMouseDown={e => startPanelResize(e, aiWidth, setAiWidth, AI_MIN_WIDTH, AI_MAX_WIDTH)}
+              className="absolute left-0 top-1/2 z-30 flex h-24 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center group"
+              title="Drag to resize AI panel"
+            >
+              <div className="h-16 w-1 rounded-full bg-editor-border group-hover:bg-editor-accent transition-colors" />
+            </div>
             <AISidebar />
           </div>
         </div>

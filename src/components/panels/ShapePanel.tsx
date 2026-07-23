@@ -121,7 +121,7 @@ export default function ShapePanel() {
 
       {el && (
         <>
-          <div className="flex flex-col px-3 py-2 gap-0.5">
+          <div className="flex flex-col px-3 py-2 gap-0.5 bg-red">
             <Row label="Fill Mode">
               <select
                 value={el.fillMode ?? 'solid'}

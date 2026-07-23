@@ -15,7 +15,7 @@ export default function BorderControls<T extends BorderTarget>({ value, onChange
   const fillMode = value.borderFillMode ?? 'solid'
   const gradientFrom = value.borderGradientFrom ?? (color === 'transparent' ? '#ffffff' : color)
   const gradientTo = value.borderGradientTo ?? '#22d3ee'
-  const animated = value.borderAnimate ?? false
+  const animated = fillMode === 'linearGradient' && (value.borderAnimate ?? false)
   const speed = value.borderAnimationSpeed ?? 1
 
   const patchWidth = (borderWidth: number) => {
@@ -31,6 +31,7 @@ export default function BorderControls<T extends BorderTarget>({ value, onChange
   const patchMode = (borderFillMode: BorderFillMode) => {
     onChange({
       borderFillMode,
+      borderAnimate: borderFillMode === 'linearGradient' ? value.borderAnimate : false,
       borderGradientFrom: gradientFrom,
       borderGradientTo: gradientTo,
     } as Partial<T>)
@@ -63,9 +64,9 @@ export default function BorderControls<T extends BorderTarget>({ value, onChange
           <option value="linearGradient">Gradient</option>
         </select>
       </Row>
-      {fillMode === 'solid' && !animated ? (
+      {fillMode === 'solid' ? (
         <Row label="Color">
-          <ColorInput value={color === 'transparent' ? '#ffffff' : color} onChange={patchColor} disabled={color === 'transparent'} />
+          <ColorInput value={color === 'transparent' ? '#ffffff' : color} onChange={patchColor} />
         </Row>
       ) : (
         <>
@@ -80,27 +81,27 @@ export default function BorderControls<T extends BorderTarget>({ value, onChange
               onChange={borderGradientAngle => onChange({ borderGradientAngle } as Partial<T>)}
               display={`${value.borderGradientAngle ?? 135}°`} />
           </Row>
-        </>
-      )}
-      <Row label="Animate">
-        <button
-          onClick={() => patchAnimate(!animated)}
-          className={cn(
-            'px-2 py-1 rounded text-xs transition-colors',
-            animated
-              ? 'bg-editor-accent text-white'
-              : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border border-editor-border'
+          <Row label="Animate">
+            <button
+              onClick={() => patchAnimate(!animated)}
+              className={cn(
+                'px-2 py-1 rounded text-xs transition-colors',
+                animated
+                  ? 'bg-editor-accent text-white'
+                  : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border border-editor-border'
+              )}
+            >
+              {animated ? 'On' : 'Off'}
+            </button>
+          </Row>
+          {animated && (
+            <Row label="Speed">
+              <Slider value={speed} min={0.1} max={5} step={0.1}
+                onChange={borderAnimationSpeed => onChange({ borderAnimationSpeed } as Partial<T>)}
+                display={`${speed.toFixed(1)}x`} />
+            </Row>
           )}
-        >
-          {animated ? 'On' : 'Off'}
-        </button>
-      </Row>
-      {animated && (
-        <Row label="Speed">
-          <Slider value={speed} min={0.1} max={5} step={0.1}
-            onChange={borderAnimationSpeed => onChange({ borderAnimationSpeed } as Partial<T>)}
-            display={`${speed.toFixed(1)}x`} />
-        </Row>
+        </>
       )}
     </div>
   )

@@ -21,10 +21,41 @@ body {
 }
 
 /* Thin scrollbars */
-::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar { width: 3px; height: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: #404040; }
+
+.timeline-scroll-area {
+  scrollbar-width: thin;
+  scrollbar-color: #523681 #111111;
+}
+
+.timeline-scroll-area::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.timeline-scroll-area::-webkit-scrollbar-track {
+  background: #111111;
+  border-radius: 999px;
+  margin: 6px;
+  padding: 2px;
+}
+
+.timeline-scroll-area::-webkit-scrollbar-thumb {
+  background: #5525a8;
+  border: 2px solid #171717;
+  border-radius: 999px;
+}
+
+.timeline-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: #492091;
+}
+
+.timeline-scroll-area::-webkit-scrollbar-corner {
+  background: #171717;
+}
 
 /* Drag region for frameless window */
 .drag  { -webkit-app-region: drag; }

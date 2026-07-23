@@ -937,11 +937,6 @@ export default function Timeline() {
             </button>
           </Tooltip>
 
-          <Tooltip text="Reset Zoom (Ctrl 0)">
-            <button onClick={() => setTimelineZoom(1)} className="text-xs text-editor-text hover:text-editor-text transition-colors px-1 flex-none border-l border-gray-700 pl-2">
-              [1:1]
-            </button>
-          </Tooltip>
         </div>
 
         {selectedVideo ? (
@@ -1039,7 +1034,7 @@ export default function Timeline() {
       {/* Scrollable track area */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-x-auto overflow-y-auto relative cursor-pointer"
+        className="timeline-scroll-area flex-1 overflow-x-auto overflow-y-auto relative cursor-pointer"
         onMouseDown={handleRulerClick}
         onContextMenu={handleContainerContextMenu}
       >

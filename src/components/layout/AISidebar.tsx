@@ -116,11 +116,11 @@ export default function AISidebar() {
   }
 
   return (
-    <aside className="relative w-80 flex-none bg-[#171717] flex flex-col h-full border-l border-editor-border">
+    <aside className="relative w-full flex-none bg-[#171717] flex flex-col h-full border-l border-editor-border">
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-editor-border flex-none">
         <div className="flex items-center gap-2 min-w-0">
           <BrainCircuit size={15} className="text-editor-accent" />
-          <span className="text-xs font-medium text-editor-text truncate">AI Agents Edits <i className="text-orange-400">beta</i></span>
+          <p className="text-xs font-medium text-editor-text truncate">AI Agents Edits </p>
         </div>
         <button
           type="button"

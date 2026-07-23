@@ -97,7 +97,7 @@ export default function OptionsSidebar() {
   }
 
   return (
-    <aside className="w-65 flex-none bg-[#171717] flex flex-col overflow-hidden h-full">
+    <aside className="w-full flex-none bg-[#171717] flex flex-col overflow-hidden h-full">
       {renderPanel()}
     </aside>
   )
