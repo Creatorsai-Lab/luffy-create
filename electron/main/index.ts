@@ -62,6 +62,7 @@ interface ProjectRecord {
   folder: string
   createdAt: number
   updatedAt: number
+  lastOpenedAt?: number
 }
 
 async function ensureDir(dir: string) {
@@ -125,11 +126,24 @@ async function recordFromProjectFolder(folder: string): Promise<ProjectRecord | 
       name: project.name,
       folder,
       createdAt: project.createdAt || Date.now(),
-      updatedAt: project.updatedAt || Date.now()
+      updatedAt: project.updatedAt || Date.now(),
+      lastOpenedAt: project.updatedAt || project.createdAt || Date.now()
     }
   } catch {
     return null
   }
+}
+
+function projectRecency(record: ProjectRecord) {
+  return record.lastOpenedAt ?? record.updatedAt ?? record.createdAt ?? 0
+}
+
+function sortProjectRecordsByRecency(records: ProjectRecord[]) {
+  return [...records].sort((a, b) => {
+    const recent = projectRecency(b) - projectRecency(a)
+    if (recent !== 0) return recent
+    return (b.updatedAt ?? 0) - (a.updatedAt ?? 0)
+  })
 }
 
 async function readIndex(): Promise<ProjectRecord[]> {
@@ -157,11 +171,11 @@ async function readIndex(): Promise<ProjectRecord[]> {
     // If project-folder scanning fails, keep the parsed index.
   }
 
-  return records
+  return sortProjectRecordsByRecency(records)
 }
 
 async function writeIndex(records: ProjectRecord[]) {
-  await writeJsonFile(INDEX_FILE, JSON.stringify(records, null, 2))
+  await writeJsonFile(INDEX_FILE, JSON.stringify(sortProjectRecordsByRecency(records), null, 2))
 }
 
 function focusedWindow(): BrowserWindow | null {
@@ -751,7 +765,8 @@ function registerIpcHandlers() {
     const folder = join(PROJECTS_DIR, id)
     await ensureDir(folder)
     await ensureDir(join(folder, 'assets'))
-    const record: ProjectRecord = { id, name, folder, createdAt: Date.now(), updatedAt: Date.now() }
+    const now = Date.now()
+    const record: ProjectRecord = { id, name, folder, createdAt: now, updatedAt: now, lastOpenedAt: now }
     const idx = await readIndex()
     idx.unshift(record)
     await writeIndex(idx)
@@ -765,7 +780,9 @@ function registerIpcHandlers() {
     const parsed = JSON.parse(data) as { name?: string }
     await writeJsonFile(join(record.folder, 'project.json'), data)
     if (parsed.name?.trim()) record.name = parsed.name.trim()
-    record.updatedAt = Date.now()
+    const now = Date.now()
+    record.updatedAt = now
+    record.lastOpenedAt = now
     await writeIndex(idx)
   })
 
@@ -773,7 +790,10 @@ function registerIpcHandlers() {
     const idx    = await readIndex()
     const record = idx.find(r => r.id === id)
     if (!record) throw new Error('Project not found')
-    return readJsonWithBackup(join(record.folder, 'project.json'))
+    const project = await readJsonWithBackup(join(record.folder, 'project.json'))
+    record.lastOpenedAt = Date.now()
+    await writeIndex(idx).catch(err => logCrash('projects:load-touch', err))
+    return project
   })
 
   ipcMain.handle('projects:delete', async (_, id: string) => {

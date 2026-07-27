@@ -152,7 +152,7 @@ export default function App() {
         <Header />
 
         {/* Main layout: MenuSideBar + Canvas + OptionsSidebar + AISidebar */}
-        <div className="flex flex-1 min-h-0 overflow-hidden gap-1.5 px-2">
+        <div className="flex flex-1 min-h-0 overflow-hidden gap-1.5 px-1">
           {/* MenuSideBar on the left */}
           <div className="flex-none border border-editor-border bg-[#171717] rounded-lg overflow-hidden shadow-[0_1px_6px_rgba(0,0,0,0.4)]">
             <MenuSideBar />
@@ -168,7 +168,7 @@ export default function App() {
           >
             <div
               onMouseDown={e => startPanelResize(e, optionsWidth, setOptionsWidth, OPTIONS_MIN_WIDTH, OPTIONS_MAX_WIDTH)}
-              className="absolute left-0 top-1/2 z-30 flex h-24 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center group"
+              className="mx-0.1 absolute left-0 top-1/2 z-30 flex h-18 w-3 -translate-y-1/2 cursor-ew-resize items-center justify-center group"
               title="Drag to resize properties panel"
             >
               <div className="h-16 w-1 rounded-full bg-editor-border group-hover:bg-editor-accent transition-colors" />
@@ -183,7 +183,7 @@ export default function App() {
           >
             <div
               onMouseDown={e => startPanelResize(e, aiWidth, setAiWidth, AI_MIN_WIDTH, AI_MAX_WIDTH)}
-              className="absolute left-0 top-1/2 z-30 flex h-24 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center group"
+              className="absolute left-0 top-1/2 z-30 flex h-18 w-3 -translate-y-1/2 cursor-ew-resize items-center justify-center group"
               title="Drag to resize AI panel"
             >
               <div className="h-16 w-1 rounded-full bg-editor-border group-hover:bg-editor-accent transition-colors" />

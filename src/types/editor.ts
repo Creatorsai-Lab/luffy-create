@@ -240,9 +240,13 @@ export interface TableElement extends BaseElement {
   cellHeight: number
   borderColor: string
   borderWidth: number
+  borderRadius?: number
+  cellBorderColor?: string
+  cellBorderWidth?: number
   headerBg: string
   cellBg: string
   textColor: string
+  textAlign?: AlignType
   fontSize: number
   showHeader: boolean
 }

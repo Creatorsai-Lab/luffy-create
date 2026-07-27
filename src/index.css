@@ -27,8 +27,8 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: #404040; }
 
 .timeline-scroll-area {
-  scrollbar-width: thin;
-  scrollbar-color: #523681 #111111;
+  scrollbar-width:thin;
+  scrollbar-color: #494253 #111111;
 }
 
 .timeline-scroll-area::-webkit-scrollbar {
@@ -39,13 +39,13 @@ body {
 .timeline-scroll-area::-webkit-scrollbar-track {
   background: #111111;
   border-radius: 999px;
-  margin: 6px;
+  margin: 4px;
   padding: 2px;
 }
 
 .timeline-scroll-area::-webkit-scrollbar-thumb {
   background: #5525a8;
-  border: 2px solid #171717;
+  border: 1px solid #171717;
   border-radius: 999px;
 }
 

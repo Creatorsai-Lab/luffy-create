@@ -1,10 +1,36 @@
-import { Table2 } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, Table2 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
-import type { TableElement } from '../../types/editor'
-import { PanelHeader, Row, NumberInput, Slider, ColorInput } from './TextPanel'
+import type { AlignType, AnimationType, ElementAnimation, TableElement } from '../../types/editor'
+import { makeAnimation } from '../../utils/defaults'
+import { AnimSection, isLoopAnim, PanelHeader, Row, NumberInput, Slider, ColorInput } from './TextPanel'
+
+const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
+  { label: 'Fade In',   value: 'fadeIn'   },
+  { label: 'Slide In',  value: 'slideIn'  },
+  { label: 'Scale In',  value: 'scaleIn'  },
+  { label: 'Wipe In',   value: 'wipeIn'   },
+]
+
+const LOOP_ANIMS: { label: string; value: AnimationType }[] = [
+  { label: 'Pulse',     value: 'pulse'      },
+  { label: 'Bounce',    value: 'bounceLoop' },
+  { label: 'Rotate',    value: 'rotateLoop' },
+  { label: 'Fade Loop', value: 'fadeLoop'   },
+]
+
+const EXIT_ANIMS: { label: string; value: AnimationType }[] = [
+  { label: 'Fade Out',  value: 'fadeOut'  },
+  { label: 'Slide Out', value: 'slideOut' },
+  { label: 'Scale Out', value: 'scaleOut' },
+  { label: 'Wipe Out',  value: 'wipeOut'  },
+]
+
+function nonMoveAnimations(anims: ElementAnimation[]) {
+  return anims.filter(a => a.type !== 'move')
+}
 
 export default function TablePanel() {
-  const { getSelectedEls, updateElement } = useEditorStore()
+  const { getSelectedEls, updateElement, addAnimation } = useEditorStore()
   const el = getSelectedEls().find(e => e.type === 'table') as TableElement | undefined
 
   function upd(patch: Partial<TableElement>) {
@@ -38,19 +64,18 @@ export default function TablePanel() {
       )}
 
       {el && (
-        <div className="flex flex-col px-3 py-2 gap-0.5">
+        <div className="flex flex-col px-1 py-1 gap-0.5">
+          <div className='bg-[#2a2b2c] p-2 rounded mb-2'>
           {/* Dimensions */}
-          <Row label="Rows">
-            <NumberInput value={el.rows} min={1} max={20} onChange={v => upd({ rows: v })} />
-          </Row>
-          <Row label="Columns">
-            <NumberInput value={el.cols} min={1} max={20} onChange={v => upd({ cols: v })} />
-          </Row>
           <Row label="Cell Width">
             <NumberInput value={el.cellWidth} min={40} max={400} onChange={v => upd({ cellWidth: v })} />
           </Row>
           <Row label="Cell Height">
             <NumberInput value={el.cellHeight} min={24} max={200} onChange={v => upd({ cellHeight: v })} />
+          </Row>
+          <Row label="Radius">
+            <Slider value={el.borderRadius ?? 0} min={0} max={80} step={1}
+              onChange={v => upd({ borderRadius: v })} display={`${el.borderRadius ?? 0}px`} />
           </Row>
 
           {/* Style */}
@@ -60,12 +85,28 @@ export default function TablePanel() {
           <Row label="Cell Bg">
             <ColorInput value={el.cellBg} onChange={v => upd({ cellBg: v })} />
           </Row>
-          <Row label="Border Color">
+          <Row label="Wrapper Border Color">
             <ColorInput value={el.borderColor} onChange={v => upd({ borderColor: v })} />
           </Row>
           <Row label="Border Width">
             <Slider value={el.borderWidth} min={0} max={8} step={0.5}
               onChange={v => upd({ borderWidth: v })} display={`${el.borderWidth}px`} />
+          </Row>
+          </div>
+          <div className='bg-[#2a2b2c] p-2 rounded'>
+          <Row label="Cell Border Color">
+            <ColorInput value={el.cellBorderColor ?? el.borderColor} onChange={v => upd({ cellBorderColor: v })} />
+          </Row>
+          <Row label="Cell Border Width">
+            <Slider value={el.cellBorderWidth ?? el.borderWidth} min={0} max={8} step={0.5}
+              onChange={v => upd({ cellBorderWidth: v })} display={`${el.cellBorderWidth ?? el.borderWidth}px`} />
+          </Row>
+          
+          <Row label="Rows">
+            <NumberInput value={el.rows} min={1} max={20} onChange={v => upd({ rows: v })} />
+          </Row>
+          <Row label="Columns">
+            <NumberInput value={el.cols} min={1} max={20} onChange={v => upd({ cols: v })} />
           </Row>
           <Row label="Text Color">
             <ColorInput value={el.textColor} onChange={v => upd({ textColor: v })} />
@@ -73,6 +114,26 @@ export default function TablePanel() {
           <Row label="Font Size">
             <NumberInput value={el.fontSize} min={15} max={50} onChange={v => upd({ fontSize: v })} />
           </Row>
+          <Row label="Text Align">
+            <div className="flex gap-1">
+              {(['left','center','right'] as AlignType[]).map(a => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => upd({ textAlign: a })}
+                  className={`flex h-7 w-8 items-center justify-center rounded border text-xs transition-colors ${
+                    (el.textAlign ?? 'center') === a
+                      ? 'border-editor-accent bg-editor-accent text-white'
+                      : 'border-editor-border bg-editor-elevated text-editor-text hover:border-editor-accent/60'
+                  }`}
+                  title={`Align ${a}`}
+                >
+                  {a === 'left' ? <AlignLeft size={12} /> : a === 'center' ? <AlignCenter size={12} /> : <AlignRight size={12} />}
+                </button>
+              ))}
+            </div>
+          </Row>
+          </div>
 
           {/* Cell editor */}
           <div className="mt-2">
@@ -97,6 +158,30 @@ export default function TablePanel() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <div className="-mx-3 mt-2">
+            <AnimSection
+              label="On Enter" color="text-green-400"
+              anims={nonMoveAnimations(el.animations).filter(a => !isLoopAnim(a) && a.timing === 'onEnter')}
+              types={ENTER_ANIMS}
+              onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeIn', timing: 'onEnter' })}
+              elId={el.id} isLoop={false}
+            />
+            <AnimSection
+              label="Loop" color="text-editor-accent"
+              anims={nonMoveAnimations(el.animations).filter(a => isLoopAnim(a))}
+              types={LOOP_ANIMS}
+              onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'pulse', timing: 'loop', duration: 1 })}
+              elId={el.id} isLoop={true}
+            />
+            <AnimSection
+              label="On Exit" color="text-red-400"
+              anims={nonMoveAnimations(el.animations).filter(a => !isLoopAnim(a) && a.timing === 'onExit')}
+              types={EXIT_ANIMS}
+              onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeOut', timing: 'onExit' })}
+              elId={el.id} isLoop={false}
+            />
           </div>
         </div>
       )}

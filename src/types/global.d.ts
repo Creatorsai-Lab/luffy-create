@@ -7,6 +7,7 @@ export interface ProjectRecord {
   folder: string
   createdAt: number
   updatedAt: number
+  lastOpenedAt?: number
 }
 
 export interface AssetRecord {

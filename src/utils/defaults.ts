@@ -191,8 +191,10 @@ export function makeTable(x: number, y: number): TableElement {
     ),
     cellWidth: 250, cellHeight: 150,
     borderColor: '#aaaaaa', borderWidth: 1,
+    borderRadius: 0,
+    cellBorderColor: '#aaaaaa', cellBorderWidth: 1,
     headerBg: '#383838', cellBg: '#6e6e6e',
-    textColor: '#f2f4fd', fontSize: 36, showHeader: true
+    textColor: '#f2f4fd', textAlign: 'center', fontSize: 36, showHeader: true
   }
 }
 
