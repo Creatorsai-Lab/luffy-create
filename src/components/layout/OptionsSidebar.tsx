@@ -21,6 +21,7 @@ import LatexPanel from '../panels/LatexPanel'
 import CounterPanel from '../panels/CounterPanel'
 import MovePanel from '../panels/MovePanel'
 import HandDrawPanel from '../panels/HandDrawPanel'
+import MediaEffectsPanel from '../panels/MediaEffectsPanel'
 import type { ActivePanel } from '../../types/editor'
 
 // When an element is selected and the sidebar panel matches the element's "home" panel,
@@ -55,6 +56,10 @@ export default function OptionsSidebar() {
     // Auto-show element panel when element selected and no panel active, OR when
     // the active panel is the element's natural home panel (e.g. image selected + upload open).
     if (firstEl) {
+      if (activePanel === 'effects') {
+        return <MediaEffectsPanel />
+      }
+
       const home = ELEMENT_PANEL[firstEl.type]
       if (!activePanel || activePanel === home) {
         if (firstEl.type === 'text')   return <TextPanel />
@@ -91,6 +96,7 @@ export default function OptionsSidebar() {
       case 'transitions':  return <TransitionPanel />
       case 'perspective':  return <PerspectivePanel />
       case 'move':         return <MovePanel />
+      case 'effects':      return <MediaEffectsPanel />
       default:
         return <HintPanel text="Menu Options Panel (select to see)" />
     }

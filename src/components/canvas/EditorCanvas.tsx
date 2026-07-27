@@ -104,7 +104,7 @@ export default function EditorCanvas() {
   // ── Auto-select sidebar panel based on selected element ──────────────────────
   useEffect(() => {
     if (selectedIds.length === 0) return
-    const stickyPanels: ActivePanel[] = ['perspective', 'move', 'handDraw']
+    const stickyPanels: ActivePanel[] = ['perspective', 'move', 'handDraw', 'effects']
     if (stickyPanels.includes(activePanel)) return
     
     const scene = project?.scenes.find(s => s.id === currentSceneId)

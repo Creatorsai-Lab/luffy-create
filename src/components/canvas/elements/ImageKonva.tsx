@@ -7,6 +7,7 @@ import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
 import { buildCssFilter, applyCanvasAdjustments } from '../../../engine/imageFilters'
 import { drawBoxShadow } from '../../../engine/boxShadow'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
+import { drawMediaWithEffect, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
 
 function drawCropped(ctx: CanvasRenderingContext2D, img: HTMLImageElement, el: ImageElement) {
   if (el.crop) {
@@ -18,6 +19,24 @@ function drawCropped(ctx: CanvasRenderingContext2D, img: HTMLImageElement, el: I
     )
   } else {
     ctx.drawImage(img, 0, 0, el.width, el.height)
+  }
+}
+
+function makeImageDrawFns(img: HTMLImageElement, el: ImageElement): MediaDrawFns {
+  const cropX = (el.crop?.x ?? 0) * img.naturalWidth
+  const cropY = (el.crop?.y ?? 0) * img.naturalHeight
+  const cropW = (el.crop?.w ?? 1) * img.naturalWidth
+  const cropH = (el.crop?.h ?? 1) * img.naturalHeight
+
+  return {
+    drawBase: (ctx, dx = 0, dy = 0, dw = el.width, dh = el.height) => {
+      ctx.drawImage(img, cropX, cropY, cropW, cropH, dx, dy, dw, dh)
+    },
+    drawSlice: (ctx, sourceY, sourceH, destX, destY, destW, destH) => {
+      const sy = cropY + (sourceY / el.height) * cropH
+      const sh = (sourceH / el.height) * cropH
+      ctx.drawImage(img, cropX, sy, cropW, sh, destX, destY, destW, destH)
+    },
   }
 }
 
@@ -90,7 +109,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
   // Animated GIFs advance internally; keep the Konva layer redrawing so the
   // current frame is sampled instead of freezing on the first drawn frame.
   useEffect(() => {
-    if (!isGif || !img || error) return
+    if ((!isGif && !mediaEffectRequiresAnimation(el)) || !img || error) return
     let raf = 0
     const tick = () => {
       shapeRef.current?.getLayer()?.batchDraw()
@@ -98,7 +117,11 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [isGif, img, error])
+  }, [
+    isGif, img, error,
+    el.mediaEffect, el.mediaEffectIntensity, el.mediaEffectSpeed, el.mediaEffectHardness,
+    el.mediaEffectDirection, el.mediaEffectBlend, el.mediaEffectColor,
+  ])
 
   // Build offscreen canvas for perspective warp. GIFs stay dynamic and rebuild
   // from the live image frame during each draw.
@@ -234,7 +257,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
         }
 
         raw.filter = buildCssFilter(el) || 'none'
-        drawCropped(raw, img, el)
+        drawMediaWithEffect(raw, el, el.width, el.height, localTime, makeImageDrawFns(img, el))
         if (el.glass) {
           raw.filter = 'none'
           raw.fillStyle = 'rgba(255,255,255,0.18)'

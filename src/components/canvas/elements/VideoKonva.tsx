@@ -9,6 +9,27 @@ import { buildCssFilter, applyCanvasAdjustments } from '../../../engine/imageFil
 import { drawBoxShadow, drawInnerShadow } from '../../../engine/boxShadow'
 import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
+import { drawMediaWithEffect, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
+
+function makeVideoDrawFns(video: HTMLVideoElement, el: VideoElement, width: number, height: number): MediaDrawFns {
+  const vw = video.videoWidth || width
+  const vh = video.videoHeight || height
+  const cropX = (el.crop?.x ?? 0) * vw
+  const cropY = (el.crop?.y ?? 0) * vh
+  const cropW = (el.crop?.w ?? 1) * vw
+  const cropH = (el.crop?.h ?? 1) * vh
+
+  return {
+    drawBase: (ctx, dx = 0, dy = 0, dw = width, dh = height) => {
+      ctx.drawImage(video, cropX, cropY, cropW, cropH, dx, dy, dw, dh)
+    },
+    drawSlice: (ctx, sourceY, sourceH, destX, destY, destW, destH) => {
+      const sy = cropY + (sourceY / height) * cropH
+      const sh = (sourceH / height) * cropH
+      ctx.drawImage(video, cropX, sy, cropW, sh, destX, destY, destW, destH)
+    },
+  }
+}
 
 interface Props {
   el: VideoElement
@@ -257,9 +278,12 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
           raw.clip()
         }
 
-        // 2. Setup Effects & Adjustments Filters
-        const effect = el.videoEffect ?? 'none'
-        const intensity = el.videoEffectIntensity ?? 0.5
+        // 2. Setup Effects & Adjustments Filters. Shared media effects take
+        // priority; legacy video-only effects still work when no shared effect
+        // is selected from the Effects panel.
+        const hasSharedEffect = (el.mediaEffect ?? 'none') !== 'none'
+        const effect = hasSharedEffect ? 'none' : (el.videoEffect ?? 'none')
+        const intensity = hasSharedEffect ? 0 : (el.videoEffectIntensity ?? 0.5)
 
         let filterStr = buildCssFilter(el) || 'none'
         if (effect === 'lensBlur' && intensity > 0) {
@@ -274,42 +298,12 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
         }
         raw.filter = filterStr
 
-        // 3. Camera Shake translation
-        if (effect === 'shake' && intensity > 0) {
-          const time = localTime * 35
-          const shakeX = Math.sin(time) * Math.cos(time * 0.8) * 16 * intensity
-          const shakeY = Math.cos(time * 1.2) * Math.sin(time * 0.7) * 16 * intensity
-          raw.translate(shakeX, shakeY)
-        }
-
-        // 4. Draw Video (with Distortion support)
-        const vw = video.videoWidth  || el.width
-        const vh = video.videoHeight || el.height
-        if (effect === 'distortion' && intensity > 0) {
-          const numSlices = 25
-          const sliceH = h / numSlices
-          const amplitude = 12 * intensity
-          const time = localTime * 8 // animation speed
-          
-          for (let s = 0; s < numSlices; s++) {
-            const sx = Math.sin(s / 3 + time) * amplitude
-            raw.drawImage(
-              video,
-              0, s * (vh / numSlices), vw, vh / numSlices,
-              sx, s * sliceH, w, sliceH
-            )
-          }
+        // 3. Draw Video with shared media effects.
+        const drawFns = makeVideoDrawFns(video, el, w, h)
+        if (mediaEffectRequiresAnimation(el)) {
+          drawMediaWithEffect(raw, el, w, h, localTime, drawFns)
         } else {
-          if (el.crop) {
-            raw.drawImage(
-              video,
-              el.crop.x * vw, el.crop.y * vh,
-              el.crop.w * vw, el.crop.h * vh,
-              0, 0, el.width, el.height
-            )
-          } else {
-            raw.drawImage(video, 0, 0, el.width, el.height)
-          }
+          drawFns.drawBase(raw, 0, 0, w, h)
         }
 
         // 5. Comic ink outlines

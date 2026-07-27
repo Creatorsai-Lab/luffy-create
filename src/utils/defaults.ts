@@ -28,6 +28,21 @@ export const DEFAULT_INNER_SHADOW: InnerShadow = {
   distance: 10,
 }
 
+export const DEFAULT_MEDIA_EFFECT = {
+  mediaEffect: 'none' as const,
+  mediaEffectIntensity: 0.45,
+  mediaEffectSpeed: 1,
+  mediaEffectHardness: 0.5,
+  mediaEffectDirection: 'diagonal' as const,
+  mediaEffectBlend: 0.55,
+  mediaEffectColor: '#fff2b8',
+  mediaEffectColorOpacity: 1,
+  mediaEffectSize: 0.5,
+  mediaEffectTarget: 'centerSubject' as const,
+  mediaEffectFocusX: 0.5,
+  mediaEffectFocusY: 0.5,
+}
+
 export function makeScene(index = 1): Scene {
   return {
     id: uuid(),
@@ -175,6 +190,7 @@ export function makeImage(x: number, y: number, src: string, assetId: string, wi
     borderGradientAngle: 135,
     borderAnimate: false,
     borderAnimationSpeed: 1,
+    ...DEFAULT_MEDIA_EFFECT,
   }
 }
 
@@ -299,6 +315,7 @@ export function makeVideo(
     vignetteAmount: 0.5,
     videoEffect: 'none',
     videoEffectIntensity: 0.5,
+    ...DEFAULT_MEDIA_EFFECT,
     frameType: 'none',
   }
 }
