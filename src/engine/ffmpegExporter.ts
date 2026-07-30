@@ -189,6 +189,8 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
           progress: frameState.progress,
           type: frameState.transition.type,
           direction: frameState.transition.direction,
+          speed: frameState.transition.speed,
+          hardness: frameState.transition.hardness,
           fromCanvas,
           toCanvas
         })

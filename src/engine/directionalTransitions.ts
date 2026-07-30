@@ -1,4 +1,4 @@
-import type { SlideDir } from '../types/editor'
+import type { SlideDir, TransitionType } from '../types/editor'
 
 export type DirectionalTransitionType = 'flashBlur' | 'flickerShake'
 
@@ -9,6 +9,10 @@ export interface DirectionalTransitionState {
   streakX: number
   streakY: number
   light: number
+}
+
+export function isDirectionalTransition(type: TransitionType): type is DirectionalTransitionType {
+  return type === 'flashBlur' || type === 'flickerShake'
 }
 
 export function getDirectionalTransitionState(

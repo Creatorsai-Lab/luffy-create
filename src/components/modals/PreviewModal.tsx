@@ -5,7 +5,8 @@ import { X, Play, Pause, SkipBack } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { getAnimatedProps } from '../../engine/animator'
 import { drawBackground } from '../../engine/backgroundRenderer'
-import { easeInOutCubic } from '../../engine/transitionRenderer'
+import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
+import { isDirectionalTransition } from '../../engine/directionalTransitions'
 import { buildTransitionTimeline, getTransitionFrameState } from '../../utils/transitionTiming'
 import CanvasElement from '../canvas/CanvasElement'
 import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
@@ -242,6 +243,27 @@ function PreviewFrame({
   const toScene = project.scenes[frameState.toSceneIndex]
   const fromLocalTime = Math.max(0, frameState.fromTime - timeline[frameState.fromSceneIndex].startTime)
   const toLocalTime = Math.max(0, frameState.toTime - timeline[frameState.toSceneIndex].startTime)
+
+  if (isDirectionalTransition(frameState.transition.type)) {
+    return (
+      <DirectionalTransitionPreview
+        project={project}
+        fromScene={fromScene}
+        toScene={toScene}
+        fromLocalTime={fromLocalTime}
+        toLocalTime={toLocalTime}
+        fromGlobalTime={frameState.fromTime}
+        toGlobalTime={frameState.toTime}
+        progress={frameState.progress}
+        transition={frameState.transition}
+        width={width}
+        height={height}
+        scale={scale}
+        isPlaying={isPlaying}
+      />
+    )
+  }
+
   const p = easeInOutCubic(frameState.progress)
   const styles = transitionLayerStyles(frameState.transition.type, frameState.transition.direction, p)
 
@@ -268,6 +290,102 @@ function PreviewFrame({
         scale={scale}
         isPlaying={isPlaying}
         style={{ position: 'absolute', inset: 0, zIndex: 2, ...styles.to }}
+      />
+    </>
+  )
+}
+
+function DirectionalTransitionPreview({
+  project,
+  fromScene,
+  toScene,
+  fromLocalTime,
+  toLocalTime,
+  fromGlobalTime,
+  toGlobalTime,
+  progress,
+  transition,
+  width,
+  height,
+  scale,
+  isPlaying,
+}: {
+  project: Project
+  fromScene: Scene
+  toScene: Scene
+  fromLocalTime: number
+  toLocalTime: number
+  fromGlobalTime: number
+  toGlobalTime: number
+  progress: number
+  transition: Scene['transition']
+  width: number
+  height: number
+  scale: number
+  isPlaying: boolean
+}) {
+  const fromStage = useRef<Konva.Stage | null>(null)
+  const toStage = useRef<Konva.Stage | null>(null)
+  const canvas = useRef<HTMLCanvasElement | null>(null)
+  const frame = useRef(0)
+  const setFromStage = useCallback((stage: Konva.Stage | null) => { fromStage.current = stage }, [])
+  const setToStage = useCallback((stage: Konva.Stage | null) => { toStage.current = stage }, [])
+
+  const draw = useCallback(() => {
+    const ctx = canvas.current?.getContext('2d')
+    if (!ctx || !fromStage.current || !toStage.current ||
+        !isDirectionalTransition(transition.type)) return
+    renderTransition({
+      ctx,
+      width,
+      height,
+      progress,
+      type: transition.type,
+      direction: transition.direction,
+      speed: transition.speed,
+      hardness: transition.hardness,
+      fromCanvas: fromStage.current.toCanvas({ pixelRatio: 1 }),
+      toCanvas: toStage.current.toCanvas({ pixelRatio: 1 }),
+    })
+  }, [height, progress, transition, width])
+
+  useEffect(() => {
+    cancelAnimationFrame(frame.current)
+    frame.current = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(frame.current)
+  }, [draw])
+
+  return (
+    <>
+      <PreviewSceneStage
+        refSetter={setFromStage}
+        project={project}
+        scene={fromScene}
+        localTime={fromLocalTime}
+        globalTime={fromGlobalTime}
+        width={width}
+        height={height}
+        scale={scale}
+        isPlaying={false}
+        style={{ position: 'absolute', inset: 0, zIndex: 1 }}
+      />
+      <PreviewSceneStage
+        refSetter={setToStage}
+        project={project}
+        scene={toScene}
+        localTime={toLocalTime}
+        globalTime={toGlobalTime}
+        width={width}
+        height={height}
+        scale={scale}
+        isPlaying={isPlaying}
+        style={{ position: 'absolute', inset: 0, zIndex: 0, opacity: 0 }}
+      />
+      <canvas
+        ref={canvas}
+        width={width}
+        height={height}
+        style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}
       />
     </>
   )
@@ -329,6 +447,7 @@ function transitionLayerStyles(
 }
 
 function PreviewSceneStage({
+  refSetter,
   project,
   scene,
   localTime,
@@ -339,6 +458,7 @@ function PreviewSceneStage({
   isPlaying,
   style,
 }: {
+  refSetter?: (stage: Konva.Stage | null) => void
   project: Project
   scene: Scene
   localTime: number
@@ -353,7 +473,7 @@ function PreviewSceneStage({
 
   return (
     <div style={{ width: '100%', height: '100%', pointerEvents: 'none', ...style }}>
-      <Stage width={width} height={height} scaleX={scale} scaleY={scale}>
+      <Stage ref={refSetter} width={width} height={height} scaleX={scale} scaleY={scale}>
         <Layer>
           <BgShape bg={scene.background} w={project.width} h={project.height} time={globalTime} />
         </Layer>

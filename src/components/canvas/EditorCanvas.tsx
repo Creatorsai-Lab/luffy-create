@@ -4,12 +4,13 @@ import type Konva from 'konva'
 import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { getAnimatedProps } from '../../engine/animator'
-import { easeInOutCubic } from '../../engine/transitionRenderer'
+import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
+import { isDirectionalTransition } from '../../engine/directionalTransitions'
 import { drawBackground } from '../../engine/backgroundRenderer'
 import { registerStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
 import { makeShape, makeArrow, makeTable, makeChart, makeHandDrawLayer } from '../../utils/defaults'
-import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke } from '../../types/editor'
+import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke, SlideDir, TransitionType } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
 import CanvasElement from './CanvasElement'
@@ -54,6 +55,9 @@ export default function EditorCanvas() {
   const trRef        = useRef<Konva.Transformer | null>(null)
   const animFrameRef = useRef<number>(0)
   const bgShapeRef   = useRef<Konva.Shape | null>(null)
+  const transitionCanvasRef = useRef<HTMLCanvasElement>(null)
+  const transitionFromImageRef = useRef<HTMLImageElement | null>(null)
+  const transitionFrameRef = useRef<number>(0)
 
   // Computed display size (project coords → screen pixels)
   const [scale,    setScale]    = useState(1)
@@ -72,13 +76,16 @@ export default function EditorCanvas() {
   const [cropState, setCropState] = useState<{ elId: string; pendingCrop: { x: number; y: number; w: number; h: number } } | null>(null)
   const [cropDrag, setCropDrag] = useState<{ handle: string; startX: number; startY: number; startCrop: { x: number; y: number; w: number; h: number } } | null>(null)
   const [cursorCoord, setCursorCoord] = useState<{ x: number; y: number } | null>(null)
+  const [transitionImageReady, setTransitionImageReady] = useState(false)
   const clipboardRef  = useRef<EditorElement[]>([])
 
   // ── Live transition overlay ───────────────────────────────────────────────────
   const [transOverlay, setTransOverlay] = useState<{
     snap: string
-    type: string
-    direction?: string
+    type: TransitionType
+    direction?: SlideDir
+    speed?: number
+    hardness?: number
     toSceneId: string
     transitionStart: number
     duration: number
@@ -331,6 +338,8 @@ export default function EditorCanvas() {
               snap,
               type: toSc.transition!.type,
               direction: toSc.transition!.direction,
+              speed: toSc.transition!.speed,
+              hardness: toSc.transition!.hardness,
               toSceneId: toSc.id,
               transitionStart: tStart,
               duration: transD,
@@ -346,6 +355,57 @@ export default function EditorCanvas() {
       setTransOverlay(null)
     }
   }, [project, playhead, isPlaying])
+
+  const drawDirectionalPreview = useCallback(() => {
+    if (!transOverlay || !isDirectionalTransition(transOverlay.type)) return
+    const canvas = transitionCanvasRef.current
+    const from = transitionFromImageRef.current
+    const stage = stageRef.current
+    if (!canvas || !from || !stage) return
+    if (canvas.width !== canvasW) canvas.width = canvasW
+    if (canvas.height !== canvasH) canvas.height = canvasH
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    renderTransition({
+      ctx,
+      width: canvasW,
+      height: canvasH,
+      progress: (playhead - transOverlay.transitionStart) / transOverlay.duration,
+      type: transOverlay.type,
+      direction: transOverlay.direction,
+      speed: transOverlay.speed,
+      hardness: transOverlay.hardness,
+      fromCanvas: from,
+      toCanvas: stage.toCanvas({ pixelRatio: 1 }),
+    })
+  }, [canvasH, canvasW, playhead, transOverlay])
+
+  useEffect(() => {
+    if (!transOverlay || !isDirectionalTransition(transOverlay.type)) {
+      transitionFromImageRef.current = null
+      setTransitionImageReady(false)
+      return
+    }
+    let active = true
+    const image = new Image()
+    image.onload = () => {
+      if (!active) return
+      transitionFromImageRef.current = image
+      setTransitionImageReady(true)
+    }
+    image.src = transOverlay.snap
+    return () => {
+      active = false
+      image.onload = null
+    }
+  }, [transOverlay?.snap, transOverlay?.type])
+
+  useEffect(() => {
+    if (!transitionImageReady) return
+    cancelAnimationFrame(transitionFrameRef.current)
+    transitionFrameRef.current = requestAnimationFrame(drawDirectionalPreview)
+    return () => cancelAnimationFrame(transitionFrameRef.current)
+  }, [drawDirectionalPreview, transitionImageReady])
 
   // ── Crop mode: initialize pendingCrop from store trigger ──────────────────────
   useEffect(() => {
@@ -879,8 +939,35 @@ export default function EditorCanvas() {
         )}
       </div>
 
-      {/* Transition overlay — FROM-scene snapshot fades/slides out while TO scene plays under */}
-      {transOverlay && (() => {
+      {transOverlay && isDirectionalTransition(transOverlay.type) && (
+        <>
+          <img
+            src={transOverlay.snap}
+            style={{
+              position: 'absolute',
+              left: offsetX, top: offsetY,
+              width: canvasW, height: canvasH,
+              pointerEvents: 'none',
+              zIndex: 39,
+            }}
+          />
+          <canvas
+            ref={transitionCanvasRef}
+            width={canvasW}
+            height={canvasH}
+            style={{
+              position: 'absolute',
+              left: offsetX, top: offsetY,
+              width: canvasW, height: canvasH,
+              pointerEvents: 'none',
+              zIndex: 40,
+            }}
+          />
+        </>
+      )}
+
+      {/* Existing transitions keep their lightweight HTML preview path. */}
+      {transOverlay && !isDirectionalTransition(transOverlay.type) && (() => {
         const rawP = Math.min(1, Math.max(0, (playhead - transOverlay.transitionStart) / transOverlay.duration))
         const p = easeInOutCubic(rawP)
         const dir = transOverlay.direction

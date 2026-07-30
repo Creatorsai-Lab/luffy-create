@@ -10,8 +10,8 @@ export interface TransitionRenderOptions {
   direction?: SlideDir
   speed?: number
   hardness?: number
-  fromCanvas: HTMLCanvasElement
-  toCanvas: HTMLCanvasElement
+  fromCanvas: CanvasImageSource
+  toCanvas: CanvasImageSource
 }
 
 /**
@@ -86,8 +86,8 @@ function renderFadeTransition(
   w: number,
   h: number,
   t: number,
-  from: HTMLCanvasElement,
-  to: HTMLCanvasElement
+  from: CanvasImageSource,
+  to: CanvasImageSource
 ): void {
   // Keep the outgoing scene fully drawn and dissolve the incoming scene over it.
   // Fading both layers against the cleared canvas creates a dark blink.
@@ -106,8 +106,8 @@ function renderPushTransition(
   h: number,
   t: number,
   dir: SlideDir,
-  from: HTMLCanvasElement,
-  to: HTMLCanvasElement
+  from: CanvasImageSource,
+  to: CanvasImageSource
 ): void {
   // Both scenes move together. `dir` = edge the NEW scene enters from;
   // the old scene exits toward the opposite edge.
@@ -137,8 +137,8 @@ function renderZoomTransition(
   w: number,
   h: number,
   t: number,
-  from: HTMLCanvasElement,
-  to: HTMLCanvasElement
+  from: CanvasImageSource,
+  to: CanvasImageSource
 ): void {
   const toScale = 0.985 + t * 0.015
 
@@ -164,8 +164,8 @@ function renderWipeTransition(
   h: number,
   t: number,
   dir: SlideDir,
-  from: HTMLCanvasElement,
-  to: HTMLCanvasElement
+  from: CanvasImageSource,
+  to: CanvasImageSource
 ): void {
   ctx.drawImage(from, 0, 0, w, h)
 
@@ -233,8 +233,8 @@ function renderMorphTransition(
   w: number,
   h: number,
   t: number,
-  from: HTMLCanvasElement,
-  to: HTMLCanvasElement
+  from: CanvasImageSource,
+  to: CanvasImageSource
 ): void {
   // Morph is a layout merge, not an extra camera move. If matching media is
   // resized/repositioned between scenes, this dissolve reveals that real layout
@@ -257,8 +257,8 @@ function renderDirectionalTransition(
   direction: SlideDir,
   speed: number,
   hardness: number,
-  from: HTMLCanvasElement,
-  to: HTMLCanvasElement,
+  from: CanvasImageSource,
+  to: CanvasImageSource,
 ): void {
   const state = getDirectionalTransitionState(type, progress, direction, speed, hardness)
   const image = state.scene === 'from' ? from : to

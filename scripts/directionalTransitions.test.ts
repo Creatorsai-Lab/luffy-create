@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
-import { getDirectionalTransitionState } from '../src/engine/directionalTransitions'
+import {
+  getDirectionalTransitionState,
+  isDirectionalTransition,
+} from '../src/engine/directionalTransitions'
 import {
   getTransitionCapabilities,
   TRANSITIONS,
@@ -69,6 +72,9 @@ assert.ok(TRANSITIONS_WITH_DIRECTION.includes('flashBlur'))
 assert.ok(TRANSITIONS_WITH_STYLE_CONTROLS.includes('flickerShake'))
 assert.deepEqual(getTransitionCapabilities('flashBlur'), { direction: true, style: true })
 assert.deepEqual(getTransitionCapabilities('fade'), { direction: false, style: false })
+assert.equal(isDirectionalTransition('flashBlur'), true)
+assert.equal(isDirectionalTransition('flickerShake'), true)
+assert.equal(isDirectionalTransition('fade'), false)
 
 function recordFrame(type: 'flashBlur' | 'flickerShake', progress: number) {
   const draws: Array<{ image: object; alpha: number }> = []
