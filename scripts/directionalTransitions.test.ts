@@ -46,11 +46,9 @@ const hard = getDirectionalTransitionState('flickerShake', 0.4, 'right', 1, 90)
 assert.ok(Math.abs(hard.offsetX) > Math.abs(soft.offsetX))
 assert.ok(hard.light > soft.light)
 for (const type of ['flashBlur', 'flickerShake'] as const) {
-  const zero = getDirectionalTransitionState(type, 0.5, 'right', 1, 0)
-  assert.deepEqual(
-    { offsetX: zero.offsetX, offsetY: zero.offsetY, streakX: zero.streakX, streakY: zero.streakY, light: zero.light },
-    { offsetX: 0, offsetY: 0, streakX: 0, streakY: 0, light: 0 },
-  )
+  const minimum = getDirectionalTransitionState(type, 0.4, 'right', 1, 0)
+  assert.ok(Math.abs(minimum.offsetX) + Math.abs(minimum.offsetY) > 0)
+  assert.ok(minimum.light > 0)
 }
 
 function countCuts(speed: number) {

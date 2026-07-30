@@ -65,7 +65,7 @@ export function getDirectionalTransitionState(
 ): DirectionalTransitionState {
   const p = clamp(progress, 0, 1)
   const rate = clamp(speed, 0.25, 3)
-  const force = clamp(hardness, 0, 100) / 100
+  const force = 0.3 + clamp(hardness, 0, 100) / 100 * 0.7
   const [x, y] = directionVector(direction)
   if (p === 0) return zero('from')
   if (p === 1) return zero('to')
