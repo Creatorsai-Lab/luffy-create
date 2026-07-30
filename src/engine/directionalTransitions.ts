@@ -32,17 +32,17 @@ export function getDirectionalTransitionGeometry(
   hardness: number,
 ): DirectionalTransitionGeometry {
   const span = Math.min(width, height)
-  const travel = span * (type === 'flashBlur' ? 0.04 : 0.025)
+  const travel = span * (type === 'flashBlur' ? 0.12 : 0.025)
   const dx = state.offsetX * travel
   const dy = state.offsetY * travel
-  const streakDx = state.streakX * span * 0.05
-  const streakDy = state.streakY * span * 0.05
+  const streakDx = state.streakX * span * (type === 'flashBlur' ? 0.16 : 0.05)
+  const streakDy = state.streakY * span * (type === 'flashBlur' ? 0.16 : 0.05)
   const activity = Math.min(1, Math.max(
     Math.abs(state.offsetX), Math.abs(state.offsetY),
     Math.abs(state.streakX), Math.abs(state.streakY), state.light,
   ))
   const blur = type === 'flashBlur'
-    ? activity * (2 + clamp(hardness, 0, 100) * 0.06)
+    ? activity * (5 + clamp(hardness, 0, 100) * 0.18)
     : 0
   const padX = Math.abs(dx) + Math.abs(streakDx) + blur * 2
   const padY = Math.abs(dy) + Math.abs(streakDy) + blur * 2

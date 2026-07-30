@@ -88,6 +88,10 @@ const verticalPeak = getDirectionalTransitionState('flashBlur', 0.5, 'up', 1, 10
 const geometry = getDirectionalTransitionGeometry('flashBlur', verticalPeak, 640, 360, 100)
 assert.ok((geometry.scale - 1) * 360 / 2 >=
   Math.abs(geometry.dy) + Math.abs(geometry.streakDy) + geometry.blur * 2)
+const visiblePeak = getDirectionalTransitionGeometry('flashBlur', flashPeak, 640, 360, 50)
+assert.ok(visiblePeak.dx >= 20)
+assert.ok(visiblePeak.streakDx >= 25)
+assert.ok(visiblePeak.blur >= 7)
 
 const layerCanvases = [{ id: 'background' }, { id: 'elements' }]
 const captured: object[] = []
@@ -125,7 +129,8 @@ rememberRecentSnapshot(snapshots, 'scene-2', 'new-two')
 assert.deepEqual([...snapshots], [['scene-3', 'three'], ['scene-2', 'new-two']])
 
 function recordFrame(type: 'flashBlur' | 'flickerShake', progress: number) {
-  const draws: Array<{ image: object; alpha: number }> = []
+  const draws: Array<{ image: object; alpha: number; filter: string }> = []
+  const translations: Array<[number, number]> = []
   const stack: Array<{ alpha: number; filter: string }> = []
   const ctx = {
     globalAlpha: 1,
@@ -141,8 +146,10 @@ function recordFrame(type: 'flashBlur' | 'flickerShake', progress: number) {
     },
     setTransform() {},
     clearRect() {},
-    drawImage(image: object) { draws.push({ image, alpha: this.globalAlpha }) },
-    translate() {},
+    drawImage(image: object) {
+      draws.push({ image, alpha: this.globalAlpha, filter: this.filter })
+    },
+    translate(x: number, y: number) { translations.push([x, y]) },
     scale() {},
     fillRect() {},
   }
@@ -160,7 +167,7 @@ function recordFrame(type: 'flashBlur' | 'flickerShake', progress: number) {
     fromCanvas: from as unknown as HTMLCanvasElement,
     toCanvas: to as unknown as HTMLCanvasElement,
   })
-  return { draws, from, to }
+  return { draws, translations, from, to }
 }
 
 for (const [type, progress] of [
@@ -175,6 +182,23 @@ for (const [type, progress] of [
   assert.ok(draws.every(draw => draw.image === expected))
   assert.ok(draws.some(draw => draw.alpha === 1))
 }
+
+const beforeSwap = recordFrame('flashBlur', 0.25)
+assert.ok(beforeSwap.draws.every(draw => draw.image === beforeSwap.from))
+assert.ok(beforeSwap.draws.some(draw => /^blur\((?!0(?:\.0+)?px)/.test(draw.filter)))
+assert.ok(beforeSwap.translations.some(([x, y]) => x !== 320 || y !== 180))
+
+const afterSwap = recordFrame('flashBlur', 0.75)
+assert.ok(afterSwap.draws.every(draw => draw.image === afterSwap.to))
+assert.ok(afterSwap.draws.some(draw => /^blur\((?!0(?:\.0+)?px)/.test(draw.filter)))
+
+const settled = getDirectionalTransitionGeometry('flashBlur', flashEnd, 640, 360, 50)
+assert.deepEqual(
+  { dx: settled.dx, dy: settled.dy, streakDx: settled.streakDx, streakDy: settled.streakDy, blur: settled.blur },
+  { dx: 0, dy: 0, streakDx: 0, streakDy: 0, blur: 0 },
+)
+const settledFrame = recordFrame('flashBlur', 1)
+assert.ok(settledFrame.draws.every(draw => draw.image === settledFrame.to))
 
 const aiContext: AiProjectContext = {
   project: {
