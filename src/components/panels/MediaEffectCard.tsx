@@ -1,6 +1,6 @@
 import { Trash2 } from 'lucide-react'
 import type {
-  MediaEffectAxis, MediaEffectClip, MediaEffectDirection, MediaEffectTarget,
+  MediaEffectAxis, MediaEffectClip, MediaEffectDirection, MediaEffectTarget, MediaZoomPosition,
 } from '../../types/editor'
 import { DEFAULT_MEDIA_EFFECT } from '../../utils/defaults'
 import { cn } from '../../utils/cn'
@@ -20,6 +20,24 @@ const TARGETS: { label: string; value: MediaEffectTarget }[] = [
   { label: 'Manual Focus', value: 'manualFocus' },
 ]
 
+const ZOOM_POSITIONS: { label: string; value: MediaZoomPosition }[] = [
+  { label: 'Center', value: 'center' },
+  { label: 'Top Left', value: 'topLeft' },
+  { label: 'Top Right', value: 'topRight' },
+  { label: 'Bottom Right', value: 'bottomRight' },
+  { label: 'Bottom Left', value: 'bottomLeft' },
+]
+
+export function getMediaEffectControlVisibility(type: MediaEffectClip['type']) {
+  const zoomPosition = type === 'zoomIn' || type === 'zoomOut'
+  return {
+    intensity: type !== 'lightFlicker' && !zoomPosition,
+    hardness: !zoomPosition,
+    blend: !zoomPosition,
+    zoomPosition,
+  }
+}
+
 interface Props {
   clip: MediaEffectClip
   label: string
@@ -35,6 +53,7 @@ export default function MediaEffectCard({
   const change = (patch: Partial<MediaEffectClip>) => onChange({ ...clip, ...patch })
   const percent = (value: number | undefined, fallback: number) => Math.round((value ?? fallback) * 100)
   const isLightFlicker = clip.type === 'lightFlicker'
+  const controls = getMediaEffectControlVisibility(clip.type)
   const showDirection = clip.type === 'lightSweep' || clip.type === 'godRays' || clip.type === 'rain'
   const showColor = showDirection || clip.type === 'snow' || isLightFlicker
   const showSize = clip.type === 'lightSweep' || clip.type === 'glitch' || clip.type === 'rain' || clip.type === 'snow'
@@ -77,7 +96,7 @@ export default function MediaEffectCard({
         </Row>
       </div>
 
-      {!isLightFlicker && (
+      {controls.intensity && (
         <EffectSlider
           label="Intensity"
           value={percent(clip.mediaEffectIntensity, DEFAULT_MEDIA_EFFECT.mediaEffectIntensity)}
@@ -94,16 +113,31 @@ export default function MediaEffectCard({
           display={`${(clip.mediaEffectSpeed ?? DEFAULT_MEDIA_EFFECT.mediaEffectSpeed).toFixed(1)}x`}
         />
       </Row>
-      <EffectSlider
-        label={isLightFlicker ? 'Opacity' : 'Hardness'}
-        value={percent(clip.mediaEffectHardness, DEFAULT_MEDIA_EFFECT.mediaEffectHardness)}
-        onChange={value => change({ mediaEffectHardness: value / 100 })}
-      />
-      <EffectSlider
-        label={isLightFlicker ? 'Fade' : 'Blend'}
-        value={percent(clip.mediaEffectBlend, DEFAULT_MEDIA_EFFECT.mediaEffectBlend)}
-        onChange={value => change({ mediaEffectBlend: value / 100 })}
-      />
+      {controls.zoomPosition && (
+        <Row label="Zoom Position">
+          <select
+            value={clip.mediaEffectZoomPosition ?? DEFAULT_MEDIA_EFFECT.mediaEffectZoomPosition}
+            onChange={event => change({ mediaEffectZoomPosition: event.target.value as MediaZoomPosition })}
+            className="w-full rounded border border-editor-border bg-editor-elevated px-2 py-1 text-xs text-editor-text"
+          >
+            {ZOOM_POSITIONS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+        </Row>
+      )}
+      {controls.hardness && (
+        <EffectSlider
+          label={isLightFlicker ? 'Opacity' : 'Hardness'}
+          value={percent(clip.mediaEffectHardness, DEFAULT_MEDIA_EFFECT.mediaEffectHardness)}
+          onChange={value => change({ mediaEffectHardness: value / 100 })}
+        />
+      )}
+      {controls.blend && (
+        <EffectSlider
+          label={isLightFlicker ? 'Fade' : 'Blend'}
+          value={percent(clip.mediaEffectBlend, DEFAULT_MEDIA_EFFECT.mediaEffectBlend)}
+          onChange={value => change({ mediaEffectBlend: value / 100 })}
+        />
+      )}
 
       {clip.type === 'glitch' && (
         <Row label="Direction">

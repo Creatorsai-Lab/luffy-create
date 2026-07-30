@@ -160,6 +160,30 @@ async function main() {
     mediaEffects: [{ type: 'zoomOut', startAt: 1, endAt: 4, mediaEffectIntensity: 0 }],
   } as never), true)
 
+  const effectPanel = await import('../src/components/panels/MediaEffectsPanel')
+  const options = (effectPanel as Record<string, unknown>).MEDIA_EFFECT_OPTIONS as
+    | { label: string; value: string }[]
+    | undefined
+  assert.equal(options?.some(option => option.value === 'zoomIn'), true)
+  assert.equal(options?.some(option => option.value === 'zoomOut'), true)
+
+  const effectCard = await import('../src/components/panels/MediaEffectCard')
+  const visibleControls = (effectCard as Record<string, unknown>).getMediaEffectControlVisibility as
+    | ((type: string) => { intensity: boolean; hardness: boolean; blend: boolean; zoomPosition: boolean })
+    | undefined
+  assert.deepEqual(visibleControls?.('zoomIn'), {
+    intensity: false,
+    hardness: false,
+    blend: false,
+    zoomPosition: true,
+  })
+  assert.deepEqual(visibleControls?.('shake'), {
+    intensity: true,
+    hardness: true,
+    blend: true,
+    zoomPosition: false,
+  })
+
   const resolveAxis = (effects as Record<string, unknown>).resolveGlitchAxis
   assert.equal(typeof resolveAxis, 'function')
   if (typeof resolveAxis === 'function') {

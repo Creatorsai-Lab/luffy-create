@@ -8,11 +8,13 @@ import { PanelHeader, Row } from './TextPanel'
 
 type MediaElement = ImageElement | VideoElement
 
-const EFFECTS: { label: string; value: MediaEffectClip['type']; description: string }[] = [
+export const MEDIA_EFFECT_OPTIONS: { label: string; value: MediaEffectClip['type']; description: string }[] = [
   { label: 'Subtle Hover', value: 'subtleHover', description: 'Smooth floating camera motion' },
   { label: 'Wiggle', value: 'wiggle', description: 'Small elastic rotation and drift' },
   { label: 'Doodle Drift', value: 'doodleDrift', description: 'Handmade living motion' },
   { label: 'Shake', value: 'shake', description: 'Impact camera shake' },
+  { label: 'Zoom In', value: 'zoomIn', description: 'Continuous push toward a chosen point' },
+  { label: 'Zoom Out', value: 'zoomOut', description: 'Continuous pull back from a chosen point' },
   { label: 'Vibration Distort', value: 'vibrationDistort', description: 'Fast sliced distortion' },
   { label: 'God Rays', value: 'godRays', description: 'Animated directional light beams' },
   { label: 'Light Sweep', value: 'lightSweep', description: 'Glossy moving light pass' },
@@ -68,7 +70,7 @@ export default function MediaEffectsPanel() {
             className="w-full rounded border border-editor-border bg-editor-elevated px-2 py-1 text-xs text-editor-text"
           >
             <option value="" disabled>Select an effect…</option>
-            {EFFECTS.map(effect => (
+            {MEDIA_EFFECT_OPTIONS.map(effect => (
               <option key={effect.value} value={effect.value} disabled={used.has(effect.value)}>
                 {effect.label}{used.has(effect.value) ? ' (Added)' : ''}
               </option>
@@ -83,7 +85,7 @@ export default function MediaEffectsPanel() {
         ) : (
           <div className="flex flex-col gap-2 pt-1">
             {clips.map((clip, index) => {
-              const effect = EFFECTS.find(item => item.value === clip.type)!
+              const effect = MEDIA_EFFECT_OPTIONS.find(item => item.value === clip.type)!
               return (
                 <MediaEffectCard
                   key={clip.type}
