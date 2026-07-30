@@ -1,7 +1,8 @@
 import { Sparkles, RotateCcw } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
-import type { ImageElement, MediaEffectDirection, MediaEffectTarget, MediaEffectType, VideoElement } from '../../types/editor'
+import type { ImageElement, MediaEffectAxis, MediaEffectDirection, MediaEffectTarget, MediaEffectType, VideoElement } from '../../types/editor'
 import { DEFAULT_MEDIA_EFFECT } from '../../utils/defaults'
+import { normalizeMediaEffect } from '../../engine/mediaEffects'
 import { cn } from '../../utils/cn'
 import { ColorInput, PanelHeader, Row, Slider } from './TextPanel'
 
@@ -14,11 +15,8 @@ const EFFECTS: { label: string; value: MediaEffectType; desc: string }[] = [
   { label: 'Doodle Drift', value: 'doodleDrift', desc: 'Handmade living motion' },
   { label: 'Shake', value: 'shake', desc: 'Impact camera shake' },
   { label: 'Vibration Distort', value: 'vibrationDistort', desc: 'Fast sliced distortion' },
-  { label: 'Motion Blur', value: 'motionBlur', desc: 'Directional blur trail' },
   { label: 'God Rays', value: 'godRays', desc: 'Animated directional light beams' },
   { label: 'Light Sweep', value: 'lightSweep', desc: 'Glossy moving light pass' },
-  { label: 'Cloudy', value: 'cloudy', desc: 'Transparent drifting cloud layer' },
-  { label: 'Smoke', value: 'smoke', desc: 'Soft transparent smoke wisps' },
   { label: 'Glitch', value: 'glitch', desc: 'Digital slice and color-channel glitch' },
   { label: 'Rain', value: 'rain', desc: 'Animated transparent rain streaks' },
   { label: 'Snow', value: 'snow', desc: 'Animated falling snow particles' },
@@ -58,13 +56,13 @@ export default function MediaEffectsPanel() {
     )
   }
 
-  const effect = el.mediaEffect ?? DEFAULT_MEDIA_EFFECT.mediaEffect
+  const effect = normalizeMediaEffect(el.mediaEffect ?? DEFAULT_MEDIA_EFFECT.mediaEffect)
   const selectedEffect = EFFECTS.find(item => item.value === effect)
-  const showDirection = effect === 'motionBlur' || effect === 'lightSweep' || effect === 'godRays' || effect === 'rain'
-  const showColor = effect === 'lightSweep' || effect === 'godRays' || effect === 'cloudy' || effect === 'smoke' || effect === 'rain' || effect === 'snow'
+  const showDirection = effect === 'lightSweep' || effect === 'godRays' || effect === 'rain'
+  const showColor = effect === 'lightSweep' || effect === 'godRays' || effect === 'rain' || effect === 'snow'
   const showColorOpacity = showColor
-  const showSize = effect === 'lightSweep' || effect === 'cloudy' || effect === 'smoke' || effect === 'glitch' || effect === 'rain' || effect === 'snow'
-  const showTarget = effect === 'lightSweep' || effect === 'godRays' || effect === 'subtleHover' || effect === 'cloudy' || effect === 'smoke'
+  const showSize = effect === 'lightSweep' || effect === 'glitch' || effect === 'rain' || effect === 'snow'
+  const showTarget = effect === 'lightSweep' || effect === 'godRays' || effect === 'subtleHover'
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -140,6 +138,28 @@ export default function MediaEffectsPanel() {
                 />
               </Row>
 
+              {effect === 'glitch' && (
+                <Row label="Direction">
+                  <div className="grid grid-cols-2 gap-1">
+                    {(['horizontal', 'vertical'] as MediaEffectAxis[]).map(axis => (
+                      <button
+                        key={axis}
+                        type="button"
+                        onClick={() => upd({ mediaEffectAxis: axis })}
+                        className={cn(
+                          'px-2 py-1 rounded border text-[11px] capitalize transition-colors',
+                          (el.mediaEffectAxis ?? DEFAULT_MEDIA_EFFECT.mediaEffectAxis) === axis
+                            ? 'bg-editor-accent border-editor-accent text-white'
+                            : 'bg-editor-elevated border-editor-border text-editor-text hover:border-editor-accent/60',
+                        )}
+                      >
+                        {axis}
+                      </button>
+                    ))}
+                  </div>
+                </Row>
+              )}
+
               {showDirection && (
                 <Row label="Direction">
                   <div className="grid grid-cols-3 gap-1">
@@ -166,7 +186,7 @@ export default function MediaEffectsPanel() {
               )}
 
               {showColor && (
-                <Row label={effect === 'rain' || effect === 'snow' || effect === 'cloudy' || effect === 'smoke' ? 'Effect Color' : 'Light Color'}>
+                <Row label={effect === 'rain' || effect === 'snow' ? 'Effect Color' : 'Light Color'}>
                   <ColorInput
                     value={el.mediaEffectColor ?? DEFAULT_MEDIA_EFFECT.mediaEffectColor}
                     onChange={v => upd({ mediaEffectColor: v })}

@@ -9,6 +9,7 @@ import { sourceVideoClipDuration } from '../../utils/videoClip'
 import BoxShadowControls, { InnerShadowControls } from './BoxShadowControls'
 import { ScaleSizeControl } from './AnimationParamControls'
 import BorderControls from './BorderControls'
+import MediaVignetteControls from './MediaVignetteControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade In',   value: 'fadeIn'   },
@@ -224,6 +225,8 @@ export default function VideoPanel() {
                     hueRotate: undefined, blur: undefined, exposure: undefined,
                     highlights: undefined, shadows: undefined, whites: undefined,
                     blacks: undefined, temperature: undefined, tint: undefined, vibrance: undefined,
+                    vignetteEnabled: false, vignetteColor: '#000000', vignetteAmount: 0.5,
+                    vignetteSize: 0.5, vignetteFade: 0.65,
                   })}
                   className="text-[10px] text-editor-secondary hover:text-editor-text transition-colors"
                 >Reset</button>
@@ -284,6 +287,7 @@ export default function VideoPanel() {
                 <Slider value={el.blur ?? 0} min={0} max={20} step={0.5}
                   onChange={v => upd({ blur: v })} display={`${el.blur ?? 0}px`} />
               </Row>
+              <MediaVignetteControls value={el} onChange={upd} />
             </div>
 
             {/* ── Cinematic & Effects ─────────────────────────────── */}
@@ -307,44 +311,6 @@ export default function VideoPanel() {
                   <option value="noir">Noir High-Contrast</option>
                   <option value="sunset">Sunset Glow</option>
                 </select>
-              </Row>
-
-              {/* Vignette */}
-              <Row label="Vignette">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => upd({ vignetteEnabled: !el.vignetteEnabled })}
-                    className={cn(
-                      'px-2 py-1 rounded text-[11px] transition-colors',
-                      el.vignetteEnabled
-                        ? 'bg-editor-accent text-white'
-                        : 'bg-editor-elevated border border-editor-border text-[#f2f2f2] hover:text-editor-text'
-                    )}
-                  >
-                    {el.vignetteEnabled ? 'On' : 'Off'}
-                  </button>
-                  {el.vignetteEnabled && (
-                    <div className="flex items-center gap-1.5 flex-1">
-                      <input
-                        type="color"
-                        value={el.vignetteColor || '#000000'}
-                        onChange={e => upd({ vignetteColor: e.target.value })}
-                        className="w-6 h-5 rounded border border-editor-border bg-transparent cursor-pointer"
-                        title="Vignette color"
-                      />
-                      <div className="flex-1">
-                        <Slider
-                          value={el.vignetteAmount ?? 0.5}
-                          min={0.1}
-                          max={1.0}
-                          step={0.05}
-                          onChange={v => upd({ vignetteAmount: v })}
-                          display={(el.vignetteAmount ?? 0.5).toFixed(2)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
               </Row>
 
               {/* Video Effects */}

@@ -4,23 +4,10 @@ import type Konva from 'konva'
 import type { ImageElement, SlideDir } from '../../../types/editor'
 import { toFileUrl } from '../../../utils/pathUtils'
 import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
-import { buildCssFilter, applyCanvasAdjustments } from '../../../engine/imageFilters'
+import { buildCssFilter, applyCanvasAdjustments, drawVignette } from '../../../engine/imageFilters'
 import { drawBoxShadow } from '../../../engine/boxShadow'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
 import { drawMediaWithEffect, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
-
-function drawCropped(ctx: CanvasRenderingContext2D, img: HTMLImageElement, el: ImageElement) {
-  if (el.crop) {
-    ctx.drawImage(
-      img,
-      el.crop.x * img.naturalWidth,  el.crop.y * img.naturalHeight,
-      el.crop.w * img.naturalWidth,  el.crop.h * img.naturalHeight,
-      0, 0, el.width, el.height
-    )
-  } else {
-    ctx.drawImage(img, 0, 0, el.width, el.height)
-  }
-}
 
 function makeImageDrawFns(img: HTMLImageElement, el: ImageElement): MediaDrawFns {
   const cropX = (el.crop?.x ?? 0) * img.naturalWidth
@@ -56,6 +43,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
   const [loading, setLoading] = useState(true)
   const [offscreen, setOffscreen] = useState<HTMLCanvasElement | null>(null)
   const isGif = /\.gif(?:$|[?#])/i.test(el.src)
+  const dynamicPerspective = isGif || mediaEffectRequiresAnimation(el)
 
   useEffect(() => {
     setLoading(true)
@@ -99,9 +87,10 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
       ctx.arcTo(0,H,0,0,r); ctx.arcTo(0,0,W,0,r); ctx.closePath(); ctx.clip()
     }
     ctx.filter = buildCssFilter(el) || 'none'
-    drawCropped(ctx, img, el)
+    drawMediaWithEffect(ctx, el, el.width, el.height, localTime, makeImageDrawFns(img, el))
     if (el.glass) { ctx.filter = 'none'; ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(0,0,el.width,el.height) }
     applyCanvasAdjustments(ctx, el)
+    drawVignette(ctx, el)
     ctx.restore()
     return canvas
   }
@@ -126,16 +115,20 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
   // Build offscreen canvas for perspective warp. GIFs stay dynamic and rebuild
   // from the live image frame during each draw.
   useEffect(() => {
-    if (!el.perspectivePts || !img || isGif) { setOffscreen(null); return }
+    if (!el.perspectivePts || !img || dynamicPerspective) { setOffscreen(null); return }
     setOffscreen(buildPerspectiveSource())
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [img, el.width, el.height, el.cornerRadius, el.crop,
       el.brightness, el.contrast, el.saturation, el.hueRotate, el.blur, el.glass,
       el.exposure, el.highlights, el.shadows, el.whites, el.blacks,
-      el.temperature, el.tint, el.vibrance, !!el.perspectivePts, isGif])
+      el.temperature, el.tint, el.vibrance, el.vignetteEnabled, el.vignetteColor,
+      el.vignetteAmount, el.vignetteSize, el.vignetteFade, el.mediaEffect,
+      el.mediaEffectAxis, el.mediaEffectIntensity, el.mediaEffectSpeed,
+      el.mediaEffectHardness, el.mediaEffectBlend, el.mediaEffectSize,
+      !!el.perspectivePts, dynamicPerspective])
 
   // Perspective warp rendering
-  if (el.perspectivePts && (offscreen || (isGif && img))) {
+  if (el.perspectivePts && (offscreen || (dynamicPerspective && img))) {
     return (
       <Shape
         ref={shapeRef}
@@ -148,7 +141,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
         sceneFunc={(ctx, _shape) => {
           const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
           drawBoxShadow(raw, el.boxShadow, el.width, el.height, el.cornerRadius)
-          const source = isGif ? buildPerspectiveSource() : offscreen
+          const source = dynamicPerspective ? buildPerspectiveSource() : offscreen
           if (source) drawPerspectiveWarp(raw, source, el.perspectivePts!, el.width, el.height)
           drawPerspectiveQuadBorder(raw, el, localTime)
         }}
@@ -264,6 +257,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
           raw.fillRect(0, 0, el.width, el.height)
         }
         applyCanvasAdjustments(raw, el)
+        drawVignette(raw, el)
 
         raw.restore()
         drawMediaBorder(raw, el, el.width, el.height, localTime)

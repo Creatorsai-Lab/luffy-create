@@ -8,6 +8,7 @@ import { makeAnimation } from '../../utils/defaults'
 import BoxShadowControls from './BoxShadowControls'
 import { ScaleSizeControl } from './AnimationParamControls'
 import BorderControls from './BorderControls'
+import MediaVignetteControls from './MediaVignetteControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Slide In',  value: 'slideIn'  },
@@ -88,7 +89,9 @@ export default function ImagePanel() {
     upd({
       brightness: 100, contrast: 100, saturation: 100, hueRotate: 0, blur: 0, glass: false,
       exposure: 0, highlights: 0, shadows: 0, whites: 0, blacks: 0,
-      temperature: 0, tint: 0, vibrance: 0
+      temperature: 0, tint: 0, vibrance: 0,
+      vignetteEnabled: false, vignetteColor: '#000000', vignetteAmount: 0.5,
+      vignetteSize: 0.5, vignetteFade: 0.65,
     })
   }
 
@@ -228,6 +231,7 @@ export default function ImagePanel() {
                   <Slider value={el.blur ?? 0} min={0} max={20} step={0.5}
                     onChange={v => upd({ blur: v })} display={`${el.blur ?? 0}px`} />
                 </Row>
+                <MediaVignetteControls value={el} onChange={upd} />
               </div>
 
               {/* ── Effects ─────────────────────────────────────────── */}

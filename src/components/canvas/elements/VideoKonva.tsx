@@ -5,11 +5,11 @@ import type { VideoElement } from '../../../types/editor'
 import { toFileUrl } from '../../../utils/pathUtils'
 import { getVideoClipState } from '../../../utils/videoClip'
 import { videoRegistry } from '../../../engine/videoRegistry'
-import { buildCssFilter, applyCanvasAdjustments } from '../../../engine/imageFilters'
+import { buildCssFilter, applyCanvasAdjustments, drawVignette } from '../../../engine/imageFilters'
 import { drawBoxShadow, drawInnerShadow } from '../../../engine/boxShadow'
 import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
-import { drawMediaWithEffect, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
+import { drawMediaWithEffect, mediaEffectRequiresAnimation, normalizeMediaEffect, type MediaDrawFns } from '../../../engine/mediaEffects'
 
 function makeVideoDrawFns(video: HTMLVideoElement, el: VideoElement, width: number, height: number): MediaDrawFns {
   const vw = video.videoWidth || width
@@ -196,8 +196,6 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
           source.width = w
           source.height = h
           const sourceCtx = source.getContext('2d')!
-          const vw = video.videoWidth || w
-          const vh = video.videoHeight || h
 
           sourceCtx.save()
           if (frame === 'circle') {
@@ -224,22 +222,14 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
             sourceCtx.clip()
           }
           sourceCtx.filter = buildCssFilter(el) || 'none'
-          if (el.crop) {
-            sourceCtx.drawImage(
-              video,
-              el.crop.x * vw, el.crop.y * vh,
-              el.crop.w * vw, el.crop.h * vh,
-              0, 0, w, h
-            )
-          } else {
-            sourceCtx.drawImage(video, 0, 0, w, h)
-          }
+          drawMediaWithEffect(sourceCtx, el, w, h, localTime, makeVideoDrawFns(video, el, w, h))
           if (el.glass) {
             sourceCtx.filter = 'none'
             sourceCtx.fillStyle = 'rgba(255,255,255,0.18)'
             sourceCtx.fillRect(0, 0, w, h)
           }
           applyCanvasAdjustments(sourceCtx, el)
+          drawVignette(sourceCtx, el)
           sourceCtx.restore()
 
           raw.filter = 'none'
@@ -281,7 +271,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
         // 2. Setup Effects & Adjustments Filters. Shared media effects take
         // priority; legacy video-only effects still work when no shared effect
         // is selected from the Effects panel.
-        const hasSharedEffect = (el.mediaEffect ?? 'none') !== 'none'
+        const hasSharedEffect = normalizeMediaEffect(el.mediaEffect) !== 'none'
         const effect = hasSharedEffect ? 'none' : (el.videoEffect ?? 'none')
         const intensity = hasSharedEffect ? 0 : (el.videoEffectIntensity ?? 0.5)
 
@@ -432,34 +422,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
         }
 
         // 11. Vignette overlay
-        if (el.vignetteEnabled && (el.vignetteAmount ?? 0.5) > 0) {
-          raw.save()
-          raw.filter = 'none'
-          const cx = w / 2
-          const cy = h / 2
-          const rOuter = Math.sqrt(cx * cx + cy * cy)
-          const grad = raw.createRadialGradient(cx, cy, rOuter * 0.35, cx, cy, rOuter)
-          
-          let color = el.vignetteColor || '#000000'
-          let rgb = '0,0,0'
-          if (color.startsWith('#')) {
-            const hex = color.replace('#', '')
-            const r = parseInt(hex.slice(0, 2), 16) || 0
-            const g = parseInt(hex.slice(2, 4), 16) || 0
-            const b = parseInt(hex.slice(4, 6), 16) || 0
-            rgb = `${r},${g},${b}`
-          } else if (color === 'white') {
-            rgb = '255,255,255'
-          }
-          
-          grad.addColorStop(0, `rgba(${rgb}, 0)`)
-          grad.addColorStop(1, `rgba(${rgb}, ${el.vignetteAmount ?? 0.5})`)
-          
-          raw.globalCompositeOperation = 'source-over'
-          raw.fillStyle = grad
-          raw.fillRect(0, 0, w, h)
-          raw.restore()
-        }
+        drawVignette(raw, el)
 
         drawInnerShadow(raw, el.innerShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
 

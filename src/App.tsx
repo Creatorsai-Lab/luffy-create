@@ -156,6 +156,7 @@ export default function App() {
           {/* MenuSideBar on the left */}
           <div className="flex-none border border-editor-border bg-[#171717] rounded-lg overflow-hidden shadow-[0_1px_6px_rgba(0,0,0,0.4)]">
             <MenuSideBar />
+            
           </div>
 
           {/* Canvas in the middle */}

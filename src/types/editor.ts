@@ -20,7 +20,9 @@ export type MoveDirection = 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 't
 export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push' | 'morph'
 export type BgType        = 'solid' | 'gradient' | 'grid' | 'dots' | 'animated' | 'transparent'
 export type FontWeight    = 'thin' | 'normal' | 'semibold' | 'bold'
-export type MediaEffectType = 'none' | 'subtleHover' | 'wiggle' | 'doodleDrift' | 'shake' | 'vibrationDistort' | 'motionBlur' | 'godRays' | 'lightSweep' | 'cloudy' | 'smoke' | 'glitch' | 'rain' | 'snow'
+export const MEDIA_EFFECT_TYPES = ['none', 'subtleHover', 'wiggle', 'doodleDrift', 'shake', 'vibrationDistort', 'godRays', 'lightSweep', 'glitch', 'rain', 'snow'] as const
+export type MediaEffectType = typeof MEDIA_EFFECT_TYPES[number]
+export type MediaEffectAxis = 'horizontal' | 'vertical'
 export type MediaEffectDirection = 'left' | 'right' | 'up' | 'down' | 'diagonal'
 export type MediaEffectTarget = 'wholeMedia' | 'centerSubject' | 'manualFocus'
 export type ActiveTool    = 'select' | 'text' | 'shape-rect' | 'shape-circle' | 'shape-triangle' | 'shape-star' | 'shape-pentagon' | 'shape-hexagon' | 'shape-octagon' | 'shape-diamond' | 'shape-oval' | 'shape-speechBubble' | 'shape-roundedSpeech' | 'shape-cone' | 'shape-cube' | 'shape-rect-hand' | 'shape-circle-hand' | 'shape-square-hand' | 'shape-heart' | 'shape-rect-sketch' | 'arrow' | 'code' | 'table' | 'image' | 'chart' | 'video' | 'latex' | 'counter'
@@ -60,6 +62,7 @@ export interface PerspectiveControls {
 
 export interface MediaEffectControls {
   mediaEffect?: MediaEffectType
+  mediaEffectAxis?: MediaEffectAxis
   mediaEffectIntensity?: number
   mediaEffectSpeed?: number
   mediaEffectHardness?: number
@@ -71,6 +74,14 @@ export interface MediaEffectControls {
   mediaEffectTarget?: MediaEffectTarget
   mediaEffectFocusX?: number
   mediaEffectFocusY?: number
+}
+
+export interface MediaVignetteControls {
+  vignetteEnabled?: boolean
+  vignetteColor?: string
+  vignetteAmount?: number
+  vignetteSize?: number
+  vignetteFade?: number
 }
 
 // ─── Animation ───────────────────────────────────────────────────────────────
@@ -221,7 +232,7 @@ export interface CodeElement extends BaseElement {
   bgColor?: string
 }
 
-export interface ImageElement extends BaseElement, MediaEffectControls {
+export interface ImageElement extends BaseElement, MediaEffectControls, MediaVignetteControls {
   type: 'image'
   src: string
   assetId: string
@@ -313,7 +324,7 @@ export interface ChartElement extends BaseElement {
   regressionLineWidth?: number
 }
 
-export interface VideoElement extends BaseElement, MediaEffectControls {
+export interface VideoElement extends BaseElement, MediaEffectControls, MediaVignetteControls {
   type: 'video'
   src: string
   assetId: string
@@ -351,9 +362,6 @@ export interface VideoElement extends BaseElement, MediaEffectControls {
   vibrance?: number
   // Cinematic & Effects
   colorGrading?: 'none' | 'warm' | 'cool' | 'vintage' | 'cyberpunk' | 'cinematic' | 'monochrome' | 'noir' | 'sunset'
-  vignetteEnabled?: boolean
-  vignetteColor?: string
-  vignetteAmount?: number
   videoEffect?: 'none' | 'lensBlur' | 'distortion' | 'shake' | 'comic' | 'retro' | 'flash'
   videoEffectIntensity?: number
   frameType?: 'none' | 'circle' | 'triangle'

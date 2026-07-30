@@ -1,4 +1,12 @@
-import type { ImageElement, MediaEffectDirection, MediaEffectTarget, MediaEffectType, VideoElement } from '../types/editor'
+import {
+  MEDIA_EFFECT_TYPES,
+  type ImageElement,
+  type MediaEffectAxis,
+  type MediaEffectDirection,
+  type MediaEffectTarget,
+  type MediaEffectType,
+  type VideoElement,
+} from '../types/editor'
 
 type MediaElement = ImageElement | VideoElement
 
@@ -17,6 +25,7 @@ export interface MediaDrawFns {
 
 interface EffectState {
   type: MediaEffectType
+  axis: MediaEffectAxis
   intensity: number
   speed: number
   hardness: number
@@ -31,7 +40,16 @@ interface EffectState {
 }
 
 export function mediaEffectRequiresAnimation(el: MediaElement) {
-  return resolveMediaEffect(el).type !== 'none'
+  const effect = resolveMediaEffect(el)
+  return effect.type !== 'none' && effect.intensity > 0
+}
+
+export function normalizeMediaEffect(value: unknown): MediaEffectType {
+  return MEDIA_EFFECT_TYPES.includes(value as MediaEffectType) ? value as MediaEffectType : 'none'
+}
+
+export function resolveGlitchAxis(value: unknown): MediaEffectAxis {
+  return value === 'vertical' ? 'vertical' : 'horizontal'
 }
 
 export function drawMediaWithEffect(
@@ -55,8 +73,6 @@ export function drawMediaWithEffect(
     drawVibrationDistort(ctx, effect, width, height, localTime, fns)
   } else if (effect.type === 'glitch') {
     drawGlitch(ctx, effect, width, height, localTime, fns)
-  } else if (effect.type === 'motionBlur') {
-    drawMotionBlur(ctx, effect, width, height, fns)
   } else {
     fns.drawBase(ctx, 0, 0, width, height)
   }
@@ -65,15 +81,13 @@ export function drawMediaWithEffect(
 
   if (effect.type === 'godRays') drawGodRays(ctx, effect, width, height, localTime)
   if (effect.type === 'lightSweep') drawLightSweep(ctx, effect, width, height, localTime)
-  if (effect.type === 'cloudy') drawCloudy(ctx, effect, width, height, localTime)
-  if (effect.type === 'smoke') drawSmoke(ctx, effect, width, height, localTime)
   if (effect.type === 'rain') drawRain(ctx, effect, width, height, localTime)
   if (effect.type === 'snow') drawSnow(ctx, effect, width, height, localTime)
 }
 
 function resolveMediaEffect(el: MediaElement): EffectState {
   const legacyVideo = el.type === 'video' ? el.videoEffect : undefined
-  const mediaEffect = el.mediaEffect ?? 'none'
+  const mediaEffect = normalizeMediaEffect(el.mediaEffect)
   const type = mediaEffect !== 'none'
     ? mediaEffect
     : legacyVideo === 'shake'
@@ -84,6 +98,7 @@ function resolveMediaEffect(el: MediaElement): EffectState {
 
   return {
     type,
+    axis: resolveGlitchAxis(el.mediaEffectAxis),
     intensity: clamp01(el.mediaEffectIntensity ?? (el.type === 'video' ? el.videoEffectIntensity : undefined) ?? 0.45),
     speed: clamp(el.mediaEffectSpeed ?? 1, 0.1, 5),
     hardness: clamp01(el.mediaEffectHardness ?? 0.5),
@@ -140,28 +155,6 @@ function applyMotionTransform(
   }
 }
 
-function drawMotionBlur(
-  ctx: CanvasRenderingContext2D,
-  effect: EffectState,
-  width: number,
-  height: number,
-  fns: MediaDrawFns,
-) {
-  const [dx, dy] = directionVector(effect.direction)
-  const amount = (10 + effect.hardness * 28) * effect.intensity
-  const passes = Math.max(3, Math.round(4 + effect.hardness * 6))
-  const prevAlpha = ctx.globalAlpha
-
-  for (let p = passes; p >= 1; p--) {
-    const k = p / passes
-    ctx.globalAlpha = prevAlpha * effect.blend * 0.18 * k
-    fns.drawBase(ctx, -dx * amount * k, -dy * amount * k, width, height)
-  }
-
-  ctx.globalAlpha = prevAlpha
-  fns.drawBase(ctx, 0, 0, width, height)
-}
-
 function drawVibrationDistort(
   ctx: CanvasRenderingContext2D,
   effect: EffectState,
@@ -196,31 +189,66 @@ function drawGlitch(
   fns: MediaDrawFns,
 ) {
   const t = localTime * effect.speed
-  const burst = Math.max(0, Math.sin(t * 8.2) * 0.65 + Math.sin(t * 19.7) * 0.35)
-  const strength = effect.intensity * (0.35 + effect.hardness * 0.65) * (0.35 + burst)
-  const channel = (4 + effect.size * 28) * strength
+  const frame = Math.floor(t * 12)
+  const burst = 0.45 + Math.max(0, Math.sin(t * 8.2) * 0.7 + Math.sin(t * 19.7) * 0.3)
+  const strength = effect.intensity * (0.35 + effect.hardness * 0.65) * burst
+  const channel = (2 + effect.size * 18) * strength
+  const horizontal = effect.axis === 'horizontal'
+
+  fns.drawBase(ctx, 0, 0, width, height)
 
   ctx.save()
   ctx.globalCompositeOperation = 'screen'
-  ctx.globalAlpha = 0.48 * effect.blend
-  ctx.filter = 'none'
-  fns.drawBase(ctx, -channel, 0, width, height)
-  ctx.globalAlpha = 0.34 * effect.blend
-  fns.drawBase(ctx, channel, Math.sin(t * 23) * channel * 0.25, width, height)
+  ctx.globalAlpha = 0.2 * effect.blend * strength
+  ctx.filter = 'sepia(1) saturate(7) hue-rotate(135deg)'
+  fns.drawBase(ctx, horizontal ? -channel : 0, horizontal ? 0 : -channel, width, height)
+  ctx.filter = 'sepia(1) saturate(7) hue-rotate(285deg)'
+  fns.drawBase(ctx, horizontal ? channel : 0, horizontal ? 0 : channel, width, height)
   ctx.restore()
 
-  if (!fns.drawSlice) return
-
-  const slices = Math.max(5, Math.round(6 + effect.hardness * 16))
-  const maxOffset = (10 + effect.size * 46) * strength
-  for (let s = 0; s < slices; s++) {
-    const seed = seededUnit(s * 41 + Math.floor(t * 10))
-    if (seed < 0.38) continue
-    const sliceH = Math.max(4, height * (0.012 + seededUnit(s * 83) * 0.045))
-    const y = seededUnit(s * 131 + Math.floor(t * 6)) * Math.max(1, height - sliceH)
-    const offset = (seededUnit(s * 17 + Math.floor(t * 12)) - 0.5) * maxOffset * 2
-    fns.drawSlice(ctx, y, sliceH, offset, y, width, sliceH)
+  const bands = Math.round(5 + effect.hardness * 8)
+  const crossSize = horizontal ? height : width
+  const maxOffset = (8 + effect.size * 42) * strength
+  for (let i = 0; i < bands; i++) {
+    if (seededUnit(frame * 47 + i * 31) < 0.3) continue
+    const thickness = Math.max(2, crossSize * (0.008 + seededUnit(i * 83 + frame) * 0.045))
+    const position = seededUnit(i * 131 + frame * 7) * Math.max(1, crossSize - thickness)
+    const offset = (seededUnit(i * 17 + frame * 13) - 0.5) * maxOffset * 2
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(horizontal ? 0 : position, horizontal ? position : 0, horizontal ? width : thickness, horizontal ? thickness : height)
+    ctx.clip()
+    fns.drawBase(ctx, horizontal ? offset : 0, horizontal ? 0 : offset, width, height)
+    ctx.restore()
   }
+
+  drawGlitchLines(ctx, effect, width, height, frame)
+}
+
+function drawGlitchLines(
+  ctx: CanvasRenderingContext2D,
+  effect: EffectState,
+  width: number,
+  height: number,
+  frame: number,
+) {
+  const horizontal = effect.axis === 'horizontal'
+  const crossSize = horizontal ? height : width
+  const longSize = horizontal ? width : height
+  const lines = Math.round(5 + effect.hardness * 9)
+
+  ctx.save()
+  ctx.filter = 'none'
+  ctx.globalAlpha = effect.intensity * effect.blend
+  for (let i = 0; i < lines; i++) {
+    const cross = seededUnit(frame * 61 + i * 43) * crossSize
+    const start = seededUnit(frame * 23 + i * 73) * longSize * 0.82
+    const length = longSize * (0.04 + seededUnit(frame * 11 + i * 97) * 0.2)
+    const thickness = 1 + Math.round(seededUnit(i * 37 + frame) * 1.2)
+    ctx.fillStyle = i % 3 === 0 ? 'rgba(4, 8, 16, .75)' : i % 2 ? '#ff2fa8' : '#19e6ff'
+    ctx.fillRect(horizontal ? start : cross, horizontal ? cross : start, horizontal ? length : thickness, horizontal ? thickness : length)
+  }
+  ctx.restore()
 }
 
 function drawLightSweep(
@@ -290,81 +318,6 @@ function drawGodRays(
     ctx.closePath()
     ctx.fill()
   }
-  ctx.restore()
-}
-
-function drawCloudy(
-  ctx: CanvasRenderingContext2D,
-  effect: EffectState,
-  width: number,
-  height: number,
-  localTime: number,
-) {
-  const rgb = hexToRgb(effect.color)
-  const focus = focusPoint(effect, width, height)
-  const count = Math.max(5, Math.round(7 + effect.hardness * 9))
-  const baseRadius = Math.max(width, height) * (0.08 + effect.size * 0.16)
-  const drift = localTime * effect.speed * (20 + effect.hardness * 42)
-
-  ctx.save()
-  ctx.filter = `blur(${Math.round(10 + effect.size * 26)}px)`
-  ctx.globalCompositeOperation = 'screen'
-
-  for (let i = 0; i < count; i++) {
-    const seed = i * 97
-    const radius = baseRadius * (0.55 + seededUnit(seed) * 0.9)
-    const band = (i / count - 0.5) * height * 0.78
-    const x = wrap(focus.x + (seededUnit(seed + 7) - 0.5) * width * 0.95 + drift * (0.45 + seededUnit(seed + 11)), -radius, width + radius)
-    const y = focus.y + band + Math.sin(localTime * effect.speed * 0.45 + i) * height * 0.035
-    const alpha = effect.intensity * effect.blend * effect.colorOpacity * (0.045 + seededUnit(seed + 19) * 0.075)
-    const grad = ctx.createRadialGradient(x, y, 0, x, y, radius)
-    grad.addColorStop(0, `rgba(${rgb}, ${alpha})`)
-    grad.addColorStop(0.62, `rgba(${rgb}, ${alpha * 0.45})`)
-    grad.addColorStop(1, `rgba(${rgb}, 0)`)
-    ctx.fillStyle = grad
-    ctx.beginPath()
-    ctx.arc(x, y, radius, 0, Math.PI * 2)
-    ctx.fill()
-  }
-
-  ctx.restore()
-}
-
-function drawSmoke(
-  ctx: CanvasRenderingContext2D,
-  effect: EffectState,
-  width: number,
-  height: number,
-  localTime: number,
-) {
-  const rgb = hexToRgb(effect.color)
-  const focus = focusPoint(effect, width, height)
-  const count = Math.max(8, Math.round(10 + effect.hardness * 16))
-  const baseRadius = Math.max(width, height) * (0.035 + effect.size * 0.12)
-
-  ctx.save()
-  ctx.filter = `blur(${Math.round(12 + effect.size * 34)}px)`
-  ctx.globalCompositeOperation = 'source-over'
-
-  for (let i = 0; i < count; i++) {
-    const seed = i * 113
-    const cycle = ((localTime * effect.speed * (0.09 + effect.hardness * 0.18) + seededUnit(seed)) % 1 + 1) % 1
-    const side = seededUnit(seed + 5) - 0.5
-    const wave = Math.sin(cycle * Math.PI * 2 + i) * width * 0.06 * effect.hardness
-    const x = focus.x + side * width * 0.52 + wave
-    const y = height + baseRadius - cycle * (height + baseRadius * 2)
-    const radius = baseRadius * (0.75 + cycle * 1.75 + seededUnit(seed + 17) * 0.55)
-    const alpha = effect.intensity * effect.blend * effect.colorOpacity * (1 - cycle) * 0.16
-    const grad = ctx.createRadialGradient(x, y, 0, x, y, radius)
-    grad.addColorStop(0, `rgba(${rgb}, ${alpha})`)
-    grad.addColorStop(0.55, `rgba(${rgb}, ${alpha * 0.42})`)
-    grad.addColorStop(1, `rgba(${rgb}, 0)`)
-    ctx.fillStyle = grad
-    ctx.beginPath()
-    ctx.arc(x, y, radius, 0, Math.PI * 2)
-    ctx.fill()
-  }
-
   ctx.restore()
 }
 

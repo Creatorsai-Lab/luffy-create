@@ -30,6 +30,7 @@ export const DEFAULT_INNER_SHADOW: InnerShadow = {
 
 export const DEFAULT_MEDIA_EFFECT = {
   mediaEffect: 'none' as const,
+  mediaEffectAxis: 'horizontal' as const,
   mediaEffectIntensity: 0.45,
   mediaEffectSpeed: 1,
   mediaEffectHardness: 0.5,
@@ -190,6 +191,11 @@ export function makeImage(x: number, y: number, src: string, assetId: string, wi
     borderGradientAngle: 135,
     borderAnimate: false,
     borderAnimationSpeed: 1,
+    vignetteEnabled: false,
+    vignetteColor: '#000000',
+    vignetteAmount: 0.5,
+    vignetteSize: 0.5,
+    vignetteFade: 0.65,
     ...DEFAULT_MEDIA_EFFECT,
   }
 }
@@ -313,6 +319,8 @@ export function makeVideo(
     vignetteEnabled: false,
     vignetteColor: '#000000',
     vignetteAmount: 0.5,
+    vignetteSize: 0.5,
+    vignetteFade: 0.65,
     videoEffect: 'none',
     videoEffectIntensity: 0.5,
     ...DEFAULT_MEDIA_EFFECT,

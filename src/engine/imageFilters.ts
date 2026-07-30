@@ -15,6 +15,11 @@ export interface AdjustableElement {
   shadows?: number      // -100 to 100
   whites?: number       // -100 to 100
   blacks?: number       // -100 to 100
+  vignetteEnabled?: boolean
+  vignetteColor?: string
+  vignetteAmount?: number
+  vignetteSize?: number
+  vignetteFade?: number
 }
 
 export function buildCssFilter(el: AdjustableElement): string {
@@ -89,4 +94,50 @@ export function applyCanvasAdjustments(ctx: CanvasRenderingContext2D, el: Adjust
     ctx.fillRect(0, 0, el.width, el.height)
   }
   ctx.globalCompositeOperation = 'source-over'
+}
+
+export function getVignetteStops(size: number, fade: number) {
+  return {
+    inner: 0.18 + (1 - clamp01(size)) * 0.55,
+    fadeStart: 0.98 - clamp01(fade) * 0.85,
+  }
+}
+
+export function drawVignette(ctx: CanvasRenderingContext2D, el: AdjustableElement) {
+  const amount = clamp01(el.vignetteAmount ?? 0.5)
+  if (!el.vignetteEnabled || amount <= 0) return
+
+  const [r, g, b] = hexToRgb(el.vignetteColor ?? '#000000')
+  const { inner, fadeStart } = getVignetteStops(el.vignetteSize ?? 0.5, el.vignetteFade ?? 0.65)
+  const cx = el.width / 2
+  const cy = el.height / 2
+  const outer = Math.hypot(cx, cy)
+  const gradient = ctx.createRadialGradient(cx, cy, outer * inner, cx, cy, outer)
+
+  gradient.addColorStop(0, `rgba(${r},${g},${b},0)`)
+  gradient.addColorStop(fadeStart, `rgba(${r},${g},${b},0)`)
+  gradient.addColorStop(1, `rgba(${r},${g},${b},${amount})`)
+
+  ctx.save()
+  ctx.filter = 'none'
+  ctx.globalCompositeOperation = 'source-over'
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, el.width, el.height)
+  ctx.restore()
+}
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value))
+}
+
+function hexToRgb(color: string): [number, number, number] {
+  if (color.toLowerCase() === 'white') return [255, 255, 255]
+  const hex = color.replace('#', '')
+  const value = hex.length === 3
+    ? hex.split('').map(char => char + char).join('')
+    : hex.padEnd(6, '0').slice(0, 6)
+  const parsed = Number.parseInt(value, 16)
+  return Number.isFinite(parsed)
+    ? [(parsed >> 16) & 255, (parsed >> 8) & 255, parsed & 255]
+    : [0, 0, 0]
 }
