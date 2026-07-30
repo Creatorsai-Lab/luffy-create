@@ -51,6 +51,7 @@ const CANVAS_FONTS: Array<{ family: string; weights: string[] }> = [
   { family: 'Caveat',             weights: ['400', '700'] },
   { family: 'Caveat Brush',       weights: ['400'] },
   { family: 'Chewy',              weights: ['400'] },
+  { family: 'Computer Modern Roman', weights: ['400', '700'] },
   { family: 'EB Garamond',        weights: ['400', '700'] },
   { family: 'Handlee',            weights: ['400'] },
   { family: 'Imperial Script',    weights: ['400'] },

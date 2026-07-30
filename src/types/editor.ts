@@ -625,6 +625,7 @@ export const FONT_FAMILIES = [
   'Caveat Brush',
   'Chewy',
   'Comic Sans MS',
+  'Computer Modern Roman',
   'Consolas',
   'Courier New',
   'EB Garamond',

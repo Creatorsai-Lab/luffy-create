@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 
 async function main() {
+  const editor = await import('../src/types/editor')
+  assert.equal(editor.FONT_FAMILIES.includes('Computer Modern Roman'), true)
+
   const defaults = await import('../src/utils/defaults')
   const clip = defaults.makeMediaEffectClip('rain', 6.5)
   assert.equal(clip.type, 'rain')
