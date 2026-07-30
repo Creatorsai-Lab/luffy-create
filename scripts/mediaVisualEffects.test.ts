@@ -38,40 +38,32 @@ async function main() {
   assert.equal(normalize('zoomIn'), 'zoomIn')
   assert.equal(normalize('zoomOut'), 'zoomOut')
 
-  const getZoom = (effects as Record<string, unknown>).getMediaZoomTransform as
-    | ((
-      type: 'zoomIn' | 'zoomOut',
-      elapsed: number,
-      duration: number,
-      speed: number,
-      position: string,
-      width: number,
-      height: number,
-    ) => { scale: number; anchorX: number; anchorY: number })
+  const getZoomScale = (effects as Record<string, unknown>).getMediaZoomScale as
+    | ((type: 'zoomIn' | 'zoomOut', elapsed: number, duration: number, speed: number) => number)
     | undefined
-  assert.equal(typeof getZoom, 'function')
-  if (getZoom) {
-    assert.deepEqual(getZoom('zoomIn', 0, 4, 1, 'center', 100, 80), {
-      scale: 1, anchorX: 50, anchorY: 40,
-    })
-    assert.deepEqual(getZoom('zoomIn', 2, 4, 1, 'center', 100, 80), {
-      scale: 1.24, anchorX: 50, anchorY: 40,
-    })
-    assert.deepEqual(getZoom('zoomIn', 4, 4, 1, 'topLeft', 100, 80), {
-      scale: 1.48, anchorX: 0, anchorY: 0,
-    })
-    assert.deepEqual(getZoom('zoomOut', 0, 4, 1, 'topRight', 100, 80), {
-      scale: 1.48, anchorX: 100, anchorY: 0,
-    })
-    assert.deepEqual(getZoom('zoomOut', 2, 4, 1, 'bottomRight', 100, 80), {
-      scale: 1.24, anchorX: 100, anchorY: 80,
-    })
-    assert.deepEqual(getZoom('zoomOut', 4, 4, 1, 'bottomLeft', 100, 80), {
-      scale: 1, anchorX: 0, anchorY: 80,
-    })
-    assert.equal(getZoom('zoomIn', 2, 4, 2, 'center', 100, 80).scale, 1.48)
-    assert.equal(getZoom('zoomOut', 0, 8, 1, 'center', 100, 80).scale, 1.96)
-    assert.equal(Number.isFinite(getZoom('zoomIn', Infinity, Infinity, Infinity, 'old-value', 100, 80).scale), true)
+  const getZoomAnchor = (effects as Record<string, unknown>).getMediaZoomAnchor as
+    | ((position: string, size: number, axis: 'x' | 'y') => number)
+    | undefined
+  assert.equal(typeof getZoomScale, 'function')
+  assert.equal(typeof getZoomAnchor, 'function')
+  if (getZoomScale && getZoomAnchor) {
+    assert.equal(getZoomScale('zoomIn', 0, 4, 1), 1)
+    assert.equal(getZoomScale('zoomIn', 2, 4, 1), 1.24)
+    assert.equal(getZoomScale('zoomIn', 4, 4, 1), 1.48)
+    assert.equal(getZoomScale('zoomOut', 0, 4, 1), 1.48)
+    assert.equal(getZoomScale('zoomOut', 2, 4, 1), 1.24)
+    assert.equal(getZoomScale('zoomOut', 4, 4, 1), 1)
+    assert.equal(getZoomScale('zoomIn', 2, 4, 2), 1.48)
+    assert.equal(getZoomScale('zoomOut', 0, 8, 1), 1.96)
+    assert.equal(Number.isFinite(getZoomScale('zoomIn', Infinity, Infinity, Infinity)), true)
+    assert.deepEqual([
+      [getZoomAnchor('center', 100, 'x'), getZoomAnchor('center', 80, 'y')],
+      [getZoomAnchor('topLeft', 100, 'x'), getZoomAnchor('topLeft', 80, 'y')],
+      [getZoomAnchor('topRight', 100, 'x'), getZoomAnchor('topRight', 80, 'y')],
+      [getZoomAnchor('bottomRight', 100, 'x'), getZoomAnchor('bottomRight', 80, 'y')],
+      [getZoomAnchor('bottomLeft', 100, 'x'), getZoomAnchor('bottomLeft', 80, 'y')],
+      [getZoomAnchor('old-value', 100, 'x'), getZoomAnchor('old-value', 80, 'y')],
+    ], [[50, 40], [0, 0], [100, 0], [100, 80], [0, 80], [50, 40]])
   }
 
   const flicker = (effects as Record<string, unknown>).getLightFlickerStrength
@@ -95,6 +87,15 @@ async function main() {
     ],
   } as never)
   assert.deepEqual(clips.map(clip => clip.type), ['glitch', 'rain'])
+  assert.equal(effects.getMediaEffectClips({
+    type: 'image',
+    mediaEffects: [{
+      type: 'zoomIn',
+      startAt: 1,
+      endAt: 5,
+      mediaEffectZoomPosition: 'bottomRight',
+    }],
+  } as never)[0]?.mediaEffectZoomPosition, 'bottomRight')
   assert.deepEqual(
     effects.getActiveMediaEffects({ type: 'image', mediaEffects: clips } as never, 1.5).map(clip => clip.type),
     ['glitch', 'rain'],
@@ -159,6 +160,46 @@ async function main() {
     type: 'video',
     mediaEffects: [{ type: 'zoomOut', startAt: 1, endAt: 4, mediaEffectIntensity: 0 }],
   } as never), true)
+
+  const zoomElement = {
+    type: 'image',
+    mediaEffects: [
+      { type: 'zoomIn', startAt: 1, endAt: 5, mediaEffectSpeed: 1, mediaEffectZoomPosition: 'center' },
+      { type: 'zoomOut', startAt: 1, endAt: 3, mediaEffectSpeed: 1, mediaEffectZoomPosition: 'bottomRight' },
+    ],
+  } as never
+  function zoomDrawOperations(time: number) {
+    const operations: (string | number)[][] = []
+    const context = {
+      save: () => operations.push(['save']),
+      restore: () => operations.push(['restore']),
+      translate: (x: number, y: number) => operations.push(['translate', x, y]),
+      scale: (x: number, y: number) => operations.push(['scale', x, y]),
+    } as never
+    effects.drawMediaWithEffects(context, zoomElement, 100, 80, time, {
+      drawBase: () => { operations.push(['draw']) },
+    })
+    return operations
+  }
+  assert.deepEqual(zoomDrawOperations(0.5), [['draw']])
+  assert.deepEqual(zoomDrawOperations(1), [
+    ['save'],
+    ['translate', 50, 40], ['scale', 1, 1], ['translate', -50, -40],
+    ['translate', 100, 80], ['scale', 1.24, 1.24], ['translate', -100, -80],
+    ['draw'], ['restore'],
+  ])
+  assert.deepEqual(zoomDrawOperations(2), [
+    ['save'],
+    ['translate', 50, 40], ['scale', 1.12, 1.12], ['translate', -50, -40],
+    ['translate', 100, 80], ['scale', 1.12, 1.12], ['translate', -100, -80],
+    ['draw'], ['restore'],
+  ])
+  assert.deepEqual(zoomDrawOperations(3), [
+    ['save'],
+    ['translate', 50, 40], ['scale', 1.24, 1.24], ['translate', -50, -40],
+    ['translate', 100, 80], ['scale', 1, 1], ['translate', -100, -80],
+    ['draw'], ['restore'],
+  ])
 
   const effectPanel = await import('../src/components/panels/MediaEffectsPanel')
   const options = (effectPanel as Record<string, unknown>).MEDIA_EFFECT_OPTIONS as

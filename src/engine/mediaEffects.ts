@@ -222,9 +222,9 @@ function applyMotionTransform(
   const h = 0.35 + effect.hardness * 0.65
 
   if (effect.type === 'zoomIn' || effect.type === 'zoomOut') {
-    const { scale, anchorX, anchorY } = getMediaZoomTransform(
-      effect.type, localTime, effect.duration, effect.speed, effect.zoomPosition, width, height,
-    )
+    const scale = getMediaZoomScale(effect.type, localTime, effect.duration, effect.speed)
+    const anchorX = getMediaZoomAnchor(effect.zoomPosition, width, 'x')
+    const anchorY = getMediaZoomAnchor(effect.zoomPosition, height, 'y')
     ctx.translate(anchorX, anchorY)
     ctx.scale(scale, scale)
     ctx.translate(-anchorX, -anchorY)
@@ -259,21 +259,16 @@ function applyMotionTransform(
   }
 }
 
-export function getMediaZoomTransform(
+export function getMediaZoomScale(
   type: 'zoomIn' | 'zoomOut',
   elapsed: number,
   duration: number,
   speed: number,
-  position: MediaZoomPosition,
-  width: number,
-  height: number,
 ) {
   const safeElapsed = finiteAtLeast(elapsed, 0, 0)
   const safeDuration = finiteAtLeast(duration, 0, 0)
   const time = type === 'zoomIn' ? safeElapsed : Math.max(0, safeDuration - safeElapsed)
-  const scale = 1 + time * clamp(Number.isFinite(speed) ? speed : 1, 0.1, 5) * 0.12
-  const [anchorX, anchorY] = zoomAnchor(resolveZoomPosition(position), width, height)
-  return { scale, anchorX, anchorY }
+  return 1 + time * clamp(Number.isFinite(speed) ? speed : 1, 0.1, 5) * 0.12
 }
 
 function resolveZoomPosition(value: unknown): MediaZoomPosition {
@@ -282,14 +277,17 @@ function resolveZoomPosition(value: unknown): MediaZoomPosition {
     : 'center'
 }
 
-function zoomAnchor(position: MediaZoomPosition, width: number, height: number): [number, number] {
-  const w = finiteAtLeast(width, 0, 0)
-  const h = finiteAtLeast(height, 0, 0)
-  if (position === 'topLeft') return [0, 0]
-  if (position === 'topRight') return [w, 0]
-  if (position === 'bottomRight') return [w, h]
-  if (position === 'bottomLeft') return [0, h]
-  return [w / 2, h / 2]
+export function getMediaZoomAnchor(position: unknown, size: number, axis: 'x' | 'y') {
+  const edge = finiteAtLeast(size, 0, 0)
+  const resolved = resolveZoomPosition(position)
+  if (axis === 'x') {
+    if (resolved === 'topLeft' || resolved === 'bottomLeft') return 0
+    if (resolved === 'topRight' || resolved === 'bottomRight') return edge
+  } else {
+    if (resolved === 'topLeft' || resolved === 'topRight') return 0
+    if (resolved === 'bottomLeft' || resolved === 'bottomRight') return edge
+  }
+  return edge / 2
 }
 
 function drawVibrationDistort(
