@@ -4,7 +4,10 @@ import {
   getDirectionalTransitionState,
   isDirectionalTransition,
 } from '../src/engine/directionalTransitions'
-import { captureStageToCanvas } from '../src/components/canvas/captureStageToCanvas'
+import {
+  captureStageToCanvas,
+  rememberRecentSnapshot,
+} from '../src/components/canvas/captureStageToCanvas'
 import {
   getTransitionCapabilities,
   TRANSITIONS,
@@ -112,6 +115,14 @@ assert.equal(
 )
 assert.deepEqual(captured, layerCanvases)
 assert.deepEqual({ width: destination.width, height: destination.height }, { width: 640, height: 360 })
+
+const snapshots = new Map<string, string>()
+rememberRecentSnapshot(snapshots, 'scene-1', 'one')
+rememberRecentSnapshot(snapshots, 'scene-2', 'two')
+rememberRecentSnapshot(snapshots, 'scene-3', 'three')
+assert.deepEqual([...snapshots], [['scene-2', 'two'], ['scene-3', 'three']])
+rememberRecentSnapshot(snapshots, 'scene-2', 'new-two')
+assert.deepEqual([...snapshots], [['scene-3', 'three'], ['scene-2', 'new-two']])
 
 function recordFrame(type: 'flashBlur' | 'flickerShake', progress: number) {
   const draws: Array<{ image: object; alpha: number }> = []

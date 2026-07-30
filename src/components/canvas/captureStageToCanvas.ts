@@ -16,3 +16,20 @@ export function captureStageToCanvas(
   }
   return canvas
 }
+
+export function rememberRecentSnapshot(
+  cache: Map<string, string>,
+  key: string,
+  value: string,
+  limit = 2,
+) {
+  cache.delete(key)
+  cache.set(key, value)
+  const removed: string[] = []
+  while (cache.size > Math.max(1, limit)) {
+    const oldest = cache.keys().next().value as string
+    cache.delete(oldest)
+    removed.push(oldest)
+  }
+  return removed
+}
