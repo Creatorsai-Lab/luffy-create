@@ -128,6 +128,15 @@ assert.deepEqual([...snapshots], [['scene-2', 'two'], ['scene-3', 'three']])
 rememberRecentSnapshot(snapshots, 'scene-2', 'new-two')
 assert.deepEqual([...snapshots], [['scene-3', 'three'], ['scene-2', 'new-two']])
 
+const canvasSnapshots = new Map<string, { id: string }>()
+const firstCanvas = { id: 'first' }
+rememberRecentSnapshot(canvasSnapshots, 'scene-1', firstCanvas)
+rememberRecentSnapshot(canvasSnapshots, 'scene-2', { id: 'second' })
+rememberRecentSnapshot(canvasSnapshots, 'scene-3', { id: 'third' })
+assert.equal(canvasSnapshots.has('scene-1'), false)
+assert.equal(canvasSnapshots.get('scene-2')?.id, 'second')
+assert.equal(canvasSnapshots.get('scene-3')?.id, 'third')
+
 function recordFrame(type: 'flashBlur' | 'flickerShake', progress: number) {
   const draws: Array<{ image: object; alpha: number; filter: string }> = []
   const translations: Array<[number, number]> = []

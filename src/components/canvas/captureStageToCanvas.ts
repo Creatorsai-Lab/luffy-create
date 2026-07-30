@@ -17,10 +17,10 @@ export function captureStageToCanvas(
   return canvas
 }
 
-export function rememberRecentSnapshot(
-  cache: Map<string, string>,
+export function rememberRecentSnapshot<T>(
+  cache: Map<string, T>,
   key: string,
-  value: string,
+  value: T,
   limit = 2,
 ) {
   cache.delete(key)
