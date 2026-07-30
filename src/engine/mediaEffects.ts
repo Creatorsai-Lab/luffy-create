@@ -42,8 +42,7 @@ interface EffectState {
 }
 
 export function mediaEffectRequiresAnimation(el: MediaElement) {
-  const effect = resolveMediaEffect(el)
-  return effect.type !== 'none' && effect.intensity > 0
+  return getMediaEffectClips(el).some(clip => resolveEffectState(clip).intensity > 0)
 }
 
 export function normalizeMediaEffect(value: unknown): MediaEffectType {
@@ -63,7 +62,7 @@ const EFFECT_SETTING_KEYS: (keyof MediaEffectSettings)[] = [
 export function getMediaEffectClips(el: MediaElement): MediaEffectClip[] {
   if (Array.isArray(el.mediaEffects)) {
     const seen = new Set<MediaEffectType>()
-    return el.mediaEffects.flatMap(raw => {
+    const clips = el.mediaEffects.flatMap(raw => {
       const type = normalizeMediaEffect(raw?.type)
       if (type === 'none' || seen.has(type)) return []
       seen.add(type)
@@ -71,31 +70,20 @@ export function getMediaEffectClips(el: MediaElement): MediaEffectClip[] {
       const endAt = finiteAtLeast(raw.endAt, startAt, Infinity)
       return [{ type, startAt, endAt, ...copyEffectSettings(raw) }]
     })
+    return clips.length > 0 ? clips : legacyVideoEffectClip(el)
   }
 
-  const legacyVideo = el.type === 'video' ? el.videoEffect : undefined
   const normalized = normalizeMediaEffect(el.mediaEffect)
-  const type = normalized !== 'none'
-    ? normalized
-    : legacyVideo === 'shake'
-      ? 'shake'
-      : legacyVideo === 'distortion'
-        ? 'vibrationDistort'
-        : 'none'
-
-  if (type === 'none') return []
-  const settings = copyEffectSettings(el)
-  if (settings.mediaEffectIntensity === undefined && el.type === 'video' && el.videoEffectIntensity !== undefined) {
-    settings.mediaEffectIntensity = el.videoEffectIntensity
-  }
-  return [{ type, startAt: 0, endAt: Infinity, ...settings }]
+  return normalized === 'none'
+    ? legacyVideoEffectClip(el)
+    : [{ type: normalized, startAt: 0, endAt: Infinity, ...copyEffectSettings(el) }]
 }
 
 export function getActiveMediaEffects(el: MediaElement, localTime: number): MediaEffectClip[] {
   return getMediaEffectClips(el).filter(clip => localTime >= clip.startAt && localTime <= clip.endAt)
 }
 
-export function drawMediaWithEffect(
+export function drawMediaWithEffects(
   ctx: CanvasRenderingContext2D,
   el: MediaElement,
   width: number,
@@ -103,57 +91,109 @@ export function drawMediaWithEffect(
   localTime: number,
   fns: MediaDrawFns,
 ) {
-  const effect = resolveMediaEffect(el)
-  if (effect.type === 'none' || effect.intensity <= 0) {
+  const effects = getActiveMediaEffects(el, localTime)
+    .map(clip => ({ ...resolveEffectState(clip), time: Math.max(0, localTime - clip.startAt) }))
+    .filter(effect => effect.intensity > 0)
+
+  if (effects.length === 0) {
     fns.drawBase(ctx, 0, 0, width, height)
     return
   }
 
   ctx.save()
-  applyMotionTransform(ctx, effect, width, height, localTime)
+  for (const effect of effects) applyMotionTransform(ctx, effect, width, height, effect.time)
 
-  if (effect.type === 'vibrationDistort') {
-    drawVibrationDistort(ctx, effect, width, height, localTime, fns)
-  } else if (effect.type === 'glitch') {
-    drawGlitch(ctx, effect, width, height, localTime, fns)
-  } else {
+  const distortions = effects.filter(effect => effect.type === 'vibrationDistort' || effect.type === 'glitch')
+  if (distortions.length === 0) {
     fns.drawBase(ctx, 0, 0, width, height)
+  } else if (distortions.length === 1) {
+    drawSourceEffect(ctx, distortions[0], width, height, fns)
+  } else {
+    drawStackedDistortions(ctx, distortions, width, height, fns)
   }
 
   ctx.restore()
 
-  if (effect.type === 'godRays') drawGodRays(ctx, effect, width, height, localTime)
-  if (effect.type === 'lightSweep') drawLightSweep(ctx, effect, width, height, localTime)
-  if (effect.type === 'rain') drawRain(ctx, effect, width, height, localTime)
-  if (effect.type === 'snow') drawSnow(ctx, effect, width, height, localTime)
+  for (const effect of effects) drawOverlayEffect(ctx, effect, width, height)
 }
 
-function resolveMediaEffect(el: MediaElement): EffectState {
-  const legacyVideo = el.type === 'video' ? el.videoEffect : undefined
-  const mediaEffect = normalizeMediaEffect(el.mediaEffect)
-  const type = mediaEffect !== 'none'
-    ? mediaEffect
-    : legacyVideo === 'shake'
-      ? 'shake'
-      : legacyVideo === 'distortion'
-        ? 'vibrationDistort'
-        : 'none'
-
+function resolveEffectState(clip: MediaEffectClip): EffectState {
   return {
-    type,
-    axis: resolveGlitchAxis(el.mediaEffectAxis),
-    intensity: clamp01(el.mediaEffectIntensity ?? (el.type === 'video' ? el.videoEffectIntensity : undefined) ?? 0.45),
-    speed: clamp(el.mediaEffectSpeed ?? 1, 0.1, 5),
-    hardness: clamp01(el.mediaEffectHardness ?? 0.5),
-    direction: el.mediaEffectDirection ?? 'diagonal',
-    blend: clamp01(el.mediaEffectBlend ?? 0.55),
-    color: el.mediaEffectColor ?? '#fff2b8',
-    colorOpacity: clamp01(el.mediaEffectColorOpacity ?? 1),
-    size: clamp01(el.mediaEffectSize ?? 0.5),
-    target: el.mediaEffectTarget ?? 'centerSubject',
-    focusX: clamp01(el.mediaEffectFocusX ?? 0.5),
-    focusY: clamp01(el.mediaEffectFocusY ?? 0.5),
+    type: clip.type,
+    axis: resolveGlitchAxis(clip.mediaEffectAxis),
+    intensity: clamp01(clip.mediaEffectIntensity ?? 0.45),
+    speed: clamp(clip.mediaEffectSpeed ?? 1, 0.1, 5),
+    hardness: clamp01(clip.mediaEffectHardness ?? 0.5),
+    direction: clip.mediaEffectDirection ?? 'diagonal',
+    blend: clamp01(clip.mediaEffectBlend ?? 0.55),
+    color: clip.mediaEffectColor ?? '#fff2b8',
+    colorOpacity: clamp01(clip.mediaEffectColorOpacity ?? 1),
+    size: clamp01(clip.mediaEffectSize ?? 0.5),
+    target: clip.mediaEffectTarget ?? 'centerSubject',
+    focusX: clamp01(clip.mediaEffectFocusX ?? 0.5),
+    focusY: clamp01(clip.mediaEffectFocusY ?? 0.5),
   }
+}
+
+type TimedEffectState = EffectState & { time: number }
+
+function drawSourceEffect(
+  ctx: CanvasRenderingContext2D,
+  effect: TimedEffectState,
+  width: number,
+  height: number,
+  fns: MediaDrawFns,
+) {
+  if (effect.type === 'vibrationDistort') drawVibrationDistort(ctx, effect, width, height, effect.time, fns)
+  else if (effect.type === 'glitch') drawGlitch(ctx, effect, width, height, effect.time, fns)
+  else fns.drawBase(ctx, 0, 0, width, height)
+}
+
+function drawOverlayEffect(
+  ctx: CanvasRenderingContext2D,
+  effect: TimedEffectState,
+  width: number,
+  height: number,
+) {
+  if (effect.type === 'godRays') drawGodRays(ctx, effect, width, height, effect.time)
+  else if (effect.type === 'lightSweep') drawLightSweep(ctx, effect, width, height, effect.time)
+  else if (effect.type === 'rain') drawRain(ctx, effect, width, height, effect.time)
+  else if (effect.type === 'snow') drawSnow(ctx, effect, width, height, effect.time)
+}
+
+let distortionScratch: HTMLCanvasElement | null = null
+
+function drawStackedDistortions(
+  ctx: CanvasRenderingContext2D,
+  effects: TimedEffectState[],
+  width: number,
+  height: number,
+  fns: MediaDrawFns,
+) {
+  distortionScratch ??= document.createElement('canvas')
+  const scratchWidth = Math.max(1, Math.ceil(width))
+  const scratchHeight = Math.max(1, Math.ceil(height))
+  if (distortionScratch.width !== scratchWidth) distortionScratch.width = scratchWidth
+  if (distortionScratch.height !== scratchHeight) distortionScratch.height = scratchHeight
+  const scratchCtx = distortionScratch.getContext('2d')!
+  scratchCtx.setTransform(1, 0, 0, 1, 0, 0)
+  scratchCtx.clearRect(0, 0, scratchWidth, scratchHeight)
+  scratchCtx.globalAlpha = 1
+  scratchCtx.globalCompositeOperation = 'source-over'
+  scratchCtx.filter = ctx.filter
+  drawSourceEffect(scratchCtx, effects[0], width, height, fns)
+
+  const scratchFns: MediaDrawFns = {
+    drawBase: (target, dx = 0, dy = 0, dw = width, dh = height) => {
+      target.drawImage(distortionScratch!, dx, dy, dw, dh)
+    },
+    drawSlice: (target, sourceY, sourceH, destX, destY, destW, destH) => {
+      target.drawImage(distortionScratch!, 0, sourceY, width, sourceH, destX, destY, destW, destH)
+    },
+  }
+
+  ctx.filter = 'none'
+  drawSourceEffect(ctx, effects[1], width, height, scratchFns)
 }
 
 function applyMotionTransform(
@@ -266,6 +306,19 @@ function drawGlitch(
   }
 
   drawGlitchLines(ctx, effect, width, height, frame)
+}
+
+function legacyVideoEffectClip(el: MediaElement): MediaEffectClip[] {
+  if (el.type !== 'video' || (el.videoEffect !== 'shake' && el.videoEffect !== 'distortion')) return []
+  return [{
+    type: el.videoEffect === 'shake' ? 'shake' : 'vibrationDistort',
+    startAt: 0,
+    endAt: Infinity,
+    ...copyEffectSettings(el),
+    ...(el.mediaEffectIntensity === undefined && el.videoEffectIntensity !== undefined
+      ? { mediaEffectIntensity: el.videoEffectIntensity }
+      : {}),
+  }]
 }
 
 function copyEffectSettings(source: MediaEffectSettings): MediaEffectSettings {

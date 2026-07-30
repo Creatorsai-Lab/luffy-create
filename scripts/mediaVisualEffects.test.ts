@@ -54,6 +54,14 @@ async function main() {
     mediaEffect: 'glitch',
     mediaEffectIntensity: 0.5,
   } as never), true)
+  assert.equal(effects.mediaEffectRequiresAnimation({
+    type: 'image',
+    mediaEffects: [{ type: 'glitch', startAt: 2, endAt: 4, mediaEffectIntensity: 0.5 }],
+  } as never), true)
+  assert.equal(effects.mediaEffectRequiresAnimation({
+    type: 'image',
+    mediaEffects: [{ type: 'glitch', startAt: 0, endAt: 4, mediaEffectIntensity: 0 }],
+  } as never), false)
 
   const resolveAxis = (effects as Record<string, unknown>).resolveGlitchAxis
   assert.equal(typeof resolveAxis, 'function')

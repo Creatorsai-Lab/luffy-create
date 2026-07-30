@@ -9,7 +9,7 @@ import { buildCssFilter, applyCanvasAdjustments, drawVignette } from '../../../e
 import { drawBoxShadow, drawInnerShadow } from '../../../engine/boxShadow'
 import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
-import { drawMediaWithEffect, mediaEffectRequiresAnimation, normalizeMediaEffect, type MediaDrawFns } from '../../../engine/mediaEffects'
+import { drawMediaWithEffects, getMediaEffectClips, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
 
 function makeVideoDrawFns(video: HTMLVideoElement, el: VideoElement, width: number, height: number): MediaDrawFns {
   const vw = video.videoWidth || width
@@ -222,7 +222,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
             sourceCtx.clip()
           }
           sourceCtx.filter = buildCssFilter(el) || 'none'
-          drawMediaWithEffect(sourceCtx, el, w, h, localTime, makeVideoDrawFns(video, el, w, h))
+          drawMediaWithEffects(sourceCtx, el, w, h, localTime, makeVideoDrawFns(video, el, w, h))
           if (el.glass) {
             sourceCtx.filter = 'none'
             sourceCtx.fillStyle = 'rgba(255,255,255,0.18)'
@@ -271,7 +271,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
         // 2. Setup Effects & Adjustments Filters. Shared media effects take
         // priority; legacy video-only effects still work when no shared effect
         // is selected from the Effects panel.
-        const hasSharedEffect = normalizeMediaEffect(el.mediaEffect) !== 'none'
+        const hasSharedEffect = getMediaEffectClips(el).length > 0
         const effect = hasSharedEffect ? 'none' : (el.videoEffect ?? 'none')
         const intensity = hasSharedEffect ? 0 : (el.videoEffectIntensity ?? 0.5)
 
@@ -291,7 +291,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
         // 3. Draw Video with shared media effects.
         const drawFns = makeVideoDrawFns(video, el, w, h)
         if (mediaEffectRequiresAnimation(el)) {
-          drawMediaWithEffect(raw, el, w, h, localTime, drawFns)
+          drawMediaWithEffects(raw, el, w, h, localTime, drawFns)
         } else {
           drawFns.drawBase(raw, 0, 0, w, h)
         }

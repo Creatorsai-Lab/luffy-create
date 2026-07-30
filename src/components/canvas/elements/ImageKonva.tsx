@@ -7,7 +7,7 @@ import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
 import { buildCssFilter, applyCanvasAdjustments, drawVignette } from '../../../engine/imageFilters'
 import { drawBoxShadow } from '../../../engine/boxShadow'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
-import { drawMediaWithEffect, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
+import { drawMediaWithEffects, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
 
 function makeImageDrawFns(img: HTMLImageElement, el: ImageElement): MediaDrawFns {
   const cropX = (el.crop?.x ?? 0) * img.naturalWidth
@@ -87,7 +87,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
       ctx.arcTo(0,H,0,0,r); ctx.arcTo(0,0,W,0,r); ctx.closePath(); ctx.clip()
     }
     ctx.filter = buildCssFilter(el) || 'none'
-    drawMediaWithEffect(ctx, el, el.width, el.height, localTime, makeImageDrawFns(img, el))
+    drawMediaWithEffects(ctx, el, el.width, el.height, localTime, makeImageDrawFns(img, el))
     if (el.glass) { ctx.filter = 'none'; ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(0,0,el.width,el.height) }
     applyCanvasAdjustments(ctx, el)
     drawVignette(ctx, el)
@@ -108,7 +108,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     return () => cancelAnimationFrame(raf)
   }, [
     isGif, img, error,
-    el.mediaEffect, el.mediaEffectIntensity, el.mediaEffectSpeed, el.mediaEffectHardness,
+    el.mediaEffects, el.mediaEffect, el.mediaEffectIntensity, el.mediaEffectSpeed, el.mediaEffectHardness,
     el.mediaEffectDirection, el.mediaEffectBlend, el.mediaEffectColor,
   ])
 
@@ -122,7 +122,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
       el.brightness, el.contrast, el.saturation, el.hueRotate, el.blur, el.glass,
       el.exposure, el.highlights, el.shadows, el.whites, el.blacks,
       el.temperature, el.tint, el.vibrance, el.vignetteEnabled, el.vignetteColor,
-      el.vignetteAmount, el.vignetteSize, el.vignetteFade, el.mediaEffect,
+      el.vignetteAmount, el.vignetteSize, el.vignetteFade, el.mediaEffects, el.mediaEffect,
       el.mediaEffectAxis, el.mediaEffectIntensity, el.mediaEffectSpeed,
       el.mediaEffectHardness, el.mediaEffectBlend, el.mediaEffectSize,
       !!el.perspectivePts, dynamicPerspective])
@@ -250,7 +250,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
         }
 
         raw.filter = buildCssFilter(el) || 'none'
-        drawMediaWithEffect(raw, el, el.width, el.height, localTime, makeImageDrawFns(img, el))
+        drawMediaWithEffects(raw, el, el.width, el.height, localTime, makeImageDrawFns(img, el))
         if (el.glass) {
           raw.filter = 'none'
           raw.fillStyle = 'rgba(255,255,255,0.18)'
