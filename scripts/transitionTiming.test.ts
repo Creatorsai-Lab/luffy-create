@@ -4,6 +4,13 @@ import {
   getEffectiveTransitionDuration,
   getTransitionFrameState,
 } from '../src/utils/transitionTiming'
+import * as transitionTiming from '../src/utils/transitionTiming'
+
+const getUpcomingTransitionEntry = (transitionTiming as Record<string, unknown>)
+  .getUpcomingTransitionEntry as
+    | ((timeline: ReturnType<typeof buildTransitionTimeline>, time: number, leadTime?: number) =>
+      ReturnType<typeof buildTransitionTimeline>[number] | null)
+    | undefined
 
 const timeline = buildTransitionTimeline([
   { id: 'scene-1', duration: 5, transition: { type: 'none', duration: 0.5 } },
@@ -61,6 +68,18 @@ const shortSceneTransition = getTransitionFrameState(shortSceneTimeline, 10.25)
 assert.equal(shortSceneTransition.kind, 'transition')
 if (shortSceneTransition.kind === 'transition') {
   assert.equal(shortSceneTransition.progress, 0.5)
+}
+
+const flashTimeline = buildTransitionTimeline([
+  { id: 'scene-1', duration: 5, transition: { type: 'none', duration: 0 } },
+  { id: 'scene-2', duration: 4, transition: { type: 'flashBlur', duration: 1 } },
+])
+assert.equal(typeof getUpcomingTransitionEntry, 'function')
+if (getUpcomingTransitionEntry) {
+  assert.equal(getUpcomingTransitionEntry(flashTimeline, 4.89, 0.1), null)
+  assert.equal(getUpcomingTransitionEntry(flashTimeline, 4.9, 0.1)?.sceneId, 'scene-2')
+  assert.equal(getUpcomingTransitionEntry(flashTimeline, 4.99, 0.1)?.transition.type, 'flashBlur')
+  assert.equal(getUpcomingTransitionEntry(flashTimeline, 5, 0.1), null)
 }
 
 console.log('transition timing tests passed')
