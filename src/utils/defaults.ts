@@ -2,7 +2,8 @@ import { v4 as uuid } from 'uuid'
 import type {
   Project, Scene, Background, TextElement, ShapeElement,
   ArrowElement, CodeElement, ImageElement, TableElement, ChartElement, VideoElement, AudioElement,
-  IconElement, LatexElement, CounterElement, HandDrawElement, ElementAnimation, SceneTransition, ShapeType, BoxShadow, InnerShadow
+  IconElement, LatexElement, CounterElement, HandDrawElement, ElementAnimation, SceneTransition, ShapeType, BoxShadow, InnerShadow,
+  MediaEffectClip,
 } from '../types/editor'
 
 export const DEFAULT_BG: Background = { type: 'solid', color: '#cac8c6' }
@@ -42,6 +43,11 @@ export const DEFAULT_MEDIA_EFFECT = {
   mediaEffectTarget: 'centerSubject' as const,
   mediaEffectFocusX: 0.5,
   mediaEffectFocusY: 0.5,
+}
+
+export function makeMediaEffectClip(type: MediaEffectClip['type'], endAt: number): MediaEffectClip {
+  const { mediaEffect: _legacy, ...settings } = DEFAULT_MEDIA_EFFECT
+  return { ...settings, type, startAt: 0, endAt: Math.max(0, endAt) }
 }
 
 export function makeScene(index = 1): Scene {

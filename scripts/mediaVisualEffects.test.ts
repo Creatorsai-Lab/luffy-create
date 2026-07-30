@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 
 async function main() {
+  const defaults = await import('../src/utils/defaults')
+  const clip = defaults.makeMediaEffectClip('rain', 6.5)
+  assert.equal(clip.type, 'rain')
+  assert.equal(clip.startAt, 0)
+  assert.equal(clip.endAt, 6.5)
+  assert.equal(clip.mediaEffectIntensity, defaults.DEFAULT_MEDIA_EFFECT.mediaEffectIntensity)
+  assert.equal('mediaEffect' in clip, false)
+
   const effects = await import('../src/engine/mediaEffects')
   const normalize = (effects as Record<string, unknown>).normalizeMediaEffect
 
