@@ -10,6 +10,7 @@ import BoxShadowControls, { InnerShadowControls } from './BoxShadowControls'
 import { ScaleSizeControl } from './AnimationParamControls'
 import BorderControls from './BorderControls'
 import MediaVignetteControls from './MediaVignetteControls'
+import MediaGrainControls from './MediaGrainControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade In',   value: 'fadeIn'   },
@@ -227,6 +228,7 @@ export default function VideoPanel() {
                     blacks: undefined, temperature: undefined, tint: undefined, vibrance: undefined,
                     vignetteEnabled: false, vignetteColor: '#000000', vignetteAmount: 0.5,
                     vignetteSize: 0.5, vignetteFade: 0.65,
+                    grainColor: '#000000', grainSize: 1, grainOpacity: 0,
                   })}
                   className="text-[10px] text-editor-secondary hover:text-editor-text transition-colors"
                 >Reset</button>
@@ -288,6 +290,7 @@ export default function VideoPanel() {
                   onChange={v => upd({ blur: v })} display={`${el.blur ?? 0}px`} />
               </Row>
               <MediaVignetteControls value={el} onChange={upd} />
+              <MediaGrainControls value={el} onChange={upd} />
             </div>
 
             {/* ── Cinematic & Effects ─────────────────────────────── */}

@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import MediaGrainControls from '../src/components/panels/MediaGrainControls'
 import { drawGrain } from '../src/engine/imageFilters'
 import { makeImage, makeVideo } from '../src/utils/defaults'
 
@@ -81,3 +84,15 @@ for (const media of [
   assert.equal(media.grainSize, 1)
   assert.equal(media.grainOpacity, 0)
 }
+
+const controlsMarkup = renderToStaticMarkup(createElement(MediaGrainControls, {
+  value: { grainColor: '#7a4b22', grainSize: 3, grainOpacity: 0.45 },
+  onChange() {},
+}))
+for (const label of ['Grain Color', 'Grain Size', 'Grain Hardness']) {
+  assert.equal(controlsMarkup.includes(label), true)
+}
+assert.equal(controlsMarkup.includes('type="color"'), true)
+assert.equal(controlsMarkup.includes('min="1" max="8"'), true)
+assert.equal(controlsMarkup.includes('min="0" max="100"'), true)
+assert.equal(controlsMarkup.includes('45%'), true)
