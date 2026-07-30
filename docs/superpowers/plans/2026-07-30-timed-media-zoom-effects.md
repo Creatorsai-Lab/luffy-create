@@ -4,7 +4,7 @@
 
 **Goal:** Add lightweight, stackable Zoom In and Zoom Out media effects whose scale is driven by effect duration and speed around one of five selectable anchors.
 
-**Architecture:** Extend the existing media-effect clip schema and renderer instead of adding a new animation system. A small pure transform helper will calculate scale and anchor, while the existing timed effect loop applies the Canvas transform and the existing panel edits its settings.
+**Architecture:** Extend the existing media-effect clip schema and renderer instead of adding a new animation system. Small scalar helpers calculate scale and anchor coordinates without per-frame objects, while the existing timed effect loop applies the Canvas transform and the existing panel edits its settings.
 
 **Tech Stack:** TypeScript, React, Canvas 2D, Node assertions, esbuild, Electron/Vite
 
@@ -29,20 +29,19 @@
 
 **Interfaces:**
 - Produces: `MediaZoomPosition`
-- Produces: `getMediaZoomTransform(type, elapsed, duration, speed, position, width, height)`
+- Produces: `getMediaZoomScale(type, elapsed, duration, speed)`
+- Produces: `getMediaZoomAnchor(position, size, axis)`
 - Produces: persisted `mediaEffectZoomPosition?: MediaZoomPosition`
 
 - [ ] **Step 1: Write the failing regression assertions**
 
-Add assertions that `zoomIn` and `zoomOut` normalize, new clips default to `center`, both effects require animation, and the pure transform helper returns:
+Add assertions that `zoomIn` and `zoomOut` normalize, new clips default to `center`, both effects require animation, and the scalar helpers return:
 
 ```ts
-assert.deepEqual(getZoom('zoomIn', 2, 4, 1, 'center', 100, 80), {
-  scale: 1.24, anchorX: 50, anchorY: 40,
-})
-assert.deepEqual(getZoom('zoomOut', 2, 4, 1, 'bottomRight', 100, 80), {
-  scale: 1.24, anchorX: 100, anchorY: 80,
-})
+assert.equal(getZoomScale('zoomIn', 2, 4, 1), 1.24)
+assert.equal(getZoomScale('zoomOut', 2, 4, 1), 1.24)
+assert.equal(getZoomAnchor('center', 100, 'x'), 50)
+assert.equal(getZoomAnchor('bottomRight', 80, 'y'), 80)
 ```
 
 Also assert all five anchors and start/end values using a fixed `0.12` scale-per-second rate at `1x`.
@@ -68,22 +67,17 @@ export type MediaZoomPosition = 'center' | 'topLeft' | 'topRight' | 'bottomRight
 
 Add `zoomIn` and `zoomOut` to `MEDIA_EFFECT_TYPES`, add `mediaEffectZoomPosition?: MediaZoomPosition`, default it to `center`, and copy it through `EFFECT_SETTING_KEYS`.
 
-Export a pure helper with finite input normalization:
+Export scalar helpers with finite input normalization so the renderer creates no transform object or anchor tuple per frame:
 
 ```ts
-export function getMediaZoomTransform(
+export function getMediaZoomScale(
   type: 'zoomIn' | 'zoomOut',
   elapsed: number,
   duration: number,
   speed: number,
-  position: MediaZoomPosition,
-  width: number,
-  height: number,
 ) {
   const time = type === 'zoomIn' ? elapsed : Math.max(0, duration - elapsed)
-  const scale = 1 + Math.max(0, time) * clamp(speed, 0.1, 5) * 0.12
-  const [anchorX, anchorY] = zoomAnchor(position, width, height)
-  return { scale, anchorX, anchorY }
+  return 1 + Math.max(0, time) * clamp(speed, 0.1, 5) * 0.12
 }
 ```
 
