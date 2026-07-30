@@ -4,6 +4,7 @@ import type Konva from 'konva'
 import type { TextElement, SlideDir } from '../../../types/editor'
 import { loadFont } from '../../../utils/fontLoader'
 import { drawPerspectiveWarp, drawTextToCtx } from '../../../engine/perspectiveUtils'
+import { getOutlineRevealClips } from '../../../engine/textOutlineReveal'
 import { hasInnerShadow, innerShadowOrDefault } from '../../../engine/boxShadow'
 import { textFillProps } from '../../../engine/textFill'
 import { fontWeightToCssValue, fontWeightToKonvaStyle } from '../../../utils/fontWeight'
@@ -12,7 +13,7 @@ interface Props {
   el: TextElement
   konvaProps: Record<string, unknown>
   textProgress: number
-  textMode?: 'chars' | 'words' | 'bounceWords' | 'draw'
+  textMode?: 'chars' | 'words' | 'bounceWords' | 'outlineReveal' | 'draw'
   wipeProgress?: number
   wipeDir?: SlideDir
   textColor?: string
@@ -132,7 +133,7 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
       el.width, el.height, !!el.perspectivePts])
 
   const content = (() => {
-    if (textMode === 'bounceWords') return el.content
+    if (textMode === 'bounceWords' || textMode === 'outlineReveal') return el.content
     if (textProgress >= 1 || textMode === 'draw') return el.content
     if (textMode === 'words') {
       const words = el.content.split(' ')
@@ -252,6 +253,36 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
           drawPerspectiveWarp(raw, offscreen, el.perspectivePts!, el.width, el.height)
         }}
       />
+    )
+  }
+
+  if (textMode === 'outlineReveal' && textProgress < 1) {
+    const { fillWidth, outlineX, outlineWidth } = getOutlineRevealClips(textProgress, el.width)
+    const clipY = -el.fontSize
+    const clipHeight = el.height + el.fontSize * 2
+    const outlineStyleProps = {
+      ...textStyleProps,
+      fill: 'transparent',
+      fillPriority: 'color' as const,
+      fillEnabled: false,
+      stroke: effectiveColor,
+      strokeWidth: Math.max(1, el.fontSize * 0.018),
+      strokeEnabled: true,
+      shadowEnabled: false,
+      opacity: 0.55,
+    }
+
+    return (
+      <Group {...(konvaProps as Record<string, unknown>)}>
+        {bgNode}
+        <Group clipX={outlineX} clipY={clipY} clipWidth={outlineWidth} clipHeight={clipHeight}>
+          <Text {...outlineStyleProps} text={content} listening={false} />
+        </Group>
+        <Group clipX={0} clipY={clipY} clipWidth={fillWidth} clipHeight={clipHeight}>
+          <Text ref={nodeRef} {...textStyleProps} text={content} />
+          {textInnerShadowNode}
+        </Group>
+      </Group>
     )
   }
 

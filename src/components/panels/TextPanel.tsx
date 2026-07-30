@@ -28,6 +28,10 @@ export const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Typewriter (Words)', value: 'typewriterWords'},
   { label: 'Bounce Words',       value: 'textBounceIn'   },
 ]
+export const TEXT_ENTER_ANIMS = [
+  ...ENTER_ANIMS,
+  { label: 'Outline Reveal In', value: 'outlineRevealIn' as const },
+]
 
 export const LOOP_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Pulse',     value: 'pulse'      },
@@ -47,6 +51,10 @@ export const EXIT_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Scale In',  value: 'scaleIn'  },
   { label: 'Scale Out', value: 'scaleOut' },
   { label: 'Wipe Out',  value: 'wipeOut'  },
+]
+export const TEXT_EXIT_ANIMS = [
+  ...EXIT_ANIMS,
+  { label: 'Outline Reveal Out', value: 'outlineRevealOut' as const },
 ]
 
 const DIRECTIONS: { label: string; value: SlideDir }[] = [
@@ -362,7 +370,7 @@ export default function TextPanel() {
             <AnimSection
               label="On Enter" color="text-green-400"
               anims={el.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onEnter')}
-              types={ENTER_ANIMS}
+              types={TEXT_ENTER_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'typewriterChars', timing: 'onEnter' })}
               elId={el.id} isLoop={false}
             />
@@ -376,7 +384,7 @@ export default function TextPanel() {
             <AnimSection
               label="On Exit" color="text-red-400"
               anims={el.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onExit')}
-              types={EXIT_ANIMS}
+              types={TEXT_EXIT_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'textFade', timing: 'onExit' })}
               elId={el.id} isLoop={false}
             />

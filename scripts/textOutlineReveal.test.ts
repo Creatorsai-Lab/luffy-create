@@ -57,6 +57,12 @@ async function main() {
     { opacity: 1, textProgress: 0.5, textMode: 'outlineReveal' },
   )
   assert.equal(animator.getAnimatedProps(exitText, 3).opacity, 0)
+
+  const textPanel = await import('../src/components/panels/TextPanel')
+  assert.equal(textPanel.TEXT_ENTER_ANIMS.some(item => item.value === 'outlineRevealIn'), true)
+  assert.equal(textPanel.TEXT_EXIT_ANIMS.some(item => item.value === 'outlineRevealOut'), true)
+  assert.equal(textPanel.ENTER_ANIMS.some(item => item.value === 'outlineRevealIn'), false)
+  assert.equal(textPanel.EXIT_ANIMS.some(item => item.value === 'outlineRevealOut'), false)
 }
 
 function pickReveal(props: { opacity: number; textProgress: number; textMode?: string }) {
