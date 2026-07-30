@@ -1,4 +1,5 @@
 import type { EditorElement, ElementAnimation, EasingType, SlideDir } from '../types/editor'
+export { getOutlineRevealClips } from './textOutlineReveal'
 
 // ─── Easing ───────────────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ export interface AnimatedProps {
   rotation: number
   offsetX: number; offsetY: number
   textProgress: number
-  textMode: 'chars' | 'words' | 'bounceWords' | 'draw' | undefined
+  textMode: 'chars' | 'words' | 'bounceWords' | 'outlineReveal' | 'draw' | undefined
   dashOffset: number
   wipeProgress: number
   wipeDir: SlideDir | undefined
@@ -75,7 +76,7 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
   // incorrectly stored with timing='onEnter'.
   const LOOP_TYPES = new Set(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop', 'colorPulse'])
   const isLoop = (a: ElementAnimation) => LOOP_TYPES.has(a.type) || a.timing === 'loop'
-  const textRevealTypes = new Set(['typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn'])
+  const textRevealTypes = new Set(['typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'outlineRevealIn'])
 
   const moves  = anims.filter(a => a.type === 'move')
   const enters = anims.filter(a => a.type !== 'move' && !isLoop(a) && a.timing === 'onEnter')
@@ -388,6 +389,20 @@ function applyAnim(
         if (after)  { out.opacity = el.opacity; return }
         out.opacity = lerp(0, el.opacity, t)
       }
+      break
+
+    case 'outlineRevealIn':
+      if (before) { if (!composeTextReveal) out.opacity = 0; out.textProgress = 0; return }
+      if (after)  { out.textProgress = 1; out.textMode = undefined; return }
+      out.textProgress = t
+      out.textMode = 'outlineReveal'
+      break
+
+    case 'outlineRevealOut':
+      if (after) { out.opacity = 0; out.textProgress = 0; out.textMode = undefined; return }
+      if (before) return
+      out.textProgress = 1 - t
+      out.textMode = 'outlineReveal'
       break
 
     // ─── Loop animations ────────────────────────────────────────────────────

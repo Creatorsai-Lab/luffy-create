@@ -4,7 +4,7 @@ export type ElementType   = 'text' | 'shape' | 'arrow' | 'code' | 'image' | 'tab
 export type ShapeType     = 'rect' | 'circle' | 'triangle' | 'star' | 'pentagon' | 'hexagon' | 'octagon' | 'diamond' | 'oval' | 'speechBubble' | 'roundedSpeech' | 'cone' | 'cube' | 'rect-hand' | 'circle-hand' | 'square-hand' | 'heart' | 'rect-sketch'
 export type AnimationType = 'fadeIn' | 'fadeOut' | 'slideIn' | 'slideOut' | 'scaleIn' | 'scaleOut' | 'wipeIn' | 'wipeOut' | 'typewriter' | 'drawPath' | 'spin' | 'pulse' | 'bounceLoop' | 'rotateLoop' | 'move' |
   // Text-specific animations
-  'typewriterChars' | 'typewriterWords' | 'textBounceIn' | 'textFade' | 'colorPulse' |
+  'typewriterChars' | 'typewriterWords' | 'textBounceIn' | 'textFade' | 'outlineRevealIn' | 'outlineRevealOut' | 'colorPulse' |
   // Arrow-specific animations
   'drawOff' | 'flowLoop' | 'fadeLoop' |
   // Chart-specific animations
