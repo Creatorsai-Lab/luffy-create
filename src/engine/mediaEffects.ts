@@ -157,6 +157,7 @@ function drawOverlayEffect(
 ) {
   if (effect.type === 'godRays') drawGodRays(ctx, effect, width, height, effect.time)
   else if (effect.type === 'lightSweep') drawLightSweep(ctx, effect, width, height, effect.time)
+  else if (effect.type === 'lightFlicker') drawLightFlicker(ctx, effect, width, height)
   else if (effect.type === 'rain') drawRain(ctx, effect, width, height, effect.time)
   else if (effect.type === 'snow') drawSnow(ctx, effect, width, height, effect.time)
 }
@@ -389,6 +390,41 @@ function drawLightSweep(
   grad.addColorStop(1, `rgba(${rgb}, 0)`)
   ctx.fillStyle = grad
   ctx.fillRect(pos - span, -height, span * 2, height * 3)
+  ctx.restore()
+}
+
+export function getLightFlickerStrength(localTime: number, speed: number, fade: number) {
+  const scaledTime = Math.max(0, Number.isFinite(localTime) ? localTime : 0)
+    * clamp(Number.isFinite(speed) ? speed : 1, 0.1, 5)
+  const position = scaledTime / 0.32
+  const slot = Math.floor(position)
+  const phase = position - slot
+  if (seededUnit(slot * 47 + 19) < 0.42) return 0
+
+  const softness = clamp01(Number.isFinite(fade) ? fade : 0.5)
+  const duration = 0.14 + softness * 0.72
+  if (phase > duration) return 0
+
+  const attack = Math.min(1, phase / 0.055)
+  const decay = 1 - Math.max(0, phase - 0.055) / Math.max(0.001, duration - 0.055)
+  const amplitude = 0.45 + seededUnit(slot * 83 + 7) * 0.55
+  return clamp01(attack * Math.pow(clamp01(decay), 1.25 - softness * 0.65) * amplitude)
+}
+
+function drawLightFlicker(
+  ctx: CanvasRenderingContext2D,
+  effect: TimedEffectState,
+  width: number,
+  height: number,
+) {
+  const strength = getLightFlickerStrength(effect.time, effect.speed, effect.blend) * effect.hardness
+  if (strength <= 0) return
+  ctx.save()
+  ctx.filter = 'none'
+  ctx.globalCompositeOperation = 'screen'
+  ctx.globalAlpha = strength
+  ctx.fillStyle = effect.color
+  ctx.fillRect(0, 0, width, height)
   ctx.restore()
 }
 

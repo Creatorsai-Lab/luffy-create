@@ -47,7 +47,10 @@ export const DEFAULT_MEDIA_EFFECT = {
 
 export function makeMediaEffectClip(type: MediaEffectClip['type'], endAt: number): MediaEffectClip {
   const { mediaEffect: _legacy, ...settings } = DEFAULT_MEDIA_EFFECT
-  return { ...settings, type, startAt: 0, endAt: Math.max(0, endAt) }
+  const effectDefaults = type === 'lightFlicker'
+    ? { mediaEffectColor: '#dcecff', mediaEffectHardness: 0.4, mediaEffectBlend: 0.55 }
+    : {}
+  return { ...settings, ...effectDefaults, type, startAt: 0, endAt: Math.max(0, endAt) }
 }
 
 export function makeScene(index = 1): Scene {

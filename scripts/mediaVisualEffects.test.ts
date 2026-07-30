@@ -9,6 +9,10 @@ async function main() {
   assert.equal(clip.mediaEffectIntensity, defaults.DEFAULT_MEDIA_EFFECT.mediaEffectIntensity)
   assert.equal('mediaEffect' in clip, false)
 
+  const flickerClip = defaults.makeMediaEffectClip('lightFlicker' as never, 5)
+  assert.equal(flickerClip.mediaEffectColor, '#dcecff')
+  assert.equal(flickerClip.mediaEffectHardness, 0.4)
+
   const effects = await import('../src/engine/mediaEffects')
   const normalize = (effects as Record<string, unknown>).normalizeMediaEffect
 
@@ -18,6 +22,18 @@ async function main() {
   assert.equal(normalize('cloudy'), 'none')
   assert.equal(normalize('motionBlur'), 'none')
   assert.equal(normalize('glitch'), 'glitch')
+  assert.equal(normalize('lightFlicker'), 'lightFlicker')
+
+  const flicker = (effects as Record<string, unknown>).getLightFlickerStrength
+  assert.equal(typeof flicker, 'function')
+  if (typeof flicker === 'function') {
+    const times = [0, 0.06, 0.18, 0.34, 0.57, 0.83, 1.16, 1.51]
+    const normal = times.map(time => flicker(time, 1, 0.5))
+    assert.deepEqual(normal, times.map(time => flicker(time, 1, 0.5)))
+    assert.notDeepEqual(normal, times.map(time => flicker(time, 2, 0.5)))
+    assert.equal(normal.some(value => value === 0), true)
+    assert.equal(normal.some(value => value > 0 && value <= 1), true)
+  }
 
   const clips = effects.getMediaEffectClips({
     type: 'image',
