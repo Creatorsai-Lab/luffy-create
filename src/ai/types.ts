@@ -40,7 +40,13 @@ export type AiEditorCommand =
   | ({ type: 'styleElement'; patch: Record<string, unknown> } & AiElementRef)
   | ({ type: 'applyMove'; direction: 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'; speed?: number; delay?: number; moveOutside?: boolean } & AiElementRef)
   | ({ type: 'addScene'; name?: string; duration?: number; alias?: string })
-  | ({ type: 'setTransition'; transition: SceneTransition | { type: TransitionType; duration?: number; direction?: SlideDir } } & AiSceneRef)
+  | ({ type: 'setTransition'; transition: SceneTransition | {
+      type: TransitionType
+      duration?: number
+      direction?: SlideDir
+      speed?: number
+      hardness?: number
+    } } & AiSceneRef)
   | ({ type: 'generateStoryboard'; scenes: Array<{ name?: string; duration?: number; title?: string; subtitle?: string; backgroundColor?: string }> })
 
 export interface AiPlan {

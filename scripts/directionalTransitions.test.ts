@@ -10,6 +10,9 @@ import {
   TRANSITIONS_WITH_STYLE_CONTROLS,
 } from '../src/utils/transitions'
 import { renderTransition } from '../src/engine/transitionRenderer'
+import { prepareAiPlan } from '../src/ai/prepare'
+import { planAiEdit } from '../src/ai/planner'
+import type { AiProjectContext } from '../src/ai/types'
 
 const flashStart = getDirectionalTransitionState('flashBlur', 0, 'right', 1, 50)
 const flashPeak = getDirectionalTransitionState('flashBlur', 0.5, 'right', 1, 50)
@@ -128,4 +131,73 @@ for (const [type, progress] of [
   assert.ok(draws.some(draw => draw.alpha === 1))
 }
 
-console.log('directional transition tests passed')
+const aiContext: AiProjectContext = {
+  project: {
+    id: 'project',
+    name: 'Test',
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    sceneCount: 2,
+    totalDuration: 10,
+  },
+  currentSceneIndex: 2,
+  currentSceneId: 'scene-2',
+  selectedIds: [],
+  selectedElements: [],
+  scenes: [],
+  assets: [],
+}
+
+async function testAiTransitions() {
+  const prepared = prepareAiPlan({
+    summary: 'Set flash blur',
+    commands: [{
+      type: 'setTransition',
+      sceneIndex: 2,
+      transition: {
+        type: 'flashBlur',
+        duration: 8,
+        direction: 'up',
+        speed: 9,
+        hardness: -20,
+      },
+    }],
+  }, aiContext)
+  const preparedCommand = prepared.plan.commands[0]
+  assert.equal(preparedCommand.type, 'setTransition')
+  if (preparedCommand.type === 'setTransition') {
+    assert.deepEqual(preparedCommand.transition, {
+      type: 'flashBlur',
+      duration: 5,
+      direction: 'up',
+      speed: 3,
+      hardness: 0,
+    })
+  }
+
+  Object.assign(globalThis, { window: { api: {} } })
+  const planned = await planAiEdit(
+    'Set flicker shake transition on scene 2 from top duration 1.2 speed 2.4 hardness 70',
+    aiContext,
+  )
+  assert.equal(planned.source, 'local')
+  const command = planned.plan.commands[0]
+  assert.equal(command.type, 'setTransition')
+  if (command.type === 'setTransition') {
+    assert.deepEqual(command.transition, {
+      type: 'flickerShake',
+      duration: 1.2,
+      direction: 'up',
+      speed: 2.4,
+      hardness: 70,
+    })
+  }
+}
+
+testAiTransitions()
+  .then(() => console.log('directional transition tests passed'))
+  .catch(error => {
+    console.error(error)
+    process.exitCode = 1
+  })

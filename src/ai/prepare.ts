@@ -8,7 +8,9 @@ const SHAPE_TYPES = new Set<ShapeType>([
   'circle-hand', 'square-hand', 'heart', 'rect-sketch',
 ])
 
-const TRANSITION_TYPES = new Set<TransitionType>(['none', 'fade', 'slide', 'zoom', 'wipe', 'push', 'morph'])
+const TRANSITION_TYPES = new Set<TransitionType>([
+  'none', 'fade', 'slide', 'zoom', 'wipe', 'push', 'morph', 'flashBlur', 'flickerShake',
+])
 const ANIMATION_TYPES = new Set<AnimationType>(['fadeIn', 'fadeOut', 'slideIn', 'slideOut', 'scaleIn', 'scaleOut', 'wipeIn', 'wipeOut', 'typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'textFade'])
 const MOVE_DIRECTIONS = new Set(['left', 'right', 'top', 'bottom', 'topLeft', 'topRight', 'bottomRight', 'bottomLeft'])
 const COLOR_NAMES: Record<string, string> = {
@@ -185,6 +187,8 @@ function prepareCommand(
           ...command.transition,
           type,
           duration: clampOptional(command.transition.duration, 0, 5),
+          speed: clampOptional(command.transition.speed, 0.25, 3),
+          hardness: clampOptional(command.transition.hardness, 0, 100),
         },
       }
     }

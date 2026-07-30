@@ -151,7 +151,9 @@ function planLocally(prompt: string, context: AiProjectContext): AiPlan {
   }
 
   if (/\btransition\b/.test(lower)) {
-    const type = lower.includes('morph') ? 'morph'
+    const type = lower.includes('flicker shake') ? 'flickerShake'
+      : lower.includes('flash blur') ? 'flashBlur'
+      : lower.includes('morph') ? 'morph'
       : lower.includes('fade') ? 'fade'
       : lower.includes('wipe') ? 'wipe'
       : lower.includes('zoom') ? 'zoom'
@@ -162,7 +164,13 @@ function planLocally(prompt: string, context: AiProjectContext): AiPlan {
       commands: [{
         type: 'setTransition',
         sceneIndex,
-        transition: { type, duration: readNumberAfter(lower, 'duration') ?? 0.8 },
+        transition: {
+          type,
+          duration: readNumberAfter(lower, 'duration') ?? 0.8,
+          direction: readTransitionDirection(lower),
+          speed: readNumberAfter(lower, 'speed') ?? undefined,
+          hardness: readNumberAfter(lower, 'hardness') ?? undefined,
+        },
       }],
       needsConfirmation: true,
     }
@@ -343,6 +351,13 @@ function readMoveDirection(text: string): 'left' | 'right' | 'top' | 'bottom' | 
   if (text.includes('right')) return 'right'
   if (text.includes('top') || text.includes('up')) return 'top'
   if (text.includes('bottom') || text.includes('down')) return 'bottom'
+  return 'left'
+}
+
+function readTransitionDirection(text: string): 'left' | 'right' | 'up' | 'down' {
+  if (text.includes('right')) return 'right'
+  if (text.includes('top') || text.includes('up')) return 'up'
+  if (text.includes('bottom') || text.includes('down')) return 'down'
   return 'left'
 }
 

@@ -256,6 +256,8 @@ function setTransition(command: Extract<AiEditorCommand, { type: 'setTransition'
     type: tr.type,
     duration: Math.max(0, tr.duration ?? 0.8),
     direction: tr.direction,
+    speed: tr.speed,
+    hardness: tr.hardness,
   })
   return { ok: true, message: `Set ${tr.type} transition on ${scene.name}.`, sceneIds: [scene.id] }
 }
