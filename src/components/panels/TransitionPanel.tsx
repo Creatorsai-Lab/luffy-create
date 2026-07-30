@@ -3,7 +3,7 @@ import { useEditorStore } from '../../store/editorStore'
 import type { SlideDir } from '../../types/editor'
 import { PanelHeader, Row, Slider } from './TextPanel'
 import { cn } from '../../utils/cn'
-import { TRANSITIONS, TRANSITIONS_WITH_DIRECTION } from '../../utils/transitions'
+import { TRANSITIONS, getTransitionCapabilities } from '../../utils/transitions'
 
 export default function TransitionPanel() {
   const { project, currentSceneId, setTransition } = useEditorStore()
@@ -13,7 +13,7 @@ export default function TransitionPanel() {
 
   const sceneIndex = project.scenes.findIndex(s => s.id === scene.id)
   const tr = scene.transition
-  const hasDir = TRANSITIONS_WITH_DIRECTION.includes(tr.type)
+  const capabilities = getTransitionCapabilities(tr.type)
   const activeDef = TRANSITIONS.find(t => t.value === tr.type)
 
   return (
@@ -69,7 +69,7 @@ export default function TransitionPanel() {
                 display={`${tr.duration.toFixed(1)}s`} />
             </Row>
 
-            {hasDir && (
+            {capabilities.direction && (
               <Row label="Direction">
                 <select
                   value={tr.direction ?? 'right'}
@@ -82,6 +82,21 @@ export default function TransitionPanel() {
                   <option value="up">From Top ↑</option>
                 </select>
               </Row>
+            )}
+
+            {capabilities.style && (
+              <>
+                <Row label="Speed">
+                  <Slider value={tr.speed ?? 1} min={0.25} max={3} step={0.05}
+                    onChange={speed => setTransition(scene.id, { ...tr, speed })}
+                    display={`${(tr.speed ?? 1).toFixed(2)}×`} />
+                </Row>
+                <Row label="Hardness">
+                  <Slider value={tr.hardness ?? 50} min={0} max={100} step={1}
+                    onChange={hardness => setTransition(scene.id, { ...tr, hardness })}
+                    display={`${Math.round(tr.hardness ?? 50)}%`} />
+                </Row>
+              </>
             )}
 
             <p className="text-2xs text-[#c1c1c1] bg-editor-elevated rounded px-2 py-1.5">

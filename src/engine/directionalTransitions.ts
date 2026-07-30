@@ -28,14 +28,14 @@ export function getDirectionalTransitionState(
   if (type === 'flashBlur') {
     const peak = Math.pow(Math.sin(Math.PI * p), 0.7 + rate * 0.8)
     const motion = peak * force * (p < 0.5 ? -1 : 1)
-    const streak = peak * (0.15 + force * 0.85)
+    const streak = peak * force
     return {
       scene: p < 0.5 ? 'from' : 'to',
-      offsetX: x * motion,
-      offsetY: y * motion,
-      streakX: x * streak,
-      streakY: y * streak,
-      light: Math.min(0.94, peak * (0.35 + force * 0.59)),
+      offsetX: cleanZero(x * motion),
+      offsetY: cleanZero(y * motion),
+      streakX: cleanZero(x * streak),
+      streakY: cleanZero(y * streak),
+      light: peak * force * 0.94,
     }
   }
 
@@ -46,12 +46,12 @@ export function getDirectionalTransitionState(
   const pulses = 4 + Math.round(rate * 4)
   return {
     scene: p >= 0.82 || Math.floor(p * pulses) % 2 === 1 ? 'to' : 'from',
-    offsetX: x * primary - y * cross,
-    offsetY: y * primary + x * cross,
+    offsetX: cleanZero(x * primary - y * cross),
+    offsetY: cleanZero(y * primary + x * cross),
     streakX: 0,
     streakY: 0,
     light: Math.pow(Math.abs(Math.sin(phase * 0.5)), 3) *
-      envelope * (0.12 + force * 0.42),
+      envelope * force * 0.54,
   }
 }
 
@@ -68,4 +68,8 @@ function directionVector(direction: SlideDir): [number, number] {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min))
+}
+
+function cleanZero(value: number) {
+  return value === 0 ? 0 : value
 }

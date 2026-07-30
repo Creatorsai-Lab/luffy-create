@@ -26,3 +26,10 @@ export const TRANS_COLOR: Record<string, string> =
 
 export const TRANSITIONS_WITH_DIRECTION: TransitionType[] = ['push', 'wipe', 'flashBlur', 'flickerShake']
 export const TRANSITIONS_WITH_STYLE_CONTROLS: TransitionType[] = ['flashBlur', 'flickerShake']
+
+export function getTransitionCapabilities(type: TransitionType) {
+  return {
+    direction: TRANSITIONS_WITH_DIRECTION.includes(type),
+    style: TRANSITIONS_WITH_STYLE_CONTROLS.includes(type),
+  }
+}
