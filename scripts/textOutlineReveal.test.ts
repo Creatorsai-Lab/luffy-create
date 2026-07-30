@@ -10,7 +10,7 @@ async function main() {
   const clips = getClips(0.5, 100) as { fillWidth: number; outlineX: number; outlineWidth: number }
   assert.deepEqual(
     { fillWidth: round(clips.fillWidth), outlineX: round(clips.outlineX), outlineWidth: round(clips.outlineWidth) },
-    { fillWidth: 30.556, outlineX: 30.556, outlineWidth: 38.889 },
+    { fillWidth: 44.444, outlineX: 44.444, outlineWidth: 11.111 },
   )
   assert.deepEqual(getClips(-2, 100), { fillWidth: 0, outlineX: 0, outlineWidth: 0 })
   assert.deepEqual(getClips(0.5, Infinity), { fillWidth: 0, outlineX: 0, outlineWidth: 0 })
@@ -26,9 +26,9 @@ async function main() {
     clipY: box.clipY,
     clipHeight: box.clipHeight,
   }, {
-    fillWidth: 30.556,
-    outlineX: 30.556,
-    outlineWidth: 38.889,
+    fillWidth: 44.444,
+    outlineX: 44.444,
+    outlineWidth: 11.111,
     clipY: -20,
     clipHeight: 260,
   })
@@ -37,6 +37,31 @@ async function main() {
   assert.equal(outlineText.color, 'transparent')
   assert.equal(outlineText.textStroke, '#f8fafc')
   assert.equal(outlineText.textStrokeWidth, 0.5)
+  assert.equal(typeof reveal.getOutlineRevealSourceLayers, 'function')
+  const sourceLayers = reveal.getOutlineRevealSourceLayers(0.5, 100, 220, 20) as unknown as Array<{
+    source: string
+    points?: Array<[number, number]>
+    opacity: number
+  }>
+  assert.deepEqual(
+    sourceLayers.map(layer => ({
+      source: layer.source,
+      points: (layer.points ?? []).map(([x, y]) => [round(x), round(y)]),
+      opacity: layer.opacity,
+    })),
+    [
+      {
+        source: 'outline',
+        points: [[50.444, -20], [61.556, -20], [49.556, 240], [38.444, 240]],
+        opacity: 0.55,
+      },
+      {
+        source: 'fill',
+        points: [[0, -20], [50.444, -20], [38.444, 240], [0, 240]],
+        opacity: 1,
+      },
+    ],
+  )
 
   const enterText = makeText(20, 30)
   enterText.animations = [{

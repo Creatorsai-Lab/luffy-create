@@ -5,7 +5,7 @@ import type { TextElement, SlideDir } from '../../../types/editor'
 import { loadFont } from '../../../utils/fontLoader'
 import { drawPerspectiveWarp, drawTextToCtx } from '../../../engine/perspectiveUtils'
 import {
-  getOutlineRevealClipBox,
+  getOutlineRevealSourceLayers,
   makeOutlineTextElement,
   outlineRevealStrokeWidth,
 } from '../../../engine/textOutlineReveal'
@@ -71,6 +71,14 @@ function bounceEase(t: number) {
   return 1.1 - 0.1 * (1 - Math.pow(1 - (clamped - 0.72) / 0.28, 2))
 }
 
+function clipPolygon(points: Array<[number, number]>) {
+  return (ctx: Konva.Context) => {
+    ctx.beginPath()
+    points.forEach(([x, y], index) => index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y))
+    ctx.closePath()
+  }
+}
+
 function layoutWords(el: TextElement, fontStyle: string) {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')!
@@ -109,6 +117,7 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
     fill: HTMLCanvasElement
     outline: HTMLCanvasElement
   } | null>(null)
+  const perspectiveRevealRef = useRef<HTMLCanvasElement | null>(null)
   const [textH, setTextH] = useState(el.height)
   const effectiveColor = textColor ?? el.color
 
@@ -269,36 +278,40 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
             return
           }
 
-          const clips = getOutlineRevealClipBox(
+          const layers = getOutlineRevealSourceLayers(
             textProgress,
             el.width,
             Math.max(el.height, textH),
             el.fontSize,
           )
-          const drawClipped = (
-            source: HTMLCanvasElement,
-            x: number,
-            width: number,
-            opacity = 1,
-          ) => {
-            if (width <= 0) return
-            raw.save()
-            raw.beginPath()
-            raw.rect(x, clips.clipY, width, clips.clipHeight)
-            raw.clip()
-            raw.globalAlpha *= opacity
-            drawPerspectiveWarp(raw, source, el.perspectivePts!, el.width, el.height)
-            raw.restore()
+          const masked = perspectiveRevealRef.current ?? document.createElement('canvas')
+          perspectiveRevealRef.current = masked
+          if (masked.width !== offscreen.fill.width) masked.width = offscreen.fill.width
+          if (masked.height !== offscreen.fill.height) masked.height = offscreen.fill.height
+          const maskedCtx = masked.getContext('2d')!
+          maskedCtx.setTransform(1, 0, 0, 1, 0, 0)
+          maskedCtx.clearRect(0, 0, masked.width, masked.height)
+          maskedCtx.globalCompositeOperation = 'source-over'
+          for (const layer of layers) {
+            maskedCtx.save()
+            maskedCtx.beginPath()
+            layer.points.forEach(([x, y], index) =>
+              index === 0 ? maskedCtx.moveTo(x, y) : maskedCtx.lineTo(x, y)
+            )
+            maskedCtx.closePath()
+            maskedCtx.clip()
+            maskedCtx.globalAlpha = layer.opacity
+            maskedCtx.drawImage(offscreen[layer.source], 0, 0)
+            maskedCtx.restore()
           }
-          drawClipped(offscreen.outline, clips.outlineX, clips.outlineWidth, 0.55)
-          drawClipped(offscreen.fill, 0, clips.fillWidth)
+          drawPerspectiveWarp(raw, masked, el.perspectivePts!, el.width, el.height)
         }}
       />
     )
   }
 
   if (textMode === 'outlineReveal' && textProgress < 1) {
-    const { fillWidth, outlineX, outlineWidth, clipY, clipHeight } = getOutlineRevealClipBox(
+    const [outlineLayer, fillLayer] = getOutlineRevealSourceLayers(
       textProgress,
       el.width,
       Math.max(el.height, textH),
@@ -319,10 +332,10 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
     return (
       <Group {...(konvaProps as Record<string, unknown>)}>
         {bgNode}
-        <Group clipX={outlineX} clipY={clipY} clipWidth={outlineWidth} clipHeight={clipHeight}>
+        <Group clipFunc={clipPolygon(outlineLayer.points)}>
           <Text {...outlineStyleProps} text={content} listening={false} />
         </Group>
-        <Group clipX={0} clipY={clipY} clipWidth={fillWidth} clipHeight={clipHeight}>
+        <Group clipFunc={clipPolygon(fillLayer.points)}>
           <Text ref={nodeRef} {...textStyleProps} text={content} />
           {textInnerShadowNode}
         </Group>
