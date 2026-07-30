@@ -5,7 +5,7 @@ import type { VideoElement } from '../../../types/editor'
 import { toFileUrl } from '../../../utils/pathUtils'
 import { getVideoClipState } from '../../../utils/videoClip'
 import { videoRegistry } from '../../../engine/videoRegistry'
-import { buildCssFilter, applyCanvasAdjustments, drawVignette } from '../../../engine/imageFilters'
+import { buildCssFilter, applyCanvasAdjustments, drawGrain, drawVignette } from '../../../engine/imageFilters'
 import { drawBoxShadow, drawInnerShadow } from '../../../engine/boxShadow'
 import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
@@ -229,6 +229,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
             sourceCtx.fillRect(0, 0, w, h)
           }
           applyCanvasAdjustments(sourceCtx, el)
+          drawGrain(sourceCtx, el)
           drawVignette(sourceCtx, el)
           sourceCtx.restore()
 
@@ -421,7 +422,8 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
           raw.restore()
         }
 
-        // 11. Vignette overlay
+        // 11. Grain and vignette overlays
+        drawGrain(raw, el)
         drawVignette(raw, el)
 
         drawInnerShadow(raw, el.innerShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)

@@ -4,7 +4,7 @@ import type Konva from 'konva'
 import type { ImageElement, SlideDir } from '../../../types/editor'
 import { toFileUrl } from '../../../utils/pathUtils'
 import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
-import { buildCssFilter, applyCanvasAdjustments, drawVignette } from '../../../engine/imageFilters'
+import { buildCssFilter, applyCanvasAdjustments, drawGrain, drawVignette } from '../../../engine/imageFilters'
 import { drawBoxShadow } from '../../../engine/boxShadow'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
 import { drawMediaWithEffects, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
@@ -90,6 +90,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     drawMediaWithEffects(ctx, el, el.width, el.height, localTime, makeImageDrawFns(img, el))
     if (el.glass) { ctx.filter = 'none'; ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(0,0,el.width,el.height) }
     applyCanvasAdjustments(ctx, el)
+    drawGrain(ctx, el)
     drawVignette(ctx, el)
     ctx.restore()
     return canvas
@@ -122,7 +123,8 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
       el.brightness, el.contrast, el.saturation, el.hueRotate, el.blur, el.glass,
       el.exposure, el.highlights, el.shadows, el.whites, el.blacks,
       el.temperature, el.tint, el.vibrance, el.vignetteEnabled, el.vignetteColor,
-      el.vignetteAmount, el.vignetteSize, el.vignetteFade, el.mediaEffects, el.mediaEffect,
+      el.vignetteAmount, el.vignetteSize, el.vignetteFade,
+      el.grainColor, el.grainSize, el.grainOpacity, el.mediaEffects, el.mediaEffect,
       el.mediaEffectAxis, el.mediaEffectIntensity, el.mediaEffectSpeed,
       el.mediaEffectHardness, el.mediaEffectBlend, el.mediaEffectSize,
       !!el.perspectivePts, dynamicPerspective])
@@ -257,6 +259,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
           raw.fillRect(0, 0, el.width, el.height)
         }
         applyCanvasAdjustments(raw, el)
+        drawGrain(raw, el)
         drawVignette(raw, el)
 
         raw.restore()
