@@ -17,7 +17,7 @@ export type AlignType     = 'left' | 'center' | 'right'
 export type ArrowHeadType = 'none' | 'end' | 'start' | 'both'
 export type SlideDir      = 'left' | 'right' | 'up' | 'down'
 export type MoveDirection = 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
-export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push' | 'morph'
+export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push' | 'morph' | 'flashBlur' | 'flickerShake'
 export type BgType        = 'solid' | 'gradient' | 'grid' | 'dots' | 'animated' | 'transparent'
 export type FontWeight    = 'thin' | 'normal' | 'semibold' | 'bold'
 export const MEDIA_EFFECT_TYPES = ['none', 'subtleHover', 'wiggle', 'doodleDrift', 'shake', 'vibrationDistort', 'godRays', 'lightSweep', 'lightFlicker', 'glitch', 'rain', 'snow'] as const
@@ -512,6 +512,8 @@ export interface SceneTransition {
   type: TransitionType
   duration: number
   direction?: SlideDir
+  speed?: number
+  hardness?: number
 }
 
 export interface Scene {

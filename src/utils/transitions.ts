@@ -16,10 +16,13 @@ export const TRANSITIONS: TransitionDef[] = [
   { label: 'Zoom',  value: 'zoom',  desc: 'Stable center zoom crossfade',      color: '#22c55e' },
   { label: 'Wipe',  value: 'wipe',  desc: 'Soft directional reveal',           color: '#f59e0b' },
   { label: 'Morph', value: 'morph', desc: 'Smart stable grow-and-blend between similar scenes', color: '#ec4899' },
+  { label: 'Flash Blur', value: 'flashBlur', desc: 'Directional blur through a clean flash cut', color: '#f8fafc' },
+  { label: 'Flicker Shake', value: 'flickerShake', desc: 'Merged hard-cut flicker with directional shake', color: '#a855f7' },
 ]
 
 /** Map a transition type to its fixed color. */
 export const TRANS_COLOR: Record<string, string> =
   Object.fromEntries(TRANSITIONS.map(t => [t.value, t.color]))
 
-export const TRANSITIONS_WITH_DIRECTION: TransitionType[] = ['push', 'wipe']
+export const TRANSITIONS_WITH_DIRECTION: TransitionType[] = ['push', 'wipe', 'flashBlur', 'flickerShake']
+export const TRANSITIONS_WITH_STYLE_CONTROLS: TransitionType[] = ['flashBlur', 'flickerShake']
