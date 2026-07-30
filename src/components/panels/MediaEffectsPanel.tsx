@@ -16,6 +16,7 @@ const EFFECTS: { label: string; value: MediaEffectClip['type']; description: str
   { label: 'Vibration Distort', value: 'vibrationDistort', description: 'Fast sliced distortion' },
   { label: 'God Rays', value: 'godRays', description: 'Animated directional light beams' },
   { label: 'Light Sweep', value: 'lightSweep', description: 'Glossy moving light pass' },
+  { label: 'Light Flicker', value: 'lightFlicker', description: 'Irregular wide thunder-light flashes' },
   { label: 'Glitch', value: 'glitch', description: 'Digital slice and color-channel glitch' },
   { label: 'Rain', value: 'rain', description: 'Animated transparent rain streaks' },
   { label: 'Snow', value: 'snow', description: 'Animated falling snow particles' },

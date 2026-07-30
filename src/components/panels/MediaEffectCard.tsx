@@ -34,8 +34,9 @@ export default function MediaEffectCard({
 }: Props) {
   const change = (patch: Partial<MediaEffectClip>) => onChange({ ...clip, ...patch })
   const percent = (value: number | undefined, fallback: number) => Math.round((value ?? fallback) * 100)
+  const isLightFlicker = clip.type === 'lightFlicker'
   const showDirection = clip.type === 'lightSweep' || clip.type === 'godRays' || clip.type === 'rain'
-  const showColor = showDirection || clip.type === 'snow'
+  const showColor = showDirection || clip.type === 'snow' || isLightFlicker
   const showSize = clip.type === 'lightSweep' || clip.type === 'glitch' || clip.type === 'rain' || clip.type === 'snow'
   const showTarget = clip.type === 'lightSweep' || clip.type === 'godRays' || clip.type === 'subtleHover'
 
@@ -76,11 +77,13 @@ export default function MediaEffectCard({
         </Row>
       </div>
 
-      <EffectSlider
-        label="Intensity"
-        value={percent(clip.mediaEffectIntensity, DEFAULT_MEDIA_EFFECT.mediaEffectIntensity)}
-        onChange={value => change({ mediaEffectIntensity: value / 100 })}
-      />
+      {!isLightFlicker && (
+        <EffectSlider
+          label="Intensity"
+          value={percent(clip.mediaEffectIntensity, DEFAULT_MEDIA_EFFECT.mediaEffectIntensity)}
+          onChange={value => change({ mediaEffectIntensity: value / 100 })}
+        />
+      )}
       <Row label="Speed">
         <Slider
           value={clip.mediaEffectSpeed ?? DEFAULT_MEDIA_EFFECT.mediaEffectSpeed}
@@ -92,12 +95,12 @@ export default function MediaEffectCard({
         />
       </Row>
       <EffectSlider
-        label="Hardness"
+        label={isLightFlicker ? 'Opacity' : 'Hardness'}
         value={percent(clip.mediaEffectHardness, DEFAULT_MEDIA_EFFECT.mediaEffectHardness)}
         onChange={value => change({ mediaEffectHardness: value / 100 })}
       />
       <EffectSlider
-        label="Blend"
+        label={isLightFlicker ? 'Fade' : 'Blend'}
         value={percent(clip.mediaEffectBlend, DEFAULT_MEDIA_EFFECT.mediaEffectBlend)}
         onChange={value => change({ mediaEffectBlend: value / 100 })}
       />
@@ -140,11 +143,13 @@ export default function MediaEffectCard({
               onChange={value => change({ mediaEffectColor: value })}
             />
           </Row>
-          <EffectSlider
-            label="Color Opacity"
-            value={percent(clip.mediaEffectColorOpacity, DEFAULT_MEDIA_EFFECT.mediaEffectColorOpacity)}
-            onChange={value => change({ mediaEffectColorOpacity: value / 100 })}
-          />
+          {!isLightFlicker && (
+            <EffectSlider
+              label="Color Opacity"
+              value={percent(clip.mediaEffectColorOpacity, DEFAULT_MEDIA_EFFECT.mediaEffectColorOpacity)}
+              onChange={value => change({ mediaEffectColorOpacity: value / 100 })}
+            />
+          )}
         </>
       )}
 
