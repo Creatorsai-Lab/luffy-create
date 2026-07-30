@@ -10,6 +10,40 @@ async function main() {
   assert.equal(normalize('cloudy'), 'none')
   assert.equal(normalize('motionBlur'), 'none')
   assert.equal(normalize('glitch'), 'glitch')
+
+  const clips = effects.getMediaEffectClips({
+    type: 'image',
+    mediaEffects: [
+      { type: 'glitch', startAt: 1.5, endAt: 4 },
+      { type: 'glitch', startAt: 0, endAt: 5 },
+      { type: 'rain', startAt: 0, endAt: 2 },
+    ],
+  } as never)
+  assert.deepEqual(clips.map(clip => clip.type), ['glitch', 'rain'])
+  assert.deepEqual(
+    effects.getActiveMediaEffects({ type: 'image', mediaEffects: clips } as never, 1.5).map(clip => clip.type),
+    ['glitch', 'rain'],
+  )
+  assert.deepEqual(
+    effects.getActiveMediaEffects({ type: 'image', mediaEffects: clips } as never, 4).map(clip => clip.type),
+    ['glitch'],
+  )
+  assert.deepEqual(effects.getMediaEffectClips({
+    type: 'image',
+    mediaEffects: [],
+    mediaEffect: 'glitch',
+  } as never), [])
+  assert.deepEqual(effects.getMediaEffectClips({
+    type: 'image',
+    mediaEffect: 'glitch',
+    mediaEffectIntensity: 0.7,
+  } as never), [{
+    type: 'glitch',
+    startAt: 0,
+    endAt: Infinity,
+    mediaEffectIntensity: 0.7,
+  }])
+
   assert.equal(effects.mediaEffectRequiresAnimation({
     type: 'image',
     mediaEffect: 'glitch',

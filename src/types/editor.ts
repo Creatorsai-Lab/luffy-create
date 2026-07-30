@@ -60,8 +60,7 @@ export interface PerspectiveControls {
   depth: number
 }
 
-export interface MediaEffectControls {
-  mediaEffect?: MediaEffectType
+export interface MediaEffectSettings {
   mediaEffectAxis?: MediaEffectAxis
   mediaEffectIntensity?: number
   mediaEffectSpeed?: number
@@ -74,6 +73,17 @@ export interface MediaEffectControls {
   mediaEffectTarget?: MediaEffectTarget
   mediaEffectFocusX?: number
   mediaEffectFocusY?: number
+}
+
+export interface MediaEffectClip extends MediaEffectSettings {
+  type: Exclude<MediaEffectType, 'none'>
+  startAt: number
+  endAt: number
+}
+
+export interface MediaEffectControls extends MediaEffectSettings {
+  mediaEffect?: MediaEffectType
+  mediaEffects?: MediaEffectClip[]
 }
 
 export interface MediaVignetteControls {

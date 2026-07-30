@@ -196,6 +196,7 @@ export function makeImage(x: number, y: number, src: string, assetId: string, wi
     vignetteAmount: 0.5,
     vignetteSize: 0.5,
     vignetteFade: 0.65,
+    mediaEffects: [],
     ...DEFAULT_MEDIA_EFFECT,
   }
 }
@@ -323,6 +324,7 @@ export function makeVideo(
     vignetteFade: 0.65,
     videoEffect: 'none',
     videoEffectIntensity: 0.5,
+    mediaEffects: [],
     ...DEFAULT_MEDIA_EFFECT,
     frameType: 'none',
   }

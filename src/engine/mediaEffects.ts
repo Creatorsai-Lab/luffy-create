@@ -2,7 +2,9 @@ import {
   MEDIA_EFFECT_TYPES,
   type ImageElement,
   type MediaEffectAxis,
+  type MediaEffectClip,
   type MediaEffectDirection,
+  type MediaEffectSettings,
   type MediaEffectTarget,
   type MediaEffectType,
   type VideoElement,
@@ -50,6 +52,47 @@ export function normalizeMediaEffect(value: unknown): MediaEffectType {
 
 export function resolveGlitchAxis(value: unknown): MediaEffectAxis {
   return value === 'vertical' ? 'vertical' : 'horizontal'
+}
+
+const EFFECT_SETTING_KEYS: (keyof MediaEffectSettings)[] = [
+  'mediaEffectAxis', 'mediaEffectIntensity', 'mediaEffectSpeed', 'mediaEffectHardness',
+  'mediaEffectDirection', 'mediaEffectBlend', 'mediaEffectColor', 'mediaEffectColorOpacity',
+  'mediaEffectSize', 'mediaEffectTarget', 'mediaEffectFocusX', 'mediaEffectFocusY',
+]
+
+export function getMediaEffectClips(el: MediaElement): MediaEffectClip[] {
+  if (Array.isArray(el.mediaEffects)) {
+    const seen = new Set<MediaEffectType>()
+    return el.mediaEffects.flatMap(raw => {
+      const type = normalizeMediaEffect(raw?.type)
+      if (type === 'none' || seen.has(type)) return []
+      seen.add(type)
+      const startAt = finiteAtLeast(raw.startAt, 0, 0)
+      const endAt = finiteAtLeast(raw.endAt, startAt, Infinity)
+      return [{ type, startAt, endAt, ...copyEffectSettings(raw) }]
+    })
+  }
+
+  const legacyVideo = el.type === 'video' ? el.videoEffect : undefined
+  const normalized = normalizeMediaEffect(el.mediaEffect)
+  const type = normalized !== 'none'
+    ? normalized
+    : legacyVideo === 'shake'
+      ? 'shake'
+      : legacyVideo === 'distortion'
+        ? 'vibrationDistort'
+        : 'none'
+
+  if (type === 'none') return []
+  const settings = copyEffectSettings(el)
+  if (settings.mediaEffectIntensity === undefined && el.type === 'video' && el.videoEffectIntensity !== undefined) {
+    settings.mediaEffectIntensity = el.videoEffectIntensity
+  }
+  return [{ type, startAt: 0, endAt: Infinity, ...settings }]
+}
+
+export function getActiveMediaEffects(el: MediaElement, localTime: number): MediaEffectClip[] {
+  return getMediaEffectClips(el).filter(clip => localTime >= clip.startAt && localTime <= clip.endAt)
 }
 
 export function drawMediaWithEffect(
@@ -223,6 +266,19 @@ function drawGlitch(
   }
 
   drawGlitchLines(ctx, effect, width, height, frame)
+}
+
+function copyEffectSettings(source: MediaEffectSettings): MediaEffectSettings {
+  const settings: MediaEffectSettings = {}
+  for (const key of EFFECT_SETTING_KEYS) {
+    const value = source[key]
+    if (value !== undefined) (settings as Record<string, unknown>)[key] = value
+  }
+  return settings
+}
+
+function finiteAtLeast(value: unknown, min: number, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(min, value) : fallback
 }
 
 function drawGlitchLines(
