@@ -8,15 +8,7 @@ import { makeAnimation, makeText } from '../../utils/defaults'
 import { InnerShadowControls } from './BoxShadowControls'
 import { ScaleSizeControl } from './AnimationParamControls'
 import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../../utils/fontWeight'
-
-const TEXT_EFFECTS: { label: string; value: TextEffectType }[] = [
-  { label: 'Shadow',  value: 'shadow'  },
-  { label: 'Glow',    value: 'glow'    },
-  { label: 'Outline', value: 'outline' },
-  { label: 'Hollow',  value: 'hollow'  },
-  { label: 'Glitch',  value: 'glitch'  },
-  { label: 'Bubble',  value: 'bubble'  },
-]
+import { TEXT_EFFECT_OPTIONS, normalizeTextEffects } from '../../utils/textEffects'
 
 export const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Slide In',           value: 'slideIn'        },
@@ -86,7 +78,7 @@ export default function TextPanel() {
 
   function toggleEffect(effect: TextEffectType) {
     if (!el) return
-    const effects = el.effects || []
+    const effects = normalizeTextEffects(el.effects)
     updateElement(el.id, {
       effects: effects.includes(effect) ? effects.filter(e => e !== effect) : [...effects, effect],
     })
@@ -346,8 +338,8 @@ export default function TextPanel() {
             <div className="border-t border-editor-border px-3 py-2">
               <span className="text-xs font-medium text-editor-text block mb-2">Effects</span>
               <div className="grid grid-cols-2 gap-1.5">
-                {TEXT_EFFECTS.map(effect => {
-                  const isActive = (el.effects || []).includes(effect.value)
+                {TEXT_EFFECT_OPTIONS.map(effect => {
+                  const isActive = normalizeTextEffects(el.effects).includes(effect.value)
                   return (
                     <button
                       key={effect.value}

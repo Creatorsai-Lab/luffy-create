@@ -12,6 +12,7 @@ import {
 import { hasInnerShadow, innerShadowOrDefault } from '../../../engine/boxShadow'
 import { textFillProps } from '../../../engine/textFill'
 import { fontWeightToCssValue, fontWeightToKonvaStyle } from '../../../utils/fontWeight'
+import { resolveTextEffectProps } from '../../../utils/textEffects'
 
 interface Props {
   el: TextElement
@@ -21,48 +22,6 @@ interface Props {
   wipeProgress?: number
   wipeDir?: SlideDir
   textColor?: string
-}
-
-function resolveEffectProps(el: TextElement, effectiveColor: string) {
-  const effects = el.effects ?? []
-
-  let shadowEnabled  = el.shadowBlur > 0
-  let shadowColor    = el.shadowColor || 'rgba(0,0,0,0.5)'
-  let shadowBlur     = el.shadowBlur
-  let shadowOffsetX  = el.shadowOffsetX
-  let shadowOffsetY  = el.shadowOffsetY
-  let stroke         = el.textStroke || undefined
-  let strokeWidth    = el.textStrokeWidth || 0
-  let strokeEnabled  = !!(el.textStroke && el.textStrokeWidth > 0)
-  let fillEnabled    = true
-
-  if (effects.includes('shadow')) {
-    shadowEnabled = true
-    shadowColor   = 'rgba(0,0,0,0.75)'
-    shadowBlur    = Math.max(shadowBlur, 15)
-    shadowOffsetX = shadowOffsetX || 3
-    shadowOffsetY = shadowOffsetY || 3
-  }
-  if (effects.includes('glow')) {
-    shadowEnabled = true
-    shadowColor   = effectiveColor
-    shadowBlur    = 22
-    shadowOffsetX = 0
-    shadowOffsetY = 0
-  }
-  if (effects.includes('outline')) {
-    stroke        = stroke || '#000000'
-    strokeWidth   = Math.max(strokeWidth, 2)
-    strokeEnabled = true
-  }
-  if (effects.includes('hollow')) {
-    fillEnabled   = false
-    stroke        = stroke || effectiveColor
-    strokeWidth   = Math.max(strokeWidth, 2)
-    strokeEnabled = true
-  }
-
-  return { shadowEnabled, shadowColor, shadowBlur, shadowOffsetX, shadowOffsetY, stroke, strokeWidth, strokeEnabled, fillEnabled }
 }
 
 function bounceEase(t: number) {
@@ -166,7 +125,7 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
     return el.content.slice(0, Math.floor(el.content.length * textProgress))
   })()
 
-  const effectProps = resolveEffectProps(el, effectiveColor)
+  const effectProps = resolveTextEffectProps(el, effectiveColor)
 
   const textStyleProps = {
     width: el.width,

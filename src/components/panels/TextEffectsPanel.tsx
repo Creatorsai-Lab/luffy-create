@@ -3,24 +3,17 @@ import { useEditorStore } from '../../store/editorStore'
 import type { TextElement, TextEffectType } from '../../types/editor'
 import { PanelHeader } from './TextPanel'
 import { cn } from '../../utils/cn'
-
-const TEXT_EFFECTS: { label: string; value: TextEffectType; description: string }[] = [
-  { label: 'Shadow',  value: 'shadow',  description: 'Drop shadow effect' },
-  { label: 'Glow',    value: 'glow',    description: 'Glowing outline' },
-  { label: 'Outline', value: 'outline', description: 'Text outline' },
-  { label: 'Hollow',  value: 'hollow',  description: 'Hollow text' },
-  { label: 'Glitch',  value: 'glitch',  description: 'Glitch effect' },
-  { label: 'Bubble',  value: 'bubble',  description: 'Bubble text' },
-]
+import { TEXT_EFFECT_OPTIONS, normalizeTextEffects } from '../../utils/textEffects'
 
 export default function TextEffectsPanel() {
   const { getSelectedEls, updateElement } = useEditorStore()
   const els = getSelectedEls().filter(e => e.type === 'text')
   const el  = els[0] as TextElement | undefined
+  const activeEffects = normalizeTextEffects(el?.effects)
 
   function toggleEffect(effect: TextEffectType) {
     if (!el) return
-    const effects = el.effects || []
+    const effects = normalizeTextEffects(el.effects)
     const hasEffect = effects.includes(effect)
     
     if (hasEffect) {
@@ -48,8 +41,8 @@ export default function TextEffectsPanel() {
             </p>
 
             <div className="grid grid-cols-2 gap-2">
-              {TEXT_EFFECTS.map(effect => {
-                const isActive = (el.effects || []).includes(effect.value)
+              {TEXT_EFFECT_OPTIONS.map(effect => {
+                const isActive = activeEffects.includes(effect.value)
                 
                 return (
                   <button
@@ -81,15 +74,11 @@ export default function TextEffectsPanel() {
               })}
             </div>
 
-            {(el.effects && el.effects.length > 0) && (
+            {activeEffects.length > 0 && (
               <div className="mt-3 p-2 bg-editor-accent-dim rounded text-xs text-editor-accent">
-                <strong>Active:</strong> {el.effects.join(', ')}
+                <strong>Active:</strong> {activeEffects.join(', ')}
               </div>
             )}
-
-            <div className="mt-3 p-2 bg-editor-elevated rounded text-2xs text-[#f2f2f2]">
-              <strong>Note:</strong> Effects are visual enhancements. Some effects may require additional rendering implementation.
-            </div>
           </div>
         )}
       </div>
