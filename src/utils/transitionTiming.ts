@@ -54,6 +54,12 @@ export function buildTransitionTimeline(scenes: TransitionTimelineScene[]): Tran
   return timeline
 }
 
+export function getEffectiveTransitionDuration(entry: TransitionTimelineEntry) {
+  return entry.sceneIndex > 0 && entry.transition.type !== 'none'
+    ? Math.max(0, Math.min(entry.transition.duration ?? 0, entry.duration))
+    : 0
+}
+
 export function getTransitionFrameState(timeline: TransitionTimelineEntry[], time: number): TransitionFrameState {
   if (timeline.length === 0) {
     throw new Error('Cannot resolve transition frame without scenes')
@@ -62,9 +68,7 @@ export function getTransitionFrameState(timeline: TransitionTimelineEntry[], tim
   const safeTime = Math.max(0, Number.isFinite(time) ? time : 0)
   const current = findTimelineEntry(timeline, safeTime)
   const localTime = Math.max(0, safeTime - current.startTime)
-  const transitionDuration = current.sceneIndex > 0 && current.transition.type !== 'none'
-    ? Math.max(0, Math.min(current.transition.duration ?? 0, current.duration))
-    : 0
+  const transitionDuration = getEffectiveTransitionDuration(current)
 
   if (transitionDuration > 0 && localTime < transitionDuration) {
     const from = timeline[current.sceneIndex - 1]

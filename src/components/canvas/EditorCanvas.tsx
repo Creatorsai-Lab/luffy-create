@@ -6,7 +6,11 @@ import { useEditorStore } from '../../store/editorStore'
 import { getAnimatedProps } from '../../engine/animator'
 import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
 import { isDirectionalTransition } from '../../engine/directionalTransitions'
-import { buildTransitionTimeline, getTransitionFrameState } from '../../utils/transitionTiming'
+import {
+  buildTransitionTimeline,
+  getEffectiveTransitionDuration,
+  getTransitionFrameState,
+} from '../../utils/transitionTiming'
 import { drawBackground } from '../../engine/backgroundRenderer'
 import { registerStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
@@ -61,7 +65,8 @@ export default function EditorCanvas() {
   const transitionFromImageRef = useRef<HTMLImageElement | null>(null)
   const transitionToCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const transitionFrameRef = useRef<number>(0)
-  const transitionSnapshotRef = useRef<{ key: string; snap: string } | null>(null)
+  const transitionSnapshotsRef = useRef(new Map<string, string>())
+  const transitionFinalSnapshotsRef = useRef(new Set<string>())
 
   // Computed display size (project coords → screen pixels)
   const [scale,    setScale]    = useState(1)
@@ -318,11 +323,20 @@ export default function EditorCanvas() {
     if (isPlaying) setLocalPlayingIds(new Set())
   }, [isPlaying])
 
+  useEffect(() => {
+    if (isPlaying || !stageRef.current || !currentSceneId) return
+    const ratio = 1 / (stageRef.current.scaleX() || 1)
+    transitionSnapshotsRef.current.set(
+      currentSceneId,
+      stageRef.current.toDataURL({ pixelRatio: ratio }),
+    )
+    transitionFinalSnapshotsRef.current.delete(currentSceneId)
+  }, [currentSceneId, isPlaying, project])
+
   // Resolve the same transition window used by Preview and export. Capture the
   // outgoing scene once just before its boundary so the incoming scene can play.
   useEffect(() => {
     if (!project || !isPlaying) {
-      transitionSnapshotRef.current = null
       if (transActiveRef.current) { transActiveRef.current = false; setTransOverlay(null) }
       return
     }
@@ -330,21 +344,26 @@ export default function EditorCanvas() {
     const frameState = getTransitionFrameState(timeline, playhead)
     if (frameState.kind === 'transition') {
       if (!transActiveRef.current && stageRef.current) {
-        const key = `${frameState.fromSceneId}:${frameState.toSceneId}`
-        const cached = transitionSnapshotRef.current
-        const ratio = 1 / (stageRef.current.scaleX() || 1)
+        let snap = transitionSnapshotsRef.current.get(frameState.fromSceneId)
+        if (!snap && currentSceneId === frameState.fromSceneId) {
+          const ratio = 1 / (stageRef.current.scaleX() || 1)
+          snap = stageRef.current.toDataURL({ pixelRatio: ratio })
+          transitionSnapshotsRef.current.set(frameState.fromSceneId, snap)
+        }
+        if (!snap) return
+        const transitionDuration = getEffectiveTransitionDuration(
+          timeline[frameState.toSceneIndex],
+        )
         transActiveRef.current = true
         setTransOverlay({
-          snap: cached?.key === key
-            ? cached.snap
-            : stageRef.current.toDataURL({ pixelRatio: ratio }),
+          snap,
           type: frameState.transition.type,
           direction: frameState.transition.direction,
           speed: frameState.transition.speed,
           hardness: frameState.transition.hardness,
           toSceneId: frameState.toSceneId,
           transitionStart: timeline[frameState.toSceneIndex].startTime,
-          duration: frameState.transition.duration,
+          duration: transitionDuration,
         })
       }
       return
@@ -357,16 +376,23 @@ export default function EditorCanvas() {
 
     const current = timeline[frameState.sceneIndex]
     const next = timeline[frameState.sceneIndex + 1]
-    if (!next || next.transition.type === 'none' || !stageRef.current) return
-    const captureLead = Math.min(0.05, next.transition.duration)
+    if (!stageRef.current) return
+    const ratio = 1 / (stageRef.current.scaleX() || 1)
+    if (!transitionSnapshotsRef.current.has(current.sceneId)) {
+      transitionSnapshotsRef.current.set(
+        current.sceneId,
+        stageRef.current.toDataURL({ pixelRatio: ratio }),
+      )
+    }
+    if (!next || next.transition.type === 'none') return
+    const captureLead = Math.min(0.05, getEffectiveTransitionDuration(next))
     if (playhead >= current.endTime - captureLead && playhead < current.endTime) {
-      const key = `${current.sceneId}:${next.sceneId}`
-      if (transitionSnapshotRef.current?.key !== key) {
-        const ratio = 1 / (stageRef.current.scaleX() || 1)
-        transitionSnapshotRef.current = {
-          key,
-          snap: stageRef.current.toDataURL({ pixelRatio: ratio }),
-        }
+      if (!transitionFinalSnapshotsRef.current.has(current.sceneId)) {
+        transitionSnapshotsRef.current.set(
+          current.sceneId,
+          stageRef.current.toDataURL({ pixelRatio: ratio }),
+        )
+        transitionFinalSnapshotsRef.current.add(current.sceneId)
       }
     }
   }, [project, playhead, isPlaying])

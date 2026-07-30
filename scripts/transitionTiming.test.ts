@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict'
-import { buildTransitionTimeline, getTransitionFrameState } from '../src/utils/transitionTiming'
+import {
+  buildTransitionTimeline,
+  getEffectiveTransitionDuration,
+  getTransitionFrameState,
+} from '../src/utils/transitionTiming'
 
 const timeline = buildTransitionTimeline([
   { id: 'scene-1', duration: 5, transition: { type: 'none', duration: 0.5 } },
@@ -47,5 +51,16 @@ assert.deepEqual(sceneState, {
   sceneIndex: 1,
 })
 assert.ok(Math.abs(sceneTime - 1.01) < 1e-9)
+
+const shortSceneTimeline = buildTransitionTimeline([
+  { id: 'long', duration: 10, transition: { type: 'none', duration: 0 } },
+  { id: 'short', duration: 0.5, transition: { type: 'flashBlur', duration: 2 } },
+])
+assert.equal(getEffectiveTransitionDuration(shortSceneTimeline[1]), 0.5)
+const shortSceneTransition = getTransitionFrameState(shortSceneTimeline, 10.25)
+assert.equal(shortSceneTransition.kind, 'transition')
+if (shortSceneTransition.kind === 'transition') {
+  assert.equal(shortSceneTransition.progress, 0.5)
+}
 
 console.log('transition timing tests passed')
