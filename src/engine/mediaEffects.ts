@@ -70,7 +70,7 @@ export function getMediaEffectClips(el: MediaElement): MediaEffectClip[] {
       const endAt = finiteAtLeast(raw.endAt, startAt, Infinity)
       return [{ type, startAt, endAt, ...copyEffectSettings(raw) }]
     })
-    return clips.length > 0 ? clips : legacyVideoEffectClip(el)
+    return clips
   }
 
   const normalized = normalizeMediaEffect(el.mediaEffect)

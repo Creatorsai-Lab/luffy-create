@@ -317,7 +317,12 @@ export default function VideoPanel() {
               <Row label="Video Effect">
                 <select
                   value={el.videoEffect ?? 'none'}
-                  onChange={e => upd({ videoEffect: e.target.value as any })}
+                  onChange={e => {
+                    const videoEffect = e.target.value as VideoElement['videoEffect']
+                    upd(videoEffect === 'shake' || videoEffect === 'distortion'
+                      ? { videoEffect, mediaEffect: 'none', mediaEffects: undefined }
+                      : { videoEffect })
+                  }}
                   className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
                   <option value="none">No Effect</option>

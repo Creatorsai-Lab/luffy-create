@@ -42,6 +42,16 @@ async function main() {
     mediaEffect: 'glitch',
   } as never), [])
   assert.deepEqual(effects.getMediaEffectClips({
+    type: 'video',
+    mediaEffects: [],
+    videoEffect: 'shake',
+  } as never), [])
+  assert.deepEqual(effects.getMediaEffectClips({
+    type: 'video',
+    mediaEffects: [{ type: 'removed-effect', startAt: 0, endAt: 2 }],
+    videoEffect: 'distortion',
+  } as never), [])
+  assert.deepEqual(effects.getMediaEffectClips({
     type: 'image',
     mediaEffect: 'glitch',
     mediaEffectIntensity: 0.7,
