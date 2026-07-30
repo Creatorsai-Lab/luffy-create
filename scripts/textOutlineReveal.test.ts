@@ -16,6 +16,28 @@ async function main() {
   assert.deepEqual(getClips(0.5, Infinity), { fillWidth: 0, outlineX: 0, outlineWidth: 0 })
 
   const { makeText } = await import('../src/utils/defaults')
+  const reveal = await import('../src/engine/textOutlineReveal')
+  assert.equal(typeof reveal.getOutlineRevealClipBox, 'function')
+  const box = reveal.getOutlineRevealClipBox(0.5, 100, 220, 20)
+  assert.deepEqual({
+    fillWidth: round(box.fillWidth),
+    outlineX: round(box.outlineX),
+    outlineWidth: round(box.outlineWidth),
+    clipY: box.clipY,
+    clipHeight: box.clipHeight,
+  }, {
+    fillWidth: 30.556,
+    outlineX: 30.556,
+    outlineWidth: 38.889,
+    clipY: -20,
+    clipHeight: 260,
+  })
+  const outlineText = reveal.makeOutlineTextElement(makeText(0, 0), '#f8fafc')
+  assert.equal(outlineText.fillMode, 'solid')
+  assert.equal(outlineText.color, 'transparent')
+  assert.equal(outlineText.textStroke, '#f8fafc')
+  assert.equal(outlineText.textStrokeWidth, 0.5)
+
   const enterText = makeText(20, 30)
   enterText.animations = [{
     id: 'outline-in',

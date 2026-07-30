@@ -4,7 +4,11 @@ import type Konva from 'konva'
 import type { TextElement, SlideDir } from '../../../types/editor'
 import { loadFont } from '../../../utils/fontLoader'
 import { drawPerspectiveWarp, drawTextToCtx } from '../../../engine/perspectiveUtils'
-import { getOutlineRevealClips } from '../../../engine/textOutlineReveal'
+import {
+  getOutlineRevealClipBox,
+  makeOutlineTextElement,
+  outlineRevealStrokeWidth,
+} from '../../../engine/textOutlineReveal'
 import { hasInnerShadow, innerShadowOrDefault } from '../../../engine/boxShadow'
 import { textFillProps } from '../../../engine/textFill'
 import { fontWeightToCssValue, fontWeightToKonvaStyle } from '../../../utils/fontWeight'
@@ -101,7 +105,10 @@ function layoutWords(el: TextElement, fontStyle: string) {
 
 export default function TextKonva({ el, konvaProps, textProgress, textMode, wipeProgress = 1, wipeDir, textColor }: Props) {
   const nodeRef = useRef<Konva.Text | null>(null)
-  const [offscreen, setOffscreen] = useState<HTMLCanvasElement | null>(null)
+  const [offscreen, setOffscreen] = useState<{
+    fill: HTMLCanvasElement
+    outline: HTMLCanvasElement
+  } | null>(null)
   const [textH, setTextH] = useState(el.height)
   const effectiveColor = textColor ?? el.color
 
@@ -120,17 +127,24 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
   useEffect(() => {
     if (!el.perspectivePts) return
     loadFont(el.fontFamily, fontWeightToCssValue(el.fontWeight), el.italic).then(() => {
-      const canvas = document.createElement('canvas')
-      canvas.width = el.width; canvas.height = el.height + el.fontSize * 4
-      drawTextToCtx({ ...el, color: effectiveColor }, canvas.getContext('2d')!)
-      setOffscreen(canvas)
+      const makeCanvas = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = el.width
+        canvas.height = Math.max(el.height, textH) + el.fontSize * 4
+        return canvas
+      }
+      const fill = makeCanvas()
+      const outline = makeCanvas()
+      drawTextToCtx({ ...el, color: effectiveColor }, fill.getContext('2d')!)
+      drawTextToCtx(makeOutlineTextElement(el, effectiveColor), outline.getContext('2d')!)
+      setOffscreen({ fill, outline })
     }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [el.content, effectiveColor, el.fontSize, el.fontFamily, el.fontWeight, el.italic, el.align,
       el.lineHeight, el.letterSpacing, el.textStroke, el.textStrokeWidth,
       el.fillMode, el.gradientColor1, el.gradientColor2, el.gradientColor3,
       el.gradientOpacity1, el.gradientOpacity2, el.gradientOpacity3, el.gradientUseColor3,
-      el.width, el.height, !!el.perspectivePts])
+      el.width, el.height, textH, !!el.perspectivePts])
 
   const content = (() => {
     if (textMode === 'bounceWords' || textMode === 'outlineReveal') return el.content
@@ -250,23 +264,53 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
         }}
         sceneFunc={(ctx, _shape) => {
           const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
-          drawPerspectiveWarp(raw, offscreen, el.perspectivePts!, el.width, el.height)
+          if (textMode !== 'outlineReveal' || textProgress >= 1) {
+            drawPerspectiveWarp(raw, offscreen.fill, el.perspectivePts!, el.width, el.height)
+            return
+          }
+
+          const clips = getOutlineRevealClipBox(
+            textProgress,
+            el.width,
+            Math.max(el.height, textH),
+            el.fontSize,
+          )
+          const drawClipped = (
+            source: HTMLCanvasElement,
+            x: number,
+            width: number,
+            opacity = 1,
+          ) => {
+            if (width <= 0) return
+            raw.save()
+            raw.beginPath()
+            raw.rect(x, clips.clipY, width, clips.clipHeight)
+            raw.clip()
+            raw.globalAlpha *= opacity
+            drawPerspectiveWarp(raw, source, el.perspectivePts!, el.width, el.height)
+            raw.restore()
+          }
+          drawClipped(offscreen.outline, clips.outlineX, clips.outlineWidth, 0.55)
+          drawClipped(offscreen.fill, 0, clips.fillWidth)
         }}
       />
     )
   }
 
   if (textMode === 'outlineReveal' && textProgress < 1) {
-    const { fillWidth, outlineX, outlineWidth } = getOutlineRevealClips(textProgress, el.width)
-    const clipY = -el.fontSize
-    const clipHeight = el.height + el.fontSize * 2
+    const { fillWidth, outlineX, outlineWidth, clipY, clipHeight } = getOutlineRevealClipBox(
+      textProgress,
+      el.width,
+      Math.max(el.height, textH),
+      el.fontSize,
+    )
     const outlineStyleProps = {
       ...textStyleProps,
       fill: 'transparent',
       fillPriority: 'color' as const,
       fillEnabled: false,
       stroke: effectiveColor,
-      strokeWidth: Math.max(1, el.fontSize * 0.018),
+      strokeWidth: outlineRevealStrokeWidth(el.fontSize),
       strokeEnabled: true,
       shadowEnabled: false,
       opacity: 0.55,
