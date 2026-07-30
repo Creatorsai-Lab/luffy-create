@@ -19,7 +19,7 @@ export default function MediaGrainControls({ value, onChange }: Props) {
         />
       </Row>
       <Row label="Grain Size">
-        <Slider value={value.grainSize ?? 1} min={1} max={8} step={1}
+        <Slider value={value.grainSize ?? 1} min={1} max={8} step={0.5}
           onChange={grainSize => onChange({ grainSize })} display={`${value.grainSize ?? 1}px`} />
       </Row>
       <Row label="Grain Hardness">

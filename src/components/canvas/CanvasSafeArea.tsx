@@ -14,9 +14,9 @@ export default function CanvasSafeArea({ width, height }: Props) {
   return (
     <Rect
       x={safeAreaMargin}
-      y={20 + safeAreaMargin}
+      y={92 + safeAreaMargin}
       width={width - safeAreaMargin * 2.8}
-      height={height - safeAreaMargin * 3}
+      height={height - safeAreaMargin * 4.3}
       stroke="#00b97c"
       strokeWidth={2}
       dash={[8, 5]}

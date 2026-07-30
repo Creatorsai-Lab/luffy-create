@@ -96,3 +96,4 @@ assert.equal(controlsMarkup.includes('type="color"'), true)
 assert.equal(controlsMarkup.includes('min="1" max="8"'), true)
 assert.equal(controlsMarkup.includes('min="0" max="100"'), true)
 assert.equal(controlsMarkup.includes('45%'), true)
+s

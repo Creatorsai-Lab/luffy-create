@@ -50,7 +50,7 @@ function VignetteSlider({ label, value, onChange }: { label: string; value: numb
       <Slider
         value={Math.round(value * 100)}
         min={0}
-        max={100}
+        max={200}
         step={1}
         onChange={next => onChange(next / 100)}
         display={`${Math.round(value * 100)}%`}
