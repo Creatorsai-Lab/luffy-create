@@ -42,7 +42,7 @@ interface EffectState {
 }
 
 export function mediaEffectRequiresAnimation(el: MediaElement) {
-  return getMediaEffectClips(el).some(clip => resolveEffectState(clip).intensity > 0)
+  return getMediaEffectClips(el).some(clip => isVisibleEffect(resolveEffectState(clip)))
 }
 
 export function normalizeMediaEffect(value: unknown): MediaEffectType {
@@ -93,7 +93,7 @@ export function drawMediaWithEffects(
 ) {
   const effects = getActiveMediaEffects(el, localTime)
     .map(clip => ({ ...resolveEffectState(clip), time: Math.max(0, localTime - clip.startAt) }))
-    .filter(effect => effect.intensity > 0)
+    .filter(isVisibleEffect)
 
   if (effects.length === 0) {
     fns.drawBase(ctx, 0, 0, width, height)
@@ -136,6 +136,10 @@ function resolveEffectState(clip: MediaEffectClip): EffectState {
 }
 
 type TimedEffectState = EffectState & { time: number }
+
+function isVisibleEffect(effect: EffectState) {
+  return effect.intensity > 0 && (effect.type !== 'lightFlicker' || effect.hardness > 0)
+}
 
 function drawSourceEffect(
   ctx: CanvasRenderingContext2D,
@@ -394,8 +398,9 @@ function drawLightSweep(
 }
 
 export function getLightFlickerStrength(localTime: number, speed: number, fade: number) {
-  const scaledTime = Math.max(0, Number.isFinite(localTime) ? localTime : 0)
+  const rawTime = Math.max(0, Number.isFinite(localTime) ? localTime : 0)
     * clamp(Number.isFinite(speed) ? speed : 1, 0.1, 5)
+  const scaledTime = Number.isFinite(rawTime) ? rawTime : Number.MAX_SAFE_INTEGER
   const position = scaledTime / 0.32
   const slot = Math.floor(position)
   const phase = position - slot

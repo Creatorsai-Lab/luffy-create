@@ -111,14 +111,14 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
   })
 
   useEffect(() => {
-    loadFont(el.fontFamily, fontWeightToCssValue(el.fontWeight)).then(() => {
+    loadFont(el.fontFamily, fontWeightToCssValue(el.fontWeight), el.italic).then(() => {
       nodeRef.current?.getLayer()?.batchDraw()
     }).catch(() => {})
-  }, [el.fontFamily, el.fontWeight])
+  }, [el.fontFamily, el.fontWeight, el.italic])
 
   useEffect(() => {
     if (!el.perspectivePts) return
-    loadFont(el.fontFamily, fontWeightToCssValue(el.fontWeight)).then(() => {
+    loadFont(el.fontFamily, fontWeightToCssValue(el.fontWeight), el.italic).then(() => {
       const canvas = document.createElement('canvas')
       canvas.width = el.width; canvas.height = el.height + el.fontSize * 4
       drawTextToCtx({ ...el, color: effectiveColor }, canvas.getContext('2d')!)

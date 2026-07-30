@@ -67,8 +67,13 @@ const CANVAS_FONTS: Array<{ family: string; weights: string[] }> = [
   { family: 'Roboto',             weights: ['400', '700'] },
   { family: 'Shadows Into Light', weights: ['400'] },
 ]
+const CANVAS_ITALICS = ['Computer Modern Roman']
 
 let preloadPromise: Promise<void> | null = null
+
+export function fontLoadDescriptor(family: string, weight = '400', italic = false) {
+  return `${italic ? 'italic ' : ''}${weight} 16px "${family}"`
+}
 
 /**
  * Call once on app start.  Waits for all @fontsource CSS rules to register,
@@ -82,10 +87,11 @@ export function preloadFonts(): Promise<void> {
     await document.fonts.ready
 
     const loadEntries = CANVAS_FONTS.flatMap(({ family, weights }) =>
-      weights.map(weight => ({ family, weight }))
+      weights.map(weight => ({ family, weight, italic: false }))
     )
-    const loads = loadEntries.map(({ family, weight }) =>
-      document.fonts.load(`${weight} 16px "${family}"`)
+    loadEntries.push(...CANVAS_ITALICS.map(family => ({ family, weight: '400', italic: true })))
+    const loads = loadEntries.map(({ family, weight, italic }) =>
+      document.fonts.load(fontLoadDescriptor(family, weight, italic))
     )
 
     const results = await Promise.allSettled(loads)
@@ -106,6 +112,6 @@ export function preloadFonts(): Promise<void> {
  * Force-load a single font family + weight on demand (called by TextKonva
  * when fontFamily changes so the new font is ready before the next draw).
  */
-export function loadFont(family: string, weight = '400'): Promise<void> {
-  return document.fonts.load(`${weight} 16px "${family}"`).then(() => {})
+export function loadFont(family: string, weight = '400', italic = false): Promise<void> {
+  return document.fonts.load(fontLoadDescriptor(family, weight, italic)).then(() => {})
 }

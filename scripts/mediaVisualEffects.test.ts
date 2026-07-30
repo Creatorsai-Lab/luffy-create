@@ -4,6 +4,12 @@ async function main() {
   const editor = await import('../src/types/editor')
   assert.equal(editor.FONT_FAMILIES.includes('Computer Modern Roman'), true)
 
+  const fontLoader = await import('../src/utils/fontLoader')
+  assert.equal(
+    fontLoader.fontLoadDescriptor('Computer Modern Roman', '400', true),
+    'italic 400 16px "Computer Modern Roman"',
+  )
+
   const defaults = await import('../src/utils/defaults')
   const clip = defaults.makeMediaEffectClip('rain', 6.5)
   assert.equal(clip.type, 'rain')
@@ -36,6 +42,7 @@ async function main() {
     assert.notDeepEqual(normal, times.map(time => flicker(time, 2, 0.5)))
     assert.equal(normal.some(value => value === 0), true)
     assert.equal(normal.some(value => value > 0 && value <= 1), true)
+    assert.equal(Number.isFinite(flicker(Number.MAX_VALUE, 5, 0.5)), true)
   }
 
   const clips = effects.getMediaEffectClips({
@@ -98,6 +105,10 @@ async function main() {
   assert.equal(effects.mediaEffectRequiresAnimation({
     type: 'image',
     mediaEffects: [{ type: 'glitch', startAt: 0, endAt: 4, mediaEffectIntensity: 0 }],
+  } as never), false)
+  assert.equal(effects.mediaEffectRequiresAnimation({
+    type: 'image',
+    mediaEffects: [{ type: 'lightFlicker', startAt: 0, endAt: 4, mediaEffectHardness: 0 }],
   } as never), false)
 
   const resolveAxis = (effects as Record<string, unknown>).resolveGlitchAxis

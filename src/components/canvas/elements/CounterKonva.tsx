@@ -22,10 +22,10 @@ export default function CounterKonva({ el, konvaProps, localTime }: Props) {
   })
 
   useEffect(() => {
-    loadFont(el.fontFamily, fontWeightToCssValue(el.fontWeight)).then(() => {
+    loadFont(el.fontFamily, fontWeightToCssValue(el.fontWeight), el.italic).then(() => {
       nodeRef.current?.getLayer()?.batchDraw()
     }).catch(() => {})
-  }, [el.fontFamily, el.fontWeight])
+  }, [el.fontFamily, el.fontWeight, el.italic])
 
   const calculatedValue = useMemo(() => {
     try {
