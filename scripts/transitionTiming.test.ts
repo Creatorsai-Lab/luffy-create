@@ -38,11 +38,14 @@ assert.deepEqual(getTransitionFrameState(timeline, 5.5), {
   transition: { type: 'fade', duration: 1 },
 })
 
-assert.deepEqual(getTransitionFrameState(timeline, 6.01), {
+const afterTransition = getTransitionFrameState(timeline, 6.01)
+assert.equal(afterTransition.kind, 'scene')
+const { sceneTime, ...sceneState } = afterTransition
+assert.deepEqual(sceneState, {
   kind: 'scene',
   sceneId: 'scene-2',
   sceneIndex: 1,
-  sceneTime: 1.01,
 })
+assert.ok(Math.abs(sceneTime - 1.01) < 1e-9)
 
 console.log('transition timing tests passed')
