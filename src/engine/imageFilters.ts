@@ -20,6 +20,9 @@ export interface AdjustableElement {
   vignetteAmount?: number
   vignetteSize?: number
   vignetteFade?: number
+  grainColor?: string
+  grainSize?: number
+  grainOpacity?: number
 }
 
 export function buildCssFilter(el: AdjustableElement): string {
@@ -124,6 +127,66 @@ export function drawVignette(ctx: CanvasRenderingContext2D, el: AdjustableElemen
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, el.width, el.height)
   ctx.restore()
+}
+
+const grainTiles = new Map<string, HTMLCanvasElement>()
+
+export function drawGrain(ctx: CanvasRenderingContext2D, el: AdjustableElement) {
+  const opacity = clamp01(el.grainOpacity ?? 0)
+  if (opacity <= 0) return
+
+  const color = el.grainColor || '#000000'
+  const size = Math.max(1, Math.min(8, Math.round(el.grainSize ?? 1)))
+  const key = `${color}:${size}`
+  let tile = grainTiles.get(key)
+  if (!tile) {
+    tile = makeGrainTile(color, size, key)
+    if (grainTiles.size >= 8) grainTiles.delete(grainTiles.keys().next().value!)
+    grainTiles.set(key, tile)
+  }
+
+  const pattern = ctx.createPattern(tile, 'repeat')
+  if (!pattern) return
+  ctx.save()
+  ctx.filter = 'none'
+  ctx.globalCompositeOperation = 'source-over'
+  ctx.globalAlpha = opacity
+  ctx.fillStyle = pattern
+  ctx.fillRect(0, 0, el.width, el.height)
+  ctx.restore()
+}
+
+function makeGrainTile(color: string, size: number, seedText: string) {
+  const tile = document.createElement('canvas')
+  tile.width = tile.height = 64
+  const ctx = tile.getContext('2d')!
+  let seed = hashString(seedText)
+  ctx.clearRect(0, 0, 64, 64)
+  ctx.fillStyle = color
+  for (let y = 0; y < 64; y += size) {
+    for (let x = 0; x < 64; x += size) {
+      seed = xorshift(seed)
+      ctx.globalAlpha = 0.08 + (seed >>> 0) / 0xffffffff * 0.52
+      ctx.fillRect(x, y, size, size)
+    }
+  }
+  return tile
+}
+
+function hashString(value: string) {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash || 1
+}
+
+function xorshift(value: number) {
+  value ^= value << 13
+  value ^= value >>> 17
+  value ^= value << 5
+  return value || 1
 }
 
 function clamp01(value: number) {

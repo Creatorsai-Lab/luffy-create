@@ -96,6 +96,12 @@ export interface MediaVignetteControls {
   vignetteFade?: number
 }
 
+export interface MediaGrainControls {
+  grainColor?: string
+  grainSize?: number
+  grainOpacity?: number
+}
+
 // ─── Animation ───────────────────────────────────────────────────────────────
 
 export interface ElementAnimation {
@@ -244,7 +250,7 @@ export interface CodeElement extends BaseElement {
   bgColor?: string
 }
 
-export interface ImageElement extends BaseElement, MediaEffectControls, MediaVignetteControls {
+export interface ImageElement extends BaseElement, MediaEffectControls, MediaVignetteControls, MediaGrainControls {
   type: 'image'
   src: string
   assetId: string
@@ -336,7 +342,7 @@ export interface ChartElement extends BaseElement {
   regressionLineWidth?: number
 }
 
-export interface VideoElement extends BaseElement, MediaEffectControls, MediaVignetteControls {
+export interface VideoElement extends BaseElement, MediaEffectControls, MediaVignetteControls, MediaGrainControls {
   type: 'video'
   src: string
   assetId: string
