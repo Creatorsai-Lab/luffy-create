@@ -1,5 +1,9 @@
 import type { TransitionType, SlideDir } from '../types/editor'
-import { getDirectionalTransitionState, type DirectionalTransitionType } from './directionalTransitions'
+import {
+  getDirectionalTransitionGeometry,
+  getDirectionalTransitionState,
+  type DirectionalTransitionType,
+} from './directionalTransitions'
 
 export interface TransitionRenderOptions {
   ctx: CanvasRenderingContext2D
@@ -262,20 +266,12 @@ function renderDirectionalTransition(
 ): void {
   const state = getDirectionalTransitionState(type, progress, direction, speed, hardness)
   const image = state.scene === 'from' ? from : to
-  const span = Math.min(w, h)
-  const travel = span * (type === 'flashBlur' ? 0.075 : 0.035)
-  const dx = state.offsetX * travel
-  const dy = state.offsetY * travel
-  const activity = Math.min(1, Math.max(
-    Math.abs(state.offsetX), Math.abs(state.offsetY),
-    Math.abs(state.streakX), Math.abs(state.streakY), state.light,
-  ))
-  const scale = 1 + activity * 0.05
+  const geometry = getDirectionalTransitionGeometry(type, state, w, h, hardness)
 
   const draw = (x: number, y: number) => {
     ctx.save()
     ctx.translate(w / 2 + x, h / 2 + y)
-    ctx.scale(scale, scale)
+    ctx.scale(geometry.scale, geometry.scale)
     ctx.translate(-w / 2, -h / 2)
     ctx.drawImage(image, 0, 0, w, h)
     ctx.restore()
@@ -283,18 +279,18 @@ function renderDirectionalTransition(
 
   ctx.globalAlpha = 1
   ctx.filter = type === 'flashBlur'
-    ? `blur(${(activity * (2 + Math.max(0, Math.min(100, hardness)) * 0.08)).toFixed(2)}px)`
+    ? `blur(${geometry.blur.toFixed(2)}px)`
     : 'none'
-  draw(dx, dy)
+  draw(geometry.dx, geometry.dy)
 
   if (type === 'flashBlur') {
-    ctx.filter = `blur(${(activity * 5).toFixed(2)}px)`
+    ctx.filter = `blur(${geometry.blur.toFixed(2)}px)`
     for (let sample = 1; sample <= 5; sample++) {
       const amount = sample / 5
       ctx.globalAlpha = 0.1 * (1 - amount * 0.45)
       draw(
-        dx - state.streakX * span * 0.08 * amount,
-        dy - state.streakY * span * 0.08 * amount,
+        geometry.dx - geometry.streakDx * amount,
+        geometry.dy - geometry.streakDy * amount,
       )
     }
   }

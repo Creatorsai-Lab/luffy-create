@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import {
+  getDirectionalTransitionGeometry,
   getDirectionalTransitionState,
   isDirectionalTransition,
 } from '../src/engine/directionalTransitions'
+import { captureStageToCanvas } from '../src/components/canvas/captureStageToCanvas'
 import {
   getTransitionCapabilities,
   TRANSITIONS,
@@ -78,6 +80,38 @@ assert.deepEqual(getTransitionCapabilities('fade'), { direction: false, style: f
 assert.equal(isDirectionalTransition('flashBlur'), true)
 assert.equal(isDirectionalTransition('flickerShake'), true)
 assert.equal(isDirectionalTransition('fade'), false)
+
+const verticalPeak = getDirectionalTransitionState('flashBlur', 0.5, 'up', 1, 100)
+const geometry = getDirectionalTransitionGeometry('flashBlur', verticalPeak, 640, 360, 100)
+assert.ok((geometry.scale - 1) * 360 / 2 >=
+  Math.abs(geometry.dy) + Math.abs(geometry.streakDy) + geometry.blur * 2)
+
+const layerCanvases = [{ id: 'background' }, { id: 'elements' }]
+const captured: object[] = []
+const destination = {
+  width: 0,
+  height: 0,
+  getContext: () => ({
+    clearRect() {},
+    drawImage(image: object) { captured.push(image) },
+  }),
+}
+const stage = {
+  getLayers: () => layerCanvases.map(image => ({
+    getNativeCanvasElement: () => image,
+  })),
+}
+assert.equal(
+  captureStageToCanvas(
+    stage as unknown as import('konva').default.Stage,
+    destination as unknown as HTMLCanvasElement,
+    640,
+    360,
+  ),
+  destination,
+)
+assert.deepEqual(captured, layerCanvases)
+assert.deepEqual({ width: destination.width, height: destination.height }, { width: 640, height: 360 })
 
 function recordFrame(type: 'flashBlur' | 'flickerShake', progress: number) {
   const draws: Array<{ image: object; alpha: number }> = []

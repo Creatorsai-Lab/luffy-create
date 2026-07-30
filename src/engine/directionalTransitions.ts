@@ -11,8 +11,49 @@ export interface DirectionalTransitionState {
   light: number
 }
 
+export interface DirectionalTransitionGeometry {
+  dx: number
+  dy: number
+  streakDx: number
+  streakDy: number
+  blur: number
+  scale: number
+}
+
 export function isDirectionalTransition(type: TransitionType): type is DirectionalTransitionType {
   return type === 'flashBlur' || type === 'flickerShake'
+}
+
+export function getDirectionalTransitionGeometry(
+  type: DirectionalTransitionType,
+  state: DirectionalTransitionState,
+  width: number,
+  height: number,
+  hardness: number,
+): DirectionalTransitionGeometry {
+  const span = Math.min(width, height)
+  const travel = span * (type === 'flashBlur' ? 0.04 : 0.025)
+  const dx = state.offsetX * travel
+  const dy = state.offsetY * travel
+  const streakDx = state.streakX * span * 0.05
+  const streakDy = state.streakY * span * 0.05
+  const activity = Math.min(1, Math.max(
+    Math.abs(state.offsetX), Math.abs(state.offsetY),
+    Math.abs(state.streakX), Math.abs(state.streakY), state.light,
+  ))
+  const blur = type === 'flashBlur'
+    ? activity * (2 + clamp(hardness, 0, 100) * 0.06)
+    : 0
+  const padX = Math.abs(dx) + Math.abs(streakDx) + blur * 2
+  const padY = Math.abs(dy) + Math.abs(streakDy) + blur * 2
+  return {
+    dx,
+    dy,
+    streakDx,
+    streakDy,
+    blur,
+    scale: 1 + 2 * Math.max(padX / width, padY / height),
+  }
 }
 
 export function getDirectionalTransitionState(

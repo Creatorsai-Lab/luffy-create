@@ -9,6 +9,7 @@ import { easeInOutCubic, renderTransition } from '../../engine/transitionRendere
 import { isDirectionalTransition } from '../../engine/directionalTransitions'
 import { buildTransitionTimeline, getTransitionFrameState } from '../../utils/transitionTiming'
 import CanvasElement from '../canvas/CanvasElement'
+import { captureStageToCanvas } from '../canvas/captureStageToCanvas'
 import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
 import type { Background, AudioElement, VideoElement, ImageBg, Scene, Project, SlideDir, TransitionType } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
@@ -324,17 +325,21 @@ function DirectionalTransitionPreview({
   scale: number
   isPlaying: boolean
 }) {
-  const fromStage = useRef<Konva.Stage | null>(null)
-  const toStage = useRef<Konva.Stage | null>(null)
+  const [fromStage, setFromStage] = useState<Konva.Stage | null>(null)
+  const [toStage, setToStage] = useState<Konva.Stage | null>(null)
   const canvas = useRef<HTMLCanvasElement | null>(null)
+  const fromCapture = useRef<HTMLCanvasElement | null>(null)
+  const toCapture = useRef<HTMLCanvasElement | null>(null)
   const frame = useRef(0)
-  const setFromStage = useCallback((stage: Konva.Stage | null) => { fromStage.current = stage }, [])
-  const setToStage = useCallback((stage: Konva.Stage | null) => { toStage.current = stage }, [])
 
   const draw = useCallback(() => {
     const ctx = canvas.current?.getContext('2d')
-    if (!ctx || !fromStage.current || !toStage.current ||
+    if (!ctx || !fromStage || !toStage ||
         !isDirectionalTransition(transition.type)) return
+    const fromCanvas = fromCapture.current ?? document.createElement('canvas')
+    const toCanvas = toCapture.current ?? document.createElement('canvas')
+    fromCapture.current = fromCanvas
+    toCapture.current = toCanvas
     renderTransition({
       ctx,
       width,
@@ -344,16 +349,33 @@ function DirectionalTransitionPreview({
       direction: transition.direction,
       speed: transition.speed,
       hardness: transition.hardness,
-      fromCanvas: fromStage.current.toCanvas({ pixelRatio: 1 }),
-      toCanvas: toStage.current.toCanvas({ pixelRatio: 1 }),
+      fromCanvas: captureStageToCanvas(fromStage, fromCanvas, width, height),
+      toCanvas: captureStageToCanvas(toStage, toCanvas, width, height),
     })
-  }, [height, progress, transition, width])
+  }, [fromStage, height, progress, toStage, transition, width])
+
+  const drawLatest = useRef(draw)
+  drawLatest.current = draw
 
   useEffect(() => {
     cancelAnimationFrame(frame.current)
     frame.current = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(frame.current)
   }, [draw])
+
+  useEffect(() => {
+    if (!fromStage || !toStage) return
+    const refresh = () => {
+      cancelAnimationFrame(frame.current)
+      frame.current = requestAnimationFrame(() => drawLatest.current())
+    }
+    const layers = [...fromStage.getLayers(), ...toStage.getLayers()]
+    layers.forEach(layer => layer.on('draw.transitionPreview', refresh))
+    return () => {
+      layers.forEach(layer => layer.off('draw.transitionPreview', refresh))
+      cancelAnimationFrame(frame.current)
+    }
+  }, [fromStage, toStage])
 
   return (
     <>
