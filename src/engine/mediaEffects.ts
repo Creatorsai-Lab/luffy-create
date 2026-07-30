@@ -7,6 +7,7 @@ import {
   type MediaEffectSettings,
   type MediaEffectTarget,
   type MediaEffectType,
+  type MediaZoomPosition,
   type VideoElement,
 } from '../types/editor'
 
@@ -39,6 +40,7 @@ interface EffectState {
   target: MediaEffectTarget
   focusX: number
   focusY: number
+  zoomPosition: MediaZoomPosition
 }
 
 export function mediaEffectRequiresAnimation(el: MediaElement) {
@@ -57,6 +59,7 @@ const EFFECT_SETTING_KEYS: (keyof MediaEffectSettings)[] = [
   'mediaEffectAxis', 'mediaEffectIntensity', 'mediaEffectSpeed', 'mediaEffectHardness',
   'mediaEffectDirection', 'mediaEffectBlend', 'mediaEffectColor', 'mediaEffectColorOpacity',
   'mediaEffectSize', 'mediaEffectTarget', 'mediaEffectFocusX', 'mediaEffectFocusY',
+  'mediaEffectZoomPosition',
 ]
 
 export function getMediaEffectClips(el: MediaElement): MediaEffectClip[] {
@@ -92,7 +95,11 @@ export function drawMediaWithEffects(
   fns: MediaDrawFns,
 ) {
   const effects = getActiveMediaEffects(el, localTime)
-    .map(clip => ({ ...resolveEffectState(clip), time: Math.max(0, localTime - clip.startAt) }))
+    .map(clip => ({
+      ...resolveEffectState(clip),
+      time: Math.max(0, localTime - clip.startAt),
+      duration: Number.isFinite(clip.endAt) ? Math.max(0, clip.endAt - clip.startAt) : 0,
+    }))
     .filter(isVisibleEffect)
 
   if (effects.length === 0) {
@@ -132,12 +139,14 @@ function resolveEffectState(clip: MediaEffectClip): EffectState {
     target: clip.mediaEffectTarget ?? 'centerSubject',
     focusX: clamp01(clip.mediaEffectFocusX ?? 0.5),
     focusY: clamp01(clip.mediaEffectFocusY ?? 0.5),
+    zoomPosition: resolveZoomPosition(clip.mediaEffectZoomPosition),
   }
 }
 
-type TimedEffectState = EffectState & { time: number }
+type TimedEffectState = EffectState & { time: number; duration: number }
 
 function isVisibleEffect(effect: EffectState) {
+  if (effect.type === 'zoomIn' || effect.type === 'zoomOut') return true
   return effect.intensity > 0 && (effect.type !== 'lightFlicker' || effect.hardness > 0)
 }
 
@@ -203,7 +212,7 @@ function drawStackedDistortions(
 
 function applyMotionTransform(
   ctx: CanvasRenderingContext2D,
-  effect: EffectState,
+  effect: TimedEffectState,
   width: number,
   height: number,
   localTime: number,
@@ -212,7 +221,14 @@ function applyMotionTransform(
   const i = effect.intensity
   const h = 0.35 + effect.hardness * 0.65
 
-  if (effect.type === 'subtleHover') {
+  if (effect.type === 'zoomIn' || effect.type === 'zoomOut') {
+    const { scale, anchorX, anchorY } = getMediaZoomTransform(
+      effect.type, localTime, effect.duration, effect.speed, effect.zoomPosition, width, height,
+    )
+    ctx.translate(anchorX, anchorY)
+    ctx.scale(scale, scale)
+    ctx.translate(-anchorX, -anchorY)
+  } else if (effect.type === 'subtleHover') {
     const x = Math.sin(t * 1.7) * 10 * i
     const y = Math.cos(t * 1.15) * 8 * i
     const scale = 1 + 0.018 * i
@@ -241,6 +257,39 @@ function applyMotionTransform(
     ctx.rotate(degToRad(angle))
     ctx.translate(-width / 2, -height / 2)
   }
+}
+
+export function getMediaZoomTransform(
+  type: 'zoomIn' | 'zoomOut',
+  elapsed: number,
+  duration: number,
+  speed: number,
+  position: MediaZoomPosition,
+  width: number,
+  height: number,
+) {
+  const safeElapsed = finiteAtLeast(elapsed, 0, 0)
+  const safeDuration = finiteAtLeast(duration, 0, 0)
+  const time = type === 'zoomIn' ? safeElapsed : Math.max(0, safeDuration - safeElapsed)
+  const scale = 1 + time * clamp(Number.isFinite(speed) ? speed : 1, 0.1, 5) * 0.12
+  const [anchorX, anchorY] = zoomAnchor(resolveZoomPosition(position), width, height)
+  return { scale, anchorX, anchorY }
+}
+
+function resolveZoomPosition(value: unknown): MediaZoomPosition {
+  return value === 'topLeft' || value === 'topRight' || value === 'bottomRight' || value === 'bottomLeft'
+    ? value
+    : 'center'
+}
+
+function zoomAnchor(position: MediaZoomPosition, width: number, height: number): [number, number] {
+  const w = finiteAtLeast(width, 0, 0)
+  const h = finiteAtLeast(height, 0, 0)
+  if (position === 'topLeft') return [0, 0]
+  if (position === 'topRight') return [w, 0]
+  if (position === 'bottomRight') return [w, h]
+  if (position === 'bottomLeft') return [0, h]
+  return [w / 2, h / 2]
 }
 
 function drawVibrationDistort(

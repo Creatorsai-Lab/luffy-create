@@ -22,6 +22,9 @@ async function main() {
   assert.equal(flickerClip.mediaEffectColor, '#dcecff')
   assert.equal(flickerClip.mediaEffectHardness, 0.4)
 
+  const zoomClip = defaults.makeMediaEffectClip('zoomIn' as never, 4)
+  assert.equal(zoomClip.mediaEffectZoomPosition, 'center')
+
   const effects = await import('../src/engine/mediaEffects')
   const normalize = (effects as Record<string, unknown>).normalizeMediaEffect
 
@@ -32,6 +35,44 @@ async function main() {
   assert.equal(normalize('motionBlur'), 'none')
   assert.equal(normalize('glitch'), 'glitch')
   assert.equal(normalize('lightFlicker'), 'lightFlicker')
+  assert.equal(normalize('zoomIn'), 'zoomIn')
+  assert.equal(normalize('zoomOut'), 'zoomOut')
+
+  const getZoom = (effects as Record<string, unknown>).getMediaZoomTransform as
+    | ((
+      type: 'zoomIn' | 'zoomOut',
+      elapsed: number,
+      duration: number,
+      speed: number,
+      position: string,
+      width: number,
+      height: number,
+    ) => { scale: number; anchorX: number; anchorY: number })
+    | undefined
+  assert.equal(typeof getZoom, 'function')
+  if (getZoom) {
+    assert.deepEqual(getZoom('zoomIn', 0, 4, 1, 'center', 100, 80), {
+      scale: 1, anchorX: 50, anchorY: 40,
+    })
+    assert.deepEqual(getZoom('zoomIn', 2, 4, 1, 'center', 100, 80), {
+      scale: 1.24, anchorX: 50, anchorY: 40,
+    })
+    assert.deepEqual(getZoom('zoomIn', 4, 4, 1, 'topLeft', 100, 80), {
+      scale: 1.48, anchorX: 0, anchorY: 0,
+    })
+    assert.deepEqual(getZoom('zoomOut', 0, 4, 1, 'topRight', 100, 80), {
+      scale: 1.48, anchorX: 100, anchorY: 0,
+    })
+    assert.deepEqual(getZoom('zoomOut', 2, 4, 1, 'bottomRight', 100, 80), {
+      scale: 1.24, anchorX: 100, anchorY: 80,
+    })
+    assert.deepEqual(getZoom('zoomOut', 4, 4, 1, 'bottomLeft', 100, 80), {
+      scale: 1, anchorX: 0, anchorY: 80,
+    })
+    assert.equal(getZoom('zoomIn', 2, 4, 2, 'center', 100, 80).scale, 1.48)
+    assert.equal(getZoom('zoomOut', 0, 8, 1, 'center', 100, 80).scale, 1.96)
+    assert.equal(Number.isFinite(getZoom('zoomIn', Infinity, Infinity, Infinity, 'old-value', 100, 80).scale), true)
+  }
 
   const flicker = (effects as Record<string, unknown>).getLightFlickerStrength
   assert.equal(typeof flicker, 'function')
@@ -110,6 +151,14 @@ async function main() {
     type: 'image',
     mediaEffects: [{ type: 'lightFlicker', startAt: 0, endAt: 4, mediaEffectHardness: 0 }],
   } as never), false)
+  assert.equal(effects.mediaEffectRequiresAnimation({
+    type: 'image',
+    mediaEffects: [{ type: 'zoomIn', startAt: 0, endAt: 4, mediaEffectIntensity: 0 }],
+  } as never), true)
+  assert.equal(effects.mediaEffectRequiresAnimation({
+    type: 'video',
+    mediaEffects: [{ type: 'zoomOut', startAt: 1, endAt: 4, mediaEffectIntensity: 0 }],
+  } as never), true)
 
   const resolveAxis = (effects as Record<string, unknown>).resolveGlitchAxis
   assert.equal(typeof resolveAxis, 'function')

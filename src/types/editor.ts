@@ -20,11 +20,12 @@ export type MoveDirection = 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 't
 export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push' | 'morph' | 'flashBlur' | 'flickerShake'
 export type BgType        = 'solid' | 'gradient' | 'grid' | 'dots' | 'animated' | 'transparent'
 export type FontWeight    = 'thin' | 'normal' | 'semibold' | 'bold'
-export const MEDIA_EFFECT_TYPES = ['none', 'subtleHover', 'wiggle', 'doodleDrift', 'shake', 'vibrationDistort', 'godRays', 'lightSweep', 'lightFlicker', 'glitch', 'rain', 'snow'] as const
+export const MEDIA_EFFECT_TYPES = ['none', 'subtleHover', 'wiggle', 'doodleDrift', 'shake', 'zoomIn', 'zoomOut', 'vibrationDistort', 'godRays', 'lightSweep', 'lightFlicker', 'glitch', 'rain', 'snow'] as const
 export type MediaEffectType = typeof MEDIA_EFFECT_TYPES[number]
 export type MediaEffectAxis = 'horizontal' | 'vertical'
 export type MediaEffectDirection = 'left' | 'right' | 'up' | 'down' | 'diagonal'
 export type MediaEffectTarget = 'wholeMedia' | 'centerSubject' | 'manualFocus'
+export type MediaZoomPosition = 'center' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
 export type ActiveTool    = 'select' | 'text' | 'shape-rect' | 'shape-circle' | 'shape-triangle' | 'shape-star' | 'shape-pentagon' | 'shape-hexagon' | 'shape-octagon' | 'shape-diamond' | 'shape-oval' | 'shape-speechBubble' | 'shape-roundedSpeech' | 'shape-cone' | 'shape-cube' | 'shape-rect-hand' | 'shape-circle-hand' | 'shape-square-hand' | 'shape-heart' | 'shape-rect-sketch' | 'arrow' | 'code' | 'table' | 'image' | 'chart' | 'video' | 'latex' | 'counter'
   | 'handDraw'
 export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'move' | 'effects' | 'latex' | 'counter' | 'handDraw' | null
@@ -73,6 +74,7 @@ export interface MediaEffectSettings {
   mediaEffectTarget?: MediaEffectTarget
   mediaEffectFocusX?: number
   mediaEffectFocusY?: number
+  mediaEffectZoomPosition?: MediaZoomPosition
 }
 
 export interface MediaEffectClip extends MediaEffectSettings {

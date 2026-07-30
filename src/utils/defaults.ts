@@ -43,6 +43,7 @@ export const DEFAULT_MEDIA_EFFECT = {
   mediaEffectTarget: 'centerSubject' as const,
   mediaEffectFocusX: 0.5,
   mediaEffectFocusY: 0.5,
+  mediaEffectZoomPosition: 'center' as const,
 }
 
 export function makeMediaEffectClip(type: MediaEffectClip['type'], endAt: number): MediaEffectClip {
