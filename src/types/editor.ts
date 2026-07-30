@@ -11,7 +11,7 @@ export type AnimationType = 'fadeIn' | 'fadeOut' | 'slideIn' | 'slideOut' | 'sca
   'chartBarsRise' | 'chartLineDraw' | 'chartAreaFlow' | 'chartPieSpin'
 
 export type AnimationTiming = 'onEnter' | 'onExit' | 'loop'
-export type TextEffectType = 'shadow' | 'glow' | 'outline' | 'hollow' | 'glitch' | 'bubble'
+export type TextEffectType = 'glow' | 'hollow'
 export type EasingType    = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'bounce'
 export type AlignType     = 'left' | 'center' | 'right'
 export type ArrowHeadType = 'none' | 'end' | 'start' | 'both'
