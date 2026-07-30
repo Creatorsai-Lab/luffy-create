@@ -76,6 +76,10 @@ export function getUpcomingTransitionEntry(
     : null
 }
 
+export function getTransitionPreviewKey(fromSceneId: string, to: TransitionTimelineEntry) {
+  return `${fromSceneId}:${to.sceneId}:${to.startTime}`
+}
+
 export function getTransitionFrameState(timeline: TransitionTimelineEntry[], time: number): TransitionFrameState {
   if (timeline.length === 0) {
     throw new Error('Cannot resolve transition frame without scenes')

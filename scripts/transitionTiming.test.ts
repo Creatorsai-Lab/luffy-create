@@ -11,6 +11,10 @@ const getUpcomingTransitionEntry = (transitionTiming as Record<string, unknown>)
     | ((timeline: ReturnType<typeof buildTransitionTimeline>, time: number, leadTime?: number) =>
       ReturnType<typeof buildTransitionTimeline>[number] | null)
     | undefined
+const getTransitionPreviewKey = (transitionTiming as Record<string, unknown>)
+  .getTransitionPreviewKey as
+    | ((fromSceneId: string, to: ReturnType<typeof buildTransitionTimeline>[number]) => string)
+    | undefined
 
 const timeline = buildTransitionTimeline([
   { id: 'scene-1', duration: 5, transition: { type: 'none', duration: 0.5 } },
@@ -80,6 +84,25 @@ if (getUpcomingTransitionEntry) {
   assert.equal(getUpcomingTransitionEntry(flashTimeline, 4.9, 0.1)?.sceneId, 'scene-2')
   assert.equal(getUpcomingTransitionEntry(flashTimeline, 4.99, 0.1)?.transition.type, 'flashBlur')
   assert.equal(getUpcomingTransitionEntry(flashTimeline, 5, 0.1), null)
+}
+
+const consecutiveTimeline = buildTransitionTimeline([
+  { id: 'scene-1', duration: 1, transition: { type: 'none', duration: 0 } },
+  { id: 'scene-2', duration: 0.5, transition: { type: 'flashBlur', duration: 2 } },
+  { id: 'scene-3', duration: 1, transition: { type: 'flickerShake', duration: 0.4 } },
+])
+const scene2Frame = getTransitionFrameState(consecutiveTimeline, 1.49)
+const scene3Frame = getTransitionFrameState(consecutiveTimeline, 1.5)
+assert.equal(scene2Frame.kind === 'transition' && scene2Frame.toSceneId, 'scene-2')
+assert.equal(scene3Frame.kind === 'transition' && scene3Frame.toSceneId, 'scene-3')
+assert.equal(typeof getTransitionPreviewKey, 'function')
+if (getTransitionPreviewKey) {
+  assert.equal(getTransitionPreviewKey('scene-1', consecutiveTimeline[1]), 'scene-1:scene-2:1')
+  assert.equal(getTransitionPreviewKey('scene-2', consecutiveTimeline[2]), 'scene-2:scene-3:1.5')
+  assert.notEqual(
+    getTransitionPreviewKey('scene-1', consecutiveTimeline[1]),
+    getTransitionPreviewKey('scene-2', consecutiveTimeline[2]),
+  )
 }
 
 console.log('transition timing tests passed')

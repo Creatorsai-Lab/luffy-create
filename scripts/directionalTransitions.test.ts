@@ -8,6 +8,7 @@ import {
   captureStageToCanvas,
   rememberRecentSnapshot,
 } from '../src/components/canvas/captureStageToCanvas'
+import * as captureTools from '../src/components/canvas/captureStageToCanvas'
 import {
   getTransitionCapabilities,
   TRANSITIONS,
@@ -136,6 +137,41 @@ rememberRecentSnapshot(canvasSnapshots, 'scene-3', { id: 'third' })
 assert.equal(canvasSnapshots.has('scene-1'), false)
 assert.equal(canvasSnapshots.get('scene-2')?.id, 'second')
 assert.equal(canvasSnapshots.get('scene-3')?.id, 'third')
+
+const refreshStageSnapshot = (captureTools as Record<string, unknown>).refreshStageSnapshot as
+  | ((
+    cache: Map<string, HTMLCanvasElement>,
+    key: string,
+    stage: import('konva').default.Stage,
+    width: number,
+    height: number,
+    createCanvas: () => HTMLCanvasElement,
+  ) => HTMLCanvasElement)
+  | undefined
+assert.equal(typeof refreshStageSnapshot, 'function')
+if (refreshStageSnapshot) {
+  let activeLayers = [{ id: 'first-frame' }]
+  const painted: object[] = []
+  const reusableCanvas = {
+    width: 0,
+    height: 0,
+    getContext: () => ({
+      clearRect() { painted.length = 0 },
+      drawImage(image: object) { painted.push(image) },
+    }),
+  } as unknown as HTMLCanvasElement
+  const changingStage = {
+    getLayers: () => activeLayers.map(image => ({
+      getNativeCanvasElement: () => image,
+    })),
+  } as unknown as import('konva').default.Stage
+  const cache = new Map<string, HTMLCanvasElement>()
+  const first = refreshStageSnapshot(cache, 'scene', changingStage, 640, 360, () => reusableCanvas)
+  activeLayers = [{ id: 'latest-frame' }]
+  const latest = refreshStageSnapshot(cache, 'scene', changingStage, 640, 360, () => reusableCanvas)
+  assert.equal(latest, first)
+  assert.deepEqual(painted, activeLayers)
+}
 
 function recordFrame(type: 'flashBlur' | 'flickerShake', progress: number) {
   const draws: Array<{ image: object; alpha: number; filter: string }> = []

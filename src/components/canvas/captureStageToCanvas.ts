@@ -17,6 +17,20 @@ export function captureStageToCanvas(
   return canvas
 }
 
+export function refreshStageSnapshot(
+  cache: Map<string, HTMLCanvasElement>,
+  key: string,
+  stage: Konva.Stage,
+  width: number,
+  height: number,
+  createCanvas = () => document.createElement('canvas'),
+) {
+  const canvas = cache.get(key) ?? createCanvas()
+  captureStageToCanvas(stage, canvas, width, height)
+  rememberRecentSnapshot(cache, key, canvas)
+  return canvas
+}
+
 export function rememberRecentSnapshot<T>(
   cache: Map<string, T>,
   key: string,

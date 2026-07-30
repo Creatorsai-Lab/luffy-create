@@ -10,6 +10,7 @@ import {
   buildTransitionTimeline,
   getEffectiveTransitionDuration,
   getTransitionFrameState,
+  getTransitionPreviewKey,
   getUpcomingTransitionEntry,
 } from '../../utils/transitionTiming'
 import { drawBackground } from '../../engine/backgroundRenderer'
@@ -27,7 +28,11 @@ import CanvasSafeArea from './CanvasSafeArea'
 import CanvasToolbar from './CanvasToolbar'
 import ContextMenu from '../ui/ContextMenu'
 import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
-import { captureStageToCanvas, rememberRecentSnapshot } from './captureStageToCanvas'
+import {
+  captureStageToCanvas,
+  refreshStageSnapshot,
+  rememberRecentSnapshot,
+} from './captureStageToCanvas'
 
 const IMAGE_BG_ADJUSTMENT_KEYS: (keyof ImageBg)[] = [
   'opacity',
@@ -68,7 +73,6 @@ export default function EditorCanvas() {
   const transitionSnapshotsRef = useRef(new Map<string, string>())
   const transitionCanvasSnapshotsRef = useRef(new Map<string, HTMLCanvasElement>())
   const transitionFinalSnapshotsRef = useRef(new Set<string>())
-  const transitionFinalCanvasSnapshotsRef = useRef(new Set<string>())
 
   // Computed display size (project coords → screen pixels)
   const [scale,    setScale]    = useState(1)
@@ -101,7 +105,7 @@ export default function EditorCanvas() {
     transitionStart: number
     duration: number
   } | null>(null)
-  const transActiveRef = useRef(false)
+  const transitionKeyRef = useRef<string | null>(null)
 
   const {
     project, currentSceneId, selectedIds,
@@ -120,12 +124,13 @@ export default function EditorCanvas() {
   }, [])
 
   const captureTransitionCanvas = useCallback((sceneId: string, stage: Konva.Stage) => {
-    const cache = transitionCanvasSnapshotsRef.current
-    const canvas = cache.get(sceneId) ?? document.createElement('canvas')
-    captureStageToCanvas(stage, canvas, canvasW, canvasH)
-    const removed = rememberRecentSnapshot(cache, sceneId, canvas)
-    removed.forEach(id => transitionFinalCanvasSnapshotsRef.current.delete(id))
-    return canvas
+    return refreshStageSnapshot(
+      transitionCanvasSnapshotsRef.current,
+      sceneId,
+      stage,
+      canvasW,
+      canvasH,
+    )
   }, [canvasH, canvasW])
 
   const setStageRef = useCallback((stage: Konva.Stage | null) => {
@@ -343,7 +348,6 @@ export default function EditorCanvas() {
     transitionSnapshotsRef.current.clear()
     transitionCanvasSnapshotsRef.current.clear()
     transitionFinalSnapshotsRef.current.clear()
-    transitionFinalCanvasSnapshotsRef.current.clear()
   }, [project?.id])
 
   useEffect(() => {
@@ -357,14 +361,10 @@ export default function EditorCanvas() {
     for (const id of transitionFinalSnapshotsRef.current) {
       if (!valid.has(id)) transitionFinalSnapshotsRef.current.delete(id)
     }
-    for (const id of transitionFinalCanvasSnapshotsRef.current) {
-      if (!valid.has(id)) transitionFinalCanvasSnapshotsRef.current.delete(id)
-    }
     if (!isPlaying && currentSceneId) {
       transitionSnapshotsRef.current.delete(currentSceneId)
       transitionCanvasSnapshotsRef.current.delete(currentSceneId)
       transitionFinalSnapshotsRef.current.delete(currentSceneId)
-      transitionFinalCanvasSnapshotsRef.current.delete(currentSceneId)
     }
   }, [currentSceneId, isPlaying, project?.scenes])
 
@@ -376,39 +376,68 @@ export default function EditorCanvas() {
     )
     captureTransitionCanvas(currentSceneId, stageRef.current)
     transitionFinalSnapshotsRef.current.delete(currentSceneId)
-    transitionFinalCanvasSnapshotsRef.current.delete(currentSceneId)
   }, [captureTransitionCanvas, currentSceneId, isPlaying, rememberTransitionSnapshot])
+
+  useEffect(() => {
+    if (!isPlaying || !stageRef.current || !currentSceneId) return
+    const stage = stageRef.current
+    const sceneId = currentSceneId
+    const frame = requestAnimationFrame(() => captureTransitionCanvas(sceneId, stage))
+    return () => cancelAnimationFrame(frame)
+  }, [captureTransitionCanvas, currentSceneId, isPlaying])
 
   // Resolve the same transition window used by Preview and export. Capture the
   // outgoing scene once just before its boundary so the incoming scene can play.
   useEffect(() => {
     if (!project || !isPlaying) {
-      if (transActiveRef.current) { transActiveRef.current = false; setTransOverlay(null) }
+      if (transitionKeyRef.current) {
+        transitionKeyRef.current = null
+        setTransOverlay(null)
+      }
       return
     }
     const timeline = buildTransitionTimeline(project.scenes)
     const frameState = getTransitionFrameState(timeline, playhead)
+    const stage = stageRef.current
+    const upcoming = getUpcomingTransitionEntry(timeline, playhead, 0.1)
+
+    // Repaint the same bounded Canvas throughout the lead window. This keeps
+    // animated/video outgoing frames current without allocating per tick.
+    if (upcoming && isDirectionalTransition(upcoming.transition.type) && stage) {
+      const from = timeline[upcoming.sceneIndex - 1]
+      if (from && currentSceneId === from.sceneId) {
+        captureTransitionCanvas(from.sceneId, stage)
+      }
+    }
+
     if (frameState.kind === 'transition') {
-      if (!transActiveRef.current && stageRef.current) {
+      const to = timeline[frameState.toSceneIndex]
+      const key = getTransitionPreviewKey(frameState.fromSceneId, to)
+      if (transitionKeyRef.current !== key && stage) {
         const directional = isDirectionalTransition(frameState.transition.type)
         if (directional) {
           let fromCanvas = transitionCanvasSnapshotsRef.current.get(frameState.fromSceneId)
           if (!fromCanvas && currentSceneId === frameState.fromSceneId) {
-            fromCanvas = captureTransitionCanvas(frameState.fromSceneId, stageRef.current)
+            fromCanvas = captureTransitionCanvas(frameState.fromSceneId, stage)
           }
-          if (!fromCanvas) return
+          if (!fromCanvas) {
+            transitionKeyRef.current = null
+            setTransOverlay(null)
+            return
+          }
         } else {
           let snap = transitionSnapshotsRef.current.get(frameState.fromSceneId)
           if (!snap && currentSceneId === frameState.fromSceneId) {
-            snap = stageRef.current.toDataURL({ pixelRatio: 1 })
+            snap = stage.toDataURL({ pixelRatio: 1 })
             rememberTransitionSnapshot(frameState.fromSceneId, snap)
           }
-          if (!snap) return
+          if (!snap) {
+            transitionKeyRef.current = null
+            setTransOverlay(null)
+            return
+          }
         }
-        const transitionDuration = getEffectiveTransitionDuration(
-          timeline[frameState.toSceneIndex],
-        )
-        transActiveRef.current = true
+        transitionKeyRef.current = key
         setTransOverlay({
           snap: directional
             ? undefined
@@ -419,8 +448,8 @@ export default function EditorCanvas() {
           speed: frameState.transition.speed,
           hardness: frameState.transition.hardness,
           toSceneId: frameState.toSceneId,
-          transitionStart: timeline[frameState.toSceneIndex].startTime,
-          duration: transitionDuration,
+          transitionStart: to.startTime,
+          duration: getEffectiveTransitionDuration(to),
         })
       }
       return
@@ -428,23 +457,19 @@ export default function EditorCanvas() {
 
     const current = timeline[frameState.sceneIndex]
     const next = timeline[frameState.sceneIndex + 1]
-    if (!stageRef.current) return
+    if (!stage) return
     if (!transitionSnapshotsRef.current.has(current.sceneId)) {
       rememberTransitionSnapshot(
         current.sceneId,
-        stageRef.current.toDataURL({ pixelRatio: 1 }),
+        stage.toDataURL({ pixelRatio: 1 }),
       )
     }
 
-    const upcoming = getUpcomingTransitionEntry(timeline, playhead, 0.1)
     if (upcoming && isDirectionalTransition(upcoming.transition.type)) {
-      if (!transitionFinalCanvasSnapshotsRef.current.has(current.sceneId)) {
-        captureTransitionCanvas(current.sceneId, stageRef.current)
-        transitionFinalCanvasSnapshotsRef.current.add(current.sceneId)
-      }
-      if (!transActiveRef.current &&
+      const key = getTransitionPreviewKey(current.sceneId, upcoming)
+      if (transitionKeyRef.current !== key &&
           transitionCanvasSnapshotsRef.current.has(current.sceneId)) {
-        transActiveRef.current = true
+        transitionKeyRef.current = key
         setTransOverlay({
           fromSceneId: current.sceneId,
           type: upcoming.transition.type,
@@ -459,8 +484,8 @@ export default function EditorCanvas() {
       return
     }
 
-    if (transActiveRef.current) {
-      transActiveRef.current = false
+    if (transitionKeyRef.current) {
+      transitionKeyRef.current = null
       setTransOverlay(null)
     }
 
@@ -470,7 +495,7 @@ export default function EditorCanvas() {
       if (!transitionFinalSnapshotsRef.current.has(current.sceneId)) {
         rememberTransitionSnapshot(
           current.sceneId,
-          stageRef.current.toDataURL({ pixelRatio: 1 }),
+          stage.toDataURL({ pixelRatio: 1 }),
         )
         transitionFinalSnapshotsRef.current.add(current.sceneId)
       }
