@@ -15,6 +15,7 @@ export type TextEffectType = 'glow' | 'hollow'
 export type EasingType    = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'bounce'
 export type AlignType     = 'left' | 'center' | 'right'
 export type ArrowHeadType = 'none' | 'end' | 'start' | 'both'
+export type ArrowBendDirection = 'horizontal' | 'vertical'
 export type SlideDir      = 'left' | 'right' | 'up' | 'down'
 export type MoveDirection = 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
 export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push' | 'morph' | 'flashBlur' | 'flickerShake'
@@ -239,6 +240,9 @@ export interface ArrowElement extends BaseElement {
   pointerWidth: number
   arrowHeadColor: string
   curve: number
+  bendCount?: number
+  bendDirection?: ArrowBendDirection
+  bendCurve?: number
 }
 
 export interface CodeElement extends BaseElement {

@@ -37,7 +37,7 @@ export default function LatexKonva({ el, konvaProps, textProgress = 1, wipeProgr
   }
 
   if (!img) {
-    return <Rect {...konvaProps} width={el.width} height={el.height} fill="transparent" listening />
+    return <Rect {...konvaProps} width={el.width} height={el.height} fill="transparent" />
   }
 
   const image = <KonvaImage image={img} width={el.width} height={el.height} />

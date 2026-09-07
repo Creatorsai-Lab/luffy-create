@@ -170,6 +170,9 @@ export function makeArrow(x1: number, y1: number, x2: number, y2: number): Arrow
     pointerWidth: 13,
     arrowHeadColor: '#202020',
     curve: 0,
+    bendCount: 0,
+    bendDirection: 'horizontal',
+    bendCurve: 32,
   }
 }
 

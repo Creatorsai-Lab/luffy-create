@@ -20,6 +20,7 @@ import { makeShape, makeArrow, makeTable, makeChart, makeHandDrawLayer } from '.
 import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke, SlideDir, TransitionType } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
+import { getCanvasCursor, shouldShowSelectionHandles } from '../../utils/canvasInteraction'
 import CanvasElement from './CanvasElement'
 import PerspectiveHandles from './PerspectiveHandles'
 import CanvasGrid from './CanvasGrid'
@@ -137,6 +138,12 @@ export default function EditorCanvas() {
     stageRef.current = stage
     registerStage(stage)
   }, [])
+
+  useEffect(() => {
+    const cursor = getCanvasCursor(activeTool)
+    if (containerRef.current) containerRef.current.style.cursor = cursor
+    if (stageRef.current) stageRef.current.container().style.cursor = cursor
+  }, [activeTool])
 
   // ── Auto-select sidebar panel based on selected element ──────────────────────
   useEffect(() => {
@@ -904,7 +911,7 @@ export default function EditorCanvas() {
       ref={containerRef}
       className="flex-1 relative overflow-hidden"
       style={{
-        cursor: activeTool !== 'select' ? 'crosshair' : 'default'
+        cursor: getCanvasCursor(activeTool)
       }}
     >
       {/* Slide canvas — positioned by CSS, NOT by Konva x/y props */}
@@ -979,7 +986,7 @@ export default function EditorCanvas() {
           <Layer>
             <Transformer
               ref={trRef}
-              visible={activePanel !== 'perspective' && !cropState}
+              visible={shouldShowSelectionHandles(activeTool) && activePanel !== 'perspective' && !cropState}
               rotateEnabled
               enabledAnchors={['top-left','top-center','top-right','middle-right','bottom-right','bottom-center','bottom-left','middle-left']}
               keepRatio={keepRatioInTransform}

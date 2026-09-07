@@ -1,6 +1,6 @@
 import { ArrowRight, Plus, Trash2, Zap } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
-import type { ArrowElement, ArrowHeadType, AnimationType, EasingType, SlideDir, ElementAnimation } from '../../types/editor'
+import type { ArrowElement, ArrowHeadType, ArrowBendDirection, AnimationType, EasingType, SlideDir, ElementAnimation } from '../../types/editor'
 import { PanelHeader, Row, ColorInput, Slider, NumberInput } from './TextPanel'
 import { makeAnimation } from '../../utils/defaults'
 import { cn } from '../../utils/cn'
@@ -55,6 +55,23 @@ const DIRECTIONS: { label: string; value: SlideDir }[] = [
 
 const LOOP_TYPE_SET = new Set<string>(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop'])
 const isLoopAnim = (a: ElementAnimation) => LOOP_TYPE_SET.has(a.type) || a.timing === 'loop'
+
+export function BendCountInput({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  const setValue = (next: number) => onChange(Math.min(8, Math.max(0, Math.round(next || 0))))
+  const buttonClass = 'w-8 shrink-0 rounded border border-editor-border bg-editor-elevated text-editor-text hover:border-editor-accent disabled:opacity-40 disabled:cursor-not-allowed'
+
+  return (
+    <div className="flex h-7 gap-1">
+      <button type="button" aria-label="Decrease bend count" disabled={value <= 0}
+        onClick={() => setValue(value - 1)} className={buttonClass}>−</button>
+      <input aria-label="Bend count" type="number" min={0} max={8} step={1} value={value}
+        onChange={e => setValue(Number(e.target.value))}
+        className="min-w-0 flex-1 rounded border border-editor-border bg-editor-elevated px-2 text-center text-xs text-editor-text nodrag" />
+      <button type="button" aria-label="Increase bend count" disabled={value >= 8}
+        onClick={() => setValue(value + 1)} className={buttonClass}>+</button>
+    </div>
+  )
+}
 
 export default function ArrowPanel() {
   const { getSelectedEls, updateElement, addAnimation, setActiveTool } = useEditorStore()
@@ -156,10 +173,40 @@ export default function ArrowPanel() {
             </div>
           </Row>
 
-          <Row label="Curve">
-            <Slider value={el.curve ?? 0} min={-800} max={800} step={5}
-              onChange={v => upd({ curve: v })} display={`${el.curve ?? 0}`} />
+          <Row label="Bend Count">
+            <BendCountInput value={el.bendCount ?? 0} onChange={bendCount => upd({ bendCount })} />
           </Row>
+
+          {(el.bendCount ?? 0) === 0 && (
+            <p className="pb-1 text-[10px] text-editor-secondary">Set Bend Count above 0 to enable routed corners.</p>
+          )}
+
+          <fieldset
+            disabled={(el.bendCount ?? 0) === 0}
+            className={cn('min-w-0 border-0 p-0 m-0', (el.bendCount ?? 0) === 0 && 'pointer-events-none opacity-40')}
+          >
+              <Row label="Bend Direction">
+                <select
+                  value={el.bendDirection ?? 'horizontal'}
+                  onChange={e => upd({ bendDirection: e.target.value as ArrowBendDirection })}
+                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                >
+                  <option value="horizontal">Horizontal first</option>
+                  <option value="vertical">Vertical first</option>
+                </select>
+              </Row>
+              <Row label="Corner Curve">
+                <Slider value={el.bendCurve ?? 32} min={0} max={200} step={1}
+                  onChange={v => upd({ bendCurve: v })} display={`${el.bendCurve ?? 32}px`} />
+              </Row>
+          </fieldset>
+
+          {(el.bendCount ?? 0) === 0 && (
+            <Row label="Curve">
+              <Slider value={el.curve ?? 0} min={-800} max={800} step={5}
+                onChange={v => upd({ curve: v })} display={`${el.curve ?? 0}`} />
+            </Row>
+          )}
 
           <Row label="Angle">
             <div className="flex items-center gap-2">

@@ -1,9 +1,9 @@
-import { useRef, useCallback } from 'react'
 import type Konva from 'konva'
 import { useEditorStore } from '../../store/editorStore'
 import type { EditorElement, VideoElement } from '../../types/editor'
 import type { AnimatedProps } from '../../engine/animator'
 import { getVideoClipState } from '../../utils/videoClip'
+import { getCanvasCursor, getCanvasElementInteraction } from '../../utils/canvasInteraction'
 import TextKonva   from './elements/TextKonva'
 import ShapeKonva  from './elements/ShapeKonva'
 import ArrowKonva  from './elements/ArrowKonva'
@@ -32,7 +32,11 @@ interface Props {
 
 export default function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, syncVideoToTime = true, videoPlaybackActive = false }: Props) {
   const { activeTool, updateElement } = useEditorStore()
-  const drawingMode = activeTool === 'handDraw'
+  const interaction = getCanvasElementInteraction(activeTool, element.locked, element.type)
+  const setCursor = (target: Konva.Node, state: 'canvas' | 'selected' | 'dragging', movable = interaction.draggable) => {
+    const container = target.getStage()?.container()
+    if (container) container.style.cursor = getCanvasCursor(activeTool, state, movable)
+  }
 
   // Animation-driven scale from center: adjust x/y so the element scales around its center,
   // not the Konva default of top-left corner.
@@ -60,9 +64,17 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
       ? animScaleY * ((element as import('../../types/editor').TextElement).stretchY ?? 1)
       : animScaleY,
     rotation: animProps?.rotation ?? element.rotation,
-    draggable: !element.locked && !drawingMode && element.type !== 'handDraw',
-    listening: !element.locked && !drawingMode,
-    onClick:  (e: Konva.KonvaEventObject<MouseEvent>) => onSelect(e.evt.shiftKey),
+    draggable: interaction.draggable,
+    listening: interaction.listening,
+    onClick:  (e: Konva.KonvaEventObject<MouseEvent>) => {
+      onSelect(e.evt.shiftKey)
+      setCursor(e.target, 'selected')
+    },
+    onMouseEnter: (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (isSelected) setCursor(e.target, 'selected')
+    },
+    onMouseLeave: (e: Konva.KonvaEventObject<MouseEvent>) => setCursor(e.target, 'canvas', false),
+    onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => setCursor(e.target, 'dragging'),
     onDblClick,
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
       if (element.type === 'arrow') {
@@ -73,6 +85,7 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
       } else {
         updateElement(element.id, { x: e.target.x(), y: e.target.y() })
       }
+      setCursor(e.target, 'selected')
     },
     onTransformEnd: (e: Konva.KonvaEventObject<Event>) => {
       const node = e.target
@@ -139,7 +152,7 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
       return (
         <VideoKonva
           el={v}
-          konvaProps={{ ...props, opacity: inClip ? props.opacity : 0, listening: inClip }}
+          konvaProps={{ ...props, opacity: inClip ? props.opacity : 0, listening: interaction.listening && inClip }}
           localTime={localTime}
           syncToTime={syncVideoToTime}
           playbackActive={videoPlaybackActive}
