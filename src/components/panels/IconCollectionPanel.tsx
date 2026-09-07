@@ -26,7 +26,7 @@ export default function IconCollectionPanel() {
 
       {/* Search */}
       <div className="px-3 py-2 border-b border-editor-border">
-        <div className="flex items-center gap-2 bg-editor-elevated border border-editor-border rounded px-2 py-1">
+        <div className="flex items-center gap-2 bg-editor-elevated-highlight border border-editor-border rounded px-2 py-1">
           <Search size={11} className="text-[#f2f2f2] flex-none" />
           <input
             type="text"
@@ -47,7 +47,7 @@ export default function IconCollectionPanel() {
             className={`flex-none text-[10px] px-2 py-0.5 rounded transition-colors whitespace-nowrap ${
               category === cat
                 ? 'bg-editor-accent text-white'
-                : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text'
+                : 'bg-editor-elevated-highlight text-[#f2f2f2] hover:text-editor-text'
             }`}
           >
             {cat}
@@ -66,7 +66,7 @@ export default function IconCollectionPanel() {
                 key={name}
                 title={name}
                 onClick={() => addElement(makeIcon(name, 80, 80))}
-                className="aspect-square flex items-center justify-center rounded transition-all group bg-editor-elevated hover:bg-editor-hover"
+                className="aspect-square flex items-center justify-center rounded transition-all group bg-editor-elevated-highlight hover:bg-editor-hover"
               >
                 <Comp
                   size={20}

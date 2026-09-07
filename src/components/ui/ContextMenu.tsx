@@ -58,7 +58,7 @@ export default function ContextMenu({ visible, x, y, items, onClose }: ContextMe
   return (
     <div
       ref={menuRef}
-      className="fixed z-[9999] bg-editor-elevated border border-editor-border rounded shadow-lg overflow-hidden"
+      className="fixed z-[9999] bg-editor-elevated-highlight border border-editor-border rounded shadow-lg overflow-hidden"
       style={{
         left: `${pos?.left ?? x}px`,
         top:  `${pos?.top  ?? y}px`,

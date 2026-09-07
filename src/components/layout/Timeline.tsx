@@ -916,7 +916,7 @@ export default function Timeline() {
         {/* Cleaned text alignment layout */}
         <div className="text-xs text-editor-text tabular-nums ml-1 flex-none flex items-center gap-1.5">
           <span>current time:</span>
-          <span className="text-sm bg-editor-elevated rounded px-1.5 py-0.5">{fmtTime(playhead)} / {fmtTime(totalDur)}</span>
+          <span className="text-sm bg-editor-elevated-highlight rounded px-1.5 py-0.5">{fmtTime(playhead)} / {fmtTime(totalDur)}</span>
         </div>
 
         {/* Fixed zoom box layout by adding flex items-center */}
@@ -963,7 +963,7 @@ export default function Timeline() {
                 const rawS = (selectedVideo!.duration ?? 10) * (selectedVideo!.playbackRate ?? 1)
                 updateElement(selectedVideo!.id, { playbackRate: newRate, duration: rawS / newRate })
               }}
-              className="bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-1.5 py-1 flex-none"
+              className="bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-1.5 py-1 flex-none"
               title="Playback speed"
             >
               {SPEED_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -975,7 +975,7 @@ export default function Timeline() {
               <Tooltip text="Trim after playhead (cut end)">
                 <button
                   onClick={trimVideoAtPlayhead}
-                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-editor-elevated border border-editor-border text-editor-text hover:border-editor-text/40 transition-colors flex-none"
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-editor-elevated-highlight border border-editor-border text-editor-text hover:border-editor-text/40 transition-colors flex-none"
                 >
                   <Scissors size={13} /> Trim
                 </button>
@@ -983,7 +983,7 @@ export default function Timeline() {
               <Tooltip text="Split at playhead">
                 <button
                   onClick={splitVideoAtPlayhead}
-                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-editor-elevated border border-editor-border text-editor-text hover:border-editor-text/40 transition-colors flex-none"
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-editor-elevated-highlight border border-editor-border text-editor-text hover:border-editor-text/40 transition-colors flex-none"
                 >
                   <Split size={13} /> Split
                 </button>
@@ -1004,7 +1004,7 @@ export default function Timeline() {
             <span className="text-xs text-editor-text truncate max-w-[180px] flex-none" title={selectedAudio.name}>
               {selectedAudio.name}
             </span>
-            <span className="text-xs text-editor-secondary tabular-nums flex-none">
+            <span className="text-xs text-editor-text-secondary tabular-nums flex-none">
               {selectedAudio.duration.toFixed(1)}s
             </span>
 

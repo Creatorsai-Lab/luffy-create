@@ -18,12 +18,12 @@ export default function HandDrawPanel() {
     <div className="h-full overflow-y-auto p-4 text-[#f2f2f2]">
       <div className="mb-4">
         <h2 className="text-sm font-semibold text-editor-text">Hand Draw</h2>
-        <p className="mt-1 text-xs leading-relaxed text-editor-secondary">
+        <p className="mt-1 text-xs leading-relaxed text-editor-text-secondary">
           Draw directly on the scene with the mouse cursor.
         </p>
       </div>
 
-      <div className="grid grid-cols-4 gap-1 rounded border border-editor-border bg-editor-elevated p-1">
+      <div className="grid grid-cols-4 gap-1 rounded border border-editor-border bg-editor-elevated-highlight p-1">
         {TOOLS.map(item => (
           <button
             key={item.id}
@@ -32,7 +32,7 @@ export default function HandDrawPanel() {
               'flex h-10 items-center justify-center rounded transition-colors',
               tool === item.id
                 ? 'bg-editor-accent text-white'
-                : 'text-editor-secondary hover:bg-editor-hover hover:text-editor-text'
+                : 'text-editor-text-secondary hover:bg-editor-hover hover:text-editor-text'
             )}
             title={item.label}
           >
@@ -137,7 +137,7 @@ function RangeField({
   return (
     <label className="block">
       <div className="mb-1 flex items-center justify-between text-xs">
-        <span className="text-editor-secondary">{label}</span>
+        <span className="text-editor-text-secondary">{label}</span>
         <span className="tabular-nums text-editor-text">{value}{suffix}</span>
       </div>
       <input
@@ -164,8 +164,8 @@ function ColorField({
 }) {
   return (
     <label className="block">
-      <div className="mb-1 text-xs text-editor-secondary">{label}</div>
-      <div className="flex items-center gap-2 rounded border border-editor-border bg-editor-elevated p-2">
+      <div className="mb-1 text-xs text-editor-text-secondary">{label}</div>
+      <div className="flex items-center gap-2 rounded border border-editor-border bg-editor-elevated-highlight p-2">
         <input
           type="color"
           value={value}

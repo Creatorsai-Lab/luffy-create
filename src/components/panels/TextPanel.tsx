@@ -114,7 +114,7 @@ export default function TextPanel() {
             <div className="flex flex-col gap-0.5 px-3 py-2">
               <Row label="Content">
                 <textarea
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5 resize-y"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5 resize-y"
                 rows={5}
                 value={el.content}
                 onChange={e => upd({ content: e.target.value })}
@@ -125,7 +125,7 @@ export default function TextPanel() {
                 <select
                   value={el.fontFamily}
                   onChange={e => upd({ fontFamily: e.target.value })}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                  className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
                   {FONT_FAMILIES.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
@@ -139,7 +139,7 @@ export default function TextPanel() {
                 <select
                   value={normalizeFontWeightForControl(el.fontWeight)}
                   onChange={e => upd({ fontWeight: e.target.value as FontWeight })}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                  className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
                   {FONT_WEIGHT_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
                 </select>
@@ -166,7 +166,7 @@ export default function TextPanel() {
                 <select
                   value={el.fillMode ?? 'solid'}
                   onChange={e => upd({ fillMode: e.target.value as TextFillMode })}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                  className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
                   <option value="solid">Solid</option>
                   <option value="linearGradient">Gradient</option>
@@ -200,7 +200,7 @@ export default function TextPanel() {
                         'px-2 py-1 rounded text-xs transition-colors',
                         el.gradientUseColor3
                           ? 'bg-editor-accent text-white'
-                          : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border border-editor-border'
+                          : 'bg-editor-elevated-highlight text-[#f2f2f2] hover:text-editor-text border border-editor-border'
                       )}
                     >
                       {el.gradientUseColor3 ? 'On' : 'Off'}
@@ -283,7 +283,7 @@ export default function TextPanel() {
                     'px-2 py-0.5 rounded text-[11px] transition-colors',
                     el.bgEnabled
                       ? 'bg-editor-accent text-white'
-                      : 'bg-editor-elevated text-[#f2f2f2] border border-editor-border hover:text-editor-text'
+                      : 'bg-editor-elevated-highlight text-[#f2f2f2] border border-editor-border hover:text-editor-text'
                   )}
                 >
                   {el.bgEnabled ? 'On' : 'Off'}
@@ -348,7 +348,7 @@ export default function TextPanel() {
                         'px-2 py-1.5 rounded border text-xs transition-all text-left',
                         isActive
                           ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
-                          : 'bg-editor-elevated border-editor-border text-editor-text hover:border-editor-border-strong'
+                          : 'bg-editor-elevated-highlight border-editor-border text-editor-text hover:border-editor-border-strong'
                       )}
                     >
                       {effect.label}
@@ -415,7 +415,7 @@ export function NumberInput({ value, min, max, onChange, step = 1 }: {
       type="number" min={min} max={max} step={step}
       value={value}
       onChange={e => onChange(Number(e.target.value))}
-      className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+      className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
     />
   )
 }
@@ -448,7 +448,7 @@ export function Slider({ value, min, max, step, onChange, display }: {
           onChange={e => setEditVal(e.target.value)}
           onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
-          className="text-xs text-[#c1c1c1] w-12 text-right bg-editor-elevated border border-editor-accent rounded px-1 nodrag"
+          className="text-xs text-[#c1c1c1] w-12 text-right bg-editor-elevated-highlight border border-editor-accent rounded px-1 nodrag"
         />
       ) : (
         <span
@@ -475,7 +475,7 @@ export function ColorInput({ value, onChange, disabled }: { value: string; onCha
         type="text" value={value}
         onChange={e => onChange(e.target.value)}
         disabled={disabled}
-        className="flex-1 bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex-1 bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag disabled:opacity-50 disabled:cursor-not-allowed"
         maxLength={9}
       />
     </div>
@@ -490,7 +490,7 @@ function ToggleBtn({ active, onClick, children }: {
       onClick={onClick}
       className={cn(
         'flex items-center justify-center w-7 h-7 rounded transition-colors',
-        active ? 'bg-editor-accent text-white' : 'bg-editor-elevated text-[#c1c1c1] hover:text-editor-text'
+        active ? 'bg-editor-accent text-white' : 'bg-editor-elevated-highlight text-[#c1c1c1] hover:text-editor-text'
       )}
     >
       {children}
@@ -515,7 +515,7 @@ export function AnimSection({
         <span className={cn('text-[10px] font-semibold uppercase tracking-wider', color)}>{label}</span>
         <button
           onClick={onAdd}
-          className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-editor-elevated text-[#c1c1c1] border border-editor-border rounded hover:text-editor-text transition-colors"
+          className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-editor-elevated-highlight text-[#c1c1c1] border border-editor-border rounded hover:text-editor-text transition-colors"
         >
           <Plus size={8} /> Add
         </button>
@@ -566,7 +566,7 @@ function AnimBlock({
   return (
     <div className="border-t border-editor-border px-3 py-2 flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-editor-secondary font-medium">#{index + 1}</span>
+        <span className="text-[10px] text-editor-text-secondary font-medium">#{index + 1}</span>
         <button onClick={() => removeAnimation(elId, anim.id)} className="text-[#595959] hover:text-red-400 transition-colors">
           <Trash2 size={10} />
         </button>
@@ -576,7 +576,7 @@ function AnimBlock({
         <select
           value={anim.type}
           onChange={e => updateType(e.target.value as AnimationType)}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
         >
           {types.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
@@ -600,7 +600,7 @@ function AnimBlock({
             <input type="number" min={1} max={20} step={1}
               value={anim.params?.pulseCount ?? 2}
               onChange={e => upd({ params: { ...anim.params, pulseCount: Math.max(1, Number(e.target.value) || 1) } })}
-              className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+              className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
             />
           </Row>
         </>
@@ -611,7 +611,7 @@ function AnimBlock({
           <select
             value={anim.params?.direction ?? 'right'}
             onChange={e => upd({ params: { ...anim.params, direction: e.target.value as SlideDir } })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
           >
             {DIRECTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
           </select>
@@ -623,7 +623,7 @@ function AnimBlock({
           <input type="number" min={4} max={200} step={2}
             value={anim.params?.distance ?? 24}
             onChange={e => upd({ params: { ...anim.params, distance: Number(e.target.value) } })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
           />
         </Row>
       )}
@@ -635,7 +635,7 @@ function AnimBlock({
           <input type="number" min={0} max={60} step={0.1}
             value={anim.startTime}
             onChange={e => upd({ startTime: Number(e.target.value) })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
           />
         </Row>
       )}
@@ -644,7 +644,7 @@ function AnimBlock({
         <input type="number" min={0.1} max={30} step={0.1}
           value={anim.duration}
           onChange={e => upd({ duration: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
 
@@ -652,7 +652,7 @@ function AnimBlock({
         <input type="number" min={0} max={60} step={0.1}
           value={anim.delay}
           onChange={e => upd({ delay: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
 
@@ -661,7 +661,7 @@ function AnimBlock({
           <select
             value={anim.easing}
             onChange={e => upd({ easing: e.target.value as EasingType })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
           >
             {EASINGS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
           </select>

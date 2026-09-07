@@ -133,15 +133,15 @@ export default function AISidebar() {
       </div>
 
       {settingsOpen && (
-        <div className="absolute right-3 top-10 z-20 w-72 rounded border border-editor-border bg-editor-elevated shadow-xl">
+        <div className="absolute right-3 top-10 z-20 w-72 rounded border border-editor-border bg-editor-elevated-highlight shadow-xl">
           <div className="flex items-center justify-between px-2.5 py-2 border-b border-editor-border">
             <span className="text-sm font-medium text-editor-text">AI API Settings</span>
-            <button type="button" onClick={() => setSettingsOpen(false)} className="text-editor-secondary hover:text-editor-text">
+            <button type="button" onClick={() => setSettingsOpen(false)} className="text-editor-text-secondary hover:text-editor-text">
               <X size={12} />
             </button>
           </div>
           <div className="p-2.5 space-y-2">
-            <p className="text-xs text-editor-secondary">Demo only. This key is saved locally and is not used for planning yet.</p>
+            <p className="text-xs text-editor-text-secondary">Demo only. This key is saved locally and is not used for planning yet.</p>
             <input
               type="password"
               value={apiKeyDraft}
@@ -150,7 +150,7 @@ export default function AISidebar() {
               className="w-full rounded border border-editor-border bg-[#111] px-2 py-1.5 text-sm text-editor-text outline-none focus:border-editor-accent"
             />
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-editor-secondary truncate">
+              <span className="text-xs text-editor-text-secondary truncate">
                 {savedApiKey ? 'Demo key saved' : 'No key saved'}
               </span>
               <div className="flex gap-1.5">
@@ -179,7 +179,7 @@ export default function AISidebar() {
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
         {messages.length === 0 && !pendingPlan && (
           <div className="h-full flex items-center justify-center">
-            <div className="text-center text-sm text-editor-secondary leading-relaxed px-2">
+            <div className="text-center text-sm text-editor-text-secondary leading-relaxed px-2">
               <Sparkles size={18} className="mx-auto mb-2 text-editor-accent" />
               Describe an edit to prepare scene commands.
             </div>
@@ -206,10 +206,10 @@ export default function AISidebar() {
         )}
 
         {pendingPlan && (
-          <div className="rounded border border-editor-accent/40 bg-editor-elevated overflow-hidden">
+          <div className="rounded border border-editor-accent/40 bg-editor-elevated-highlight overflow-hidden">
             <div className="flex items-center justify-between px-2 py-1.5 border-b border-editor-border">
               <span className="text-sm text-editor-text font-medium">Pending Plan</span>
-              <button onClick={() => setPendingPlan(null)} className="text-editor-secondary hover:text-editor-text">
+              <button onClick={() => setPendingPlan(null)} className="text-editor-text-secondary hover:text-editor-text">
                 <X size={12} />
               </button>
             </div>
@@ -224,7 +224,7 @@ export default function AISidebar() {
                 </div>
               )}
               {commandLabels.length === 0 ? (
-                <p className="text-sm text-editor-secondary">No supported command was produced.</p>
+                <p className="text-sm text-editor-text-secondary">No supported command was produced.</p>
               ) : (
                 commandLabels.map(label => (
                   <p key={label} className="text-sm text-editor-text leading-relaxed">{label}</p>
@@ -250,7 +250,7 @@ export default function AISidebar() {
         )}
 
         {results.length > 0 && (
-          <div className="rounded-2xl rounded-bl-none border border-editor-border bg-editor-elevated px-2 py-2 space-y-1 mr-5">
+          <div className="rounded-2xl rounded-bl-none border border-editor-border bg-editor-elevated-highlight px-2 py-2 space-y-1 mr-5">
             {results.map((item, index) => (
               <p key={index} className={item.ok ? 'text-sm text-white' : 'text-sm text-red-200'}>
                 ✓ {item.message}
@@ -262,7 +262,7 @@ export default function AISidebar() {
 
       <div className="p-3 border-t border-editor-border flex-none">
         {mention && mentionAssets.length > 0 && (
-          <div className="mb-2 max-h-44 overflow-y-auto rounded border border-editor-border bg-editor-elevated shadow-xl">
+          <div className="mb-2 max-h-44 overflow-y-auto rounded border border-editor-border bg-editor-elevated-highlight shadow-xl">
             {mentionAssets.map(asset => (
               <button
                 key={asset.id}
@@ -271,13 +271,13 @@ export default function AISidebar() {
                 className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-white/5"
               >
                 <span className="min-w-0 truncate text-sm text-editor-text">@{asset.filename}</span>
-                <span className="flex-none text-xs uppercase text-editor-secondary">{asset.type}</span>
+                <span className="flex-none text-xs uppercase text-editor-text-secondary">{asset.type}</span>
               </button>
             ))}
           </div>
         )}
         <form
-          className="flex items-center gap-1.5 bg-editor-elevated border border-editor-border rounded-xl px-2.5 py-2"
+          className="flex items-center gap-1.5 bg-editor-elevated-highlight border border-editor-border rounded-xl px-2.5 py-2"
           onSubmit={e => { e.preventDefault(); void submit() }}
         >
           <textarea
@@ -291,12 +291,12 @@ export default function AISidebar() {
           onKeyUp={syncCaret}
           onSelect={syncCaret}
           placeholder="Describe an edit with mentioning scene"
-          className="flex-1 bg-transparent text-base text-editor-text placeholder:text-editor-secondary outline-none min-w-0 resize-none h-[calc(4*1.5rem)] leading-6"
+          className="flex-1 bg-transparent text-base text-editor-text placeholder:text-editor-text-secondary outline-none min-w-0 resize-none h-[calc(4*1.5rem)] leading-6"
         />  
           <button
             type="submit"
             disabled={busy || input.trim().length === 0}
-            className="flex-none text-editor-text disabled:text-editor-secondary disabled:cursor-not-allowed"
+            className="flex-none text-editor-text disabled:text-editor-text-secondary disabled:cursor-not-allowed"
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
           </button>

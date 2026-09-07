@@ -103,7 +103,7 @@ function AnimBlock({ anim, index, elId }: {
   return (
     <div className="border-b border-editor-border px-3 py-2 flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-editor-secondary font-medium">Animation {index + 1}</span>
+        <span className="text-xs text-editor-text-secondary font-medium">Animation {index + 1}</span>
         <button onClick={() => removeAnimation(elId, anim.id)} className="text-[#f2f2f2] hover:text-red-400">
           <Trash2 size={11} />
         </button>
@@ -123,7 +123,7 @@ function AnimBlock({ anim, index, elId }: {
                 'flex-1 text-xs px-2 py-1.5 rounded transition-colors',
                 anim.timing === t
                   ? 'bg-editor-accent text-white'
-                  : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text'
+                  : 'bg-editor-elevated-highlight text-[#f2f2f2] hover:text-editor-text'
               )}
             >
               {t === 'onEnter' ? 'Enter' : t === 'onExit' ? 'Exit' : 'Loop'}
@@ -137,7 +137,7 @@ function AnimBlock({ anim, index, elId }: {
         <select
           value={anim.type}
           onChange={e => upd({ type: e.target.value as AnimationType })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
         >
           {animsByTiming(anim.timing).map(t =>
             <option key={t.value} value={t.value}>{t.label}</option>
@@ -156,7 +156,7 @@ function AnimBlock({ anim, index, elId }: {
           <select
             value={anim.params?.direction ?? 'left'}
             onChange={e => upd({ params: { ...anim.params, direction: e.target.value as SlideDir } })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
           >
             {DIRECTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
           </select>
@@ -170,7 +170,7 @@ function AnimBlock({ anim, index, elId }: {
           type="number" min={0} max={60} step={0.1}
           value={anim.startTime}
           onChange={e => upd({ startTime: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
 
@@ -179,7 +179,7 @@ function AnimBlock({ anim, index, elId }: {
           type="number" min={0.1} max={30} step={0.1}
           value={anim.duration}
           onChange={e => upd({ duration: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
 
@@ -188,7 +188,7 @@ function AnimBlock({ anim, index, elId }: {
           type="number" min={0} max={60} step={0.1}
           value={anim.delay}
           onChange={e => upd({ delay: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
 
@@ -197,7 +197,7 @@ function AnimBlock({ anim, index, elId }: {
           <select
             value={anim.easing}
             onChange={e => upd({ easing: e.target.value as EasingType })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
           >
             {EASINGS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
           </select>

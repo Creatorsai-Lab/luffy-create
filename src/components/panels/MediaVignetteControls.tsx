@@ -20,7 +20,7 @@ export default function MediaVignetteControls({ value, onChange }: Props) {
             'px-2 py-1 rounded border text-[11px] transition-colors',
             enabled
               ? 'bg-editor-accent border-editor-accent text-white'
-              : 'bg-editor-elevated border-editor-border text-editor-text hover:border-editor-accent/60',
+              : 'bg-editor-elevated-highlight border-editor-border text-editor-text hover:border-editor-accent/60',
           )}
         >
           {enabled ? 'On' : 'Off'}

@@ -72,7 +72,7 @@ export default function AudioPropertiesPanel({ element, onClose }: AudioProperti
   return (
     <div className="flex flex-col h-full overflow-hidden bg-editor-panel border-l border-editor-border">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-editor-border bg-editor-elevated/50">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-editor-border bg-editor-elevated-highlight/50">
         <h3 className="text-xs font-semibold text-white">{element.name}</h3>
         {onClose && (
           <button
@@ -235,7 +235,7 @@ function FadeControl({
   onMultiplierChange: (value: number) => void
 }) {
   return (
-    <div className="space-y-2 rounded border border-editor-border/60 bg-editor-elevated/20 p-2">
+    <div className="space-y-2 rounded border border-editor-border/60 bg-editor-elevated-highlight/20 p-2">
       <div className="flex items-center justify-between text-2xs">
         <span className="font-medium text-white">{title}</span>
         <span className="text-[#888888]">

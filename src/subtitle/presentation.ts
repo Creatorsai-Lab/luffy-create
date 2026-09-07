@@ -4,6 +4,13 @@ export interface SubtitleLine {
   text: string
 }
 
+export interface MeasuredSubtitleWord {
+  text: string
+  x: number
+  width: number
+  characters: Array<{ text: string; x: number; width: number; index: number }>
+}
+
 export interface SubtitleMotionState {
   opacity: number
   scale: number
@@ -35,18 +42,48 @@ export function layoutSubtitleLines(text: string, maxChars: number): SubtitleLin
   return compactLines(words, Math.max(1, maxChars)).map(line => ({ text: line }))
 }
 
-export function getSubtitleCurveOffset(
+export function layoutMeasuredSubtitleWords(text: string, measure: (text: string) => number) {
+  const source = text.trim().split(/\s+/).filter(Boolean)
+  const spaceWidth = Math.max(0, measure(' '))
+  const words: MeasuredSubtitleWord[] = []
+  let x = 0
+  let startIndex = 0
+
+  source.forEach((word, wordIndex) => {
+    let prefix = ''
+    let previousWidth = 0
+    const characters = Array.from(word).map((character, index) => {
+      prefix += character
+      const nextWidth = Math.max(previousWidth, measure(prefix))
+      const metric = { text: character, x: previousWidth, width: nextWidth - previousWidth, index: startIndex + index }
+      previousWidth = nextWidth
+      return metric
+    })
+    const width = Math.max(0, measure(word))
+    words.push({ text: word, x, width, characters })
+    x += width
+    startIndex += characters.length
+    if (wordIndex < source.length - 1) {
+      x += spaceWidth
+      startIndex += 1
+    }
+  })
+
+  return { words, naturalWidth: x, characterCount: startIndex }
+}
+
+export function getSubtitleWarpScale(
   look: SubtitleCaptionLook = 'normal',
   intensity = 50,
   index: number,
-  wordCount: number,
-  fontSize: number,
+  itemCount: number,
 ) {
   const strength = clamp01(intensity / 100)
-  if (look === 'normal' || wordCount < 3 || strength === 0) return 0
-  const x = index / (wordCount - 1) * 2 - 1
-  const curve = (1 - x * x) * strength * fontSize * 0.28
-  return look === 'curveOut' ? -curve : curve
+  if (look === 'normal' || itemCount < 2 || strength === 0) return 1
+  const x = index / (itemCount - 1) * 2 - 1
+  const center = (1 + Math.cos(Math.PI * x)) / 2
+  const profile = look === 'bulge' ? center : 1 - center
+  return 1 + strength * (1.15 * profile - 0.3)
 }
 
 export function getCaptionOrigin(

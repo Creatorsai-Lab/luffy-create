@@ -2,8 +2,9 @@ import assert from 'node:assert/strict'
 import {
   getCaptionOrigin,
   getSubtitleBlockState,
-  getSubtitleCurveOffset,
+  getSubtitleWarpScale,
   getSubtitleWordState,
+  layoutMeasuredSubtitleWords,
   layoutSubtitleLines,
 } from '../src/subtitle/presentation'
 
@@ -16,9 +17,23 @@ assert.equal(curveOut.length, 1)
 assert.equal(curveOut[0].text, caption)
 assert.ok(layoutSubtitleLines(`${caption} ${caption}`, 18).length <= 2)
 
-assert.ok(getSubtitleCurveOffset('curveOut', 100, 1, 3, 50) < getSubtitleCurveOffset('curveOut', 100, 0, 3, 50))
-assert.ok(getSubtitleCurveOffset('curveIn', 100, 1, 3, 50) > getSubtitleCurveOffset('curveIn', 100, 0, 3, 50))
-assert.equal(getSubtitleCurveOffset('curveOut', 0, 1, 3, 50), 0)
+assert.ok(getSubtitleWarpScale('bulge', 100, 1, 3) > getSubtitleWarpScale('bulge', 100, 0, 3))
+assert.ok(getSubtitleWarpScale('inflate', 100, 0, 3) > getSubtitleWarpScale('inflate', 100, 1, 3))
+assert.equal(getSubtitleWarpScale('normal', 100, 1, 3), 1)
+assert.equal(getSubtitleWarpScale('bulge', 0, 1, 3), 1)
+
+const measured = layoutMeasuredSubtitleWords('Wide i', value => ({ Wide: 80, i: 5, ' ': 7 })[value] ?? 0)
+assert.deepEqual(measured.words.map(word => ({ text: word.text, x: word.x, width: word.width })), [
+  { text: 'Wide', x: 0, width: 80 },
+  { text: 'i', x: 87, width: 5 },
+])
+assert.equal(measured.naturalWidth, 92)
+
+const smoothBulge = Array.from({ length: 9 }, (_, index) => getSubtitleWarpScale('bulge', 100, index, 9))
+assert.ok(smoothBulge[4] >= 1.8, 'maximum bulge intensity should be visibly strong')
+assert.ok(smoothBulge[0] <= 0.71, 'maximum bulge intensity should compress its outer edges')
+assert.deepEqual(smoothBulge.map(value => value.toFixed(3)), [...smoothBulge].reverse().map(value => value.toFixed(3)))
+assert.ok(smoothBulge.slice(1).every((value, index) => Math.abs(value - smoothBulge[index]) < 0.5), 'warp profile should change smoothly')
 
 assert.deepEqual(getCaptionOrigin(1000, 500, 400, 100, 50, 50), { x: 300, y: 200 })
 assert.deepEqual(getCaptionOrigin(1000, 500, 400, 100, 0, 0), { x: 0, y: 0 })

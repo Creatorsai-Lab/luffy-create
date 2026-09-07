@@ -89,4 +89,3 @@ Keep video animations clean. A clip already contains motion, so extra animation 
 4. Adjust color and brightness so text remains readable.
 5. Add border or shadow if the clip needs separation from the background.
 6. Add a short enter animation only if it improves the scene rhythm.
-

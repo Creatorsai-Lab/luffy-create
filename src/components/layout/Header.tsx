@@ -26,7 +26,7 @@ export default function Header() {
               'flex items-center gap-1.5 text-[13px] px-3 py-0.5 border-b max-w-[200px]',
               archiveOpen
                 ? 'bg-editor-accent-dim text-editor-accent'
-                : 'text-editor-secondary hover:text-editor-text rounded hover:bg-editor-hover border-gray-500',
+                : 'text-editor-text-secondary hover:text-editor-text rounded hover:bg-editor-hover border-gray-500',
             )}
           >
             <BriefcaseBusiness size={12} className="flex-none" />

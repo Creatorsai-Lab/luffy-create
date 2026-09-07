@@ -22,7 +22,7 @@ export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push
 export type BgType        = 'solid' | 'gradient' | 'grid' | 'dots' | 'animated' | 'transparent'
 export type FontWeight    = 'thin' | 'normal' | 'semibold' | 'bold'
 export type SubtitleAnimationType = 'none' | 'wordPop' | 'wordRise' | 'karaokePulse' | 'smoothReveal' | 'fade' | 'slideUp' | 'pop'
-export type SubtitleCaptionLook = 'normal' | 'curveOut' | 'curveIn'
+export type SubtitleCaptionLook = 'normal' | 'bulge' | 'inflate'
 export const MEDIA_EFFECT_TYPES = ['none', 'subtleHover', 'wiggle', 'doodleDrift', 'shake', 'zoomIn', 'zoomOut', 'vibrationDistort', 'godRays', 'lightSweep', 'lightFlicker', 'glitch', 'rain', 'snow'] as const
 export type MediaEffectType = typeof MEDIA_EFFECT_TYPES[number]
 export type MediaEffectAxis = 'horizontal' | 'vertical'
@@ -581,7 +581,7 @@ export interface SubtitleStyle {
   positionY: number
   animation?: SubtitleAnimationType
   captionLook?: SubtitleCaptionLook
-  curveIntensity?: number
+  warpIntensity?: number
 }
 
 export interface SubtitleTrack {

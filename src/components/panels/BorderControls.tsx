@@ -58,7 +58,7 @@ export default function BorderControls<T extends BorderTarget>({ value, onChange
         <select
           value={fillMode}
           onChange={e => patchMode(e.target.value as BorderFillMode)}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
         >
           <option value="solid">Solid</option>
           <option value="linearGradient">Gradient</option>
@@ -88,7 +88,7 @@ export default function BorderControls<T extends BorderTarget>({ value, onChange
                 'px-2 py-1 rounded text-xs transition-colors',
                 animated
                   ? 'bg-editor-accent text-white'
-                  : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border border-editor-border'
+                  : 'bg-editor-elevated-highlight text-[#f2f2f2] hover:text-editor-text border border-editor-border'
               )}
             >
               {animated ? 'On' : 'Off'}

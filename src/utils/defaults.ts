@@ -6,13 +6,13 @@ import type {
   MediaEffectClip,
 } from '../types/editor'
 
-export const DEFAULT_BG: Background = { type: 'solid', color: '#cac8c6' }
+export const DEFAULT_BG: Background = { type: 'solid', color: '#000000' }
 
 export const DEFAULT_TRANSITION: SceneTransition = { type: 'none', duration: 0.5 }
 
 export const DEFAULT_BOX_SHADOW: BoxShadow = {
   enabled: false,
-  color: '#000000',
+  color: '#342c41',
   opacity: 0.35,
   blur: 28,
   spread: 0,
@@ -22,7 +22,7 @@ export const DEFAULT_BOX_SHADOW: BoxShadow = {
 
 export const DEFAULT_INNER_SHADOW: InnerShadow = {
   enabled: false,
-  color: '#000000',
+  color: '#3c3941',
   opacity: 0.35,
   blur: 18,
   angle: 135,
@@ -91,7 +91,7 @@ export function makeText(x: number, y: number): TextElement {
     fillMode: 'solid',
     gradientColor1: '#ffffff',
     gradientColor2: '#8b5cf6',
-    gradientColor3: '#22d3ee',
+    gradientColor3: '#0d3fe4',
     gradientOpacity1: 1,
     gradientOpacity2: 1,
     gradientOpacity3: 1,
@@ -160,15 +160,15 @@ export function makeArrow(x1: number, y1: number, x2: number, y2: number): Arrow
   return {
     id: uuid(), type: 'arrow', name: 'Arrow',
     x: Math.min(x1, x2), y: Math.min(y1, y2),
-    width: Math.abs(x2 - x1) || 100, height: Math.abs(y2 - y1) || 4,
+    width: Math.abs(x2 - x1) || 100, height: Math.abs(y2 - y1) || 6,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
     x1, y1, x2, y2,
-    stroke: '#202020', strokeWidth: 5, arrowHead: 'end', dashed: false,
+    stroke: '#585252', strokeWidth: 5, arrowHead: 'end', dashed: false,
     dotted: false,
     pointerLength: 12,
     pointerWidth: 13,
-    arrowHeadColor: '#202020',
+    arrowHeadColor: '#585252',
     curve: 0,
     bendCount: 0,
     bendDirection: 'horizontal',
@@ -179,12 +179,12 @@ export function makeArrow(x1: number, y1: number, x2: number, y2: number): Arrow
 export function makeCode(x: number, y: number): CodeElement {
   return {
     id: uuid(), type: 'code', name: 'Code Block',
-    x, y, width: 480, height: 240,
+    x, y, width: 900, height: 700,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
-    code: '# Enter your code here\nvariable = "Hello, World!"\nprint(variable)',
+    code: '# Enter your code here',
     language: 'python',
-    fontSize: 14, showLineNumbers: true
+    fontSize: 35, showLineNumbers: true
   }
 }
 
@@ -303,7 +303,6 @@ export function makeChart(x: number, y: number): ChartElement {
     regressionLineWidth: 3,
   }
 }
-
 export function makeVideo(
   x: number, y: number, src: string, assetId: string,
   width = 640, height = 360, sourceDuration = 10,

@@ -117,7 +117,7 @@ export default function MenuSideBar() {
           </button>
 
           {sizeOpen && project && (
-            <div className="absolute top-full left-0 mt-1 bg-editor-elevated border border-editor-border rounded shadow-lg z-50 w-full">
+            <div className="absolute top-full left-0 mt-1 bg-editor-elevated-highlight border border-editor-border rounded shadow-lg z-50 w-full">
               {CANVAS_PRESETS.map(p => (
                 <button
                   key={p.label}

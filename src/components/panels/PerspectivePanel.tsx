@@ -88,7 +88,7 @@ export default function PerspectivePanel() {
               </div>
             )}
 
-            <div className="rounded border border-editor-border bg-editor-elevated px-2 py-2">
+            <div className="rounded border border-editor-border bg-editor-elevated-highlight px-2 py-2">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-medium text-editor-text">Transform Sliders</span>
                 <button
@@ -168,8 +168,8 @@ export default function PerspectivePanel() {
               {(['tl', 'tr', 'br', 'bl'] as CornerKey[]).map(corner => {
                 const pts = el.perspectivePts ?? makePerspectivePts(el.width, el.height)
                 return (
-                  <div key={corner} className="rounded border border-editor-border bg-editor-elevated px-2 py-1.5">
-                    <div className="text-[10px] uppercase text-editor-secondary mb-1">
+                  <div key={corner} className="rounded border border-editor-border bg-editor-elevated-highlight px-2 py-1.5">
+                    <div className="text-[10px] uppercase text-editor-text-secondary mb-1">
                       {corner === 'tl' ? 'Top Left' : corner === 'tr' ? 'Top Right' : corner === 'br' ? 'Bottom Right' : 'Bottom Left'}
                     </div>
                     <Row label="X Position">
@@ -198,7 +198,7 @@ export default function PerspectivePanel() {
             <button
               onClick={reset}
               disabled={!el.perspectivePts}
-              className="text-xs px-3 py-1.5 bg-editor-elevated border border-editor-border rounded text-[#f2f2f2] hover:text-editor-text transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="text-xs px-3 py-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-[#f2f2f2] hover:text-editor-text transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Reset Perspective
             </button>

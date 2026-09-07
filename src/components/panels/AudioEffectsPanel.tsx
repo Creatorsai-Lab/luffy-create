@@ -23,7 +23,7 @@ export default function AudioEffectsPanel({ element, onClose }: AudioEffectsPane
   return (
     <div className="flex flex-col h-full overflow-hidden bg-editor-panel border-l border-editor-border">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-editor-border bg-editor-elevated/50">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-editor-border bg-editor-elevated-highlight/50">
         <div className="flex items-center gap-2">
           <Settings2 size={14} className="text-editor-accent" />
           <h3 className="text-xs font-semibold text-white">Audio Effects</h3>
@@ -158,7 +158,7 @@ export default function AudioEffectsPanel({ element, onClose }: AudioEffectsPane
       </div>
 
       {/* Reset All */}
-      <div className="border-t border-editor-border p-2 bg-editor-elevated/30">
+      <div className="border-t border-editor-border p-2 bg-editor-elevated-highlight/30">
         <button
           onClick={() => {
             updateElement(element.id, {
@@ -192,7 +192,7 @@ function EffectSection({
   children: React.ReactNode
 }) {
   return (
-    <div className="border border-editor-border/50 rounded-lg overflow-hidden bg-editor-elevated/20">
+    <div className="border border-editor-border/50 rounded-lg overflow-hidden bg-editor-elevated-highlight/20">
       <button
         onClick={onToggle}
         className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-editor-border/30 transition-colors"

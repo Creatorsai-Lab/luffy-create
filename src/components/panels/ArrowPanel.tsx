@@ -58,7 +58,7 @@ const isLoopAnim = (a: ElementAnimation) => LOOP_TYPE_SET.has(a.type) || a.timin
 
 export function BendCountInput({ value, onChange }: { value: number; onChange: (value: number) => void }) {
   const setValue = (next: number) => onChange(Math.min(8, Math.max(0, Math.round(next || 0))))
-  const buttonClass = 'w-8 shrink-0 rounded border border-editor-border bg-editor-elevated text-editor-text hover:border-editor-accent disabled:opacity-40 disabled:cursor-not-allowed'
+  const buttonClass = 'w-8 shrink-0 rounded border border-editor-border bg-editor-elevated-highlight text-editor-text hover:border-editor-accent disabled:opacity-40 disabled:cursor-not-allowed'
 
   return (
     <div className="flex h-7 gap-1">
@@ -66,7 +66,7 @@ export function BendCountInput({ value, onChange }: { value: number; onChange: (
         onClick={() => setValue(value - 1)} className={buttonClass}>−</button>
       <input aria-label="Bend count" type="number" min={0} max={8} step={1} value={value}
         onChange={e => setValue(Number(e.target.value))}
-        className="min-w-0 flex-1 rounded border border-editor-border bg-editor-elevated px-2 text-center text-xs text-editor-text nodrag" />
+        className="min-w-0 flex-1 rounded border border-editor-border bg-editor-elevated-highlight px-2 text-center text-xs text-editor-text nodrag" />
       <button type="button" aria-label="Increase bend count" disabled={value >= 8}
         onClick={() => setValue(value + 1)} className={buttonClass}>+</button>
     </div>
@@ -120,7 +120,7 @@ export default function ArrowPanel() {
                   className={cn('flex-1 py-1 text-xs rounded border transition-colors',
                     el.arrowHead === h.value
                       ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
-                      : 'bg-editor-elevated border-editor-border text-[#f2f2f2] hover:text-editor-text'
+                      : 'bg-editor-elevated-highlight border-editor-border text-[#f2f2f2] hover:text-editor-text'
                   )}>
                   {h.label}
                 </button>
@@ -165,7 +165,7 @@ export default function ArrowPanel() {
                   className={cn('flex-1 py-1 text-xs rounded border transition-colors',
                     el.dashed === dashed && el.dotted === dotted
                       ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
-                      : 'bg-editor-elevated border-editor-border text-[#f2f2f2] hover:text-editor-text'
+                      : 'bg-editor-elevated-highlight border-editor-border text-[#f2f2f2] hover:text-editor-text'
                   )}>
                   {label}
                 </button>
@@ -178,7 +178,7 @@ export default function ArrowPanel() {
           </Row>
 
           {(el.bendCount ?? 0) === 0 && (
-            <p className="pb-1 text-[10px] text-editor-secondary">Set Bend Count above 0 to enable routed corners.</p>
+            <p className="pb-1 text-[10px] text-editor-text-secondary">Set Bend Count above 0 to enable routed corners.</p>
           )}
 
           <fieldset
@@ -189,7 +189,7 @@ export default function ArrowPanel() {
                 <select
                   value={el.bendDirection ?? 'horizontal'}
                   onChange={e => upd({ bendDirection: e.target.value as ArrowBendDirection })}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                  className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
                   <option value="horizontal">Horizontal first</option>
                   <option value="vertical">Vertical first</option>
@@ -213,11 +213,11 @@ export default function ArrowPanel() {
               <input type="number" min={-180} max={180} step={1}
                 value={currentAngle}
                 onChange={e => applyAngle(Number(e.target.value))}
-                className="flex-1 bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+                className="flex-1 bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
               />
               <span className="text-xs text-[#f2f2f2]">°</span>
               <button onClick={() => applyAngle(currentAngle + 90)}
-                className="text-xs px-2 py-1 bg-editor-elevated border border-editor-border rounded text-[#f2f2f2] hover:text-editor-text transition-colors">
+                className="text-xs px-2 py-1 bg-editor-elevated-highlight border border-editor-border rounded text-[#f2f2f2] hover:text-editor-text transition-colors">
                 +90°
               </button>
             </div>
@@ -288,7 +288,7 @@ function AnimSection({
         <span className={cn('text-[10px] font-semibold uppercase tracking-wider', color)}>{label}</span>
         <button
           onClick={onAdd}
-          className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-editor-elevated text-[#f2f2f2] border border-editor-border rounded hover:text-editor-text transition-colors"
+          className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-editor-elevated-highlight text-[#f2f2f2] border border-editor-border rounded hover:text-editor-text transition-colors"
         >
           <Plus size={8} /> Add
         </button>
@@ -324,7 +324,7 @@ function AnimBlock({
   return (
     <div className="border-b border-editor-border px-3 py-2 flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-editor-secondary font-medium">#{index + 1}</span>
+        <span className="text-[10px] text-editor-text-secondary font-medium">#{index + 1}</span>
         <button onClick={() => removeAnimation(elId, anim.id)} className="text-[#d9d9d9] hover:text-red-400 transition-colors">
           <Trash2 size={10} />
         </button>
@@ -334,7 +334,7 @@ function AnimBlock({
         <select
           value={anim.type}
           onChange={e => upd({ type: e.target.value as AnimationType })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
         >
           {types.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
@@ -351,7 +351,7 @@ function AnimBlock({
           <select
             value={anim.params?.direction ?? 'right'}
             onChange={e => upd({ params: { ...anim.params, direction: e.target.value as SlideDir } })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
           >
             {DIRECTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
           </select>
@@ -363,7 +363,7 @@ function AnimBlock({
           <input type="number" min={4} max={200} step={2}
             value={anim.params?.distance ?? 24}
             onChange={e => upd({ params: { ...anim.params, distance: Number(e.target.value) } })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
           />
         </Row>
       )}
@@ -374,7 +374,7 @@ function AnimBlock({
         <input type="number" min={0} max={60} step={0.1}
           value={anim.startTime}
           onChange={e => upd({ startTime: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
 
@@ -382,7 +382,7 @@ function AnimBlock({
         <input type="number" min={0.1} max={30} step={0.1}
           value={anim.duration}
           onChange={e => upd({ duration: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
 
@@ -390,7 +390,7 @@ function AnimBlock({
         <input type="number" min={0} max={60} step={0.1}
           value={anim.delay}
           onChange={e => upd({ delay: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
 
@@ -399,7 +399,7 @@ function AnimBlock({
           <select
             value={anim.easing}
             onChange={e => upd({ easing: e.target.value as EasingType })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
           >
             {EASINGS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
           </select>

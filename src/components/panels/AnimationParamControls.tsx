@@ -91,7 +91,7 @@ function ScaleSliderRow({
               if (e.key === 'Enter') commit()
               if (e.key === 'Escape') setEditing(false)
             }}
-            className="text-xs text-[#c1c1c1] w-12 text-right bg-editor-elevated border border-editor-accent rounded px-1 nodrag"
+            className="text-xs text-[#c1c1c1] w-12 text-right bg-editor-elevated-highlight border border-editor-accent rounded px-1 nodrag"
           />
         ) : (
           <span

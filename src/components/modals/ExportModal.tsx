@@ -280,28 +280,28 @@ export default function ExportModal() {
             <>
               {/* Info row */}
               <div className="grid grid-cols-3 gap-2 text-ms">
-                <div className="bg-editor-elevated rounded px-3 py-2">
+                <div className="bg-editor-elevated-highlight rounded px-3 py-2">
                   <div className="label mb-1">Resolution</div>
                   <div className="text-editor-text">{project.width} × {project.height}</div>
                 </div>
-                <div className="bg-editor-elevated rounded px-3 py-2">
+                <div className="bg-editor-elevated-highlight rounded px-3 py-2">
                   <div className="label mb-1">Duration</div>
                   <div className="text-editor-text">{total.toFixed(1)}s</div>
                 </div>
-                <div className="bg-editor-elevated rounded px-3 py-2">
+                <div className="bg-editor-elevated-highlight rounded px-3 py-2">
                   <div className="label mb-1">Frames</div>
                   <div className="text-editor-text">{frames} @ {fps}fps</div>
                 </div>
               </div>
 
               {phase === 'idle' && (
-                <div className="flex flex-col gap-3 bg-editor-elevated rounded-lg p-3">
+                <div className="flex flex-col gap-3 bg-editor-elevated-highlight rounded-lg p-3">
                   <div className="flex items-center gap-2 text-base text-editor-text">
                     <Settings size={14} />
                     <span className="font-medium">Export Settings</span>
                   </div>
                   <div className="flex items-center justify-between text-ms">
-                    <span className="text-editor-secondary">Format</span>
+                    <span className="text-editor-text-secondary">Format</span>
                     <span className="text-editor-text font-medium">MP4 (H.264)</span>
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -338,9 +338,9 @@ export default function ExportModal() {
                     {phase === 'exporting' && <Loader2 size={13} className="text-editor-accent animate-spin" />}
                     {phase === 'done' && <CheckCircle size={13} className="text-green-400" />}
                     {phase === 'error' && <AlertCircle size={13} className="text-red-400" />}
-                    <span className="text-ms text-editor-secondary truncate">{log}</span>
+                    <span className="text-ms text-editor-text-secondary truncate">{log}</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-editor-elevated overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-editor-elevated-highlight overflow-hidden">
                     <div
                       className={[
                         'h-full rounded-full transition-all duration-200',
@@ -354,7 +354,7 @@ export default function ExportModal() {
               )}
 
               {phase === 'exporting' && (
-                <p className="text-ms text-[#f2f2f2] bg-editor-elevated rounded px-3 py-2">
+                <p className="text-ms text-[#f2f2f2] bg-editor-elevated-highlight rounded px-3 py-2">
                   Do not interact with the canvas during export — frames are being captured in sequence.
                 </p>
               )}
@@ -365,17 +365,17 @@ export default function ExportModal() {
           {tab === 'image' && (
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-2 text-ms">
-                <div className="bg-editor-elevated rounded px-3 py-2">
+                <div className="bg-editor-elevated-highlight rounded px-3 py-2">
                   <div className="label mb-1">Canvas Size</div>
                   <div className="text-editor-text">{project.width} × {project.height}</div>
                 </div>
-                <div className="bg-editor-elevated rounded px-3 py-2">
+                <div className="bg-editor-elevated-highlight rounded px-3 py-2">
                   <div className="label mb-1">Slides</div>
                   <div className="text-editor-text">{project.scenes.length} scene{project.scenes.length !== 1 ? 's' : ''}</div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 bg-editor-elevated rounded-lg p-3">
+              <div className="flex flex-col gap-3 bg-editor-elevated-highlight rounded-lg p-3">
                 <div className="flex items-center gap-2 text-ms text-editor-text">
                   <Settings size={12} />
                   <span className="font-base">Image Settings</span>
@@ -423,7 +423,7 @@ export default function ExportModal() {
                   {imgPhase === 'capturing' && <Loader2 size={13} className="text-editor-accent animate-spin" />}
                   {imgPhase === 'done' && <CheckCircle size={13} className="text-green-400" />}
                   {imgPhase === 'error' && <AlertCircle size={13} className="text-red-400" />}
-                  <span className="text-ms text-editor-secondary">{imgLog}</span>
+                  <span className="text-ms text-editor-text-secondary">{imgLog}</span>
                 </div>
               )}
             </div>
@@ -436,7 +436,7 @@ export default function ExportModal() {
           {/* Video footer */}
           {tab === 'video' && phase === 'idle' && (
             <>
-              <button onClick={handleClose} className="text-ms px-3 py-1.5 rounded text-editor-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
+              <button onClick={handleClose} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
                 Cancel
               </button>
               <button
@@ -456,24 +456,24 @@ export default function ExportModal() {
           {tab === 'video' && phase === 'done' && (
             <>
               {savePath && (
-                <button onClick={handleOpenFolder} className="text-ms px-3 py-1.5 rounded text-editor-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
+                <button onClick={handleOpenFolder} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
                   Open Folder
                 </button>
               )}
               <button onClick={handleSaveVideo} className="flex items-center gap-1.5 text-ms px-4 py-1.5 rounded bg-green-600 text-white hover:bg-green-500 transition-colors">
                 <Download size={12} /> Save File
               </button>
-              <button onClick={handleClose} className="text-ms px-3 py-1.5 rounded text-editor-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
+              <button onClick={handleClose} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
                 Close
               </button>
             </>
           )}
           {tab === 'video' && phase === 'error' && (
             <>
-              <button onClick={() => setPhase('idle')} className="text-ms px-3 py-1.5 rounded text-editor-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
+              <button onClick={() => setPhase('idle')} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
                 Try Again
               </button>
-              <button onClick={handleClose} className="text-ms px-3 py-1.5 rounded text-editor-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
+              <button onClick={handleClose} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
                 Close
               </button>
             </>
@@ -482,7 +482,7 @@ export default function ExportModal() {
           {/* Image footer */}
           {tab === 'image' && (
             <>
-              <button onClick={handleClose} className="text-ms px-3 py-1.5 rounded text-editor-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
+              <button onClick={handleClose} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
                 {imgPhase === 'done' ? 'Close' : 'Cancel'}
               </button>
               {imgPhase !== 'capturing' && (

@@ -22,7 +22,7 @@ export default function TransitionPanel() {
 
       <div className="flex flex-col px-3 py-2 gap-2">
         {/* Which scene this applies to */}
-        <div className="flex items-center gap-2 bg-editor-elevated rounded px-2.5 py-2 border border-editor-border">
+        <div className="flex items-center gap-2 bg-editor-elevated-highlight rounded px-2.5 py-2 border border-editor-border">
           <span
             className="w-3 h-3 rounded-sm flex-none"
             style={{ background: activeDef?.color ?? '#6b7280' }}
@@ -31,7 +31,7 @@ export default function TransitionPanel() {
             <span className="text-xs text-editor-text font-medium">
               Scene {sceneIndex + 1}: {scene.name}
             </span>
-            <span className="text-[10px] text-editor-secondary">
+            <span className="text-[10px] text-editor-text-secondary">
               Plays at the <strong>start</strong> of this scene
             </span>
           </div>
@@ -50,7 +50,7 @@ export default function TransitionPanel() {
                   'flex items-center gap-2 text-xs px-2.5 py-2 rounded border transition-colors text-left',
                   active
                     ? 'border-editor-accent text-editor-text'
-                    : 'bg-editor-elevated border-editor-border text-[#c1c1c1] hover:text-editor-text hover:border-editor-border-strong'
+                    : 'bg-editor-elevated-highlight border-editor-border text-[#c1c1c1] hover:text-editor-text hover:border-editor-border-strong'
                 )}
                 style={active ? { background: t.color + '22', borderColor: t.color } : undefined}
               >
@@ -74,7 +74,7 @@ export default function TransitionPanel() {
                 <select
                   value={tr.direction ?? 'right'}
                   onChange={e => setTransition(scene.id, { ...tr, direction: e.target.value as SlideDir })}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                  className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
                   <option value="right">From Right →</option>
                   <option value="left">From Left ←</option>
@@ -99,14 +99,14 @@ export default function TransitionPanel() {
               </>
             )}
 
-            <p className="text-2xs text-[#c1c1c1] bg-editor-elevated rounded px-2 py-1.5">
+            <p className="text-2xs text-[#c1c1c1] bg-editor-elevated-highlight rounded px-2 py-1.5">
               {activeDef?.desc}
             </p>
           </>
         )}
 
         {sceneIndex === 0 && (
-          <p className="text-[10px] text-editor-secondary px-1">
+          <p className="text-[10px] text-editor-text-secondary px-1">
             Note: the first scene has no preceding scene, so its transition only
             shows when it follows another scene during playback.
           </p>

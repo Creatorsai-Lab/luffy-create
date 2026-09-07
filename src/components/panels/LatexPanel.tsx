@@ -65,7 +65,7 @@ export default function LatexPanel() {
         </p>
 
         <textarea
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5 font-mono resize-none nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5 font-mono resize-none nodrag"
           rows={4}
           spellCheck={false}
           value={src}

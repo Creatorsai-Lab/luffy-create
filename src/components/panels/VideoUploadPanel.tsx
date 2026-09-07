@@ -94,12 +94,12 @@ export default function VideoUploadPanel() {
         ref={dropZoneRef}
         className={cn(
           'mx-3 my-2 p-4 border-2 border-dashed rounded-lg transition-colors',
-          dragOver ? 'border-editor-accent bg-editor-accent-dim' : 'border-editor-border bg-editor-elevated'
+          dragOver ? 'border-editor-accent bg-editor-accent-dim' : 'border-editor-border bg-editor-elevated-highlight'
         )}
       >
         <div className="flex flex-col items-center gap-2 text-center">
           <Film size={24} className={dragOver ? 'text-editor-accent' : 'text-[#f2f2f2]'} />
-          <p className="text-xs text-editor-secondary">Drag & drop videos here</p>
+          <p className="text-xs text-editor-text-secondary">Drag & drop videos here</p>
           <p className="text-2xs text-[#f2f2f2]">MP4 · WebM · MOV · AVI</p>
         </div>
       </div>
@@ -131,7 +131,7 @@ function VideoThumb({ asset, onAdd, onRemove }: {
 
   return (
     <div
-      className="group relative aspect-video bg-editor-elevated rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-editor-accent transition-all"
+      className="group relative aspect-video bg-editor-elevated-highlight rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-editor-accent transition-all"
       onClick={() => onAdd(dims.w, dims.h, dims.dur)}
     >
       <video

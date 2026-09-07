@@ -110,7 +110,7 @@ export default function LayersPanel() {
             {/* Name */}
             <span className={cn(
               'flex-1 text-[12px] truncate',
-              isSelected ? 'text-editor-accent' : 'text-editor-secondary'
+              isSelected ? 'text-editor-accent' : 'text-editor-text-secondary'
             )}>
               {el.name}
             </span>

@@ -103,12 +103,12 @@ export default function ImageUploadPanel() {
         ref={dropZoneRef}
         className={cn(
           'mx-3 my-2 p-4 border-2 border-dashed rounded-lg transition-colors',
-          dragOver ? 'border-editor-accent bg-editor-accent-dim' : 'border-editor-border bg-editor-elevated'
+          dragOver ? 'border-editor-accent bg-editor-accent-dim' : 'border-editor-border bg-editor-elevated-highlight'
         )}
       >
         <div className="flex flex-col items-center gap-2 text-center">
           <FileImage size={24} className={dragOver ? 'text-editor-accent' : 'text-[#f2f2f2]'} />
-          <p className="text-xs text-editor-secondary">Drag & drop images here</p>
+          <p className="text-xs text-editor-text-secondary">Drag & drop images here</p>
           <p className="text-2xs text-[#f2f2f2]">PNG · JPG · GIF · WebP</p>
         </div>
       </div>
@@ -121,7 +121,7 @@ export default function ImageUploadPanel() {
         {imageAssets.map(a => (
           <div
             key={a.id}
-            className="group relative aspect-video bg-editor-elevated rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-editor-accent transition-all"
+            className="group relative aspect-video bg-editor-elevated-highlight rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-editor-accent transition-all"
             onClick={() => { void addImageToCanvas(a) }}
           >
             <div className="absolute inset-0 flex items-center justify-center bg-editor-panel">

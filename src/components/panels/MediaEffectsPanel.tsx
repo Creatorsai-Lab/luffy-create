@@ -58,7 +58,7 @@ export default function MediaEffectsPanel() {
 
       <div className="flex-1 overflow-y-auto px-3 py-2">
         <Row label="Selected">
-          <div className="truncate rounded border border-editor-border bg-editor-elevated px-2 py-1.5 text-xs text-editor-text">
+          <div className="truncate rounded border border-editor-border bg-editor-elevated-highlight px-2 py-1.5 text-xs text-editor-text">
             {el.type === 'image' ? 'Image' : 'Video'} - {el.name}
           </div>
         </Row>
@@ -67,7 +67,7 @@ export default function MediaEffectsPanel() {
           <select
             value=""
             onChange={event => add(event.target.value as MediaEffectClip['type'])}
-            className="w-full rounded border border-editor-border bg-editor-elevated px-2 py-1 text-xs text-editor-text"
+            className="w-full rounded border border-editor-border bg-editor-elevated-highlight px-2 py-1 text-xs text-editor-text"
           >
             <option value="" disabled>Select an effect…</option>
             {MEDIA_EFFECT_OPTIONS.map(effect => (
@@ -79,7 +79,7 @@ export default function MediaEffectsPanel() {
         </Row>
 
         {clips.length === 0 ? (
-          <p className="rounded border border-dashed border-editor-border px-2 py-3 text-center text-[11px] text-editor-secondary">
+          <p className="rounded border border-dashed border-editor-border px-2 py-3 text-center text-[11px] text-editor-text-secondary">
             Add an effect to begin.
           </p>
         ) : (

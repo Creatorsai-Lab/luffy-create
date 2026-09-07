@@ -48,7 +48,7 @@ export default function CodeEditorModal() {
             <select
               value={language}
               onChange={e => setLanguage(e.target.value)}
-              className="bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+              className="bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
             >
               {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
             </select>

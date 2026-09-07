@@ -124,7 +124,7 @@ export default function TablePanel() {
                   className={`flex h-7 w-8 items-center justify-center rounded border text-xs transition-colors ${
                     (el.textAlign ?? 'center') === a
                       ? 'border-editor-accent bg-editor-accent text-white'
-                      : 'border-editor-border bg-editor-elevated text-editor-text hover:border-editor-accent/60'
+                      : 'border-editor-border bg-editor-elevated-highlight text-editor-text hover:border-editor-accent/60'
                   }`}
                   title={`Align ${a}`}
                 >
@@ -148,7 +148,7 @@ export default function TablePanel() {
                           <input
                             value={cell}
                             onChange={e => setCell(r, c, e.target.value)}
-                            className="w-full px-1.5 py-1 bg-editor-elevated text-editor-text text-xs nodrag min-w-[60px]"
+                            className="w-full px-1.5 py-1 bg-editor-elevated-highlight text-editor-text text-xs nodrag min-w-[60px]"
                             placeholder={r === 0 ? `Header ${c + 1}` : `${r},${c}`}
                           />
                         </td>

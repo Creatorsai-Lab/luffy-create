@@ -60,16 +60,16 @@ export default function MediaEffectCard({
   const showTarget = clip.type === 'lightSweep' || clip.type === 'godRays' || clip.type === 'subtleHover'
 
   return (
-    <section className="rounded border border-editor-border bg-editor-elevated/35 p-2">
+    <section className="rounded border border-editor-border bg-editor-elevated-highlight/35 p-2">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-xs font-medium text-editor-text">{label}</div>
-          <div className="text-[10px] leading-4 text-editor-secondary">{description}</div>
+          <div className="text-[10px] leading-4 text-editor-text-secondary">{description}</div>
         </div>
         <button
           type="button"
           onClick={onRemove}
-          className="flex shrink-0 items-center gap-1 rounded border border-editor-border px-1.5 py-1 text-[10px] text-editor-secondary transition-colors hover:border-red-400/60 hover:text-red-400"
+          className="flex shrink-0 items-center gap-1 rounded border border-editor-border px-1.5 py-1 text-[10px] text-editor-text-secondary transition-colors hover:border-red-400/60 hover:text-red-400"
         >
           <Trash2 size={10} /> Remove
         </button>
@@ -118,7 +118,7 @@ export default function MediaEffectCard({
           <select
             value={clip.mediaEffectZoomPosition ?? DEFAULT_MEDIA_EFFECT.mediaEffectZoomPosition}
             onChange={event => change({ mediaEffectZoomPosition: event.target.value as MediaZoomPosition })}
-            className="w-full rounded border border-editor-border bg-editor-elevated px-2 py-1 text-xs text-editor-text"
+            className="w-full rounded border border-editor-border bg-editor-elevated-highlight px-2 py-1 text-xs text-editor-text"
           >
             {ZOOM_POSITIONS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
@@ -200,7 +200,7 @@ export default function MediaEffectCard({
           <select
             value={clip.mediaEffectTarget ?? DEFAULT_MEDIA_EFFECT.mediaEffectTarget}
             onChange={event => change({ mediaEffectTarget: event.target.value as MediaEffectTarget })}
-            className="w-full rounded border border-editor-border bg-editor-elevated px-2 py-1 text-xs text-editor-text"
+            className="w-full rounded border border-editor-border bg-editor-elevated-highlight px-2 py-1 text-xs text-editor-text"
           >
             {TARGETS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
@@ -250,7 +250,7 @@ function ChoiceButton({ active, label, onClick }: {
         'rounded border px-2 py-1 text-[11px] capitalize transition-colors',
         active
           ? 'border-editor-accent bg-editor-accent text-white'
-          : 'border-editor-border bg-editor-elevated text-editor-text hover:border-editor-accent/60',
+          : 'border-editor-border bg-editor-elevated-highlight text-editor-text hover:border-editor-accent/60',
       )}
     >
       {label}

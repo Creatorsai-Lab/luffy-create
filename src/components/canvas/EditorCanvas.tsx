@@ -57,7 +57,7 @@ function imageElementToBackground(imgEl: ImageElement, fit: ImageBg['fit']): Ima
   const bg: ImageBg = { type: 'image', src: imgEl.src, fit }
   for (const key of IMAGE_BG_ADJUSTMENT_KEYS) {
     const value = imgEl[key as keyof ImageElement]
-    if (value !== undefined) (bg as Record<string, unknown>)[key] = value
+    if (value !== undefined) Object.assign(bg, { [key]: value })
   }
   return bg
 }

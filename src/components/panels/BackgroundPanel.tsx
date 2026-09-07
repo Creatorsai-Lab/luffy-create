@@ -106,7 +106,7 @@ export default function BackgroundPanel() {
                     'flex-1 text-xs px-2 py-1 rounded border capitalize transition-colors',
                     bg.fit === fit
                       ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
-                      : 'bg-editor-elevated border-editor-border text-[#f2f2f2] hover:text-editor-text'
+                      : 'bg-editor-elevated-highlight border-editor-border text-[#f2f2f2] hover:text-editor-text'
                   )}
                 >
                   {fit}
@@ -180,7 +180,7 @@ export default function BackgroundPanel() {
                   'px-2 py-1 rounded text-xs border transition-colors',
                   bg.glass
                     ? 'bg-editor-accent text-white border-editor-accent'
-                    : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border-editor-border'
+                    : 'bg-editor-elevated-highlight text-[#f2f2f2] hover:text-editor-text border-editor-border'
                 )}
               >
                 {bg.glass ? 'On' : 'Off'}
@@ -191,14 +191,14 @@ export default function BackgroundPanel() {
           <div className="flex gap-2 pt-2 mt-1 border-t border-editor-border">
             <button
               onClick={resetImageAdjustments}
-              className="flex-1 flex items-center justify-center gap-1.5 text-xs px-2 py-1 rounded bg-editor-elevated border border-editor-border text-[#f2f2f2] hover:text-editor-text transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 text-xs px-2 py-1 rounded bg-editor-elevated-highlight border border-editor-border text-[#f2f2f2] hover:text-editor-text transition-colors"
             >
               <RotateCcw size={10} />
               Reset Effects
             </button>
             <button
               onClick={() => setBackground(scene.id, { type: 'solid', color: '#1a1a2e' })}
-              className="flex-1 text-xs px-2 py-1 rounded bg-editor-elevated border border-editor-border text-[#f2f2f2] hover:text-editor-text transition-colors"
+              className="flex-1 text-xs px-2 py-1 rounded bg-editor-elevated-highlight border border-editor-border text-[#f2f2f2] hover:text-editor-text transition-colors"
             >
               Reset to Solid
             </button>
@@ -218,7 +218,7 @@ export default function BackgroundPanel() {
                 'text-xs px-2 py-1 rounded border transition-colors',
                 bg.type === t.value
                   ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
-                  : 'bg-editor-elevated border-editor-border text-[#f2f2f2] hover:text-editor-text'
+                  : 'bg-editor-elevated-highlight border-editor-border text-[#f2f2f2] hover:text-editor-text'
               )}
             >
               {t.label}
@@ -239,7 +239,7 @@ export default function BackgroundPanel() {
               <select
                 value={(bg as GradientBg).gradientType ?? 'linear'}
                 onChange={e => setBg({ gradientType: e.target.value as GradientKind } as Partial<GradientBg>)}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
               >
                 <option value="linear">Linear</option>
                 <option value="radial">Radial</option>
@@ -254,7 +254,7 @@ export default function BackgroundPanel() {
                   onClick={() => setBg({ via: (bg as GradientBg).via ? undefined : '#ffffff' } as Partial<GradientBg>)}
                   className={cn('px-2 py-1 text-2xs rounded border transition-colors',
                     (bg as GradientBg).via ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
-                      : 'bg-editor-elevated border-editor-border text-[#f2f2f2] hover:text-editor-text')}
+                      : 'bg-editor-elevated-highlight border-editor-border text-[#f2f2f2] hover:text-editor-text')}
                   title="Toggle a middle color stop"
                 >
                   {(bg as GradientBg).via ? 'On' : 'Off'}
@@ -309,7 +309,7 @@ export default function BackgroundPanel() {
               <select
                 value={bg.variant}
                 onChange={e => setAnimatedVariant(e.target.value as AnimatedBg['variant'])}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
               >
                 <option value="gradient-flow">Gradient Flow</option>
                 <option value="gradient-shift">Gradient Shift</option>

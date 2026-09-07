@@ -241,7 +241,7 @@ export default function ChartPanel() {
                     'flex flex-col items-center justify-center gap-1 py-2 rounded border transition-colors',
                     isActive
                       ? 'bg-editor-accent border-editor-accent text-white'
-                      : 'bg-editor-elevated border-editor-border text-[#f2f2f2] hover:text-editor-text hover:border-editor-text/40'
+                      : 'bg-editor-elevated-highlight border-editor-border text-[#f2f2f2] hover:text-editor-text hover:border-editor-text/40'
                   )}
                 >
                   {ct.icon}
@@ -411,13 +411,13 @@ export default function ChartPanel() {
                         <input
                           type="number" value={pt.x}
                           onChange={e => updatePoint(i, 'x', toNumber(e.target.value, 0))}
-                          className="px-1.5 py-1 text-xs bg-editor-elevated border border-editor-border rounded text-editor-text nodrag"
+                          className="px-1.5 py-1 text-xs bg-editor-elevated-highlight border border-editor-border rounded text-editor-text nodrag"
                           title="X value"
                         />
                         <input
                           type="number" value={pt.y}
                           onChange={e => updatePoint(i, 'y', toNumber(e.target.value, 0))}
-                          className="px-1.5 py-1 text-xs bg-editor-elevated border border-editor-border rounded text-editor-text nodrag"
+                          className="px-1.5 py-1 text-xs bg-editor-elevated-highlight border border-editor-border rounded text-editor-text nodrag"
                           title="Y value"
                         />
                         <button onClick={() => removePoint(i)}
@@ -499,7 +499,7 @@ export default function ChartPanel() {
                     <input
                       type="text" value={label}
                       onChange={e => updateLabel(i, e.target.value)}
-                      className="flex-1 px-2 py-1 text-xs bg-editor-elevated border border-editor-border rounded text-editor-text nodrag"
+                      className="flex-1 px-2 py-1 text-xs bg-editor-elevated-highlight border border-editor-border rounded text-editor-text nodrag"
                     />
                     <button onClick={() => removeLabel(i)}
                       disabled={el.data.labels.length <= 1}
@@ -524,7 +524,7 @@ export default function ChartPanel() {
               </div>
               <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
                 {(isPieType ? el.data.datasets.slice(0, 1) : el.data.datasets).map((ds, dsIdx) => (
-                  <div key={dsIdx} className="bg-editor-elevated rounded border border-editor-border p-2">
+                  <div key={dsIdx} className="bg-editor-elevated-highlight rounded border border-editor-border p-2">
                     <div className="flex items-center gap-1 mb-2">
                       <div className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: ds.color }} />
                       <input
@@ -577,7 +577,7 @@ export default function ChartPanel() {
                 <span className="text-xs text-[#f2f2f2]">{CHART_ANIM_LABELS[el.chartType]}</span>
               </label>
               {chartAnim && (
-                <div className="flex flex-col gap-1.5 p-2 bg-editor-elevated border border-editor-border rounded">
+                <div className="flex flex-col gap-1.5 p-2 bg-editor-elevated-highlight border border-editor-border rounded">
                   <Row label="Duration (s)">
                     <Slider value={chartAnim.duration} min={0.3} max={5} step={0.1}
                       onChange={v => updateAnimation(el.id, chartAnim.id, { duration: v })}

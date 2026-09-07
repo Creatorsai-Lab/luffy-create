@@ -14,7 +14,8 @@ assert.equal('position' in defaults, false)
 assert.equal('align' in defaults, false)
 assert.equal(defaults.animation, 'wordPop')
 assert.equal(defaults.captionLook, 'normal')
-assert.equal(defaults.curveIntensity, 50)
+assert.equal(defaults.warpIntensity, 50)
+assert.equal('curveIntensity' in defaults, false)
 
 const normalized = normalizeSubtitleStyle({
   fontFamily: 'Poppins',
@@ -33,5 +34,12 @@ assert.equal(normalized.animation, 'wordPop')
 assert.equal(normalizeSubtitleStyle({ animation: 'fade' }).animation, 'smoothReveal')
 assert.equal(normalizeSubtitleStyle({ animation: 'slideUp' }).animation, 'smoothReveal')
 assert.equal(normalizeSubtitleStyle({ animation: 'pop' }).animation, 'wordPop')
+
+const legacyBulge = normalizeSubtitleStyle({ captionLook: 'curveOut', curveIntensity: 70 } as unknown as Partial<typeof defaults>)
+const legacyInflate = normalizeSubtitleStyle({ captionLook: 'curveIn' } as unknown as Partial<typeof defaults>)
+assert.equal(legacyBulge.captionLook, 'bulge')
+assert.equal(legacyBulge.warpIntensity, 70)
+assert.equal(legacyInflate.captionLook, 'inflate')
+assert.equal(normalizeSubtitleStyle({ warpIntensity: 140 }).warpIntensity, 100)
 
 console.log('subtitle style tests passed')

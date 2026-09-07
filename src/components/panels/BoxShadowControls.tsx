@@ -25,7 +25,7 @@ export default function BoxShadowControls({ value, onChange }: Props) {
             'px-2 py-1 rounded text-xs transition-colors',
             shadow.enabled
               ? 'bg-editor-accent text-white'
-              : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border border-editor-border'
+              : 'bg-editor-elevated-highlight text-[#f2f2f2] hover:text-editor-text border border-editor-border'
           )}
         >
           {shadow.enabled ? 'On' : 'Off'}
@@ -120,7 +120,7 @@ export function InnerShadowControls({ value, onChange }: InnerProps) {
             'px-2 py-1 rounded text-xs transition-colors',
             shadow.enabled
               ? 'bg-editor-accent text-white'
-              : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border border-editor-border'
+              : 'bg-editor-elevated-highlight text-[#f2f2f2] hover:text-editor-text border border-editor-border'
           )}
         >
           {shadow.enabled ? 'On' : 'Off'}

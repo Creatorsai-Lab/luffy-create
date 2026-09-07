@@ -131,7 +131,7 @@ export default function ImagePanel() {
                       'flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors',
                       lockRatio
                         ? 'bg-editor-accent text-white'
-                        : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border border-editor-border'
+                        : 'bg-editor-elevated-highlight text-[#f2f2f2] hover:text-editor-text border border-editor-border'
                     )}
                   >
                     {lockRatio ? <Lock size={10} /> : <Unlock size={10} />}
@@ -158,7 +158,7 @@ export default function ImagePanel() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setCropElement(el.id)}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-editor-elevated text-[#f2f2f2] border border-editor-border hover:text-editor-text transition-colors"
+                    className="flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-editor-elevated-highlight text-[#f2f2f2] border border-editor-border hover:text-editor-text transition-colors"
                   >
                     <Scissors size={10} /> Edit Crop
                   </button>
@@ -248,7 +248,7 @@ export default function ImagePanel() {
                       'flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors',
                       el.glass
                         ? 'bg-editor-accent text-white'
-                        : 'bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border border-editor-border'
+                        : 'bg-editor-elevated-highlight text-[#f2f2f2] hover:text-editor-text border border-editor-border'
                     )}
                   >
                     {el.glass ? 'On' : 'Off'}
@@ -258,7 +258,7 @@ export default function ImagePanel() {
                 <div className="mt-2">
                   <button
                     onClick={resetFilters}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-editor-elevated text-[#f2f2f2] hover:text-editor-text border border-editor-border transition-colors"
+                    className="flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-editor-elevated-highlight text-[#f2f2f2] hover:text-editor-text border border-editor-border transition-colors"
                   >
                     <RotateCcw size={10} />
                     Reset Adjustments
@@ -313,7 +313,7 @@ function AnimSection({
         <span className={cn('text-[10px] font-semibold uppercase tracking-wider', color)}>{label}</span>
         <button
           onClick={onAdd}
-          className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-editor-elevated text-[#f2f2f2] border border-editor-border rounded hover:text-editor-text transition-colors"
+          className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-editor-elevated-highlight text-[#f2f2f2] border border-editor-border rounded hover:text-editor-text transition-colors"
         >
           <Plus size={8} /> Add
         </button>
@@ -347,7 +347,7 @@ function AnimBlock({
   return (
     <div className="border-t border-editor-border px-3 py-2 flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-editor-secondary font-medium">#{index + 1}</span>
+        <span className="text-[10px] text-editor-text-secondary font-medium">#{index + 1}</span>
         <button onClick={() => removeAnimation(elId, anim.id)} className="text-[#d9d9d9] hover:text-red-400 transition-colors">
           <Trash2 size={10} />
         </button>
@@ -357,7 +357,7 @@ function AnimBlock({
         <select
           value={anim.type}
           onChange={e => upd({ type: e.target.value as AnimationType })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
         >
           {types.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
@@ -374,7 +374,7 @@ function AnimBlock({
           <select
             value={anim.params?.direction ?? 'left'}
             onChange={e => upd({ params: { ...anim.params, direction: e.target.value as SlideDir } })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
           >
             {DIRECTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
           </select>
@@ -386,7 +386,7 @@ function AnimBlock({
           <input type="number" min={4} max={200} step={2}
             value={anim.params?.distance ?? 24}
             onChange={e => upd({ params: { ...anim.params, distance: Number(e.target.value) } })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
           />
         </Row>
       )}
@@ -397,7 +397,7 @@ function AnimBlock({
         <input type="number" min={0} max={60} step={0.1}
           value={anim.startTime}
           onChange={e => upd({ startTime: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
 
@@ -405,7 +405,7 @@ function AnimBlock({
         <input type="number" min={0.1} max={30} step={0.1}
           value={anim.duration}
           onChange={e => upd({ duration: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
 
@@ -413,7 +413,7 @@ function AnimBlock({
         <input type="number" min={0} max={60} step={0.1}
           value={anim.delay}
           onChange={e => upd({ delay: Number(e.target.value) })}
-          className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
 
@@ -422,7 +422,7 @@ function AnimBlock({
           <select
             value={anim.easing}
             onChange={e => upd({ easing: e.target.value as EasingType })}
-            className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
           >
             {EASINGS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
           </select>

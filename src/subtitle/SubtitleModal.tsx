@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Captions, Wand2, Plus, Trash2, Download, Mic, Save, FileText } from 'lucide-react'
+import { X, Captions, Wand2, Plus, Trash2, Download, Mic, FileText } from 'lucide-react'
 import { useEditorStore } from '../store/editorStore'
 import { FONT_FAMILIES } from '../types/editor'
 import type { AudioElement, FontWeight, Project, SubtitleCue, SubtitleStyle, SubtitleTrack } from '../types/editor'
@@ -171,15 +171,14 @@ export default function SubtitleModal() {
   const style = normalizeSubtitleStyle(track.style)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#171717]/80 backdrop-blur-xs"
       onClick={e => { if (e.target === e.currentTarget) setSubtitleOpen(false) }}>
       <div className="bg-editor-panel border border-editor-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
         style={{ width: '92vw', height: '90vh' }}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-editor-border flex-none">
           <div className="flex items-center gap-2">
             <Captions size={16} className="text-editor-accent" />
-            <span className="text-base font-medium text-editor-text">Auto Captions</span>
-            <span className="text-[10px] uppercase tracking-wider text-editor-secondary bg-editor-elevated px-1.5 py-0.5 rounded">timeline audio</span>
+            <span className="text-base font-medium text-editor-text">Automatic Captions</span>
           </div>
           <button onClick={() => setSubtitleOpen(false)} className="text-[#c9c4dd] hover:text-white transition-colors">
             <X size={18} />
@@ -187,35 +186,35 @@ export default function SubtitleModal() {
         </div>
 
         <div className="flex flex-1 min-h-0">
-          <div className="w-80 flex-none border-r border-editor-border p-4 flex flex-col gap-3 overflow-y-auto">
+          <div className="w-85 flex-none border-r border-editor-border p-4 flex flex-col gap-3 overflow-y-auto">
             <label className="block">
-              <span className="text-[11px] uppercase tracking-wider text-editor-secondary">Caption track</span>
+              <span className="text-[11px] uppercase tracking-wider text-editor-text-secondary">Caption track</span>
               <input
                 value={track.name}
                 onChange={e => patchTrack({ name: e.target.value })}
-                className="w-full mt-1.5 bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
+                className="w-full mt-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
               />
             </label>
 
             <label className="block">
-              <span className="text-[11px] uppercase tracking-wider text-editor-secondary">Language</span>
+              <span className="text-[11px] uppercase tracking-wider text-editor-text-secondary">Language</span>
               <input
                 value={track.language}
                 onChange={e => patchTrack({ language: e.target.value.trim() || 'en' })}
                 placeholder="en"
-                className="w-full mt-1.5 bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
+                className="w-full mt-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
               />
             </label>
 
-            <label className="block">
-              <span className="text-[11px] uppercase tracking-wider text-editor-secondary">Timeline audio source</span>
+            <label className="block mt-6">
+              <span className="text-sm uppercase tracking-wider text-editor-text-secondary">Timeline audio source:</span>
               {audioClips.length === 0 ? (
-                <p className="text-xs text-[#c9c4dd] mt-2">No timeline audio found. Add an audio clip to the timeline first.</p>
+                <p className="text-sm text-red-400 mt-2">No timeline audio found. Add an audio clip to the timeline first.</p>
               ) : (
                 <select
                   value={sourceId}
                   onChange={e => setSourceId(e.target.value)}
-                  className="w-full mt-1.5 bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
+                  className="w-full mt-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
                 >
                   <option value="all">All timeline audio</option>
                   {hasVoiceover && <option value="voiceover">All voiceover clips</option>}
@@ -228,21 +227,21 @@ export default function SubtitleModal() {
             </label>
 
             {selectedClips.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-[#c9c4dd] bg-editor-elevated rounded px-2.5 py-2">
+              <div className="flex items-center gap-2 text-xs text-[#c9c4dd] bg-editor-elevated-highlight rounded px-2.5 py-2">
                 <Mic size={13} /> {selectedClips.length} clip{selectedClips.length === 1 ? '' : 's'} selected
               </div>
             )}
 
             <label className="block">
-              <span className="flex items-center gap-1 text-[11px] uppercase tracking-wider text-editor-secondary">
-                <FileText size={12} /> Script text
+              <span className="flex items-center gap-1 mt-4 text-[11px] uppercase tracking-wider text-editor-text-secondary">
+                <FileText size={12} /> caption text
               </span>
               <textarea
                 value={script}
                 onChange={e => setScript(e.target.value)}
                 rows={7}
                 placeholder="Optional: paste the audio script here. The tool will distribute it across detected speech timings."
-                className="w-full mt-1.5 bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-2 resize-none"
+                className="w-full mt-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-2 resize-none"
               />
             </label>
 
@@ -253,33 +252,20 @@ export default function SubtitleModal() {
             >
               <Wand2 size={14} /> {busy ? 'Working...' : 'Generate from audio'}
             </button>
-
-            <p className="text-[11px] text-yellow-500/90 leading-relaxed">
-              Automatic text extraction uses local Whisper when bundled. Without it, the local engine detects timing and syncs pasted script text.
-            </p>
-
-            <div className="border-t border-editor-border pt-3 grid grid-cols-2 gap-2">
-              <button onClick={addCue}
-                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated border border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
-                <Plus size={13} /> Add
-              </button>
-              <button onClick={() => commit()}
-                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated border border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
-                <Save size={13} /> Save
-              </button>
+            <div className="border-t border-editor-border mt-8  grid grid-cols-2 gap-2">
               <button onClick={exportSrt}
-                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated border border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
+                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated-highlight border border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
                 <Download size={13} /> SRT
               </button>
-              <button onClick={deleteTrack}
-                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated border border-editor-border text-red-300 hover:bg-editor-hover transition-colors">
-                <Trash2 size={13} /> Remove
+              <button onClick={addCue}
+                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated-highlight border border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
+                <Plus size={13} /> Add
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <button onClick={toggleEnabled}
-                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated border border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
+                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated-highlight border border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
                 {track.enabled ? 'Hide captions' : 'Show captions'}
               </button>
               <button onClick={deleteTrack}
@@ -294,21 +280,21 @@ export default function SubtitleModal() {
           <div className="flex-1 min-w-0 overflow-y-auto p-4">
             {track.cues.length === 0 ? (
               <div className="h-full flex items-center justify-center">
-                <p className="text-sm text-editor-secondary text-center">
+                <p className="text-sm text-editor-text-secondary text-center">
                   No captions yet.<br />Generate from timeline audio or add cues manually.
                 </p>
               </div>
             ) : (
-              <div className="flex flex-col gap-2 max-w-4xl">
+              <div className="flex flex-col gap-2 max-w-5xl">
                 {track.cues.slice().sort((a, b) => a.start - b.start).map((c, i) => (
-                  <div key={c.id} className="flex items-start gap-2 bg-editor-elevated border border-editor-border rounded-lg p-2.5">
-                    <span className="text-[11px] text-editor-secondary w-8 pt-2 text-right tabular-nums">{i + 1}</span>
+                  <div key={c.id} className="flex items-start gap-2 bg-editor-elevated-highlight border border-editor-border rounded-lg p-2.5">
+                    <span className="text-[11px] text-editor-text-secondary w-8 pt-2 text-right tabular-nums">{i + 1}</span>
                     <div className="flex flex-col gap-1.5 w-32 flex-none">
-                      <label className="text-[10px] text-editor-secondary">Start ({fmt(c.start)})</label>
+                      <label className="text-[10px] text-editor-text-secondary">Start ({fmt(c.start)})</label>
                       <input type="number" min={0} step={0.1} value={roundTime(c.start)}
                         onChange={e => updateCue(c.id, { start: Math.max(0, parseFloat(e.target.value) || 0) })}
                         className="bg-editor-base border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
-                      <label className="text-[10px] text-editor-secondary">End ({fmt(c.end)})</label>
+                      <label className="text-[10px] text-editor-text-secondary">End ({fmt(c.end)})</label>
                       <input type="number" min={0} step={0.1} value={roundTime(c.end)}
                         onChange={e => updateCue(c.id, { end: Math.max(0, parseFloat(e.target.value) || 0) })}
                         className="bg-editor-base border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
@@ -327,7 +313,7 @@ export default function SubtitleModal() {
 
           <div className="w-96 flex-none border-l border-editor-border p-4 overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider text-editor-secondary">Caption style</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-editor-text-secondary">Caption style</span>
               <button
                 onClick={() => commit({ ...track, style })}
                 className="text-[11px] px-2 py-1 rounded bg-editor-accent text-white hover:bg-editor-accent-hover transition-colors"
@@ -351,7 +337,7 @@ export default function SubtitleModal() {
               <select
                 value={style.animation ?? 'wordPop'}
                 onChange={e => patchStyle({ animation: e.target.value as SubtitleStyle['animation'] })}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
               >
                 {CAPTION_ANIMATIONS.map(animation => (
                   <option key={animation.value} value={animation.value}>{animation.label}</option>
@@ -364,22 +350,22 @@ export default function SubtitleModal() {
             </StyleRow>
             <div className="border-t border-editor-border my-3" />
 
-            <SectionLabel>Caption look</SectionLabel>
-            <StyleRow label="Shape">
+            <SectionLabel>Caption warp</SectionLabel>
+            <StyleRow label="Style">
               <select
                 value={style.captionLook ?? 'normal'}
                 onChange={e => patchStyle({ captionLook: e.target.value as SubtitleStyle['captionLook'] })}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
               >
                 <option value="normal">Normal</option>
-                <option value="curveOut">Curve Out</option>
-                <option value="curveIn">Curve In</option>
+                <option value="bulge">Bulge Warp</option>
+                <option value="inflate">Inflate Warp</option>
               </select>
             </StyleRow>
             {(style.captionLook ?? 'normal') !== 'normal' && (
-              <StyleRow label="Curve intensity">
-                <Slider value={style.curveIntensity ?? 50} min={0} max={100} step={1}
-                  onChange={curveIntensity => patchStyle({ curveIntensity })} display={`${style.curveIntensity ?? 50}%`} />
+              <StyleRow label="Warp intensity">
+                <Slider value={style.warpIntensity ?? 50} min={0} max={100} step={1}
+                  onChange={warpIntensity => patchStyle({ warpIntensity })} display={`${style.warpIntensity ?? 50}%`} />
               </StyleRow>
             )}
 
@@ -390,7 +376,7 @@ export default function SubtitleModal() {
               <select
                 value={style.fontFamily}
                 onChange={e => patchStyle({ fontFamily: e.target.value })}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
               >
                 {FONT_FAMILIES.map(font => <option key={font} value={font}>{font}</option>)}
               </select>
@@ -405,7 +391,7 @@ export default function SubtitleModal() {
               <select
                 value={normalizeFontWeightForControl(style.fontWeight)}
                 onChange={e => patchStyle({ fontWeight: e.target.value as FontWeight })}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
               >
                 {FONT_WEIGHT_OPTIONS.map(weight => (
                   <option key={weight.value} value={weight.value}>{weight.label}</option>
@@ -416,7 +402,7 @@ export default function SubtitleModal() {
             <StyleRow label="Style">
               <button
                 onClick={() => patchStyle({ italic: !style.italic })}
-                className={`px-2 py-1 rounded text-xs border transition-colors ${style.italic ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated text-editor-text border-editor-border hover:bg-editor-hover'}`}
+                className={`px-2 py-1 rounded text-xs border transition-colors ${style.italic ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated-highlight text-editor-text border-editor-border hover:bg-editor-hover'}`}
               >
                 Italic
               </button>
@@ -426,7 +412,7 @@ export default function SubtitleModal() {
               <select
                 value={style.fillMode ?? 'solid'}
                 onChange={e => patchStyle({ fillMode: e.target.value as SubtitleStyle['fillMode'] })}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
               >
                 <option value="solid">Solid</option>
                 <option value="linearGradient">Gradient</option>
@@ -456,7 +442,7 @@ export default function SubtitleModal() {
                 <StyleRow label="Third color">
                   <button
                     onClick={() => patchStyle({ gradientUseColor3: !style.gradientUseColor3 })}
-                    className={`px-2 py-1 rounded text-xs border transition-colors ${style.gradientUseColor3 ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated text-editor-text border-editor-border hover:bg-editor-hover'}`}
+                    className={`px-2 py-1 rounded text-xs border transition-colors ${style.gradientUseColor3 ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated-highlight text-editor-text border-editor-border hover:bg-editor-hover'}`}
                   >
                     {style.gradientUseColor3 ? 'On' : 'Off'}
                   </button>
@@ -522,7 +508,7 @@ function normalizeTrack(track: SubtitleTrack): SubtitleTrack {
 function StyleRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block mb-2.5">
-      <span className="block text-[10px] uppercase tracking-wider text-editor-secondary mb-1">{label}</span>
+      <span className="block text-[10px] uppercase tracking-wider text-editor-text-secondary mb-1">{label}</span>
       {children}
     </label>
   )

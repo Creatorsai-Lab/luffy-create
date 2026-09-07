@@ -19,7 +19,7 @@ function LI({ children }: { children: React.ReactNode }) {
   return <li className="text-base text-[#c9c4dd] leading-relaxed mb-1.5">{children}</li>
 }
 function Kbd({ children }: { children: React.ReactNode }) {
-  return <kbd className="px-1.5 py-0.5 text-[11px] rounded bg-editor-elevated border border-editor-border text-editor-text font-mono">{children}</kbd>
+  return <kbd className="px-1.5 py-0.5 text-[11px] rounded bg-editor-elevated-highlight border border-editor-border text-editor-text font-mono">{children}</kbd>
 }
 function DocLink({ path, children }: { path: string; children: React.ReactNode }) {
   return (
@@ -34,7 +34,7 @@ function DocLink({ path, children }: { path: string; children: React.ReactNode }
 function Table({ rows, head }: { head: [string, string]; rows: [string, string][] }) {
   return (
     <table className="w-full text-base mb-4 border border-editor-border rounded overflow-hidden">
-      <thead><tr className="bg-editor-elevated">
+      <thead><tr className="bg-editor-elevated-highlight">
         <th className="text-left px-3 py-1.5 text-editor-text font-medium">{head[0]}</th>
         <th className="text-left px-3 py-1.5 text-editor-text font-medium">{head[1]}</th>
       </tr></thead>

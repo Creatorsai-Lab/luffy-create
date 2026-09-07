@@ -6,14 +6,11 @@ module.exports = {
       colors: {
         editor: {
           bg:           '#0f0f0f',
-          surface:      '#141414',
           panel:        '#1a1a1a',
-          elevated:     '#1e1e1e',
-          hover:        '#242424',
-          border:       '#2a2a2a',
+          'elevated-highlight':'#1e1e1e',
+          border:       '#3a3a3a',
           'border-strong': '#404040',
-          muted:        '#737373',
-          secondary:    '#a3a3a3',
+          'text-secondary': '#737373',
           text:         '#e5e5e5',
           accent:       '#6a32c9',
           'accent-hover': '#6028c0',

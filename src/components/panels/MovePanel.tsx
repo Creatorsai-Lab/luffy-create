@@ -124,8 +124,8 @@ export default function MovePanel() {
 
         {el && (
           <div className="flex flex-col gap-2">
-            <div className="rounded border border-editor-border bg-editor-elevated px-2 py-2">
-              <div className="text-[10px] uppercase text-editor-secondary">Selected item</div>
+            <div className="rounded border border-editor-border bg-editor-elevated-highlight px-2 py-2">
+              <div className="text-[10px] uppercase text-editor-text-secondary">Selected item</div>
               <div className="text-xs text-editor-text truncate">{el.name}</div>
             </div>
 
@@ -138,7 +138,7 @@ export default function MovePanel() {
               </button>
             )}
 
-            <div className="rounded border border-editor-border bg-editor-elevated px-2 py-2 text-[10px] text-[#d9d9d9]">
+            <div className="rounded border border-editor-border bg-editor-elevated-highlight px-2 py-2 text-[10px] text-[#d9d9d9]">
               <div>Current center: {selectedCenter.x}px, {selectedCenter.y}px</div>
               <div>Move coordinates use the item center.</div>
             </div>
@@ -147,7 +147,7 @@ export default function MovePanel() {
               <select
                 value={moveMode}
                 onChange={e => applyMove({ moveMode: e.target.value as 'direction' | 'coordinates' })}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
               >
                 <option value="direction">Direction</option>
                 <option value="coordinates">Start / End coordinates</option>
@@ -156,7 +156,7 @@ export default function MovePanel() {
 
             {moveMode === 'coordinates' && (
               <div className="rounded border border-editor-border bg-editor-panel/70 px-2 py-2">
-                <div className="mb-2 text-[10px] uppercase text-editor-secondary">Center coordinates</div>
+                <div className="mb-2 text-[10px] uppercase text-editor-text-secondary">Center coordinates</div>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="text-[10px] text-[#d9d9d9]">
                     Start X
@@ -177,7 +177,7 @@ export default function MovePanel() {
                 </div>
                 <button
                   onClick={() => applyMove({ startCenterX: selectedCenter.x, startCenterY: selectedCenter.y })}
-                  className="mt-2 w-full text-[10px] py-1.5 bg-editor-elevated border border-editor-border rounded text-[#d9d9d9] hover:text-editor-text transition-colors"
+                  className="mt-2 w-full text-[10px] py-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-[#d9d9d9] hover:text-editor-text transition-colors"
                 >
                   Use current center as start
                 </button>
@@ -189,7 +189,7 @@ export default function MovePanel() {
                 value={direction}
                 onChange={e => applyMove({ direction: e.target.value as MoveDirection })}
                 disabled={moveMode === 'coordinates'}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
               >
                 {MOVE_DIRECTIONS.map(item => (
                   <option key={item.value} value={item.value}>{item.label}</option>
@@ -216,7 +216,7 @@ export default function MovePanel() {
                 step={0.1}
                 value={delay}
                 onChange={e => applyMove({ delay: Math.max(0, Number(e.target.value)) })}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1.5 nodrag"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5 nodrag"
               />
             </Row>
 
@@ -231,7 +231,7 @@ export default function MovePanel() {
             </label>
 
             {moveAnim && (
-              <div className="rounded border border-editor-border bg-editor-elevated px-2 py-2 text-[10px] text-[#d9d9d9]">
+              <div className="rounded border border-editor-border bg-editor-elevated-highlight px-2 py-2 text-[10px] text-[#d9d9d9]">
                 <div>Delta: {Math.round(deltaX)}px, {Math.round(deltaY)}px</div>
                 <div>Duration: {moveAnim.duration.toFixed(2)}s</div>
               </div>
@@ -240,7 +240,7 @@ export default function MovePanel() {
             {moveAnim && (
               <button
                 onClick={() => removeAnimation(el.id, moveAnim.id)}
-                className="flex items-center justify-center gap-1.5 text-xs py-1.5 bg-editor-elevated border border-editor-border rounded text-[#d9d9d9] hover:text-red-400 transition-colors"
+                className="flex items-center justify-center gap-1.5 text-xs py-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-[#d9d9d9] hover:text-red-400 transition-colors"
               >
                 <Trash2 size={11} /> Remove Move
               </button>

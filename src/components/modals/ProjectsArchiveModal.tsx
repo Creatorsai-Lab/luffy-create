@@ -100,7 +100,7 @@ export default function ProjectsArchiveModal({ onClose }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="text-editor-secondary hover:text-editor-text transition-colors p-1"
+            className="text-editor-text-secondary hover:text-editor-text transition-colors p-1"
           >
             <X size={18} />
           </button>
@@ -119,7 +119,7 @@ export default function ProjectsArchiveModal({ onClose }: Props) {
 
         <div className="flex-1 overflow-y-auto px-3 py-2">
           {projects.length === 0 && (
-            <p className="text-sm text-editor-secondary text-center py-12">No saved projects yet.</p>
+            <p className="text-sm text-editor-text-secondary text-center py-12">No saved projects yet.</p>
           )}
           <div className="flex flex-col gap-1">
             {projects.map(p => {
@@ -133,13 +133,13 @@ export default function ProjectsArchiveModal({ onClose }: Props) {
                     'group flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors',
                     isActive
                       ? 'bg-editor-accent-dim border border-editor-accent/40'
-                      : 'hover:bg-editor-elevated border border-transparent',
+                      : 'hover:bg-editor-elevated-highlight border border-transparent',
                     isLoading && 'opacity-60 pointer-events-none',
                   )}
                 >
                   <div className={cn(
                     'flex-none w-8 h-8 rounded-lg flex items-center justify-center',
-                    isActive ? 'bg-editor-accent text-white' : 'bg-editor-elevated text-editor-secondary',
+                    isActive ? 'bg-editor-accent text-white' : 'bg-editor-elevated-highlight text-editor-text-secondary',
                   )}>
                     {isActive ? <Check size={14} /> : <BriefcaseBusiness size={14} />}
                   </div>
@@ -152,7 +152,7 @@ export default function ProjectsArchiveModal({ onClose }: Props) {
                       {p.name}
                       {isActive && isDirty && <span className="text-editor-accent ml-1">•</span>}
                     </p>
-                    <p className="text-[11px] text-editor-secondary flex items-center gap-1 mt-0.5">
+                    <p className="text-[11px] text-editor-text-secondary flex items-center gap-1 mt-0.5">
                       <Clock size={10} className="flex-none" />
                       Last updated {fmtDate(p.updatedAt)}
                     </p>
@@ -160,7 +160,7 @@ export default function ProjectsArchiveModal({ onClose }: Props) {
 
                   <button
                     onClick={e => deleteProject(e, p.id)}
-                    className="flex-none p-2 rounded-lg text-editor-secondary opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-950/30 transition-all"
+                    className="flex-none p-2 rounded-lg text-editor-text-secondary opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-950/30 transition-all"
                     title="Delete project"
                   >
                     <Trash2 size={14} />

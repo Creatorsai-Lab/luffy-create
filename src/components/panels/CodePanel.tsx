@@ -19,7 +19,7 @@ export default function CodePanel() {
 
       {!el && (
         <p className="text-xs text-[#f2f2f2] px-3 py-3">
-          Click <strong className="text-editor-secondary">Code</strong> in the menu bar to add a code block.
+          Click <strong className="text-editor-text-secondary">Code</strong> in the menu bar to add a code block.
         </p>
       )}
 
@@ -36,7 +36,7 @@ export default function CodePanel() {
             <select
               value={el.language}
               onChange={e => upd({ language: e.target.value })}
-              className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+              className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
             >
               {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
@@ -60,7 +60,7 @@ export default function CodePanel() {
                 'text-xs px-3 py-1 rounded border transition-colors',
                 el.showLineNumbers
                   ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
-                  : 'bg-editor-elevated border-editor-border text-[#f2f2f2] hover:text-editor-text'
+                  : 'bg-editor-elevated-highlight border-editor-border text-[#f2f2f2] hover:text-editor-text'
               )}
             >
               {el.showLineNumbers ? 'Shown ✓' : 'Hidden'}

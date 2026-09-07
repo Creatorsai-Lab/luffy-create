@@ -72,7 +72,7 @@ export default function CounterPanel() {
                     }
                     upd(patch)
                   }}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                  className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
                   <option value="number">Numbers (1, 2, 3...)</option>
                   <option value="english">Letters (A, B, C...)</option>
@@ -83,40 +83,40 @@ export default function CounterPanel() {
               <Row label="Range">
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <span className="text-[10px] text-editor-secondary block mb-1">Start</span>
+                    <span className="text-[10px] text-editor-text-secondary block mb-1">Start</span>
                     {el.mode === 'number' ? (
                       <input
                         type="number"
                         value={el.start}
                         onChange={e => upd({ start: Number(e.target.value) })}
-                        className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                        className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                       />
                     ) : (
                       <input
                         type="text"
                         value={String(el.start)}
                         onChange={e => upd({ start: e.target.value })}
-                        className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                        className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                         placeholder={el.mode === 'english' ? 'A' : 'क'}
                         maxLength={1}
                       />
                     )}
                   </div>
                   <div className="flex-1">
-                    <span className="text-[10px] text-editor-secondary block mb-1">End</span>
+                    <span className="text-[10px] text-editor-text-secondary block mb-1">End</span>
                     {el.mode === 'number' ? (
                       <input
                         type="number"
                         value={el.end}
                         onChange={e => upd({ end: Number(e.target.value) })}
-                        className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                        className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                       />
                     ) : (
                       <input
                         type="text"
                         value={String(el.end)}
                         onChange={e => upd({ end: e.target.value })}
-                        className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                        className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                         placeholder={el.mode === 'english' ? 'Z' : 'ज्ञ'}
                         maxLength={1}
                       />
@@ -143,7 +143,7 @@ export default function CounterPanel() {
                 <select
                   value={el.fontFamily}
                   onChange={e => upd({ fontFamily: e.target.value })}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                  className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
                   {FONT_FAMILIES.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
@@ -157,7 +157,7 @@ export default function CounterPanel() {
                 <select
                   value={normalizeFontWeightForControl(el.fontWeight)}
                   onChange={e => upd({ fontWeight: e.target.value as FontWeight })}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                  className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
                 >
                   {FONT_WEIGHT_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
                 </select>
@@ -218,7 +218,7 @@ export default function CounterPanel() {
                     'px-2 py-0.5 rounded text-[11px] transition-colors',
                     el.bgEnabled
                       ? 'bg-editor-accent text-white'
-                      : 'bg-editor-elevated text-[#f2f2f2] border border-editor-border hover:text-editor-text'
+                      : 'bg-editor-elevated-highlight text-[#f2f2f2] border border-editor-border hover:text-editor-text'
                   )}
                 >
                   {el.bgEnabled ? 'On' : 'Off'}
@@ -306,7 +306,7 @@ function ToggleBtn({ active, onClick, children }: {
       onClick={onClick}
       className={cn(
         'flex items-center justify-center w-7 h-7 rounded transition-colors',
-        active ? 'bg-editor-accent text-white' : 'bg-editor-elevated text-[#c1c1c1] hover:text-editor-text'
+        active ? 'bg-editor-accent text-white' : 'bg-editor-elevated-highlight text-[#c1c1c1] hover:text-editor-text'
       )}
     >
       {children}

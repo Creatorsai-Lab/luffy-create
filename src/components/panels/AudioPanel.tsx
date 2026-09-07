@@ -108,7 +108,7 @@ export default function AudioPanel() {
                   e.dataTransfer.setData(AUDIO_ASSET_DRAG_TYPE, asset.id)
                   e.dataTransfer.setData('text/plain', asset.name || asset.filename)
                 }}
-                className="flex items-center justify-between gap-2 bg-editor-elevated rounded p-2 border border-editor-border hover:border-editor-accent transition-colors"
+                className="flex items-center justify-between gap-2 bg-editor-elevated-highlight rounded p-2 border border-editor-border hover:border-editor-accent transition-colors"
                 title="Drag to the timeline audio area to place this audio under a scene"
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -155,11 +155,11 @@ export default function AudioPanel() {
       </div>
 
       {/* Upload button */}
-      <div className="border-t border-editor-border p-3 bg-editor-elevated/50">
+      <div className="border-t border-editor-border p-3 bg-editor-elevated-highlight/50">
         <button
           onClick={handleUpload}
           disabled={uploading}
-          className="w-full flex items-center justify-center gap-2 bg-editor-accent hover:bg-editor-accent-hover disabled:bg-editor-muted text-white rounded px-3 py-2 text-xs font-medium transition-colors"
+          className="w-full flex items-center justify-center gap-2 bg-editor-accent hover:bg-editor-accent-hover disabled:bg-editor-text-secondary text-white rounded px-3 py-2 text-xs font-medium transition-colors"
         >
           <Plus size={14} />
           {uploading ? 'Uploading...' : 'Add Audio'}
@@ -171,7 +171,7 @@ export default function AudioPanel() {
 
 function PanelHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-editor-border bg-editor-elevated/30">
+    <div className="flex items-center gap-2 px-3 py-2 border-b border-editor-border bg-editor-elevated-highlight/30">
       {icon}
       <span className="text-xs font-semibold text-white">{title}</span>
     </div>

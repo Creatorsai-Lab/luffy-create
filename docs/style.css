@@ -4,7 +4,7 @@
 --accent:    #7430f0;
 --accent-secondary:  #8b6cff;
 --text:      #37354a;
---muted:     #6c6a7e;
+--text-secondary:     #737373;
 --border:    rgb(188, 177, 226);
 --surface:   #ffffff;
 --deep:      #1c1a30;
@@ -44,7 +44,7 @@ nav {
 .nav-inner { display: flex; align-items: center; justify-content: space-between; min-height: 64px; gap: 18px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; }
 .brand img { width: 34px; height: 34px; border-radius: 8px; }
-.nav-links { display: flex; align-items: center; gap: 20px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.nav-links { display: flex; align-items: center; gap: 20px; color: var(--text-secondary); font-size: 14px; font-weight: 600; }
 .nav-links a:hover { color: var(--text); }
 @media (max-width: 680px) { .nav-links { gap: 12px; font-size: 13px; } }
 

@@ -52,7 +52,7 @@ export default function TextEffectsPanel() {
                       'flex flex-col items-start gap-1 p-3 rounded-lg border-2 transition-all text-left',
                       isActive
                         ? 'bg-editor-accent-dim border-editor-accent'
-                        : 'bg-editor-elevated border-editor-border hover:border-editor-border-strong'
+                        : 'bg-editor-elevated-highlight border-editor-border hover:border-editor-border-strong'
                     )}
                   >
                     <div className="flex items-center justify-between w-full">

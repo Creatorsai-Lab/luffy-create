@@ -213,7 +213,7 @@ export default function PythonSandboxModal() {
           <div className="flex items-center gap-2">
             <div>
               <h2 className="text-sm font-semibold text-editor-text">Python Sandbox</h2>
-              <p className="text-[11px] text-editor-secondary">
+              <p className="text-[11px] text-editor-text-secondary">
                 {checking
                   ? 'Checking Python...'
                   : status?.available
@@ -224,7 +224,7 @@ export default function PythonSandboxModal() {
           </div>
           <button
             onClick={() => setPythonSandboxOpen(false)}
-            className="rounded p-1.5 text-editor-secondary transition-colors hover:bg-editor-hover hover:text-editor-text"
+            className="rounded p-1.5 text-editor-text-secondary transition-colors hover:bg-editor-hover hover:text-editor-text"
           >
             <X size={17} />
           </button>
@@ -236,7 +236,7 @@ export default function PythonSandboxModal() {
               <select
                 value={kind}
                 onChange={e => setKind(e.target.value as PythonSandboxKind)}
-                className="rounded border border-editor-border bg-editor-elevated px-2 py-1.5 text-xs text-editor-text"
+                className="rounded border border-editor-border bg-editor-elevated-highlight px-2 py-1.5 text-xs text-editor-text"
               >
                 <option value="script">Python Script</option>
                 <option value="manim">Manim Scene</option>
@@ -247,7 +247,7 @@ export default function PythonSandboxModal() {
                   value={sceneName}
                   onChange={e => setSceneName(e.target.value)}
                   placeholder="Scene class"
-                  className="w-40 rounded border border-editor-border bg-editor-elevated px-2 py-1.5 text-xs text-editor-text"
+                  className="w-40 rounded border border-editor-border bg-editor-elevated-highlight px-2 py-1.5 text-xs text-editor-text"
                 />
               )}
 
@@ -256,7 +256,7 @@ export default function PythonSandboxModal() {
                   <button
                     onClick={setupSandbox}
                     disabled={settingUp || checking || !canRepairSandbox}
-                    className="flex items-center gap-1.5 rounded border border-editor-border bg-editor-elevated px-3 py-1.5 text-xs text-editor-text transition-colors hover:border-editor-accent hover:text-editor-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded border border-editor-border bg-editor-elevated-highlight px-3 py-1.5 text-xs text-editor-text transition-colors hover:border-editor-accent hover:text-editor-accent disabled:cursor-not-allowed disabled:opacity-50"
                     title={status?.sandboxPath ? `Repair local sandbox packages in ${status.sandboxPath}` : 'Repair local sandbox packages'}
                   >
                     <Download size={13} /> {settingUp ? 'Repairing...' : 'Repair Sandbox'}
@@ -282,8 +282,8 @@ export default function PythonSandboxModal() {
             </div>
 
             <div className="border-b border-editor-border bg-[#101010] px-3 py-2">
-              <div className="mb-1 text-[10px] uppercase tracking-wide text-editor-secondary">Preloaded libraries</div>
-              <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded border border-editor-border bg-black/35 p-2 text-[11px] leading-relaxed text-editor-secondary">
+              <div className="mb-1 text-[10px] uppercase tracking-wide text-editor-text-secondary">Preloaded libraries</div>
+              <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded border border-editor-border bg-black/35 p-2 text-[11px] leading-relaxed text-editor-text-secondary">
                 {prelude}
               </pre>
               {codeWarning && (
@@ -301,7 +301,7 @@ export default function PythonSandboxModal() {
             </div>
 
             <div className="min-h-0 flex-1">
-              <Suspense fallback={<div className="p-4 text-xs text-editor-secondary">Loading editor...</div>}>
+              <Suspense fallback={<div className="p-4 text-xs text-editor-text-secondary">Loading editor...</div>}>
                 <MonacoEditor
                   height="100%"
                   language="python"
@@ -328,7 +328,7 @@ export default function PythonSandboxModal() {
                 {result?.outputDir && (
                   <button
                     onClick={() => window.api.shell.openPath(result.outputDir)}
-                    className="rounded p-1 text-editor-secondary hover:bg-editor-hover hover:text-editor-text"
+                    className="rounded p-1 text-editor-text-secondary hover:bg-editor-hover hover:text-editor-text"
                     title="Open output folder"
                   >
                     <FolderOpen size={14} />
@@ -359,10 +359,10 @@ export default function PythonSandboxModal() {
                   >
                     {output.type === 'video' ? <Film size={13} /> : <FileImage size={13} />}
                     <span className="min-w-0 flex-1 truncate">{output.name}</span>
-                    <span className="text-[10px] uppercase text-editor-secondary">{output.ext}</span>
+                    <span className="text-[10px] uppercase text-editor-text-secondary">{output.ext}</span>
                   </button>
                 )) : (
-                  <div className="px-2 py-5 text-center text-xs text-editor-secondary">
+                  <div className="px-2 py-5 text-center text-xs text-editor-text-secondary">
                     {running ? 'Rendering...' : 'No generated files'}
                   </div>
                 )}
@@ -377,10 +377,10 @@ export default function PythonSandboxModal() {
                   ) : PYTHON_SANDBOX_IMAGE_EXTS.has(selectedOutput.ext) ? (
                     <img src={toFileUrl(selectedOutput.path)} alt={selectedOutput.name} className="h-full w-full object-contain" />
                   ) : (
-                    <span className="text-xs text-editor-secondary">Preview unavailable</span>
+                    <span className="text-xs text-editor-text-secondary">Preview unavailable</span>
                   )
                 ) : (
-                  <span className="text-xs text-editor-secondary">Preview</span>
+                  <span className="text-xs text-editor-text-secondary">Preview</span>
                 )}
               </div>
 
@@ -388,7 +388,7 @@ export default function PythonSandboxModal() {
                 <button
                   disabled={!selectedOutput || running}
                   onClick={() => selectedOutput && importOutput(selectedOutput)}
-                  className="flex items-center justify-center gap-1.5 rounded border border-editor-border bg-editor-elevated px-3 py-2 text-xs text-editor-text transition-colors hover:border-editor-accent hover:text-editor-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center justify-center gap-1.5 rounded border border-editor-border bg-editor-elevated-highlight px-3 py-2 text-xs text-editor-text transition-colors hover:border-editor-accent hover:text-editor-accent disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Check size={13} /> Save to Assets
                 </button>
@@ -404,7 +404,7 @@ export default function PythonSandboxModal() {
               {result?.outputDir && (
                 <button
                   onClick={refreshOutputs}
-                  className="rounded border border-editor-border bg-editor-elevated px-3 py-2 text-xs text-editor-text transition-colors hover:border-editor-accent hover:text-editor-accent"
+                  className="rounded border border-editor-border bg-editor-elevated-highlight px-3 py-2 text-xs text-editor-text transition-colors hover:border-editor-accent hover:text-editor-accent"
                 >
                   Refresh outputs
                 </button>
@@ -412,11 +412,11 @@ export default function PythonSandboxModal() {
 
               <div className="min-h-32 rounded border border-editor-border bg-[#0f0f0f] p-2">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <div className="text-[10px] uppercase tracking-wide text-editor-secondary">Console</div>
+                  <div className="text-[10px] uppercase tracking-wide text-editor-text-secondary">Console</div>
                   <button
                     onClick={copyConsoleText}
                     disabled={!consoleText}
-                    className="flex items-center gap-1 rounded border border-editor-border bg-editor-elevated px-1.5 py-1 text-[10px] text-editor-secondary transition-colors hover:border-editor-accent hover:text-editor-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex items-center gap-1 rounded border border-editor-border bg-editor-elevated-highlight px-1.5 py-1 text-[10px] text-editor-text-secondary transition-colors hover:border-editor-accent hover:text-editor-accent disabled:cursor-not-allowed disabled:opacity-50"
                     title="Copy console text"
                   >
                     <Copy size={11} />
