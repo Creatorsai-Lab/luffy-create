@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { X, Captions, Wand2, Plus, Trash2, Download, Mic, Save, FileText } from 'lucide-react'
 import { useEditorStore } from '../store/editorStore'
 import { FONT_FAMILIES } from '../types/editor'
-import type { AlignType, AudioElement, FontWeight, Project, SubtitleCue, SubtitleStyle, SubtitleTrack } from '../types/editor'
+import type { AudioElement, FontWeight, Project, SubtitleCue, SubtitleStyle, SubtitleTrack } from '../types/editor'
 import { ColorInput, Slider } from '../components/panels/TextPanel'
 import { makeCue, makeSubtitleTrack, normalizeSubtitleStyle } from './types'
 import { cuesToSrt, fmt } from './srt'
 import { transcriber } from './transcriber'
 import { getSceneGlobalStart, splitScriptIntoCueTexts } from './timeline'
 import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../utils/fontWeight'
+import SubtitleStylePreview from './SubtitleStylePreview'
 
 interface TimelineAudioClip {
   id: string
@@ -19,6 +20,14 @@ interface TimelineAudioClip {
 }
 
 type CaptionSourceId = 'all' | 'voiceover' | 'background' | string
+
+const CAPTION_ANIMATIONS: { label: string; value: NonNullable<SubtitleStyle['animation']> }[] = [
+  { label: 'None', value: 'none' },
+  { label: 'Word Pop', value: 'wordPop' },
+  { label: 'Word Rise', value: 'wordRise' },
+  { label: 'Karaoke Pulse', value: 'karaokePulse' },
+  { label: 'Smooth Reveal', value: 'smoothReveal' },
+]
 
 export default function SubtitleModal() {
   const { project, setSubtitleOpen, upsertSubtitleTrack, removeSubtitleTrack } = useEditorStore()
@@ -327,6 +336,56 @@ export default function SubtitleModal() {
               </button>
             </div>
 
+            <SubtitleStylePreview style={style} />
+
+            <SectionLabel>Position &amp; animation</SectionLabel>
+            <StyleRow label="Position X">
+              <Slider value={style.positionX} min={0} max={100} step={1}
+                onChange={positionX => patchStyle({ positionX })} display={`${style.positionX}%`} />
+            </StyleRow>
+            <StyleRow label="Position Y">
+              <Slider value={style.positionY} min={0} max={100} step={1}
+                onChange={positionY => patchStyle({ positionY })} display={`${style.positionY}%`} />
+            </StyleRow>
+            <StyleRow label="Animation">
+              <select
+                value={style.animation ?? 'wordPop'}
+                onChange={e => patchStyle({ animation: e.target.value as SubtitleStyle['animation'] })}
+                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+              >
+                {CAPTION_ANIMATIONS.map(animation => (
+                  <option key={animation.value} value={animation.value}>{animation.label}</option>
+                ))}
+              </select>
+            </StyleRow>
+            <StyleRow label="Max width">
+              <Slider value={style.maxWidthPct} min={20} max={100} step={1}
+                onChange={maxWidthPct => patchStyle({ maxWidthPct })} display={`${style.maxWidthPct}%`} />
+            </StyleRow>
+            <div className="border-t border-editor-border my-3" />
+
+            <SectionLabel>Caption look</SectionLabel>
+            <StyleRow label="Shape">
+              <select
+                value={style.captionLook ?? 'normal'}
+                onChange={e => patchStyle({ captionLook: e.target.value as SubtitleStyle['captionLook'] })}
+                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+              >
+                <option value="normal">Normal</option>
+                <option value="curveOut">Curve Out</option>
+                <option value="curveIn">Curve In</option>
+              </select>
+            </StyleRow>
+            {(style.captionLook ?? 'normal') !== 'normal' && (
+              <StyleRow label="Curve intensity">
+                <Slider value={style.curveIntensity ?? 50} min={0} max={100} step={1}
+                  onChange={curveIntensity => patchStyle({ curveIntensity })} display={`${style.curveIntensity ?? 50}%`} />
+              </StyleRow>
+            )}
+
+            <div className="border-t border-editor-border my-3" />
+            <SectionLabel>Typography &amp; appearance</SectionLabel>
+
             <StyleRow label="Font family">
               <select
                 value={style.fontFamily}
@@ -338,7 +397,7 @@ export default function SubtitleModal() {
             </StyleRow>
 
             <StyleRow label="Size">
-              <Slider value={style.fontSize} min={14} max={160} step={1}
+              <Slider value={style.fontSize} min={20} max={140} step={1}
                 onChange={fontSize => patchStyle({ fontSize })} display={`${style.fontSize}px`} />
             </StyleRow>
 
@@ -416,103 +475,6 @@ export default function SubtitleModal() {
               </>
             )}
 
-            <div className="border-t border-editor-border my-3" />
-
-            <StyleRow label="Text background">
-              <button
-                onClick={() => patchStyle({ backgroundEnabled: !style.backgroundEnabled })}
-                className={`px-2 py-1 rounded text-xs border transition-colors ${style.backgroundEnabled ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated text-editor-text border-editor-border hover:bg-editor-hover'}`}
-              >
-                {style.backgroundEnabled ? 'On' : 'Off'}
-              </button>
-            </StyleRow>
-            {style.backgroundEnabled && (
-              <>
-                <StyleRow label="Background color">
-                  <ColorInput value={style.backgroundColor} onChange={backgroundColor => patchStyle({ backgroundColor })} />
-                </StyleRow>
-                <StyleRow label="Background opacity">
-                  <Slider value={Math.round(style.backgroundOpacity * 100)} min={0} max={100} step={1}
-                    onChange={value => patchStyle({ backgroundOpacity: value / 100 })} display={`${Math.round(style.backgroundOpacity * 100)}%`} />
-                </StyleRow>
-                <StyleRow label="Padding X">
-                  <Slider value={style.paddingX} min={0} max={100} step={1}
-                    onChange={paddingX => patchStyle({ paddingX })} display={`${style.paddingX}px`} />
-                </StyleRow>
-                <StyleRow label="Padding Y">
-                  <Slider value={style.paddingY} min={0} max={80} step={1}
-                    onChange={paddingY => patchStyle({ paddingY })} display={`${style.paddingY}px`} />
-                </StyleRow>
-                <StyleRow label="Corner radius">
-                  <Slider value={style.radius} min={0} max={80} step={1}
-                    onChange={radius => patchStyle({ radius })} display={`${style.radius}px`} />
-                </StyleRow>
-              </>
-            )}
-
-            <div className="border-t border-editor-border my-3" />
-
-            <StyleRow label="Position">
-              <select
-                value={style.position}
-                onChange={e => patchStyle({ position: e.target.value as SubtitleStyle['position'] })}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
-              >
-                <option value="top">Top</option>
-                <option value="middle">Middle</option>
-                <option value="bottom">Bottom</option>
-              </select>
-            </StyleRow>
-            <StyleRow label="Align">
-              <select
-                value={style.align}
-                onChange={e => patchStyle({ align: e.target.value as AlignType })}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
-              >
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </select>
-            </StyleRow>
-            <StyleRow label="Max width">
-              <Slider value={style.maxWidthPct} min={20} max={100} step={1}
-                onChange={maxWidthPct => patchStyle({ maxWidthPct })} display={`${style.maxWidthPct}%`} />
-            </StyleRow>
-            <div className="grid grid-cols-2 gap-2">
-              <StyleRow label="Top margin">
-                <input type="number" min={0} max={1000} value={style.marginTop ?? 80}
-                  onChange={e => patchStyle({ marginTop: Math.max(0, Number(e.target.value) || 0) })}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
-              </StyleRow>
-              <StyleRow label="Right margin">
-                <input type="number" min={0} max={1000} value={style.marginRight ?? 120}
-                  onChange={e => patchStyle({ marginRight: Math.max(0, Number(e.target.value) || 0) })}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
-              </StyleRow>
-              <StyleRow label="Bottom margin">
-                <input type="number" min={0} max={1000} value={style.marginBottom ?? 80}
-                  onChange={e => patchStyle({ marginBottom: Math.max(0, Number(e.target.value) || 0) })}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
-              </StyleRow>
-              <StyleRow label="Left margin">
-                <input type="number" min={0} max={1000} value={style.marginLeft ?? 120}
-                  onChange={e => patchStyle({ marginLeft: Math.max(0, Number(e.target.value) || 0) })}
-                  className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
-              </StyleRow>
-            </div>
-
-            <StyleRow label="Subtitle animation">
-              <select
-                value={style.animation ?? 'fade'}
-                onChange={e => patchStyle({ animation: e.target.value as SubtitleStyle['animation'] })}
-                className="w-full bg-editor-elevated border border-editor-border rounded text-xs text-editor-text px-2 py-1"
-              >
-                <option value="none">None</option>
-                <option value="fade">Fade</option>
-                <option value="slideUp">Slide up</option>
-                <option value="pop">Pop</option>
-              </select>
-            </StyleRow>
           </div>
         </div>
       </div>
@@ -564,4 +526,8 @@ function StyleRow({ label, children }: { label: string; children: React.ReactNod
       {children}
     </label>
   )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-editor-accent">{children}</div>
 }

@@ -6,24 +6,32 @@ const defaults = defaultSubtitleStyle()
 
 assert.equal(defaults.fontFamily, 'Inter')
 assert.equal(defaults.fillMode, 'solid')
-assert.equal(defaults.backgroundEnabled, true)
-assert.equal(defaults.marginTop, 80)
-assert.equal(defaults.marginRight, 120)
-assert.equal(defaults.marginBottom, 80)
-assert.equal(defaults.marginLeft, 120)
-assert.equal(defaults.animation, 'fade')
+assert.equal(defaults.maxWidthPct, 90)
+assert.equal(defaults.positionX, 50)
+assert.equal(defaults.positionY, 88)
+assert.equal('backgroundEnabled' in defaults, false)
+assert.equal('position' in defaults, false)
+assert.equal('align' in defaults, false)
+assert.equal(defaults.animation, 'wordPop')
+assert.equal(defaults.captionLook, 'normal')
+assert.equal(defaults.curveIntensity, 50)
 
 const normalized = normalizeSubtitleStyle({
   fontFamily: 'Poppins',
   color: '#f8fafc',
-  backgroundOpacity: 0.4,
+  positionX: 140,
+  positionY: -20,
 })
 
 assert.equal(normalized.fontFamily, 'Poppins')
 assert.equal(normalized.color, '#f8fafc')
-assert.equal(normalized.backgroundOpacity, 0.4)
 assert.equal(normalized.gradientColor2, '#8b5cf6')
-assert.equal(normalized.marginBottom, 80)
-assert.equal(normalized.animation, 'fade')
+assert.equal(normalized.positionX, 100)
+assert.equal(normalized.positionY, 0)
+assert.equal(normalized.animation, 'wordPop')
+
+assert.equal(normalizeSubtitleStyle({ animation: 'fade' }).animation, 'smoothReveal')
+assert.equal(normalizeSubtitleStyle({ animation: 'slideUp' }).animation, 'smoothReveal')
+assert.equal(normalizeSubtitleStyle({ animation: 'pop' }).animation, 'wordPop')
 
 console.log('subtitle style tests passed')

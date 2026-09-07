@@ -21,25 +21,30 @@ export function defaultSubtitleStyle(): SubtitleStyle {
     gradientOpacity2: 1,
     gradientOpacity3: 1,
     gradientUseColor3: false,
-    backgroundEnabled: true,
-    backgroundColor: '#000000',
-    backgroundOpacity: 0.72,
-    position: 'bottom',
-    align: 'center',
-    maxWidthPct: 82,
-    paddingX: 24,
-    paddingY: 14,
-    radius: 8,
-    marginTop: 80,
-    marginRight: 120,
-    marginBottom: 80,
-    marginLeft: 120,
-    animation: 'fade',
+    maxWidthPct: 90,
+    positionX: 50,
+    positionY: 88,
+    animation: 'wordPop',
+    captionLook: 'normal',
+    curveIntensity: 50,
   }
 }
 
 export function normalizeSubtitleStyle(style?: Partial<SubtitleStyle>): SubtitleStyle {
-  return { ...defaultSubtitleStyle(), ...(style ?? {}) }
+  const normalized = { ...defaultSubtitleStyle(), ...(style ?? {}) }
+  const animation = normalized.animation === 'pop'
+    ? 'wordPop'
+    : normalized.animation === 'fade' || normalized.animation === 'slideUp'
+      ? 'smoothReveal'
+      : normalized.animation
+  return {
+    ...normalized,
+    animation,
+    maxWidthPct: Math.min(100, Math.max(20, normalized.maxWidthPct)),
+    positionX: Math.min(100, Math.max(0, normalized.positionX)),
+    positionY: Math.min(100, Math.max(0, normalized.positionY)),
+    curveIntensity: Math.min(100, Math.max(0, normalized.curveIntensity ?? 50)),
+  }
 }
 
 export function makeSubtitleTrack(name = 'Timeline Captions'): SubtitleTrack {

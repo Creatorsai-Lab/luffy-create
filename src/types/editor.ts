@@ -21,6 +21,8 @@ export type MoveDirection = 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 't
 export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push' | 'morph' | 'flashBlur' | 'flickerShake'
 export type BgType        = 'solid' | 'gradient' | 'grid' | 'dots' | 'animated' | 'transparent'
 export type FontWeight    = 'thin' | 'normal' | 'semibold' | 'bold'
+export type SubtitleAnimationType = 'none' | 'wordPop' | 'wordRise' | 'karaokePulse' | 'smoothReveal' | 'fade' | 'slideUp' | 'pop'
+export type SubtitleCaptionLook = 'normal' | 'curveOut' | 'curveIn'
 export const MEDIA_EFFECT_TYPES = ['none', 'subtleHover', 'wiggle', 'doodleDrift', 'shake', 'zoomIn', 'zoomOut', 'vibrationDistort', 'godRays', 'lightSweep', 'lightFlicker', 'glitch', 'rain', 'snow'] as const
 export type MediaEffectType = typeof MEDIA_EFFECT_TYPES[number]
 export type MediaEffectAxis = 'horizontal' | 'vertical'
@@ -574,20 +576,12 @@ export interface SubtitleStyle {
   gradientOpacity2?: number
   gradientOpacity3?: number
   gradientUseColor3?: boolean
-  backgroundEnabled?: boolean
-  backgroundColor: string
-  backgroundOpacity: number
-  position: 'bottom' | 'middle' | 'top'
-  align: AlignType
   maxWidthPct: number
-  paddingX: number
-  paddingY: number
-  radius: number
-  marginTop?: number
-  marginRight?: number
-  marginBottom?: number
-  marginLeft?: number
-  animation?: 'none' | 'fade' | 'slideUp' | 'pop'
+  positionX: number
+  positionY: number
+  animation?: SubtitleAnimationType
+  captionLook?: SubtitleCaptionLook
+  curveIntensity?: number
 }
 
 export interface SubtitleTrack {
