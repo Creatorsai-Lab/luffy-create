@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type {
+  SubtitleTranslateRequest,
+  SubtitleTranslateResult,
+  SubtitleTranslationDirection,
+  SubtitleTranslationPackStatus,
+  SubtitleTranslationProgress,
+} from '../../src/types/global'
 
 const api = {
   win: {
@@ -53,7 +60,22 @@ const api = {
     listOutputs: (outputDir: string) => ipcRenderer.invoke('python:list-outputs', outputDir)
   },
   subtitle: {
-    transcribeAudio: (payload: { sourcePath: string; language?: string }) => ipcRenderer.invoke('subtitle:transcribe-audio', payload)
+    transcribeAudio: (payload: { sourcePath: string; language?: string }) => ipcRenderer.invoke('subtitle:transcribe-audio', payload),
+    translationStatus: (direction: SubtitleTranslationDirection) =>
+      ipcRenderer.invoke('subtitle:translation-status', direction) as Promise<SubtitleTranslationPackStatus>,
+    installTranslation: (direction: SubtitleTranslationDirection) =>
+      ipcRenderer.invoke('subtitle:translation-install', direction) as Promise<SubtitleTranslationPackStatus>,
+    removeTranslation: (direction: SubtitleTranslationDirection) =>
+      ipcRenderer.invoke('subtitle:translation-remove', direction) as Promise<void>,
+    translate: (request: SubtitleTranslateRequest) =>
+      ipcRenderer.invoke('subtitle:translate', request) as Promise<SubtitleTranslateResult>,
+    cancelTranslation: (jobId: string) =>
+      ipcRenderer.invoke('subtitle:translation-cancel', jobId) as Promise<boolean>,
+    onTranslationProgress: (listener: (progress: SubtitleTranslationProgress) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: SubtitleTranslationProgress) => listener(progress)
+      ipcRenderer.on('subtitle:translation-progress', handler)
+      return () => ipcRenderer.removeListener('subtitle:translation-progress', handler)
+    }
   }
 }
 

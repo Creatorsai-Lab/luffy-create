@@ -68,6 +68,44 @@ export interface SubtitleTranscriptionResult {
   cues: SubtitleTranscriptionCue[]
 }
 
+export type SubtitleTranslationLanguage = 'en' | 'hi'
+export type SubtitleTranslationDirection = 'en-hi' | 'hi-en'
+
+export interface SubtitleTranslationGlossaryEntry {
+  source: string
+  target: string
+}
+
+export interface SubtitleTranslateRequest {
+  jobId: string
+  sourceLanguage: SubtitleTranslationLanguage
+  targetLanguage: SubtitleTranslationLanguage
+  cues: Array<{ id: string; text: string }>
+  glossary: SubtitleTranslationGlossaryEntry[]
+}
+
+export interface SubtitleTranslateResult {
+  jobId: string
+  translated: Array<{ id: string; text: string; warnings: string[] }>
+  skipped: string[]
+  failed: Array<{ id: string; error: string }>
+  cancelled: boolean
+}
+
+export interface SubtitleTranslationProgress {
+  jobId?: string
+  direction?: SubtitleTranslationDirection
+  phase?: 'download' | 'install'
+  receivedBytes?: number
+  totalBytes: number
+  completed?: number
+}
+
+export type SubtitleTranslationPackStatus =
+  | { state: 'not-installed'; direction: SubtitleTranslationDirection }
+  | { state: 'downloading'; direction: SubtitleTranslationDirection }
+  | { state: 'installed'; direction: SubtitleTranslationDirection; version: string; path: string }
+
 declare global {
   interface Window {
     api: {
@@ -120,11 +158,17 @@ declare global {
         cancel: (jobId: string) => Promise<boolean>
         listOutputs: (outputDir: string) => Promise<PythonOutputFile[]>
       }
-      subtitle?: {
+      subtitle: {
         transcribeAudio: (payload: {
           sourcePath: string
           language?: string
         }) => Promise<SubtitleTranscriptionResult>
+        translationStatus: (direction: SubtitleTranslationDirection) => Promise<SubtitleTranslationPackStatus>
+        installTranslation: (direction: SubtitleTranslationDirection) => Promise<SubtitleTranslationPackStatus>
+        removeTranslation: (direction: SubtitleTranslationDirection) => Promise<void>
+        translate: (request: SubtitleTranslateRequest) => Promise<SubtitleTranslateResult>
+        cancelTranslation: (jobId: string) => Promise<boolean>
+        onTranslationProgress: (listener: (progress: SubtitleTranslationProgress) => void) => () => void
       }
       ai?: {
         plan: (payload: {
