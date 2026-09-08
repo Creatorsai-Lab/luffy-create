@@ -1,4 +1,14 @@
 import type { SubtitleCue } from './types'
+import type { SubtitleLanguage } from '../types/editor'
+import { getCueText } from './translation'
+
+export type SubtitleSrtMode = 'source' | 'translated' | 'bilingual'
+
+export interface SubtitleSrtOptions {
+  sourceLanguage: SubtitleLanguage
+  targetLanguage: SubtitleLanguage
+  mode: SubtitleSrtMode
+}
 
 // Format seconds → SRT timestamp "HH:MM:SS,mmm"
 function srtTime(s: number): string {
@@ -11,12 +21,23 @@ function srtTime(s: number): string {
 }
 
 /** Serialize cues to an .srt string. */
-export function cuesToSrt(cues: SubtitleCue[]): string {
+export function cuesToSrt(cues: SubtitleCue[], options?: SubtitleSrtOptions): string {
   return cues
     .slice()
     .sort((a, b) => a.start - b.start)
-    .map((c, i) => `${i + 1}\n${srtTime(c.start)} --> ${srtTime(c.end)}\n${c.text.trim()}\n`)
+    .map(cue => ({ cue, text: resolveCueText(cue, options) }))
+    .filter(item => item.text.length > 0)
+    .map(({ cue, text }, index) => `${index + 1}\n${srtTime(cue.start)} --> ${srtTime(cue.end)}\n${text}\n`)
     .join('\n')
+}
+
+function resolveCueText(cue: SubtitleCue, options?: SubtitleSrtOptions) {
+  if (!options || options.mode === 'source') return cue.text.trim()
+  const source = cue.text.trim()
+  const translated = getCueText(cue, options.sourceLanguage, options.targetLanguage).trim()
+  if (options.mode === 'translated') return translated || source
+  const rows = (['en', 'hi'] as const).map(language => getCueText(cue, options.sourceLanguage, language).trim()).filter(Boolean)
+  return rows.join('\n') || source
 }
 
 /** Format seconds → "M:SS.s" for the UI. */

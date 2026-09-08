@@ -6,7 +6,7 @@ import type { AudioElement, FontWeight, Project, SubtitleCue, SubtitleLanguage, 
 import { ColorInput, Slider } from '../components/panels/TextPanel'
 import { makeCue, makeSubtitleTrack, normalizeSubtitleStyle, normalizeSubtitleTrack } from './types'
 import { mergeCueTranslation, setCueReviewed, updateCueSource } from './translation'
-import { cuesToSrt, fmt } from './srt'
+import { cuesToSrt, fmt, type SubtitleSrtMode } from './srt'
 import { transcriber } from './transcriber'
 import { getSceneGlobalStart, splitScriptIntoCueTexts } from './timeline'
 import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../utils/fontWeight'
@@ -41,6 +41,7 @@ export default function SubtitleModal() {
   const [script, setScript] = useState('')
   const [status, setStatus] = useState<string>('')
   const [busy, setBusy] = useState(false)
+  const [srtMode, setSrtMode] = useState<SubtitleSrtMode>('bilingual')
   const translationRef = useRef<SubtitleTranslationPanelHandle>(null)
 
   useEffect(() => {
@@ -168,11 +169,15 @@ export default function SubtitleModal() {
 
   function exportSrt() {
     if (track.cues.length === 0) { setStatus('No captions to export.'); return }
-    const blob = new Blob([cuesToSrt(track.cues)], { type: 'text/plain' })
+    const targetLanguage = track.translation?.targetLanguage ?? (track.language === 'en' ? 'hi' : 'en')
+    const hasTranslation = track.cues.some(cue => cue.translations?.[targetLanguage]?.text.trim())
+    if (srtMode === 'translated' && !hasTranslation) { setStatus('No translated captions to export.'); return }
+    const blob = new Blob([cuesToSrt(track.cues, { sourceLanguage: track.language, targetLanguage, mode: srtMode })], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${project?.name ?? 'captions'}.srt`
+    const suffix = srtMode === 'bilingual' ? 'bilingual' : srtMode === 'source' ? track.language : targetLanguage
+    a.download = `${project?.name ?? 'captions'}-${suffix}.srt`
     a.click()
     URL.revokeObjectURL(url)
     setStatus('Exported .srt file.')
@@ -193,6 +198,8 @@ export default function SubtitleModal() {
   }
 
   const style = normalizeSubtitleStyle(track.style)
+  const exportTarget = track.translation?.targetLanguage ?? (track.language === 'en' ? 'hi' : 'en')
+  const canExportTranslation = track.cues.some(cue => cue.translations?.[exportTarget]?.text.trim())
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#171717]/80 backdrop-blur-xs"
@@ -267,13 +274,21 @@ export default function SubtitleModal() {
               <Wand2 size={14} /> {busy ? 'Working...' : 'Generate from audio'}
             </button>
             <SubtitleTranslationPanel ref={translationRef} track={track} onChange={setTrack} status={status} setStatus={setStatus} />
-            <div className="border-t border-editor-border mt-8  grid grid-cols-2 gap-2">
-              <button onClick={exportSrt}
-                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated-highlight border border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
-                <Download size={13} /> SRT
-              </button>
+            <div className="border-t border-editor-border mt-8 grid grid-cols-[1fr_auto] gap-2 pt-3">
+              <div className="flex min-w-0">
+                <select value={srtMode} onChange={event => setSrtMode(event.target.value as SubtitleSrtMode)}
+                  className="min-w-0 flex-1 bg-editor-elevated-highlight border border-editor-border rounded-l text-[11px] text-editor-text px-1">
+                  <option value="source">Source SRT</option>
+                  <option value="translated" disabled={!canExportTranslation}>Translated SRT</option>
+                  <option value="bilingual">Bilingual SRT</option>
+                </select>
+                <button onClick={exportSrt} title="Export SRT"
+                  className="flex items-center justify-center px-2 rounded-r bg-editor-elevated-highlight border border-l-0 border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
+                  <Download size={13} />
+                </button>
+              </div>
               <button onClick={addCue}
-                className="flex items-center justify-center gap-2 text-xs py-2 rounded bg-editor-elevated-highlight border border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
+                className="flex items-center justify-center gap-1 text-xs px-2 py-2 rounded bg-editor-elevated-highlight border border-editor-border text-editor-text hover:bg-editor-hover transition-colors">
                 <Plus size={13} /> Add
               </button>
             </div>
