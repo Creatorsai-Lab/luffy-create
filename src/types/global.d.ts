@@ -92,14 +92,9 @@ export interface SubtitleTranslateResult {
   cancelled: boolean
 }
 
-export interface SubtitleTranslationProgress {
-  jobId?: string
-  direction?: SubtitleTranslationDirection
-  phase?: 'download' | 'install'
-  receivedBytes?: number
-  totalBytes: number
-  completed?: number
-}
+export type SubtitleTranslationProgress =
+  | { jobId: string; completed: number; total: number }
+  | { direction: SubtitleTranslationDirection; phase: 'download' | 'install'; receivedBytes: number; totalBytes: number }
 
 export type SubtitleTranslationPackStatus =
   | { state: 'not-installed'; direction: SubtitleTranslationDirection }

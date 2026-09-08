@@ -4,7 +4,9 @@ import { makeSubtitleTrack, normalizeSubtitleTrack } from '../src/subtitle/types
 import {
   getCueText,
   isCueTranslationCurrent,
+  mergeTranslationResults,
   mergeCueTranslation,
+  selectTranslationCandidates,
   setCueReviewed,
   sourceTextHash,
   updateCueSource,
@@ -54,5 +56,32 @@ assert.ok(edited.translations?.hi?.warnings?.includes('Source caption changed'))
 const manuallyEdited = mergeCueTranslation(reviewed, 'hi', 'ऊर्जा बराबर mc^2', ['Manual edit'])
 assert.equal(manuallyEdited.translations?.hi?.reviewed, false)
 assert.equal(reviewed.translations?.hi?.text, 'ऊर्जा = mc^2')
+
+const candidateTrack = {
+  ...makeSubtitleTrack(),
+  cues: [
+    { id: 'blank', start: 0, end: 1, text: '  ' },
+    reviewed,
+    { ...updateCueSource(reviewed, 'Changed source'), id: 'stale' },
+    { id: 'new', start: 3, end: 4, text: 'New caption' },
+  ],
+}
+assert.deepEqual(selectTranslationCandidates(candidateTrack, false).map(item => item.id), ['stale', 'new'])
+assert.deepEqual(selectTranslationCandidates(candidateTrack, true).map(item => item.id), ['c1', 'stale', 'new'])
+
+const submitted = selectTranslationCandidates(candidateTrack, false)
+const editedWhileRunning = {
+  ...candidateTrack,
+  cues: candidateTrack.cues.map(item => item.id === 'new' ? updateCueSource(item, 'Edited while running') : item),
+}
+const merged = mergeTranslationResults(editedWhileRunning, 'hi', submitted, [
+  { id: 'stale', text: 'बदला हुआ स्रोत', warnings: ['Check term'] },
+  { id: 'new', text: 'नया कैप्शन', warnings: [] },
+  { id: 'missing', text: 'अनदेखा', warnings: [] },
+])
+assert.equal(merged.cues[2].translations?.hi?.text, 'बदला हुआ स्रोत')
+assert.equal(merged.cues[2].translations?.hi?.reviewed, false)
+assert.deepEqual(merged.cues[2].translations?.hi?.warnings, ['Check term'])
+assert.equal(merged.cues[3].translations?.hi, undefined)
 
 console.log('subtitle translation type tests passed')
