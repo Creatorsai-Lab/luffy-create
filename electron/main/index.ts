@@ -25,6 +25,12 @@ import { existsSync, readFileSync, writeFileSync } from 'fs'
 import type { Dirent } from 'fs'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { inferUploadAssetKind, makeAssetUploadName, randomAssetHash } from './assetNaming'
+import {
+  createTranslationPackManager,
+  type TranslationDirection,
+  type TranslationPackCatalog,
+} from './subtitleTranslationPack'
+import { createSubtitleTranslationService, type SubtitleTranslateRequest } from './subtitleTranslationService'
 
 const USER_DATA   = app.getPath('userData')
 const PROJECTS_DIR = join(USER_DATA, 'projects')
@@ -399,6 +405,47 @@ async function resolvePython() {
   if (sandbox) return sandbox
   return resolveBasePython()
 }
+
+const TRANSLATION_RESOURCE_DIR = is.dev
+  ? join(process.cwd(), 'resources', 'translation')
+  : join(process.resourcesPath, 'translation')
+const translationCatalog = JSON.parse(
+  readFileSync(join(TRANSLATION_RESOURCE_DIR, 'model-catalog.json'), 'utf8')
+) as TranslationPackCatalog
+const translationPacks = createTranslationPackManager({
+  root: join(USER_DATA, 'translation-models'),
+  catalog: translationCatalog,
+  extract: async (archive, destination, maxBytes) => {
+    const python = await resolvePython()
+    if (!python) throw new Error('Python runtime is unavailable')
+    const result = await runProcess(python.command, [
+      ...python.args,
+      join(TRANSLATION_RESOURCE_DIR, 'install_pack.py'),
+      archive,
+      destination,
+      String(maxBytes),
+    ], { timeoutMs: 180_000 })
+    if (result.code !== 0) throw new Error(result.stderr || 'Translation model installation failed')
+  },
+})
+const subtitleTranslation = createSubtitleTranslationService({
+  packManager: translationPacks,
+  worker: async packPath => {
+    const python = await resolvePython()
+    if (!python) throw new Error('Python runtime is unavailable')
+    return {
+      command: python.command,
+      args: [...python.args, join(packPath, 'runner.py'), packPath],
+      env: {
+        ...process.env,
+        PYTHONPATH: join(packPath, 'python'),
+        PYTHONDONTWRITEBYTECODE: '1',
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONNOUSERSITE: '1',
+      },
+    }
+  },
+})
 
 async function pythonModuleAvailable(moduleName: string, python?: PythonCommand | null) {
   python = python ?? await resolvePython()
@@ -994,6 +1041,16 @@ function registerIpcHandlers() {
   ipcMain.handle('subtitle:transcribe-audio', async (_e, req: SubtitleTranscribeRequest) => {
     return transcribeAudioWithLocalWhisper(req)
   })
+  ipcMain.handle('subtitle:translation-status', (_event, direction: TranslationDirection) =>
+    translationPacks.getStatus(direction))
+  ipcMain.handle('subtitle:translation-install', (event, direction: TranslationDirection) =>
+    translationPacks.install(direction, progress => event.sender.send('subtitle:translation-progress', progress)))
+  ipcMain.handle('subtitle:translation-remove', (_event, direction: TranslationDirection) =>
+    translationPacks.remove(direction))
+  ipcMain.handle('subtitle:translate', (event, request: SubtitleTranslateRequest) =>
+    subtitleTranslation.translate(request, progress => event.sender.send('subtitle:translation-progress', progress)))
+  ipcMain.handle('subtitle:translation-cancel', (_event, jobId: string) =>
+    subtitleTranslation.cancel(jobId))
 }
 
 app.whenReady().then(async () => {
