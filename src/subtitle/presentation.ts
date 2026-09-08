@@ -1,4 +1,20 @@
-import type { SubtitleAnimationType, SubtitleCaptionLook } from '../types/editor'
+import type { SubtitleAnimationType, SubtitleCaptionLook, SubtitleCue, SubtitleLanguage, SubtitleTrack } from '../types/editor'
+import { isCueTranslationCurrent } from './translation'
+
+export interface SubtitleRenderRow {
+  language: SubtitleLanguage
+  text: string
+  translated: boolean
+}
+
+export interface FittedSubtitleRow {
+  text: string
+  fontSize: number
+  width: number
+  height: number
+  scaleX: number
+  lines: 1
+}
 
 export interface SubtitleLine {
   text: string
@@ -20,6 +36,45 @@ export interface SubtitleMotionState {
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0))
 const easeOut = (value: number) => 1 - Math.pow(1 - clamp01(value), 3)
+
+export function getSubtitleRenderRows(track: SubtitleTrack, cue: SubtitleCue): SubtitleRenderRow[] {
+  const source = { language: track.language, text: cue.text.trim(), translated: false }
+  const target = track.translation?.targetLanguage
+  const translated = target && track.translation?.visible && isCueTranslationCurrent(cue, target)
+    ? { language: target, text: cue.translations?.[target]?.text.trim() ?? '', translated: true }
+    : null
+  return [source, translated]
+    .filter((row): row is SubtitleRenderRow => Boolean(row?.text))
+    .sort((a, b) => (a.language === 'en' ? 0 : 1) - (b.language === 'en' ? 0 : 1))
+}
+
+export function fitSubtitleRow(
+  text: string,
+  requestedSize: number,
+  maxWidth: number,
+  measureAtSize: (text: string, size: number) => number,
+): FittedSubtitleRow {
+  const compact = text.replace(/\s+/g, ' ').trim()
+  const upper = Math.max(12, requestedSize)
+  let low = 12, high = upper, fontSize = 12
+  while (low <= high) {
+    const candidate = Math.floor((low + high) / 2)
+    if (measureAtSize(compact, candidate) <= maxWidth) { fontSize = candidate; low = candidate + 1 }
+    else high = candidate - 1
+  }
+  const width = Math.max(0, measureAtSize(compact, fontSize))
+  return { text: compact, fontSize, width, height: fontSize * 1.08, scaleX: Math.min(1, maxWidth / Math.max(1, width)), lines: 1 }
+}
+
+export function layoutSubtitleStack(rows: Array<{ width: number; height: number }>, rowGap: number) {
+  let y = 0
+  const positioned = rows.map((row, index) => {
+    const result = { ...row, y }
+    y += row.height + (index < rows.length - 1 ? rowGap : 0)
+    return result
+  })
+  return { width: Math.max(0, ...rows.map(row => row.width)), height: y, rows: positioned }
+}
 
 function compactLines(words: string[], maxChars: number) {
   const text = words.join(' ')

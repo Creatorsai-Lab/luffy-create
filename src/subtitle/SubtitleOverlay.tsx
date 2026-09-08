@@ -1,128 +1,110 @@
 import { useMemo } from 'react'
 import { Group, Text } from 'react-konva'
-import type { Project, SubtitleStyle } from '../types/editor'
+import type { Project, SubtitleCue, SubtitleStyle, SubtitleTrack } from '../types/editor'
 import { getActiveSubtitleCue } from './timeline'
-import { normalizeSubtitleStyle } from './types'
-import { getCaptionOrigin, getSubtitleBlockState, getSubtitleWarpScale, getSubtitleWordState, layoutMeasuredSubtitleWords, layoutSubtitleLines } from './presentation'
+import { normalizeSubtitleStyle, normalizeSubtitleTrack } from './types'
+import {
+  fitSubtitleRow,
+  getCaptionOrigin,
+  getSubtitleBlockState,
+  getSubtitleRenderRows,
+  getSubtitleWarpScale,
+  getSubtitleWordState,
+  layoutMeasuredSubtitleWords,
+  layoutSubtitleStack,
+  type SubtitleRenderRow,
+} from './presentation'
 import { fontWeightToCssValue, fontWeightToKonvaStyle } from '../utils/fontWeight'
 
-interface Props {
-  project: Project | null
-  time: number
-}
-
-interface CaptionProps {
-  width: number
-  height: number
-  text: string
-  start: number
-  end: number
-  time: number
-  style: SubtitleStyle
-}
+interface Props { project: Project | null; time: number }
+interface CaptionProps { width: number; height: number; text: string; start: number; end: number; time: number; style: SubtitleStyle }
+interface StackProps { width: number; height: number; cue: SubtitleCue; track: SubtitleTrack; time: number; rows: SubtitleRenderRow[] }
 
 export default function SubtitleOverlay({ project, time }: Props) {
   const active = getActiveSubtitleCue(project, time)
   if (!project || !active) return null
-  return (
-    <SubtitleCaption
-      width={project.width}
-      height={project.height}
-      text={active.cue.text}
-      start={active.cue.start}
-      end={active.cue.end}
-      time={time}
-      style={active.track.style}
-    />
-  )
+  const track = normalizeSubtitleTrack(active.track)
+  return <SubtitleCaptionStack width={project.width} height={project.height} cue={active.cue} track={track}
+    time={time} rows={getSubtitleRenderRows(track, active.cue)} />
 }
 
-export function SubtitleCaption({ width, height, text, start, end, time, style: rawStyle }: CaptionProps) {
-  const style = normalizeSubtitleStyle(rawStyle)
-  const maxWidth = Math.max(80, width * (style.maxWidthPct / 100))
-  const maxChars = Math.max(8, Math.floor(maxWidth / (style.fontSize * 0.54)))
-  const lineHeight = 1.08
-  const fontStyle = [style.italic ? 'italic' : '', fontWeightToKonvaStyle(style.fontWeight)].join(' ').trim()
+/** Single-row caption kept for the small style preview. */
+export function SubtitleCaption({ width, height, text, start, end, time, style }: CaptionProps) {
+  const track = normalizeSubtitleTrack({ id: 'preview', name: 'Preview', language: 'en', enabled: true, cues: [], style })
+  const cue = { id: 'preview', start, end, text }
+  return <SubtitleCaptionStack width={width} height={height} cue={cue} track={track} time={time}
+    rows={[{ language: 'en', text, translated: false }]} />
+}
+
+function SubtitleCaptionStack({ width, height, cue, track, time, rows }: StackProps) {
+  const style = normalizeSubtitleStyle(track.style)
+  const maxWidth = Math.max(80, width * 0.9)
+  const rowGap = track.translation?.style.rowGap ?? 8
   const metrics = useMemo(() => {
     const context = document.createElement('canvas').getContext('2d')!
-    context.font = `${style.italic ? 'italic ' : ''}${fontWeightToCssValue(style.fontWeight)} ${style.fontSize}px "${style.fontFamily}"`
-    const measure = (value: string) => context.measureText(value).width
-    return layoutSubtitleLines(text, maxChars).map(line => ({ ...line, ...layoutMeasuredSubtitleWords(line.text, measure) }))
-  }, [text, maxChars, style.fontFamily, style.fontSize, style.fontWeight, style.italic])
+    return rows.map(row => {
+      const translatedStyle = row.translated ? track.translation?.style : undefined
+      const rowStyle: SubtitleStyle = {
+        ...style,
+        fontFamily: translatedStyle?.fontFamily || style.fontFamily,
+        fontSize: style.fontSize * (translatedStyle?.sizePct ?? 100) / 100,
+        ...(translatedStyle?.color ? { color: translatedStyle.color, fillMode: 'solid' as const } : {}),
+      }
+      const measureAtSize = (text: string, size: number) => {
+        context.font = `${rowStyle.italic ? 'italic ' : ''}${fontWeightToCssValue(rowStyle.fontWeight)} ${size}px "${rowStyle.fontFamily}"`
+        return context.measureText(text).width
+      }
+      const fitted = fitSubtitleRow(row.text, rowStyle.fontSize, maxWidth, measureAtSize)
+      const measured = layoutMeasuredSubtitleWords(fitted.text, text => measureAtSize(text, fitted.fontSize))
+      const warp = rowStyle.captionLook === 'normal' ? 1 : 1 + (rowStyle.warpIntensity ?? 50) / 100 * 0.85
+      return { ...row, style: { ...rowStyle, fontSize: fitted.fontSize }, ...fitted, ...measured, height: fitted.height * warp }
+    })
+  }, [maxWidth, rows, style, track.translation?.style])
   if (!metrics.length) return null
 
-  const boxWidth = Math.min(maxWidth, Math.max(...metrics.map(line => line.naturalWidth)))
-  const warpStrength = (style.warpIntensity ?? 50) / 100
-  const linePitch = style.fontSize * lineHeight * (style.captionLook === 'normal' ? 1 : 1 + warpStrength * 0.85)
-  const boxHeight = metrics.length * linePitch
-  const { x, y } = getCaptionOrigin(width, height, boxWidth, boxHeight, style.positionX, style.positionY)
-
-  const words = metrics.reduce((sum, line) => sum + line.words.length, 0)
-  const duration = Math.max(0.01, end - start)
+  const stack = layoutSubtitleStack(metrics.map(row => ({ width: row.width * row.scaleX, height: row.height })), rowGap)
+  const origin = getCaptionOrigin(width, height, stack.width, stack.height, style.positionX, style.positionY)
+  const totalWords = metrics.reduce((sum, row) => sum + row.words.length, 0)
+  const duration = Math.max(0.01, cue.end - cue.start)
   const entranceDuration = style.animation === 'smoothReveal'
     ? Math.min(0.65, duration)
-    : Math.min(duration * 0.85, Math.max(0.38, words * 0.11))
-  const progress = Math.max(0, Math.min(1, (time - start) / Math.max(0.01, entranceDuration)))
+    : Math.min(duration * 0.85, Math.max(0.38, totalWords * 0.11))
+  const progress = Math.max(0, Math.min(1, (time - cue.start) / Math.max(0.01, entranceDuration)))
   const block = getSubtitleBlockState(style.animation, progress)
-  const textFillProps = subtitleTextFillProps(style, boxWidth)
-  let wordIndex = 0
+  let firstWord = 0
 
   return (
-    <Group
-      x={x + boxWidth / 2}
-      y={y + boxHeight / 2 + block.offsetY}
-      offsetX={boxWidth / 2}
-      offsetY={boxHeight / 2}
-      scaleX={block.scale}
-      scaleY={block.scale}
-      opacity={block.opacity}
-      listening={false}
-    >
-      {metrics.map((line, lineIndex) => {
-        const { words: lineWords, naturalWidth, characterCount } = line
-        const scaleX = Math.min(1, boxWidth / Math.max(1, naturalWidth))
-        const lineX = (boxWidth - naturalWidth) / 2
-        const firstWord = wordIndex
-        wordIndex += lineWords.length
-
+    <Group x={origin.x + stack.width / 2} y={origin.y + stack.height / 2 + block.offsetY}
+      offsetX={stack.width / 2} offsetY={stack.height / 2} scaleX={block.scale} scaleY={block.scale}
+      opacity={block.opacity} listening={false}>
+      {metrics.map((row, rowIndex) => {
+        const visualWidth = row.width * row.scaleX
+        const rowX = (stack.width - visualWidth) / 2
+        const wordOffset = firstWord
+        firstWord += row.words.length
+        const fontStyle = [row.style.italic ? 'italic' : '', fontWeightToKonvaStyle(row.style.fontWeight)].join(' ').trim()
+        const fill = subtitleTextFillProps(row.style, row.width)
         return (
-          <Group key={`${lineIndex}-${line.text}`} x={boxWidth / 2}
-            y={lineIndex * linePitch}
-            offsetX={boxWidth / 2} scaleX={scaleX}>
-            {lineWords.map((word, index) => {
-              const state = getSubtitleWordState(style.animation, progress, firstWord + index, words)
-              const wordX = lineX + word.x
-              if (style.captionLook !== 'normal') {
-                return (
-                  <Group key={`${firstWord + index}-${word.text}`} x={wordX + word.width / 2}
-                    y={linePitch / 2 + state.offsetY} offsetX={word.width / 2}
-                    offsetY={style.fontSize * lineHeight / 2} scaleX={state.scale}
-                    scaleY={state.scale} opacity={state.opacity}>
-                    {word.characters.map(character => (
-                      <Text key={`${character.index}-${character.text}`} x={character.x + character.width / 2}
-                        y={style.fontSize * lineHeight / 2} offsetX={character.width / 2}
-                        offsetY={style.fontSize * lineHeight / 2} text={character.text}
-                        fontFamily={style.fontFamily} fontSize={style.fontSize} fontStyle={fontStyle}
-                        {...textFillProps} scaleY={getSubtitleWarpScale(style.captionLook, style.warpIntensity, character.index, characterCount)}
-                        lineHeight={lineHeight} wrap="none" listening={false} perfectDrawEnabled={false}
-                        shadowColor={state.emphasis ? style.color : undefined}
-                        shadowBlur={state.emphasis ? style.fontSize * 0.16 : 0}
-                      />
-                    ))}
-                  </Group>
-                )
-              }
-              return (
-                <Text key={`${firstWord + index}-${word.text}`} x={wordX + word.width / 2} y={linePitch / 2 + state.offsetY}
-                  offsetX={word.width / 2} offsetY={style.fontSize * lineHeight / 2}
-                  width={word.width} text={word.text} fontFamily={style.fontFamily}
-                  fontSize={style.fontSize} fontStyle={fontStyle} {...textFillProps}
-                  scaleX={state.scale} scaleY={state.scale} opacity={state.opacity}
-                  lineHeight={lineHeight} wrap="none" listening={false} perfectDrawEnabled={false}
-                  shadowColor={state.emphasis ? style.color : undefined}
-                  shadowBlur={state.emphasis ? style.fontSize * 0.16 : 0}
-                />
+          <Group key={`${row.language}-${row.text}`} x={rowX + visualWidth / 2} y={stack.rows[rowIndex].y}
+            offsetX={row.width / 2} scaleX={row.scaleX}>
+            {row.words.map((word, index) => {
+              const state = getSubtitleWordState(style.animation, progress, wordOffset + index, totalWords)
+              const common = { fontFamily: row.style.fontFamily, fontSize: row.style.fontSize, fontStyle, ...fill,
+                lineHeight: 1.08, wrap: 'none' as const, listening: false, perfectDrawEnabled: false,
+                shadowColor: state.emphasis ? row.style.color : undefined,
+                shadowBlur: state.emphasis ? row.style.fontSize * 0.16 : 0 }
+              if (row.style.captionLook !== 'normal') return (
+                <Group key={`${index}-${word.text}`} x={word.x + word.width / 2} y={row.height / 2 + state.offsetY}
+                  offsetX={word.width / 2} offsetY={row.style.fontSize * 0.54} scaleX={state.scale} scaleY={state.scale} opacity={state.opacity}>
+                  {word.characters.map(character => <Text key={`${character.index}-${character.text}`}
+                    x={character.x + character.width / 2} y={row.style.fontSize * 0.54} offsetX={character.width / 2}
+                    offsetY={row.style.fontSize * 0.54} text={character.text} {...common}
+                    scaleY={getSubtitleWarpScale(row.style.captionLook, row.style.warpIntensity, character.index, row.characterCount)} />)}
+                </Group>
               )
+              return <Text key={`${index}-${word.text}`} x={word.x + word.width / 2} y={row.height / 2 + state.offsetY}
+                offsetX={word.width / 2} offsetY={row.style.fontSize * 0.54} width={word.width} text={word.text}
+                {...common} scaleX={state.scale} scaleY={state.scale} opacity={state.opacity} />
             })}
           </Group>
         )
@@ -134,18 +116,12 @@ export function SubtitleCaption({ width, height, text, start, end, time, style: 
 function subtitleTextFillProps(style: SubtitleStyle, width: number) {
   if (style.fillMode !== 'linearGradient') return { fill: style.color, fillPriority: 'color' as const }
   const stops: Array<string | number> = [
-    0,
-    colorWithAlpha(style.gradientColor1 ?? style.color, style.gradientOpacity1 ?? 1),
-    style.gradientUseColor3 ? 0.5 : 1,
-    colorWithAlpha(style.gradientColor2 ?? '#8b5cf6', style.gradientOpacity2 ?? 1),
+    0, colorWithAlpha(style.gradientColor1 ?? style.color, style.gradientOpacity1 ?? 1),
+    style.gradientUseColor3 ? 0.5 : 1, colorWithAlpha(style.gradientColor2 ?? '#8b5cf6', style.gradientOpacity2 ?? 1),
   ]
   if (style.gradientUseColor3) stops.push(1, colorWithAlpha(style.gradientColor3 ?? '#22d3ee', style.gradientOpacity3 ?? 1))
-  return {
-    fillPriority: 'linear-gradient' as const,
-    fillLinearGradientStartPoint: { x: 0, y: 0 },
-    fillLinearGradientEndPoint: { x: width, y: 0 },
-    fillLinearGradientColorStops: stops,
-  }
+  return { fillPriority: 'linear-gradient' as const, fillLinearGradientStartPoint: { x: 0, y: 0 },
+    fillLinearGradientEndPoint: { x: width, y: 0 }, fillLinearGradientColorStops: stops }
 }
 
 function colorWithAlpha(hex: string, alpha: number) {
@@ -153,6 +129,5 @@ function colorWithAlpha(hex: string, alpha: number) {
   const normalized = clean.length === 3 ? clean.split('').map(ch => ch + ch).join('') : clean.slice(0, 6)
   const n = Number.parseInt(normalized, 16)
   if (!Number.isFinite(n)) return hex
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
-  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${Math.max(0, Math.min(1, alpha))})`
 }

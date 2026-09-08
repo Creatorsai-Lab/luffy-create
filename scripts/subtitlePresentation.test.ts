@@ -1,12 +1,43 @@
 import assert from 'node:assert/strict'
 import {
+  fitSubtitleRow,
   getCaptionOrigin,
+  getSubtitleRenderRows,
   getSubtitleBlockState,
   getSubtitleWarpScale,
   getSubtitleWordState,
   layoutMeasuredSubtitleWords,
   layoutSubtitleLines,
+  layoutSubtitleStack,
 } from '../src/subtitle/presentation'
+import { makeSubtitleTrack } from '../src/subtitle/types'
+import { mergeCueTranslation } from '../src/subtitle/translation'
+
+const sourceCue = { id: 'bilingual', start: 0, end: 2, text: 'गुरुत्वाकर्षण द्रव्यमानों को आकर्षित करता है।' }
+const hindiTrack = { ...makeSubtitleTrack(), language: 'hi' as const, translation: { ...makeSubtitleTrack().translation!, targetLanguage: 'en' as const } }
+const bilingualCue = mergeCueTranslation(sourceCue, 'en', 'Gravity attracts masses.')
+const rows = getSubtitleRenderRows(hindiTrack, bilingualCue)
+assert.deepEqual(rows.map(row => row.language), ['en', 'hi'])
+assert.equal(rows[0].text, 'Gravity attracts masses.')
+assert.equal(rows[1].text, sourceCue.text)
+
+const hiddenRows = getSubtitleRenderRows({ ...hindiTrack, translation: { ...hindiTrack.translation!, visible: false } }, bilingualCue)
+assert.deepEqual(hiddenRows.map(row => row.language), ['hi'])
+assert.deepEqual(getSubtitleRenderRows(hindiTrack, { ...bilingualCue, text: `${sourceCue.text}!` }).map(row => row.language), ['hi'])
+
+const fitted = fitSubtitleRow('a deliberately long caption', 48, 300, (text, size) => text.length * size * 0.55)
+assert.ok(fitted.width <= 300)
+assert.ok(fitted.fontSize <= 48)
+assert.equal(fitted.lines, 1)
+
+const tinyFit = fitSubtitleRow('a caption that cannot fit at minimum font size', 48, 20, (text, size) => text.length * size)
+assert.ok(tinyFit.width * tinyFit.scaleX <= 20)
+assert.equal(tinyFit.fontSize, 12)
+
+const stack = layoutSubtitleStack([{ width: 280, height: 48 }, { width: 260, height: 42 }], 8)
+assert.equal(stack.width, 280)
+assert.equal(stack.height, 98)
+assert.deepEqual(stack.rows.map(row => row.y), [0, 56])
 
 const caption = 'Any Content with this Font Style is getting Viral'
 const normal = layoutSubtitleLines(caption, 18)
