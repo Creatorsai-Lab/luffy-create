@@ -96,6 +96,7 @@ async function main() {
   await cp(join(ROOT, 'resources', 'translation', 'runner.py'), join(pack, 'runner.py'))
   await run(python, ['-m', 'pip', 'install', '--no-compile', '--no-deps', '--target', join(pack, 'python'), ...packages])
   await download('https://raw.githubusercontent.com/AI4Bharat/IndicTrans2/main/LICENSE', join(pack, 'licenses', 'IndicTrans2-LICENSE'))
+  await download('https://raw.githubusercontent.com/OpenNMT/CTranslate2/master/LICENSE', join(pack, 'licenses', 'CTranslate2-LICENSE'))
   await writeFile(join(pack, 'manifest.json'), JSON.stringify({
     version,
     direction,

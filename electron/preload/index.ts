@@ -65,6 +65,8 @@ const api = {
       ipcRenderer.invoke('subtitle:translation-status', direction) as Promise<SubtitleTranslationPackStatus>,
     installTranslation: (direction: SubtitleTranslationDirection) =>
       ipcRenderer.invoke('subtitle:translation-install', direction) as Promise<SubtitleTranslationPackStatus>,
+    cancelTranslationInstall: (direction: SubtitleTranslationDirection) =>
+      ipcRenderer.invoke('subtitle:translation-install-cancel', direction) as Promise<boolean>,
     removeTranslation: (direction: SubtitleTranslationDirection) =>
       ipcRenderer.invoke('subtitle:translation-remove', direction) as Promise<void>,
     translate: (request: SubtitleTranslateRequest) =>

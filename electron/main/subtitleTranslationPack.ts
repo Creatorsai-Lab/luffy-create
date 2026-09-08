@@ -47,7 +47,7 @@ function isDirection(value: string): value is TranslationDirection {
 export function createTranslationPackManager(deps: TranslationPackDependencies) {
   const target = deps.target ?? `${process.platform}-${process.arch}`
   const fetchFile = deps.fetch ?? fetch
-  const active = new Set<TranslationDirection>()
+  const active = new Map<TranslationDirection, AbortController>()
 
   function entry(direction: TranslationDirection) {
     if (!isDirection(direction)) throw new Error('Unsupported translation direction')
@@ -78,11 +78,12 @@ export function createTranslationPackManager(deps: TranslationPackDependencies) 
     if (active.has(direction)) throw new Error('Translation model download is already running')
     const downloadPath = join(deps.root, `${direction}.download`)
     const destination = packPath(direction, model.version)
-    active.add(direction)
+    const controller = new AbortController()
+    active.set(direction, controller)
     await mkdir(deps.root, { recursive: true })
     await rm(downloadPath, { force: true })
     try {
-      const response = await fetchFile(model.url)
+      const response = await fetchFile(model.url, { signal: controller.signal })
       if (!response.ok) throw new Error(`Translation model download failed (${response.status})`)
       const declaredBytes = Number(response.headers.get('content-length') || model.archiveBytes)
       if (declaredBytes > MAX_BYTES) throw new Error('Translation model exceeds the 500 MB limit')
@@ -116,10 +117,11 @@ export function createTranslationPackManager(deps: TranslationPackDependencies) 
       if (manifest.version !== model.version || !existsSync(join(destination, 'runner.py'))) {
         throw new Error('Installed translation model is invalid')
       }
-      return await getStatus(direction)
+      return { state: 'installed' as const, direction, version: model.version, path: destination }
     } catch (error) {
       await rm(destination, { recursive: true, force: true }).catch(() => {})
       await rm(`${destination}.installing`, { recursive: true, force: true }).catch(() => {})
+      if (controller.signal.aborted) throw new Error('Translation model download cancelled')
       throw error
     } finally {
       active.delete(direction)
@@ -138,5 +140,12 @@ export function createTranslationPackManager(deps: TranslationPackDependencies) 
     return status.state === 'installed' ? status.path : null
   }
 
-  return { getStatus, install, remove, getInstalledPath }
+  function cancel(direction: TranslationDirection) {
+    const controller = active.get(direction)
+    if (!controller) return false
+    controller.abort()
+    return true
+  }
+
+  return { getStatus, install, remove, getInstalledPath, cancel }
 }

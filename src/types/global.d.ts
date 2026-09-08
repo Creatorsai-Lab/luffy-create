@@ -99,7 +99,7 @@ export type SubtitleTranslationProgress =
 export type SubtitleTranslationPackStatus =
   | { state: 'not-installed'; direction: SubtitleTranslationDirection }
   | { state: 'downloading'; direction: SubtitleTranslationDirection }
-  | { state: 'installed'; direction: SubtitleTranslationDirection; version: string; path: string }
+  | { state: 'installed'; direction: SubtitleTranslationDirection; version: string }
 
 declare global {
   interface Window {
@@ -160,6 +160,7 @@ declare global {
         }) => Promise<SubtitleTranscriptionResult>
         translationStatus: (direction: SubtitleTranslationDirection) => Promise<SubtitleTranslationPackStatus>
         installTranslation: (direction: SubtitleTranslationDirection) => Promise<SubtitleTranslationPackStatus>
+        cancelTranslationInstall: (direction: SubtitleTranslationDirection) => Promise<boolean>
         removeTranslation: (direction: SubtitleTranslationDirection) => Promise<void>
         translate: (request: SubtitleTranslateRequest) => Promise<SubtitleTranslateResult>
         cancelTranslation: (jobId: string) => Promise<boolean>

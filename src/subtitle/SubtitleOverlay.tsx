@@ -38,7 +38,7 @@ export function SubtitleCaption({ width, height, text, start, end, time, style }
 
 function SubtitleCaptionStack({ width, height, cue, track, time, rows }: StackProps) {
   const style = normalizeSubtitleStyle(track.style)
-  const maxWidth = Math.max(80, width * 0.9)
+  const maxWidth = Math.max(1, width * Math.min(90, style.maxWidthPct) / 100)
   const rowGap = track.translation?.style.rowGap ?? 8
   const metrics = useMemo(() => {
     const context = document.createElement('canvas').getContext('2d')!

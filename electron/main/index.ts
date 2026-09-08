@@ -21,14 +21,16 @@ protocol.registerSchemesAsPrivileged([
 import { basename, dirname, join, normalize } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { mkdir, readFile, writeFile, copyFile, readdir, rm, stat, open, rename } from 'fs/promises'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { createReadStream, existsSync, readFileSync, writeFileSync } from 'fs'
 import type { Dirent } from 'fs'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
+import { Readable } from 'stream'
 import { inferUploadAssetKind, makeAssetUploadName, randomAssetHash } from './assetNaming'
 import {
   createTranslationPackManager,
   type TranslationDirection,
   type TranslationPackCatalog,
+  type TranslationPackStatus,
 } from './subtitleTranslationPack'
 import { createSubtitleTranslationService, type SubtitleTranslateRequest } from './subtitleTranslationService'
 
@@ -412,9 +414,21 @@ const TRANSLATION_RESOURCE_DIR = is.dev
 const translationCatalog = JSON.parse(
   readFileSync(join(TRANSLATION_RESOURCE_DIR, 'model-catalog.json'), 'utf8')
 ) as TranslationPackCatalog
+const fetchTranslationPack: typeof fetch = async (input, init) => {
+  if (!is.dev) return fetch(input, init)
+  const url = input instanceof Request ? input.url : input.toString()
+  const local = join(process.cwd(), 'build', 'translation-packs', basename(new URL(url).pathname))
+  if (!existsSync(local)) return fetch(input, init)
+  const file = createReadStream(local)
+  init?.signal?.addEventListener('abort', () => file.destroy(new Error('cancelled')), { once: true })
+  return new Response(Readable.toWeb(file) as ReadableStream, {
+    headers: { 'content-length': String((await stat(local)).size) },
+  })
+}
 const translationPacks = createTranslationPackManager({
   root: join(USER_DATA, 'translation-models'),
   catalog: translationCatalog,
+  fetch: fetchTranslationPack,
   extract: async (archive, destination, maxBytes) => {
     const python = await resolvePython()
     if (!python) throw new Error('Python runtime is unavailable')
@@ -446,6 +460,11 @@ const subtitleTranslation = createSubtitleTranslationService({
     }
   },
 })
+
+function publicTranslationStatus(status: TranslationPackStatus) {
+  if (status.state !== 'installed') return status
+  return { state: status.state, direction: status.direction, version: status.version }
+}
 
 async function pythonModuleAvailable(moduleName: string, python?: PythonCommand | null) {
   python = python ?? await resolvePython()
@@ -1041,10 +1060,12 @@ function registerIpcHandlers() {
   ipcMain.handle('subtitle:transcribe-audio', async (_e, req: SubtitleTranscribeRequest) => {
     return transcribeAudioWithLocalWhisper(req)
   })
-  ipcMain.handle('subtitle:translation-status', (_event, direction: TranslationDirection) =>
-    translationPacks.getStatus(direction))
-  ipcMain.handle('subtitle:translation-install', (event, direction: TranslationDirection) =>
-    translationPacks.install(direction, progress => event.sender.send('subtitle:translation-progress', progress)))
+  ipcMain.handle('subtitle:translation-status', async (_event, direction: TranslationDirection) =>
+    publicTranslationStatus(await translationPacks.getStatus(direction)))
+  ipcMain.handle('subtitle:translation-install', async (event, direction: TranslationDirection) =>
+    publicTranslationStatus(await translationPacks.install(direction, progress => event.sender.send('subtitle:translation-progress', progress))))
+  ipcMain.handle('subtitle:translation-install-cancel', (_event, direction: TranslationDirection) =>
+    translationPacks.cancel(direction))
   ipcMain.handle('subtitle:translation-remove', (_event, direction: TranslationDirection) =>
     translationPacks.remove(direction))
   ipcMain.handle('subtitle:translate', (event, request: SubtitleTranslateRequest) =>

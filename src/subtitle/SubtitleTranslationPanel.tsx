@@ -45,6 +45,7 @@ const SubtitleTranslationPanel = forwardRef<SubtitleTranslationPanelHandle, Prop
       if (value.jobId !== jobId) return
       setProgress(`${value.completed}/${value.total} captions`)
     } else {
+      if (value.direction !== direction) return
       const percent = value.totalBytes ? Math.round(value.receivedBytes / value.totalBytes * 100) : 0
       setProgress(`${value.phase === 'install' ? 'Installing' : 'Downloading'} ${percent}%`)
     }
@@ -76,6 +77,10 @@ const SubtitleTranslationPanel = forwardRef<SubtitleTranslationPanelHandle, Prop
       setModel({ state: 'not-installed', direction })
       setStatus('Translation model removed. Saved caption text was kept.')
     } catch (error) { setStatus(message(error)) }
+  }
+
+  function cancelInstall() {
+    void window.api.subtitle.cancelTranslationInstall(direction)
   }
 
   async function translate(cueId?: string) {
@@ -133,8 +138,8 @@ const SubtitleTranslationPanel = forwardRef<SubtitleTranslationPanelHandle, Prop
       </div>
       <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
         <LanguageSelect label="From" value={track.language} onChange={patchLanguages} disabled={Boolean(jobId)} />
-        <button title="Swap languages" onClick={() => patchLanguages(settings.targetLanguage)}
-          className="mb-0.5 px-2 py-1.5 rounded border border-editor-border text-editor-text hover:bg-editor-hover">⇄</button>
+        <button title="Swap languages" disabled={Boolean(jobId)} onClick={() => patchLanguages(settings.targetLanguage)}
+          className="mb-0.5 px-2 py-1.5 rounded border border-editor-border text-editor-text hover:bg-editor-hover disabled:opacity-50">⇄</button>
         <LanguageSelect label="To" value={settings.targetLanguage} onChange={language => patchLanguages(opposite(language))} disabled={Boolean(jobId)} />
       </div>
 
@@ -142,10 +147,10 @@ const SubtitleTranslationPanel = forwardRef<SubtitleTranslationPanelHandle, Prop
         <span className="text-editor-text-secondary">Model: {model.state.replace('-', ' ')}</span>
         {model.state === 'installed' ? (
           <button onClick={remove} className="text-red-300 hover:text-red-200">Remove model</button>
+        ) : model.state === 'downloading' ? (
+          <button onClick={cancelInstall} className="text-red-300 hover:text-red-200">Cancel download</button>
         ) : (
-          <button onClick={install} disabled={model.state === 'downloading'} className="text-editor-accent disabled:opacity-50">
-            {model.state === 'downloading' ? 'Downloading…' : 'Install model'}
-          </button>
+          <button onClick={install} className="text-editor-accent">Install model</button>
         )}
       </div>
       {progress && <p className="mt-1 text-[10px] text-editor-text-secondary">{progress}</p>}

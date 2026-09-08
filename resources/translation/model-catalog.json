@@ -5,18 +5,18 @@
       "win32-x64": {
         "version": "1",
         "url": "https://github.com/Creatorsai-Lab/luffy-create/releases/download/translation-models-v1/indictrans2-en-hi-int8-win32-x64.tar.gz",
-        "sha256": "29109b7d59797a79aa7596dc6881d8a97c731507b96c34dce807551dcd8deb16",
-        "archiveBytes": 242574230,
-        "expandedBytes": 341853916
+        "sha256": "8a8f75897c830c16f1142950b4e03394ab70a38c231c2e6ed06683c492baa1c0",
+        "archiveBytes": 242572478,
+        "expandedBytes": 341853612
       }
     },
     "hi-en": {
       "win32-x64": {
         "version": "1",
         "url": "https://github.com/Creatorsai-Lab/luffy-create/releases/download/translation-models-v1/indictrans2-hi-en-int8-win32-x64.tar.gz",
-        "sha256": "c29fa4b0da010cba883778439a739ab3d464537065fe89cdd370b716ceb81034",
-        "archiveBytes": 247083555,
-        "expandedBytes": 349260948
+        "sha256": "c17cd28917083047861d4196622fc0f0ab41391678ebb7669d7c4a43fa264bb5",
+        "archiveBytes": 247082381,
+        "expandedBytes": 349260644
       }
     }
   }
