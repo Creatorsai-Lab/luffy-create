@@ -6,9 +6,9 @@ import type { AudioElement, FontWeight, Project, SubtitleCue, SubtitleLanguage, 
 import { ColorInput, Slider } from '../components/panels/TextPanel'
 import { makeCue, makeSubtitleTrack, normalizeSubtitleStyle, normalizeSubtitleTrack } from './types'
 import { mergeCueTranslation, setCueReviewed, updateCueSource } from './translation'
-import { cuesToSrt, fmt, type SubtitleSrtMode } from './srt'
+import { cuesToSrt, type SubtitleSrtMode } from './srt'
 import { transcriber } from './transcriber'
-import { getSceneGlobalStart, splitScriptIntoCueTexts } from './timeline'
+import { getSceneGlobalStart, splitLongSubtitleCues, splitScriptIntoCueTexts } from './timeline'
 import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../utils/fontWeight'
 import SubtitleStylePreview from './SubtitleStylePreview'
 import SubtitleTranslationPanel, { type SubtitleTranslationPanelHandle } from './SubtitleTranslationPanel'
@@ -55,10 +55,6 @@ export default function SubtitleModal() {
   function commit(next = track) {
     upsertSubtitleTrack(normalizeSubtitleTrack(next))
     setStatus(`Saved ${next.cues.length} captions to project.`)
-  }
-
-  function patchTrack(patch: Partial<SubtitleTrack>) {
-    setTrack(t => ({ ...t, ...patch }))
   }
 
   function patchStyle(patch: Partial<SubtitleStyle>) {
@@ -140,7 +136,7 @@ export default function SubtitleModal() {
         }
       }
 
-      const sorted = generated.sort((a, b) => a.start - b.start)
+      const sorted = splitLongSubtitleCues(generated.sort((a, b) => a.start - b.start))
       const scriptTexts = splitScriptIntoCueTexts(script, sorted.length)
       const cues = sorted.map((cue, index) => ({
         ...cue,
@@ -219,15 +215,6 @@ export default function SubtitleModal() {
         <div className="flex flex-1 min-h-0">
           <div className="w-85 flex-none border-r border-editor-border p-4 flex flex-col gap-3 overflow-y-auto">
             <label className="block">
-              <span className="text-[11px] uppercase tracking-wider text-editor-text-secondary">Caption track</span>
-              <input
-                value={track.name}
-                onChange={e => patchTrack({ name: e.target.value })}
-                className="w-full mt-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
-              />
-            </label>
-
-            <label className="block mt-6">
               <span className="text-sm uppercase tracking-wider text-editor-text-secondary">Timeline audio source:</span>
               {audioClips.length === 0 ? (
                 <p className="text-sm text-red-400 mt-2">No timeline audio found. Add an audio clip to the timeline first.</p>
@@ -325,18 +312,19 @@ export default function SubtitleModal() {
                     : setTrack(current => ({ ...current, cues: current.cues.map(cue => cue.id === c.id ? mergeCueTranslation(cue, language, text, cue.translations?.[language]?.warnings) : cue) }))
                   return (
                   <div key={c.id} className="flex items-start gap-2 bg-editor-elevated-highlight border border-editor-border rounded-lg p-2.5">
-                    <span className="text-[11px] text-editor-text-secondary w-8 pt-2 text-right tabular-nums">{i + 1}</span>
-                    <div className="flex flex-col gap-1.5 w-32 flex-none">
-                      <label className="text-[10px] text-editor-text-secondary">Start ({fmt(c.start)})</label>
-                      <input type="number" min={0} step={0.1} value={roundTime(c.start)}
-                        onChange={e => updateCue(c.id, { start: Math.max(0, parseFloat(e.target.value) || 0) })}
-                        className="bg-editor-base border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
-                      <label className="text-[10px] text-editor-text-secondary">End ({fmt(c.end)})</label>
-                      <input type="number" min={0} step={0.1} value={roundTime(c.end)}
-                        onChange={e => updateCue(c.id, { end: Math.max(0, parseFloat(e.target.value) || 0) })}
-                        className="bg-editor-base border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
-                    </div>
+                    <span className="text-[11px] text-editor-text-secondary w-8 pt-1 text-right tabular-nums">{i + 1}</span>
                     <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-1 text-[10px] text-editor-text-secondary whitespace-nowrap">
+                        <span>[Start (</span>
+                        <input aria-label="Caption start time" type="number" min={0} step={0.1} value={roundTime(c.start)}
+                          onChange={e => updateCue(c.id, { start: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          className="w-14 bg-editor-base border border-editor-border rounded text-center text-[10px] text-editor-text px-1 py-0.5 tabular-nums" />
+                        <span>) - End (</span>
+                        <input aria-label="Caption end time" type="number" min={0} step={0.1} value={roundTime(c.end)}
+                          onChange={e => updateCue(c.id, { end: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          className="w-14 bg-editor-base border border-editor-border rounded text-center text-[10px] text-editor-text px-1 py-0.5 tabular-nums" />
+                        <span>)]</span>
+                      </div>
                       {(['en', 'hi'] as const).map(language => (
                         <label key={language} className="grid grid-cols-[42px_1fr] items-start gap-2">
                           <span className="pt-2 text-[10px] uppercase text-editor-text-secondary">{language}</span>

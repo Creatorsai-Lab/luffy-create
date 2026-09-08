@@ -20,6 +20,38 @@ export function getSceneGlobalStart(project: Project, sceneId: string): number {
   return 0
 }
 
+function addWordOverlap(groups: string[]): string[] {
+  return groups.map((group, index) => {
+    if (index === 0 || !group) return group
+    const previousWord = groups[index - 1].trim().split(/\s+/).at(-1)?.replace(/[.,!?;:।]+$/u, '')
+    return previousWord ? `${previousWord} ${group}` : group
+  })
+}
+
+function splitWordsEvenly(text: string, count: number): string[] {
+  const words = text.trim().split(/\s+/).filter(Boolean)
+  return Array.from({ length: count }, (_, index) =>
+    words.slice(Math.floor(index * words.length / count), Math.floor((index + 1) * words.length / count)).join(' '))
+}
+
+export function splitLongSubtitleCues(cues: SubtitleCue[], maxDuration = 4): SubtitleCue[] {
+  const split = cues.flatMap(cue => {
+    const duration = cue.end - cue.start
+    const count = Math.max(1, Math.ceil(duration / maxDuration))
+    if (count === 1) return [cue]
+    const texts = splitWordsEvenly(cue.text, count)
+    return texts.map((text, index) => ({
+      ...cue,
+      id: index === 0 ? cue.id : `${cue.id}-${index}`,
+      start: cue.start + duration * index / count,
+      end: cue.start + duration * (index + 1) / count,
+      text,
+    }))
+  })
+  const texts = addWordOverlap(split.map(cue => cue.text))
+  return split.map((cue, index) => ({ ...cue, text: texts[index] }))
+}
+
 export function splitScriptIntoCueTexts(script: string, cueCount: number): string[] {
   const clean = script.replace(/\s+/g, ' ').trim()
   if (!clean || cueCount <= 0) return []
@@ -35,10 +67,8 @@ export function splitScriptIntoCueTexts(script: string, cueCount: number): strin
       const target = Math.min(cueCount - 1, Math.floor(index * cueCount / sentenceParts.length))
       groups[target] = groups[target] ? `${groups[target]} ${sentence}` : sentence
     })
-    return groups
+    return addWordOverlap(groups)
   }
 
-  const words = clean.split(' ')
-  const perCue = Math.max(1, Math.ceil(words.length / cueCount))
-  return Array.from({ length: cueCount }, (_, i) => words.slice(i * perCue, (i + 1) * perCue).join(' ').trim())
+  return addWordOverlap(splitWordsEvenly(clean, cueCount))
 }
