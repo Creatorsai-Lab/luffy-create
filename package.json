@@ -12,7 +12,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "build:translation-pack": "node scripts/build-translation-pack.mjs",
     "test:subtitle": "node scripts/run-subtitle-tests.mjs",
+    "verify:translation-pack": "node scripts/verify-translation-pack.mjs",
     "preview": "electron-vite preview",
     "prepare-python-sandbox": "node scripts/prepare-python-sandbox.mjs",
     "prepare-local-whisper": "node scripts/prepare-local-whisper.mjs",
@@ -108,6 +110,14 @@
         "to": "whisper",
         "filter": [
           "**/*"
+        ]
+      },
+      {
+        "from": "resources/translation",
+        "to": "translation",
+        "filter": [
+          "install_pack.py",
+          "model-catalog.json"
         ]
       }
     ],

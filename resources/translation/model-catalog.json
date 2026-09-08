@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "packs": {
+    "en-hi": {
+      "win32-x64": {
+        "version": "1",
+        "url": "https://github.com/Creatorsai-Lab/luffy-create/releases/download/translation-models-v1/indictrans2-en-hi-int8-win32-x64.tar.gz",
+        "sha256": "29109b7d59797a79aa7596dc6881d8a97c731507b96c34dce807551dcd8deb16",
+        "archiveBytes": 242574230,
+        "expandedBytes": 341853916
+      }
+    },
+    "hi-en": {
+      "win32-x64": {
+        "version": "1",
+        "url": "https://github.com/Creatorsai-Lab/luffy-create/releases/download/translation-models-v1/indictrans2-hi-en-int8-win32-x64.tar.gz",
+        "sha256": "c29fa4b0da010cba883778439a739ab3d464537065fe89cdd370b716ceb81034",
+        "archiveBytes": 247083555,
+        "expandedBytes": 349260948
+      }
+    }
+  }
+}
