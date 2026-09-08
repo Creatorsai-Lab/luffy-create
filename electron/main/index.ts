@@ -242,10 +242,16 @@ interface SubtitleTranscribeCue {
 }
 
 const pythonJobs = new Map<string, ChildProcessWithoutNullStreams>()
+function resolveDevBuildAsset(name: string) {
+  const local = join(process.cwd(), 'build', name)
+  if (existsSync(local)) return local
+  const repository = join(process.cwd(), '..', '..', 'build', name)
+  return basename(dirname(process.cwd())) === '.worktrees' && existsSync(repository) ? repository : local
+}
 const PYTHON_SANDBOX_DIR = join(USER_DATA, 'python-sandbox')
 const PYTHON_SANDBOX_VENV_DIR = join(PYTHON_SANDBOX_DIR, 'venv')
 const BUNDLED_PYTHON_SANDBOX_DIR = is.dev
-  ? join(process.cwd(), 'build', 'python-sandbox')
+  ? resolveDevBuildAsset('python-sandbox')
   : join(process.resourcesPath, 'python-sandbox')
 const PYTHON_SANDBOX_PACKAGES = [
   'numpy',
@@ -260,7 +266,7 @@ const PYTHON_OUTPUT_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 
 const PYTHON_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'])
 const PYTHON_VIDEO_EXTS = new Set(['mp4', 'webm', 'mov'])
 const WHISPER_DIR = is.dev
-  ? join(process.cwd(), 'build', 'whisper')
+  ? resolveDevBuildAsset('whisper')
   : join(process.resourcesPath, 'whisper')
 const WHISPER_MODEL_NAMES = [
   'ggml-tiny.en.bin',

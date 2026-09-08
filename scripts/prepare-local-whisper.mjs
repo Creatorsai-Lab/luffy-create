@@ -8,7 +8,7 @@ import { pipeline } from 'node:stream/promises'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const outputDir = join(root, 'build', 'whisper')
 const tempDir = join(root, 'build', '.whisper-tmp')
-const modelName = process.env.LUFFY_WHISPER_MODEL || 'tiny.en'
+const modelName = process.env.LUFFY_WHISPER_MODEL || 'tiny'
 const modelFile = `ggml-${modelName}.bin`
 const modelUrl = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${modelFile}`
 
