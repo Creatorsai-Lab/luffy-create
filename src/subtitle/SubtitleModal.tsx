@@ -4,7 +4,8 @@ import { useEditorStore } from '../store/editorStore'
 import { FONT_FAMILIES } from '../types/editor'
 import type { AudioElement, FontWeight, Project, SubtitleCue, SubtitleLanguage, SubtitleStyle, SubtitleTrack } from '../types/editor'
 import { ColorInput, Slider } from '../components/panels/TextPanel'
-import { makeCue, makeSubtitleTrack, normalizeSubtitleStyle } from './types'
+import { makeCue, makeSubtitleTrack, normalizeSubtitleStyle, normalizeSubtitleTrack } from './types'
+import { updateCueSource } from './translation'
 import { cuesToSrt, fmt } from './srt'
 import { transcriber } from './transcriber'
 import { getSceneGlobalStart, splitScriptIntoCueTexts } from './timeline'
@@ -34,14 +35,14 @@ export default function SubtitleModal() {
 
   const audioClips = useMemo(() => collectTimelineAudioClips(project), [project])
   const existingTrack = project?.subtitleTracks?.[0] ?? null
-  const [track, setTrack] = useState<SubtitleTrack>(() => normalizeTrack(existingTrack ?? makeSubtitleTrack()))
+  const [track, setTrack] = useState<SubtitleTrack>(() => normalizeSubtitleTrack(existingTrack ?? makeSubtitleTrack()))
   const [sourceId, setSourceId] = useState<CaptionSourceId>('all')
   const [script, setScript] = useState('')
   const [status, setStatus] = useState<string>('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    setTrack(normalizeTrack(existingTrack ?? makeSubtitleTrack()))
+    setTrack(normalizeSubtitleTrack(existingTrack ?? makeSubtitleTrack()))
   }, [existingTrack?.id])
 
   const hasVoiceover = audioClips.some(c => c.audio.track === 'voiceover')
@@ -49,7 +50,7 @@ export default function SubtitleModal() {
   const selectedClips = selectAudioClips(audioClips, sourceId)
 
   function commit(next = track) {
-    upsertSubtitleTrack(normalizeTrack(next))
+    upsertSubtitleTrack(normalizeSubtitleTrack(next))
     setStatus(`Saved ${next.cues.length} captions to project.`)
   }
 
@@ -63,6 +64,13 @@ export default function SubtitleModal() {
 
   function updateCue(id: string, patch: Partial<SubtitleCue>) {
     setTrack(t => ({ ...t, cues: t.cues.map(c => (c.id === id ? { ...c, ...patch } : c)) }))
+  }
+
+  function updateCueText(id: string, text: string) {
+    setTrack(current => ({
+      ...current,
+      cues: current.cues.map(cue => cue.id === id ? updateCueSource(cue, text) : cue),
+    }))
   }
 
   function addCue() {
@@ -300,7 +308,7 @@ export default function SubtitleModal() {
                         className="bg-editor-base border border-editor-border rounded text-xs text-editor-text px-2 py-1" />
                     </div>
                     <textarea value={c.text} rows={3} placeholder="Caption text..."
-                      onChange={e => updateCue(c.id, { text: e.target.value })}
+                      onChange={e => updateCueText(c.id, e.target.value)}
                       className="flex-1 bg-editor-base border border-editor-border rounded text-sm text-editor-text px-2 py-1.5 resize-none" />
                     <button onClick={() => removeCue(c.id)} className="text-[#c9c4dd] hover:text-red-400 transition-colors pt-1.5">
                       <Trash2 size={14} />
@@ -499,10 +507,6 @@ function collectTimelineAudioClips(project: Project | null): TimelineAudioClip[]
 
 function roundTime(value: number) {
   return Math.round(value * 100) / 100
-}
-
-function normalizeTrack(track: SubtitleTrack): SubtitleTrack {
-  return { ...track, style: normalizeSubtitleStyle(track.style) }
 }
 
 function StyleRow({ label, children }: { label: string; children: React.ReactNode }) {
