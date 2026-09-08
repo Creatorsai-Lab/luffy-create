@@ -198,3 +198,9 @@ export function getSubtitleWordState(
     : 1.12 - easeOut((local - 0.7) / 0.3) * 0.12
   return { opacity: easeOut(local), scale, offsetY: (1 - easeOut(local)) * 10, emphasis: local > 0 && local < 1 ? 1 : 0 }
 }
+
+export function getSubtitleStackWordStates(animation: SubtitleAnimationType, progress: number, rowWordCounts: number[]) {
+  const timingWordCount = Math.max(1, ...rowWordCounts)
+  return rowWordCounts.map(count => Array.from({ length: count }, (_, index) =>
+    getSubtitleWordState(animation, progress, index, timingWordCount)))
+}

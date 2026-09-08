@@ -1,4 +1,5 @@
 import type { SubtitleCue, SubtitleLanguage, SubtitleTrack } from '../types/editor'
+import type { SubtitleTranslationDirection } from '../types/global'
 
 export interface SubtitleTranslationCandidate {
   id: string
@@ -12,7 +13,8 @@ interface SubtitleTranslationResult {
   warnings: string[]
 }
 
-const SOURCE_CHANGED_WARNING = 'Source caption changed'
+export const getTranslationDirection = (source: SubtitleLanguage): SubtitleTranslationDirection =>
+  source === 'en' ? 'en-hi' : 'hi-en'
 
 export function sourceTextHash(text: string) {
   let hash = 0x811c9dc5
@@ -34,17 +36,7 @@ export function isCueTranslationCurrent(cue: SubtitleCue, language: SubtitleLang
 
 export function updateCueSource(cue: SubtitleCue, text: string): SubtitleCue {
   if (cue.text === text) return cue
-  const translations = cue.translations && Object.fromEntries(
-    Object.entries(cue.translations).map(([language, translation]) => [
-      language,
-      translation && {
-        ...translation,
-        reviewed: false,
-        warnings: Array.from(new Set([...(translation.warnings ?? []), SOURCE_CHANGED_WARNING])),
-      },
-    ]),
-  ) as SubtitleCue['translations']
-  return { ...cue, text, translations }
+  return { ...cue, text }
 }
 
 export function mergeCueTranslation(
@@ -59,7 +51,6 @@ export function mergeCueTranslation(
       ...cue.translations,
       [language]: {
         text,
-        reviewed: false,
         sourceHash: sourceTextHash(cue.text),
         warnings: [...warnings],
       },
@@ -67,24 +58,9 @@ export function mergeCueTranslation(
   }
 }
 
-export function setCueReviewed(cue: SubtitleCue, language: SubtitleLanguage, reviewed: boolean): SubtitleCue {
-  const translation = cue.translations?.[language]
-  if (!translation) return cue
-  return {
-    ...cue,
-    translations: {
-      ...cue.translations,
-      [language]: { ...translation, reviewed: reviewed && isCueTranslationCurrent(cue, language) },
-    },
-  }
-}
-
-export function selectTranslationCandidates(track: SubtitleTrack, replaceReviewed = false): SubtitleTranslationCandidate[] {
-  const target = track.translation?.targetLanguage ?? (track.language === 'en' ? 'hi' : 'en')
+export function selectTranslationCandidates(track: SubtitleTrack): SubtitleTranslationCandidate[] {
   return track.cues.flatMap(cue => {
     if (!cue.text.trim()) return []
-    const translation = cue.translations?.[target]
-    if (!replaceReviewed && translation?.reviewed && isCueTranslationCurrent(cue, target)) return []
     return [{ id: cue.id, text: cue.text, sourceHash: sourceTextHash(cue.text) }]
   })
 }

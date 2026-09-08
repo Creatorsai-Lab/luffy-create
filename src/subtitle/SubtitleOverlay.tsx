@@ -9,7 +9,7 @@ import {
   getSubtitleBlockState,
   getSubtitleRenderRows,
   getSubtitleWarpScale,
-  getSubtitleWordState,
+  getSubtitleStackWordStates,
   layoutMeasuredSubtitleWords,
   layoutSubtitleStack,
   type SubtitleRenderRow,
@@ -64,14 +64,14 @@ function SubtitleCaptionStack({ width, height, cue, track, time, rows }: StackPr
 
   const stack = layoutSubtitleStack(metrics.map(row => ({ width: row.width * row.scaleX, height: row.height })), rowGap)
   const origin = getCaptionOrigin(width, height, stack.width, stack.height, style.positionX, style.positionY)
-  const totalWords = metrics.reduce((sum, row) => sum + row.words.length, 0)
+  const maxWords = Math.max(...metrics.map(row => row.words.length))
   const duration = Math.max(0.01, cue.end - cue.start)
   const entranceDuration = style.animation === 'smoothReveal'
     ? Math.min(0.65, duration)
-    : Math.min(duration * 0.85, Math.max(0.38, totalWords * 0.11))
+    : Math.min(duration * 0.85, Math.max(0.38, maxWords * 0.11))
   const progress = Math.max(0, Math.min(1, (time - cue.start) / Math.max(0.01, entranceDuration)))
   const block = getSubtitleBlockState(style.animation, progress)
-  let firstWord = 0
+  const wordStates = getSubtitleStackWordStates(style.animation ?? 'wordPop', progress, metrics.map(row => row.words.length))
 
   return (
     <Group x={origin.x + stack.width / 2} y={origin.y + stack.height / 2 + block.offsetY}
@@ -80,15 +80,13 @@ function SubtitleCaptionStack({ width, height, cue, track, time, rows }: StackPr
       {metrics.map((row, rowIndex) => {
         const visualWidth = row.width * row.scaleX
         const rowX = (stack.width - visualWidth) / 2
-        const wordOffset = firstWord
-        firstWord += row.words.length
         const fontStyle = [row.style.italic ? 'italic' : '', fontWeightToKonvaStyle(row.style.fontWeight)].join(' ').trim()
         const fill = subtitleTextFillProps(row.style, row.width)
         return (
           <Group key={`${row.language}-${row.text}`} x={rowX + visualWidth / 2} y={stack.rows[rowIndex].y}
             offsetX={row.width / 2} scaleX={row.scaleX}>
             {row.words.map((word, index) => {
-              const state = getSubtitleWordState(style.animation, progress, wordOffset + index, totalWords)
+              const state = wordStates[rowIndex][index]
               const common = { fontFamily: row.style.fontFamily, fontSize: row.style.fontSize, fontStyle, ...fill,
                 lineHeight: 1.08, wrap: 'none' as const, listening: false, perfectDrawEnabled: false,
                 shadowColor: state.emphasis ? row.style.color : undefined,

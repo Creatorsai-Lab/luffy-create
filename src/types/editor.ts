@@ -559,7 +559,6 @@ export type SubtitleLanguage = 'en' | 'hi'
 
 export interface SubtitleTranslation {
   text: string
-  reviewed?: boolean
   sourceHash: string
   warnings?: string[]
 }

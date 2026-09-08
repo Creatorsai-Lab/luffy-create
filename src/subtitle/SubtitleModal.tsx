@@ -1,17 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { X, Captions, Wand2, Plus, Trash2, Download, Mic, FileText } from 'lucide-react'
 import { useEditorStore } from '../store/editorStore'
 import { FONT_FAMILIES } from '../types/editor'
 import type { AudioElement, FontWeight, Project, SubtitleCue, SubtitleLanguage, SubtitleStyle, SubtitleTrack } from '../types/editor'
 import { ColorInput, Slider } from '../components/panels/TextPanel'
 import { makeCue, makeSubtitleTrack, normalizeSubtitleStyle, normalizeSubtitleTrack } from './types'
-import { mergeCueTranslation, setCueReviewed, updateCueSource } from './translation'
-import { cuesToSrt, type SubtitleSrtMode } from './srt'
+import { mergeCueTranslation, updateCueSource } from './translation'
+import { cuesToSrt, fmt, type SubtitleSrtMode } from './srt'
 import { transcriber } from './transcriber'
 import { getSceneGlobalStart, splitLongSubtitleCues, splitScriptIntoCueTexts } from './timeline'
 import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../utils/fontWeight'
 import SubtitleStylePreview from './SubtitleStylePreview'
-import SubtitleTranslationPanel, { type SubtitleTranslationPanelHandle } from './SubtitleTranslationPanel'
+import SubtitleTranslationPanel from './SubtitleTranslationPanel'
 
 interface TimelineAudioClip {
   id: string
@@ -42,7 +42,6 @@ export default function SubtitleModal() {
   const [status, setStatus] = useState<string>('')
   const [busy, setBusy] = useState(false)
   const [srtMode, setSrtMode] = useState<SubtitleSrtMode>('bilingual')
-  const translationRef = useRef<SubtitleTranslationPanelHandle>(null)
 
   useEffect(() => {
     setTrack(normalizeSubtitleTrack(existingTrack ?? makeSubtitleTrack()))
@@ -260,7 +259,7 @@ export default function SubtitleModal() {
             >
               <Wand2 size={14} /> {busy ? 'Working...' : 'Generate from audio'}
             </button>
-            <SubtitleTranslationPanel ref={translationRef} track={track} onChange={setTrack} status={status} setStatus={setStatus} />
+            <SubtitleTranslationPanel track={track} onChange={setTrack} setStatus={setStatus} />
             <div className="border-t border-editor-border mt-8 grid grid-cols-[1fr_auto] gap-2 pt-3">
               <div className="flex min-w-0">
                 <select value={srtMode} onChange={event => setSrtMode(event.target.value as SubtitleSrtMode)}
@@ -295,6 +294,13 @@ export default function SubtitleModal() {
           </div>
 
           <div className="flex-1 min-w-0 overflow-y-auto p-4">
+            <div className="flex items-center justify-end gap-2 mb-3 text-xs text-editor-text-secondary">
+              <span>Show translation</span>
+              <button onClick={() => patchTranslation({ visible: !track.translation?.visible })}
+                className={`px-2 py-1 rounded border ${track.translation?.visible ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated-highlight text-editor-text border-editor-border'}`}>
+                {track.translation?.visible ? 'On' : 'Off'}
+              </button>
+            </div>
             {track.cues.length === 0 ? (
               <div className="h-full flex items-center justify-center">
                 <p className="text-sm text-editor-text-secondary text-center">
@@ -304,8 +310,6 @@ export default function SubtitleModal() {
             ) : (
               <div className="flex flex-col gap-2 max-w-5xl">
                 {track.cues.slice().sort((a, b) => a.start - b.start).map((c, i) => {
-                  const target = track.translation?.targetLanguage ?? (track.language === 'en' ? 'hi' : 'en')
-                  const translation = c.translations?.[target]
                   const languageText = (language: SubtitleLanguage) => language === track.language ? c.text : c.translations?.[language]?.text ?? ''
                   const editLanguage = (language: SubtitleLanguage, text: string) => language === track.language
                     ? updateCueText(c.id, text)
@@ -333,14 +337,6 @@ export default function SubtitleModal() {
                             className="w-full bg-editor-base border border-editor-border rounded text-sm text-editor-text px-2 py-1.5 resize-none" />
                         </label>
                       ))}
-                      <div className="flex flex-wrap items-center gap-3 pl-[50px] text-[10px] text-editor-text-secondary">
-                        {translation && <>
-                          <label className="flex items-center gap-1"><input type="checkbox" checked={Boolean(translation.reviewed)}
-                            onChange={event => setTrack(current => ({ ...current, cues: current.cues.map(cue => cue.id === c.id ? setCueReviewed(cue, target, event.target.checked) : cue) }))} /> Reviewed</label>
-                          {translation.warnings?.map(warning => <span key={warning} className="text-amber-300">{warning}</span>)}
-                        </>}
-                        <button onClick={() => translationRef.current?.retranslate(c.id)} className="text-editor-accent">Retranslate</button>
-                      </div>
                     </div>
                     <button onClick={() => removeCue(c.id)} className="text-[#c9c4dd] hover:text-red-400 transition-colors pt-1.5"><Trash2 size={14} /></button>
                   </div>
@@ -501,12 +497,6 @@ export default function SubtitleModal() {
 
             <div className="border-t border-editor-border my-3" />
             <SectionLabel>Translated row</SectionLabel>
-            <StyleRow label="Show translation">
-              <button onClick={() => patchTranslation({ visible: !track.translation?.visible })}
-                className={`px-2 py-1 rounded text-xs border ${track.translation?.visible ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated-highlight text-editor-text border-editor-border'}`}>
-                {track.translation?.visible ? 'On' : 'Off'}
-              </button>
-            </StyleRow>
             <StyleRow label="Translated font">
               <select value={track.translation?.style.fontFamily ?? ''} onChange={event => patchTranslatedStyle({ fontFamily: event.target.value || undefined })}
                 className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1">

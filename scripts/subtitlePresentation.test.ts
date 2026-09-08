@@ -6,6 +6,7 @@ import {
   getSubtitleBlockState,
   getSubtitleWarpScale,
   getSubtitleWordState,
+  getSubtitleStackWordStates,
   layoutMeasuredSubtitleWords,
   layoutSubtitleLines,
   layoutSubtitleStack,
@@ -87,5 +88,9 @@ const karaokeFuture = getSubtitleWordState('karaokePulse', 0.45, 2, 3)
 assert.equal(karaokeActive.opacity, 1)
 assert.ok(karaokeActive.scale > 1)
 assert.equal(karaokeFuture.opacity, 0.35)
+
+const parallel = getSubtitleStackWordStates('wordPop', 0.2, [3, 5])
+assert.equal(parallel[0][0].opacity, parallel[1][0].opacity)
+assert.equal(parallel[0][1].opacity, parallel[1][1].opacity)
 
 console.log('subtitle presentation tests passed')

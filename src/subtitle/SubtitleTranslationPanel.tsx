@@ -1,33 +1,25 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown, Languages, Plus, Trash2 } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { SubtitleLanguage, SubtitleTrack } from '../types/editor'
-import type { SubtitleTranslationDirection, SubtitleTranslationPackStatus } from '../types/global'
-import { mergeTranslationResults, selectTranslationCandidates } from './translation'
+import type { SubtitleTranslationPackStatus } from '../types/global'
+import { getTranslationDirection, mergeTranslationResults, selectTranslationCandidates } from './translation'
 import { normalizeSubtitleTrack } from './types'
-
-export interface SubtitleTranslationPanelHandle {
-  retranslate(cueId: string): void
-}
 
 interface Props {
   track: SubtitleTrack
   onChange: Dispatch<SetStateAction<SubtitleTrack>>
-  status: string
   setStatus: (status: string) => void
 }
 
 const languageName = { en: 'English', hi: 'Hindi' } satisfies Record<SubtitleLanguage, string>
 const opposite = (language: SubtitleLanguage): SubtitleLanguage => language === 'en' ? 'hi' : 'en'
 
-const SubtitleTranslationPanel = forwardRef<SubtitleTranslationPanelHandle, Props>(function SubtitleTranslationPanel(
-  { track, onChange, setStatus }, ref,
-) {
+export default function SubtitleTranslationPanel({ track, onChange, setStatus }: Props) {
   const settings = normalizeSubtitleTrack(track).translation!
-  const direction = `${track.language}-${settings.targetLanguage}` as SubtitleTranslationDirection
+  const direction = getTranslationDirection(track.language)
   const [model, setModel] = useState<SubtitleTranslationPackStatus>({ state: 'not-installed', direction })
   const [jobId, setJobId] = useState('')
-  const [replaceReviewed, setReplaceReviewed] = useState(false)
   const [glossaryOpen, setGlossaryOpen] = useState(false)
   const [progress, setProgress] = useState('')
 
@@ -57,7 +49,7 @@ const SubtitleTranslationPanel = forwardRef<SubtitleTranslationPanelHandle, Prop
       language: sourceLanguage,
       translation: { ...normalizeSubtitleTrack(current).translation!, targetLanguage: opposite(sourceLanguage) },
     }))
-    setModel({ state: 'not-installed', direction: `${sourceLanguage}-${opposite(sourceLanguage)}` })
+    setModel({ state: 'not-installed', direction: getTranslationDirection(sourceLanguage) })
   }
 
   async function install() {
@@ -83,10 +75,8 @@ const SubtitleTranslationPanel = forwardRef<SubtitleTranslationPanelHandle, Prop
     void window.api.subtitle.cancelTranslationInstall(direction)
   }
 
-  async function translate(cueId?: string) {
-    const candidates = cueId
-      ? selectTranslationCandidates(track, true).filter(cue => cue.id === cueId)
-      : selectTranslationCandidates(track, replaceReviewed)
+  async function translate() {
+    const candidates = selectTranslationCandidates(track)
     if (model.state !== 'installed') { setStatus('Install this translation model first.'); return }
     if (!candidates.length) { setStatus('No captions need translation.'); return }
 
@@ -107,8 +97,6 @@ const SubtitleTranslationPanel = forwardRef<SubtitleTranslationPanelHandle, Prop
     } catch (error) { setStatus(message(error)) }
     finally { setJobId(''); setProgress('') }
   }
-
-  useImperativeHandle(ref, () => ({ retranslate: cueId => { void translate(cueId) } }))
 
   function addGlossary() {
     onChange(current => {
@@ -143,22 +131,18 @@ const SubtitleTranslationPanel = forwardRef<SubtitleTranslationPanelHandle, Prop
         <LanguageSelect label="To" value={settings.targetLanguage} onChange={language => patchLanguages(opposite(language))} disabled={Boolean(jobId)} />
       </div>
 
-      <div className="flex items-center justify-between mt-2 text-[11px]">
-        <span className="text-editor-text-secondary">Model: {model.state.replace('-', ' ')}</span>
+      <div className="mt-2 flex items-center justify-between mt-2text-normal p-3 bg-yellow-700/20 rounded">
+        <span className="text-editor-text">MODEL STATUS: {model.state.replace('-', ' ')}</span>
         {model.state === 'installed' ? (
-          <button onClick={remove} className="text-red-300 hover:text-red-200">Remove model</button>
+          <button onClick={remove} className="px-2 py-1 text-editor-error border rounded-2xl border-editor-error ">Remove Model</button>
         ) : model.state === 'downloading' ? (
           <button onClick={cancelInstall} className="text-red-300 hover:text-red-200">Cancel download</button>
         ) : (
-          <button onClick={install} className="text-editor-accent">Install model</button>
+          <button onClick={install} className="px-2 py-1 border border-editor-success rounded-2xl  text-editor-success">Install Model (one time)</button>
         )}
       </div>
       {progress && <p className="mt-1 text-[10px] text-editor-text-secondary">{progress}</p>}
 
-      <label className="flex items-center gap-2 mt-2 text-[11px] text-editor-text-secondary">
-        <input type="checkbox" checked={replaceReviewed} onChange={event => setReplaceReviewed(event.target.checked)} />
-        Replace reviewed translations
-      </label>
       <button onClick={() => jobId ? window.api.subtitle.cancelTranslation(jobId) : translate()}
         className="w-full mt-2 py-2 rounded bg-editor-accent text-sm text-white hover:bg-editor-accent-hover">
         {jobId ? 'Cancel translation' : 'Translate captions'}
@@ -181,7 +165,7 @@ const SubtitleTranslationPanel = forwardRef<SubtitleTranslationPanelHandle, Prop
       )}
     </section>
   )
-})
+}
 
 function LanguageSelect({ label, value, onChange, disabled }: { label: string; value: SubtitleLanguage; onChange: (value: SubtitleLanguage) => void; disabled: boolean }) {
   return <label className="text-[10px] uppercase tracking-wider text-editor-text-secondary">{label}
@@ -194,5 +178,3 @@ function LanguageSelect({ label, value, onChange, disabled }: { label: string; v
 function message(error: unknown) {
   return error instanceof Error ? error.message : String(error)
 }
-
-export default SubtitleTranslationPanel

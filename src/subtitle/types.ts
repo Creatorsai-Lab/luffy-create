@@ -34,7 +34,7 @@ export function defaultSubtitleStyle(): SubtitleStyle {
     gradientUseColor3: false,
     maxWidthPct: 90,
     positionX: 50,
-    positionY: 88,
+    positionY: 4,
     animation: 'wordPop',
     captionLook: 'normal',
     warpIntensity: 50,
