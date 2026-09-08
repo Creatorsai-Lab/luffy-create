@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { X, Captions, Wand2, Plus, Trash2, Download, Mic, FileText } from 'lucide-react'
 import { useEditorStore } from '../store/editorStore'
 import { FONT_FAMILIES } from '../types/editor'
-import type { AudioElement, FontWeight, Project, SubtitleCue, SubtitleStyle, SubtitleTrack } from '../types/editor'
+import type { AudioElement, FontWeight, Project, SubtitleCue, SubtitleLanguage, SubtitleStyle, SubtitleTrack } from '../types/editor'
 import { ColorInput, Slider } from '../components/panels/TextPanel'
 import { makeCue, makeSubtitleTrack, normalizeSubtitleStyle } from './types'
 import { cuesToSrt, fmt } from './srt'
@@ -200,7 +200,7 @@ export default function SubtitleModal() {
               <span className="text-[11px] uppercase tracking-wider text-editor-text-secondary">Language</span>
               <input
                 value={track.language}
-                onChange={e => patchTrack({ language: e.target.value.trim() || 'en' })}
+                onChange={e => patchTrack({ language: (e.target.value.trim() || 'en') as SubtitleLanguage })}
                 placeholder="en"
                 className="w-full mt-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
               />

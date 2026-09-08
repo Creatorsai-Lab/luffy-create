@@ -555,11 +555,41 @@ export interface TimeMarker {
   time: number
 }
 
+export type SubtitleLanguage = 'en' | 'hi'
+
+export interface SubtitleTranslation {
+  text: string
+  reviewed?: boolean
+  sourceHash: string
+  warnings?: string[]
+}
+
+export interface SubtitleGlossaryEntry {
+  id: string
+  source: string
+  target: string
+}
+
+export interface SubtitleTranslatedStyle {
+  fontFamily?: string
+  sizePct: number
+  color?: string
+  rowGap: number
+}
+
+export interface SubtitleTranslationSettings {
+  targetLanguage: SubtitleLanguage
+  visible: boolean
+  glossary: SubtitleGlossaryEntry[]
+  style: SubtitleTranslatedStyle
+}
+
 export interface SubtitleCue {
   id: string
   start: number   // seconds on the global project timeline
   end: number     // seconds on the global project timeline
   text: string
+  translations?: Partial<Record<SubtitleLanguage, SubtitleTranslation>>
 }
 
 export interface SubtitleStyle {
@@ -587,11 +617,12 @@ export interface SubtitleStyle {
 export interface SubtitleTrack {
   id: string
   name: string
-  language: string
+  language: SubtitleLanguage
   enabled: boolean
   cues: SubtitleCue[]
   sourceAudioIds?: string[]
   style: SubtitleStyle
+  translation?: SubtitleTranslationSettings
 }
 
 export interface Project {

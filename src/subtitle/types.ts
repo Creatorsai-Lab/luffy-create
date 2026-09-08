@@ -1,4 +1,10 @@
-import type { SubtitleCue, SubtitleStyle, SubtitleTrack } from '../types/editor'
+import type {
+  SubtitleCue,
+  SubtitleLanguage,
+  SubtitleStyle,
+  SubtitleTrack,
+  SubtitleTranslationSettings,
+} from '../types/editor'
 
 export type { SubtitleCue, SubtitleStyle, SubtitleTrack }
 
@@ -26,12 +32,45 @@ export function defaultSubtitleStyle(): SubtitleStyle {
     gradientOpacity2: 1,
     gradientOpacity3: 1,
     gradientUseColor3: false,
-    maxWidthPct: 99,
+    maxWidthPct: 90,
     positionX: 50,
-    positionY: 5,
+    positionY: 88,
     animation: 'wordPop',
     captionLook: 'normal',
     warpIntensity: 50,
+  }
+}
+
+export function defaultSubtitleTranslationSettings(targetLanguage: SubtitleLanguage): SubtitleTranslationSettings {
+  return {
+    targetLanguage,
+    visible: true,
+    glossary: [],
+    style: {
+      fontFamily: targetLanguage === 'hi' ? 'Poppins' : undefined,
+      sizePct: 90,
+      rowGap: 8,
+    },
+  }
+}
+
+export function normalizeSubtitleTrack(track: SubtitleTrack): SubtitleTrack {
+  const language: SubtitleLanguage = track.language === 'hi' ? 'hi' : 'en'
+  const fallbackTarget: SubtitleLanguage = language === 'en' ? 'hi' : 'en'
+  const requestedTarget = track.translation?.targetLanguage
+  const targetLanguage = requestedTarget && requestedTarget !== language ? requestedTarget : fallbackTarget
+  const defaults = defaultSubtitleTranslationSettings(targetLanguage)
+  return {
+    ...track,
+    language,
+    style: normalizeSubtitleStyle(track.style),
+    translation: {
+      ...defaults,
+      ...track.translation,
+      targetLanguage,
+      glossary: track.translation?.glossary ?? [],
+      style: { ...defaults.style, ...track.translation?.style },
+    },
   }
 }
 
@@ -63,5 +102,6 @@ export function makeSubtitleTrack(name = 'Timeline Captions'): SubtitleTrack {
     enabled: true,
     cues: [],
     style: defaultSubtitleStyle(),
+    translation: defaultSubtitleTranslationSettings('hi'),
   }
 }
