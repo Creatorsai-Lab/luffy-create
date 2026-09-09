@@ -54,5 +54,10 @@ const page = await readFile(new URL('../live-website/public/index.html', import.
 for (const marker of ['assets/auth.css', 'class="auth-nav-button"', 'id="authModal"', 'assets/auth.js']) {
   assert.ok(page.includes(marker), `live website is missing auth marker: ${marker}`)
 }
+assert.match(page, /assets\/auth\.js\?v=\d+/)
+
+const auth = await readFile(new URL('../live-website/public/assets/auth.js', import.meta.url), 'utf8')
+assert.ok(auth.includes('supabase.auth.signUp'), 'signup must use email/password signup')
+assert.ok(!auth.includes('signInAnonymously'), 'signup must not use anonymous authentication')
 
 console.log('live website tests passed')
