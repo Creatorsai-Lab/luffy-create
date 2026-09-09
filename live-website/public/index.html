@@ -20,7 +20,8 @@
 <meta name="twitter:title" content="Luffy Create — Free Open-Source AI Video Editor" />
 <meta name="twitter:description" content="A free offline video editor with AI edits, captions, timeline control, Python sandbox tools, and direct MP4 export." />
 <meta name="twitter:image" content="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/public/images/luffy_create_template.webp" />
-<link rel="icon" href="public/images/favicon.svg" />
+<link rel="icon" type="image/png" href="assets/images/favicon-96x96.png" />
+<link rel="stylesheet" href="assets/auth.css" />
 
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Luffy Create","applicationCategory":"MultimediaApplication","operatingSystem":"Windows","description":"A free, open-source AI video editor with precise timeline control, captions, Python and Manim animation tools, offline editing, and direct MP4 export.","url":"https://creatorsai-lab.github.io/luffy-create/","downloadUrl":"https://github.com/Creatorsai-Lab/luffy-create/releases/latest","softwareVersion":"1.3.3","license":"https://opensource.org/licenses/MIT","author":{"@type":"Organization","name":"Creatorsai-Lab"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
@@ -433,6 +434,7 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
       </div>
     </nav>
     <div class="nav-acts">
+      <button class="auth-nav-button" type="button" data-auth-open="login">Log in</button>
       <button class="burger" id="burger" type="button" aria-label="Toggle menu" aria-expanded="false"><span><i></i><i></i><i></i></span></button>
     </div>
   </div>
@@ -648,6 +650,74 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
 </section>
 </main>
 
+<div class="auth-modal" id="authModal" hidden>
+  <div class="auth-backdrop" data-auth-close></div>
+  <section class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle" tabindex="-1">
+    <div class="auth-head">
+      <h2 id="authTitle">Get Luffy Create</h2>
+      <button class="auth-close" type="button" data-auth-close aria-label="Close">×</button>
+    </div>
+    <div class="auth-tabs" id="authTabs">
+      <button class="auth-tab" type="button" data-auth-open="signup">Create account</button>
+      <button class="auth-tab" type="button" data-auth-open="login">Log in</button>
+    </div>
+
+    <form class="auth-form auth-view" id="signupForm" data-auth-view="signup">
+      <label>Full name<input name="fullName" autocomplete="name" minlength="2" maxlength="80" required></label>
+      <label>Email<input name="email" type="email" autocomplete="email" required></label>
+      <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+      <div data-captcha-slot></div>
+      <button class="auth-submit" type="submit">Create free account</button>
+      <p class="auth-copy">Use Gmail, Yahoo, Outlook/Microsoft, or Proton. We store account details and download clicks; the editor has no telemetry.</p>
+    </form>
+
+    <form class="auth-form auth-view" id="loginForm" data-auth-view="login" hidden>
+      <label>Email<input name="email" type="email" autocomplete="email" required></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <div data-captcha-slot></div>
+      <button class="auth-submit" type="submit">Log in</button>
+      <button class="auth-link" type="button" data-auth-open="forgot">Forgot password?</button>
+    </form>
+
+    <div class="auth-view" data-auth-view="check-email" hidden>
+      <h3>Check your email</h3>
+      <p class="auth-copy">Open the verification link we sent, then return here to download Luffy Create.</p>
+      <button class="auth-link" id="resendConfirmation" type="button">Resend verification email</button>
+    </div>
+
+    <form class="auth-form auth-view" id="forgotForm" data-auth-view="forgot" hidden>
+      <h3>Reset your password</h3>
+      <label>Email<input name="email" type="email" autocomplete="email" required></label>
+      <div data-captcha-slot></div>
+      <button class="auth-submit" type="submit">Send reset link</button>
+      <button class="auth-link" type="button" data-auth-open="login">Back to login</button>
+    </form>
+
+    <form class="auth-form auth-view" id="recoveryForm" data-auth-view="recovery" hidden>
+      <h3>Choose a new password</h3>
+      <label>New password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+      <button class="auth-submit" type="submit">Update password</button>
+    </form>
+
+    <div class="auth-view" data-auth-view="download" hidden>
+      <div class="auth-account">
+        <div><strong id="authUserName">Luffy user</strong><span id="authUserEmail"></span></div>
+        <button class="auth-link" id="logoutButton" type="button">Log out</button>
+      </div>
+      <div class="auth-row"><h3>Download latest</h3><span class="auth-version" data-release-version>Latest</span></div>
+      <div class="auth-downloads">
+        <button class="os-btn auth-download" type="button" data-platform="windows">Windows · .EXE</button>
+        <button class="os-btn auth-download" type="button" data-platform="macos">macOS · .DMG</button>
+        <button class="os-btn auth-download" type="button" data-platform="linux">Linux · AppImage</button>
+      </div>
+      <p class="auth-copy">Downloads are public GitHub Release files. We record this button click to understand adoption.</p>
+    </div>
+
+    <div class="auth-captcha" id="authCaptcha" hidden></div>
+    <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
+  </section>
+</div>
+
 <!-- ═══ FOOTER ═══ -->
 <footer>
   <div class="wrap-n">
@@ -765,20 +835,8 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
     });
   });
 
-  /* ── latest release assets → OS buttons ── */
-  function setHref(sel, url) { document.querySelectorAll(sel).forEach(function (a) { a.href = url; }); }
-  fetch("https://api.github.com/repos/Creatorsai-Lab/luffy-create/releases/latest")
-    .then(function (r) { if (!r.ok) throw 0; return r.json(); })
-    .then(function (rel) {
-      var assets = rel.assets || [];
-      function find(ext) { for (var i = 0; i < assets.length; i++) if (assets[i].name.toLowerCase().slice(-ext.length) === ext) return assets[i].browser_download_url; return null; }
-      var w = find(".exe"), m = find(".dmg"), l = find(".appimage");
-      if (w) setHref(".js-dl-win", w);
-      if (m) setHref(".js-dl-mac", m);
-      if (l) setHref(".js-dl-linux", l);
-    })
-    .catch(function () { /* keep fallback hrefs */ });
 })();
 </script>
+<script type="module" src="assets/auth.js"></script>
 </body>
 </html>

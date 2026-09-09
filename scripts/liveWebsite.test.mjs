@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import {
   authViewFromUrl,
   createDownloadEvent,
@@ -48,5 +49,10 @@ assert.equal(getDownloadUrl(assets, 'macos'), 'https://example.test/Luffy.dmg')
 assert.equal(getDownloadUrl(assets, 'android'), 'https://github.com/Creatorsai-Lab/luffy-create/releases/latest')
 assert.deepEqual(getSessionNav(null), { label: 'Log in', view: 'login' })
 assert.deepEqual(getSessionNav({ user: { id: 'user-1' } }), { label: 'Account', view: 'download' })
+
+const page = await readFile(new URL('../live-website/public/index.html', import.meta.url), 'utf8')
+for (const marker of ['assets/auth.css', 'class="auth-nav-button"', 'id="authModal"', 'assets/auth.js']) {
+  assert.ok(page.includes(marker), `live website is missing auth marker: ${marker}`)
+}
 
 console.log('live website tests passed')
