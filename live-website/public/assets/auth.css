@@ -20,6 +20,13 @@
 .auth-form label{display:block;margin-top:.75rem;font-size:.8rem;font-weight:700;letter-spacing:.06em;color:var(--text);font-family:inherit}
 .auth-form input{width:100%;margin-top:.35rem;border:1px solid var(--border);border-radius:.55rem;background:var(--surface-2);padding:.7rem .75rem;color:var(--ink);font-family:var(--fd);font-size:1rem}
 .auth-form input:focus{border-color:var(--accent);outline:2px solid var(--accent-soft)}
+/* password toggle */
+.auth-pw-wrap{position:relative;margin-top:.35rem}
+.auth-pw-wrap input{width:100%;margin-top:0;border:1px solid var(--border);border-radius:.55rem;background:var(--surface-2);padding:.7rem 2.75rem .7rem .75rem;color:var(--ink);font-family:var(--fd);font-size:1rem}
+.auth-pw-wrap input:focus{border-color:var(--accent);outline:2px solid var(--accent-soft)}
+.auth-pw-toggle{position:absolute;right:.65rem;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:1.75rem;height:1.75rem;border-radius:.35rem;color:var(--muted);transition:color .2s,background .2s;cursor:pointer}
+.auth-pw-toggle:hover{color:var(--accent);background:var(--accent-soft)}
+.auth-pw-toggle svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .auth-message{min-height:1.25rem;margin-top:.5rem;margin-bottom:.5rem;color:var(--rec);font-size:.88rem;line-height:1.45;font-family:var(--fd)}
 .auth-message-mirror{min-height:1.25rem;margin-top:.5rem;margin-bottom:.5rem;color:var(--rec);font-size:.88rem;line-height:1.45;font-family:var(--fd)}
 .auth-message.ok,.auth-message-mirror.ok{color:var(--sage)}

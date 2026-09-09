@@ -533,9 +533,9 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
     </div>
 
     <form class="auth-form auth-view" id="signupForm" data-auth-view="signup">
-      <label>Full name<input name="fullName" autocomplete="name" minlength="2" maxlength="80" required></label>
+      <label>Full name<input name="fullName" autocomplete="name" maxlength="80" required></label>
       <label>Email<input name="email" type="email" autocomplete="email" required></label>
-      <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label>Password<div class="auth-pw-wrap"><input name="password" type="password" autocomplete="new-password" minlength="8" required><button type="button" class="auth-pw-toggle" aria-label="Show password"><svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
       <div data-captcha-slot></div>
       <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
       <button class="auth-submit" type="submit">Create free account</button>
@@ -544,7 +544,7 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
 
     <form class="auth-form auth-view" id="loginForm" data-auth-view="login" hidden>
       <label>Email<input name="email" type="email" autocomplete="email" required></label>
-      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <label>Password<div class="auth-pw-wrap"><input name="password" type="password" autocomplete="current-password" required><button type="button" class="auth-pw-toggle" aria-label="Show password"><svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
       <div data-captcha-slot></div>
       <p class="auth-message-mirror" role="status" aria-live="polite"></p>
       <button class="auth-submit" type="submit">Log in</button>
@@ -567,7 +567,7 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
 
     <form class="auth-form auth-view" id="recoveryForm" data-auth-view="recovery" hidden>
       <h3>Choose a new password</h3>
-      <label>New password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label>New password<div class="auth-pw-wrap"><input name="password" type="password" autocomplete="new-password" minlength="8" required><button type="button" class="auth-pw-toggle" aria-label="Show password"><svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
       <button class="auth-submit" type="submit">Update password</button>
     </form>
 
