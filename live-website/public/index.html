@@ -378,9 +378,9 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
     </h1>
     <p class="lede" data-rise="450">Luffy Create is a free, open-source video editor built for creators who want real control with both online and offline editing, AI-assisted scene edits, automatic captions, Python &amp; Manim animation, and direct MP4 export. No cloud, no account, no watermark.</p>
     <div class="os-row" data-rise="600">
-      <a class="os-btn js-dl-win" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest" target="_blank" rel="noopener"><svg class="fi os-ic"><use href="#i-win"/></svg><span class="os-t"><span class="os-l">Windows</span></span></a>
-      <a class="os-btn js-dl-mac" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest" target="_blank" rel="noopener"><svg class="fi os-ic"><use href="#i-apple"/></svg><span class="os-t"><span class="os-l">macOS</span></span></a>
-      <a class="os-btn js-dl-linux" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest" target="_blank" rel="noopener"><svg class="fi os-ic"><use href="#i-linux"/></svg><span class="os-t"><span class="os-l">Linux</span></span></a>
+      <a class="os-btn js-dl-win" href="/download/#windows"><svg class="fi os-ic"><use href="#i-win"/></svg><span class="os-t"><span class="os-l">Windows</span></span></a>
+      <a class="os-btn js-dl-mac" href="/download/#macos"><svg class="fi os-ic"><use href="#i-apple"/></svg><span class="os-t"><span class="os-l">macOS</span></span></a>
+      <a class="os-btn js-dl-linux" href="/download/#linux"><svg class="fi os-ic"><use href="#i-linux"/></svg><span class="os-t"><span class="os-l">Linux</span></span></a>
     </div>
   </div>
 
@@ -506,9 +506,9 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
         <h2>Ready to create?</h2>
         <p>Download Luffy Create and start building precise videos today — free, open source, and local-first. Prefer source? <a href="https://github.com/Creatorsai-Lab/luffy-create" target="_blank" rel="noopener">Build from the repo</a>.</p>
         <div class="os-row">
-          <a class="os-btn js-dl-win" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest" target="_blank" rel="noopener"><svg class="fi os-ic"><use href="#i-win"/></svg><span class="os-t"><span class="os-l">Windows</span></span></a>
-          <a class="os-btn js-dl-mac" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest" target="_blank" rel="noopener"><svg class="fi os-ic"><use href="#i-apple"/></svg><span class="os-t"><span class="os-l">macOS</span></span></a>
-          <a class="os-btn js-dl-linux" href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest" target="_blank" rel="noopener"><svg class="fi os-ic"><use href="#i-linux"/></svg><span class="os-t"><span class="os-l">Linux</span></span></a>
+          <a class="os-btn js-dl-win" href="/download/#windows"><svg class="fi os-ic"><use href="#i-win"/></svg><span class="os-t"><span class="os-l">Windows</span></span></a>
+          <a class="os-btn js-dl-mac" href="/download/#macos"><svg class="fi os-ic"><use href="#i-apple"/></svg><span class="os-t"><span class="os-l">macOS</span></span></a>
+          <a class="os-btn js-dl-linux" href="/download/#linux"><svg class="fi os-ic"><use href="#i-linux"/></svg><span class="os-t"><span class="os-l">Linux</span></span></a>
         </div>
       </div>
     </div>
@@ -552,8 +552,8 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
     </form>
 
     <div class="auth-view" data-auth-view="check-email" hidden>
-      <h3>Check your email</h3>
-      <p class="auth-copy">Open the verification link we sent, then return here to download Luffy Create.</p>
+      <h3>Please verify your email</h3>
+      <p class="auth-copy">We have sent a <b>verification link</b>. Please open your email and click to verify (<i>If not found, also check your <b>spam</b>folder</i>) </p>
       <button class="auth-link" id="resendConfirmation" type="button">Resend verification email</button>
     </div>
 
@@ -570,20 +570,6 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
       <label>New password<div class="auth-pw-wrap"><input name="password" type="password" autocomplete="new-password" minlength="8" required><button type="button" class="auth-pw-toggle" aria-label="Show password"><svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
       <button class="auth-submit" type="submit">Update password</button>
     </form>
-
-    <div class="auth-view" data-auth-view="download" hidden>
-      <div class="auth-account">
-        <div><strong id="authUserName">Luffy user</strong><span id="authUserEmail"></span></div>
-        <button class="auth-link" id="logoutButton" type="button">Log out</button>
-      </div>
-      <div class="auth-row"><h3>Download latest</h3><span class="auth-version" data-release-version>Latest</span></div>
-      <div class="auth-downloads">
-        <button class="os-btn auth-download" type="button" data-platform="windows">Windows · .EXE</button>
-        <button class="os-btn auth-download" type="button" data-platform="macos">macOS · .DMG</button>
-        <button class="os-btn auth-download" type="button" data-platform="linux">Linux · AppImage</button>
-      </div>
-      <p class="auth-copy">Downloads are public GitHub Release files. We record this button click to understand adoption.</p>
-    </div>
 
     <div class="auth-captcha" id="authCaptcha" hidden></div>
   </section>
@@ -719,6 +705,6 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
 
 })();
 </script>
-<script type="module" src="assets/auth.js?v=20260910"></script>
+<script type="module" src="assets/auth.js?v=2026091002"></script>
 </body>
 </html>

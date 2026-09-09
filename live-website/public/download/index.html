@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Download Luffy Create</title>
+  <link rel="icon" href="/assets/images/favicon-96x96.png">
+  <link rel="stylesheet" href="../assets/download.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">
+      <img src="/assets/images/luffy_create_logo.webp" alt="" width="38" height="38">
+      <strong>Luffy Create</strong>
+    </a>
+    <a class="lab" href="https://creatorsai-lab.github.io/" target="_blank" rel="noopener noreferrer">Creators AI Lab</a>
+  </header>
+
+  <div class="gate" id="downloadGate" role="status">Checking your account…</div>
+  <main id="downloadContent" hidden>
+    <section class="intro">
+      <p>Latest release · <span data-release-version>Loading…</span></p>
+      <h1>Download Luffy Create</h1>
+      <span>Choose your operating system and start creating locally.</span>
+    </section>
+
+    <section class="account" id="downloadAccount">
+      <div class="section-head"><h2>Your account</h2><button id="logoutButton" type="button">Log out</button></div>
+      <div class="account-grid">
+        <div><span>Full name</span><strong id="accountName">Luffy user</strong></div>
+        <div><span>Email</span><strong id="accountEmail"></strong></div>
+      </div>
+    </section>
+
+    <section class="downloads" aria-labelledby="downloadsTitle">
+      <div class="section-head"><h2 id="downloadsTitle">Install the editor</h2></div>
+      <article id="windows"><div><h3>Windows</h3><p>Windows installer · .EXE</p></div><a class="download-button" data-platform="windows" href="#">Download for Windows</a></article>
+      <article id="macos"><div><h3>macOS</h3><p>macOS installer · .DMG</p></div><a class="download-button" data-platform="macos" href="#">Download for macOS</a></article>
+      <article id="linux"><div><h3>Linux</h3><p>Portable Linux application · AppImage</p></div><a class="download-button" data-platform="linux" href="#">Download for Linux</a></article>
+      <p class="message" id="downloadMessage" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <footer>© 2026 Luffy Create · Creators AI Lab · MIT License</footer>
+  <script type="module" src="../assets/download.js?v=20260910"></script>
+</body>
+</html>

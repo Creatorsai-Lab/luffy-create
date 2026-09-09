@@ -10,3 +10,9 @@
 
 /assets/config.js
   Cache-Control: no-store
+
+/assets/site-core.mjs
+  Cache-Control: no-store
+
+/assets/download.js
+  Cache-Control: no-store

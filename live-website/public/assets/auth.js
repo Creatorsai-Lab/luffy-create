@@ -2,10 +2,9 @@ import { siteConfig } from './config.js'
 import {
   authViewFromUrl,
   createAuthRedirectUrl,
-  createDownloadEvent,
-  getDownloadUrl,
+  createDownloadPageUrl,
+  getRequestedPlatform,
   getSessionNav,
-  selectReleaseAssets,
 } from './site-core.mjs'
 
 const modal = document.getElementById('authModal')
@@ -14,22 +13,18 @@ const tabs = document.getElementById('authTabs')
 const status = document.getElementById('authMessage')
 const captcha = document.getElementById('authCaptcha')
 const views = [...document.querySelectorAll('[data-auth-view]')]
-const fallbackRelease = 'https://github.com/Creatorsai-Lab/luffy-create/releases/latest'
 const authConfigured = Boolean(siteConfig.supabaseUrl && siteConfig.supabasePublishableKey && siteConfig.turnstileSiteKey)
 
 let client
-let activeSession
 let previousFocus
 let captchaId
 let captchaToken = ''
 let pendingPlatform = ''
 let lastSignupEmail = ''
-let releaseAssets = { version: 'Latest', windows: '', macos: '', linux: '' }
 
 function setSessionUi(session) {
   const button = document.querySelector('.auth-nav-button')
   const nav = getSessionNav(session)
-  activeSession = session
   button.textContent = nav.label
   button.dataset.authOpen = nav.view
 }
@@ -112,13 +107,11 @@ function requireCaptcha() {
   return captchaToken
 }
 
-async function showDownloads(session) {
-  const user = session?.user
-  if (!user) return openAuthModal('login')
-  document.getElementById('authUserName').textContent = user.user_metadata?.full_name || 'Luffy user'
-  document.getElementById('authUserEmail').textContent = user.email || ''
+function finishAuthentication(session) {
+  if (!session?.user) return openAuthModal('login', pendingPlatform)
   setSessionUi(session)
-  openAuthModal('download', pendingPlatform)
+  if (pendingPlatform) location.assign(createDownloadPageUrl(pendingPlatform))
+  else closeAuthModal()
 }
 
 async function submit(form, operation) {
@@ -134,34 +127,23 @@ async function submit(form, operation) {
   }
 }
 
-async function signUpWithEmail(email, password, fullName, captchaToken) {
-  const response = await fetch(`${siteConfig.supabaseUrl}/auth/v1/signup`, {
-    method: 'POST',
-    headers: {
-      apikey: siteConfig.supabasePublishableKey,
-      Authorization: `Bearer ${siteConfig.supabasePublishableKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      email,
-      password,
-      data: { full_name: fullName },
-      gotrue_meta_security: { captcha_token: captchaToken },
-      redirect_to: createAuthRedirectUrl(location.href, 'verified'),
-    }),
-  })
-  const result = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(result.msg || result.message || result.error_description || 'Could not create your account.')
-  return result
-}
-
 document.getElementById('signupForm')?.addEventListener('submit', event => {
   event.preventDefault()
   submit(event.currentTarget, async data => {
     const email = String(data.get('email') || '').trim()
     const fullName = String(data.get('fullName') || '').trim()
     lastSignupEmail = email
-    await signUpWithEmail(email, String(data.get('password') || ''), fullName, requireCaptcha())
+    const supabase = await getClient()
+    const { error } = await supabase.auth.signUp({
+      email,
+      password: String(data.get('password') || ''),
+      options: {
+        data: { full_name: fullName },
+        captchaToken: requireCaptcha(),
+        emailRedirectTo: createAuthRedirectUrl(location.href, 'verified', pendingPlatform),
+      },
+    })
+    if (error) throw error
     openAuthModal('check-email')
   })
 })
@@ -176,7 +158,7 @@ document.getElementById('loginForm')?.addEventListener('submit', event => {
       options: { captchaToken: requireCaptcha() },
     })
     if (error) throw error
-    await showDownloads(result.session)
+    finishAuthentication(result.session)
   })
 })
 
@@ -201,7 +183,7 @@ document.getElementById('recoveryForm')?.addEventListener('submit', event => {
     const { error } = await supabase.auth.updateUser({ password: String(data.get('password') || '') })
     if (error) throw error
     const { data: session } = await supabase.auth.getSession()
-    await showDownloads(session.session)
+    finishAuthentication(session.session)
     setMessage('Password updated.', true)
   })
 })
@@ -213,7 +195,7 @@ document.getElementById('resendConfirmation')?.addEventListener('click', async (
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: lastSignupEmail,
-      options: { emailRedirectTo: createAuthRedirectUrl(location.href, 'verified') },
+      options: { emailRedirectTo: createAuthRedirectUrl(location.href, 'verified', pendingPlatform) },
     })
     if (error) throw error
     setMessage('Verification email sent again.', true)
@@ -222,13 +204,11 @@ document.getElementById('resendConfirmation')?.addEventListener('click', async (
   }
 })
 
-document.getElementById('logoutButton')?.addEventListener('click', async () => {
-  try { await (await getClient()).auth.signOut() } finally { setSessionUi(null); openAuthModal('login') }
-})
-
 document.querySelectorAll('[data-auth-open]').forEach(button => button.addEventListener('click', () => {
   const view = button.dataset.authOpen || 'signup'
-  view === 'download' ? showDownloads(activeSession) : openAuthModal(view)
+  if (view === 'download') return location.assign(createDownloadPageUrl())
+  if (button.classList.contains('auth-nav-button')) pendingPlatform = ''
+  openAuthModal(view)
 }))
 document.querySelectorAll('[data-auth-close]').forEach(button => button.addEventListener('click', closeAuthModal))
 
@@ -239,29 +219,13 @@ for (const [selector, platform] of Object.entries({ '.js-dl-win': 'windows', '.j
     try {
       const supabase = await getClient()
       const { data } = await supabase.auth.getSession()
-      data.session ? showDownloads(data.session) : openAuthModal('signup', platform)
+      data.session ? location.assign(link.href) : openAuthModal('signup', platform)
     } catch (error) {
       openAuthModal('signup', platform)
       setMessage(error instanceof Error ? error.message : String(error))
     }
   }))
 }
-
-document.querySelectorAll('.auth-download').forEach(button => button.addEventListener('click', async () => {
-  const platform = button.dataset.platform
-  const url = getDownloadUrl(releaseAssets, platform)
-  setMessage('Starting download…', true)
-  try {
-    const supabase = await getClient()
-    const { data } = await supabase.auth.getSession()
-    if (!data.session) return openAuthModal('login', platform)
-    await Promise.race([
-      supabase.from('download_events').insert(createDownloadEvent(data.session.user.id, platform, releaseAssets.version)),
-      new Promise(resolve => setTimeout(resolve, 1500)),
-    ])
-  } catch { /* tracking must never block a public download */ }
-  location.assign(url)
-}))
 
 modal?.addEventListener('keydown', event => {
   if (event.key === 'Escape') return closeAuthModal()
@@ -274,22 +238,9 @@ modal?.addEventListener('keydown', event => {
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
 })
 
-async function loadRelease() {
-  try {
-    const response = await fetch(`https://api.github.com/repos/${siteConfig.repository}/releases/latest`)
-    if (!response.ok) throw new Error('Release lookup failed')
-    releaseAssets = selectReleaseAssets(await response.json())
-    document.querySelectorAll('[data-release-version]').forEach(element => {
-      element.textContent = releaseAssets.version || 'Latest'
-    })
-  } catch {
-    releaseAssets = { version: 'Latest', windows: fallbackRelease, macos: fallbackRelease, linux: fallbackRelease }
-  }
-}
-
 async function initializeAuth() {
-  await loadRelease()
   const requestedView = authViewFromUrl(location.href)
+  pendingPlatform = getRequestedPlatform(location.href)
   if (!authConfigured) {
     if (requestedView) openAuthModal(requestedView)
     return
@@ -299,15 +250,17 @@ async function initializeAuth() {
     supabase.auth.onAuthStateChange((event, session) => {
       setSessionUi(session)
       if (event === 'PASSWORD_RECOVERY') openAuthModal('recovery')
-      else if (event === 'SIGNED_IN' && requestedView === 'download') showDownloads(session)
     })
     const { data } = await supabase.auth.getSession()
     setSessionUi(data.session)
     if (requestedView === 'recovery') openAuthModal('recovery')
-    else if (requestedView === 'download') data.session ? showDownloads(data.session) : openAuthModal('login')
+    else if (requestedView === 'login') data.session
+      ? location.assign(createDownloadPageUrl(pendingPlatform))
+      : openAuthModal('login', pendingPlatform)
     if (requestedView) {
       const clean = new URL(location.href)
       clean.searchParams.delete('auth')
+      clean.searchParams.delete('platform')
       history.replaceState({}, '', clean.pathname + clean.search)
     }
   } catch (error) {

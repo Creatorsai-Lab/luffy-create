@@ -4,7 +4,7 @@
 .auth-modal{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:1rem}
 .auth-backdrop{position:absolute;inset:0;background:rgba(240,233,245,0.6);backdrop-filter:blur(3px)}
 .auth-dialog{position:relative;width:min(100%,40rem);max-height:min(90vh,50rem);overflow:auto;border:1px solid var(--border);border-radius:1rem;background:var(--surface);padding:1.35rem;box-shadow:var(--shadow-l);font-family:var(--fd)}
-.auth-head,.auth-account,.auth-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem; margin-bottom: 8px;}
+.auth-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:8px}
 .auth-head h2{font-family:var(--fd);font-size:1.35rem;color:var(--ink)}
 .auth-close{display:grid;place-items:center;width:2rem;height:2rem;border-radius:50%;border:1.5px solid var(--border);color:var(--muted);font-size:1.1rem;transition:.2s}
 .auth-close:hover{background:var(--inline-bg);border-color:var(--border-h);color:var(--ink)}
@@ -32,14 +32,9 @@
 .auth-message.ok,.auth-message-mirror.ok{color:var(--sage)}
 .auth-submit{width:100%;margin-top:.6rem;border-radius:.6rem;background:linear-gradient(180deg,var(--accent),var(--secondary));padding:.78rem 1rem;color:#fff;font-weight:700;font-family:var(--fd);font-size:1.05rem}
 .auth-submit:disabled{cursor:not-allowed;opacity:.55}
-.auth-link{margin-top:.75rem;color:var(--accent);font-size:.88rem;text-decoration:underline;text-underline-offset:3px;font-family:var(--fd)}
+.auth-link{margin:0.8rem 0rem;color:var(--accent);font-size:0.8rem;text-align: center; border: 1px solid var(--accent);padding: 4px; font-family:var(--fd)}
 .auth-copy{margin-top:.65rem;color:var(--muted);font-size:.88rem;line-height:1.6;font-family:var(--fd)}
 .auth-captcha{min-height:65px;margin-top:.8rem}
-.auth-account{margin:.9rem 0 1rem;border:1px solid var(--border);border-radius:.7rem;background:var(--surface-2);padding:.75rem}
-.auth-account strong{display:block;font-family:var(--fd);font-size:1rem}
-.auth-account span{display:block;margin-top:.15rem;color:var(--muted);font-size:.82rem;font-family:var(--fd)}
-.auth-downloads{display:grid;gap:.55rem;margin-top:1rem}.auth-downloads .os-btn{justify-content:center;width:100%;padding:.7rem 1rem}
-.auth-version{font-family:var(--fm);font-size:.72rem;color:var(--muted)}
 .auth-view h3{font-family:var(--fd);font-size:1.1rem;color:var(--ink);margin-bottom:.5rem}
 body.auth-open{overflow:hidden}
 @media(max-width:420px){.auth-dialog{padding:1rem}.auth-nav-button{padding:.42rem .65rem}}

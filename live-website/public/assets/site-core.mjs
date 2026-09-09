@@ -31,14 +31,27 @@ export function selectReleaseAssets(release = {}) {
 
 export function authViewFromUrl(value) {
   const state = new URL(value).searchParams.get('auth')
-  return state === 'verified' ? 'download' : state === 'recovery' ? 'recovery' : null
+  return ['verified', 'recovery', 'login'].includes(state) ? state : null
 }
 
-export function createAuthRedirectUrl(value, state) {
-  const url = new URL(value)
-  url.search = new URLSearchParams({ auth: state }).toString()
+export function createAuthRedirectUrl(value, state, platform = '') {
+  const requestedPlatform = PLATFORMS.has(platform) ? platform : ''
+  const url = new URL(state === 'verified' && requestedPlatform ? '/download/' : '/', value)
+  url.search = new URLSearchParams(requestedPlatform
+    ? (state === 'verified' ? { platform: requestedPlatform } : { auth: state, platform: requestedPlatform })
+    : { auth: state }).toString()
   url.hash = ''
   return url.toString()
+}
+
+export function createDownloadPageUrl(platform = '') {
+  return `/download/${PLATFORMS.has(platform) ? `#${platform}` : ''}`
+}
+
+export function getRequestedPlatform(value) {
+  const url = new URL(value)
+  const platform = url.searchParams.get('platform') || url.hash.slice(1)
+  return PLATFORMS.has(platform) ? platform : ''
 }
 
 export function createDownloadEvent(userId, platform, version) {
@@ -51,5 +64,5 @@ export function getDownloadUrl(assets, platform) {
 }
 
 export function getSessionNav(session) {
-  return session ? { label: 'Account', view: 'download' } : { label: 'Start', view: 'login' }
+  return session ? { label: 'Download', view: 'download' } : { label: 'Start', view: 'login' }
 }
