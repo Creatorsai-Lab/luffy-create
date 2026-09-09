@@ -4,7 +4,7 @@
 .auth-modal{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:1rem}
 .auth-backdrop{position:absolute;inset:0;background:rgba(240,233,245,0.6);backdrop-filter:blur(3px)}
 .auth-dialog{position:relative;width:min(100%,40rem);max-height:min(90vh,50rem);overflow:auto;border:1px solid var(--border);border-radius:1rem;background:var(--surface);padding:1.35rem;box-shadow:var(--shadow-l);font-family:var(--fd)}
-.auth-head,.auth-account,.auth-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.auth-head,.auth-account,.auth-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem; margin-bottom: 8px;}
 .auth-head h2{font-family:var(--fd);font-size:1.35rem;color:var(--ink)}
 .auth-close{display:grid;place-items:center;width:2rem;height:2rem;border-radius:50%;border:1.5px solid var(--border);color:var(--muted);font-size:1.1rem;transition:.2s}
 .auth-close:hover{background:var(--inline-bg);border-color:var(--border-h);color:var(--ink)}

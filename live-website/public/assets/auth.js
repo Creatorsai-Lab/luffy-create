@@ -5,7 +5,6 @@ import {
   createDownloadEvent,
   getDownloadUrl,
   getSessionNav,
-  isAllowedEmail,
   selectReleaseAssets,
 } from './site-core.mjs'
 
@@ -139,7 +138,6 @@ document.getElementById('signupForm')?.addEventListener('submit', event => {
   submit(event.currentTarget, async data => {
     const email = String(data.get('email') || '').trim()
     const fullName = String(data.get('fullName') || '').trim()
-    if (!isAllowedEmail(email)) throw new Error('Please use a Gmail, Yahoo, Outlook/Microsoft, or Proton email address.')
     lastSignupEmail = email
     const supabase = await getClient()
     const { error } = await supabase.auth.signUp({
