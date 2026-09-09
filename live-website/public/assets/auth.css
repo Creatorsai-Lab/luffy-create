@@ -2,8 +2,8 @@
 .auth-nav-button:hover{background:var(--accent);color:#fff}
 .auth-modal[hidden],.auth-view[hidden]{display:none}
 .auth-modal{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:1rem}
-.auth-backdrop{position:absolute;inset:0;background:rgba(30,24,35,.6);backdrop-filter:blur(5px)}
-.auth-dialog{position:relative;width:min(100%,29rem);max-height:min(90vh,46rem);overflow:auto;border:1px solid var(--border);border-radius:1rem;background:var(--surface);padding:1.35rem;box-shadow:var(--shadow-l)}
+.auth-backdrop{position:absolute;inset:0;background:rgba(108, 87, 124, 0.6);backdrop-filter:blur(5px)}
+.auth-dialog{position:relative;width:min(100%,40rem);max-height:min(90vh,50rem);overflow:auto;border:1px solid var(--border);border-radius:1rem;background:var(--surface);padding:1.35rem;box-shadow:var(--shadow-l)}
 .auth-head,.auth-account,.auth-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
 .auth-head h2{font-family:var(--fd);font-size:1.35rem;color:var(--ink)}
 .auth-close{display:grid;place-items:center;width:2rem;height:2rem;border-radius:.5rem;color:var(--muted);font-size:1.4rem}
