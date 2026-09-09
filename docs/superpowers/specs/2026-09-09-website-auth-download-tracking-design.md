@@ -28,7 +28,7 @@ live-website/
       images/
   supabase/
     schema.sql
-  README.md
+  README.md # describing tech stack and architecuture
 ```
 
 `config.js` contains only public browser configuration: Supabase URL, Supabase publishable key, and Turnstile site key. Service-role and SMTP credentials never enter the repository.
