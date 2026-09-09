@@ -57,7 +57,8 @@ for (const marker of ['assets/auth.css', 'class="auth-nav-button"', 'id="authMod
 assert.match(page, /assets\/auth\.js\?v=\d+/)
 
 const auth = await readFile(new URL('../live-website/public/assets/auth.js', import.meta.url), 'utf8')
-assert.ok(auth.includes('supabase.auth.signUp'), 'signup must use email/password signup')
+assert.ok(auth.includes("/auth/v1/signup"), 'signup must use the email signup endpoint')
+assert.ok(auth.includes('gotrue_meta_security'), 'signup must pass the Turnstile token')
 assert.ok(!auth.includes('signInAnonymously'), 'signup must not use anonymous authentication')
 
 console.log('live website tests passed')

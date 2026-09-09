@@ -133,23 +133,34 @@ async function submit(form, operation) {
   }
 }
 
+async function signUpWithEmail(email, password, fullName, captchaToken) {
+  const response = await fetch(`${siteConfig.supabaseUrl}/auth/v1/signup`, {
+    method: 'POST',
+    headers: {
+      apikey: siteConfig.supabasePublishableKey,
+      Authorization: `Bearer ${siteConfig.supabasePublishableKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      data: { full_name: fullName },
+      gotrue_meta_security: { captcha_token: captchaToken },
+      redirect_to: createAuthRedirectUrl(location.href, 'verified'),
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(result.msg || result.message || result.error_description || 'Could not create your account.')
+  return result
+}
+
 document.getElementById('signupForm')?.addEventListener('submit', event => {
   event.preventDefault()
   submit(event.currentTarget, async data => {
     const email = String(data.get('email') || '').trim()
     const fullName = String(data.get('fullName') || '').trim()
     lastSignupEmail = email
-    const supabase = await getClient()
-    const { error } = await supabase.auth.signUp({
-      email,
-      password: String(data.get('password') || ''),
-      options: {
-        data: { full_name: fullName },
-        captchaToken: requireCaptcha(),
-        emailRedirectTo: createAuthRedirectUrl(location.href, 'verified'),
-      },
-    })
-    if (error) throw error
+    await signUpWithEmail(email, String(data.get('password') || ''), fullName, requireCaptcha())
     openAuthModal('check-email')
   })
 })
