@@ -11,8 +11,10 @@
   },
   "scripts": {
     "dev": "electron-vite dev",
+    "dev:website": "vite live-website/public",
     "build": "electron-vite build",
     "build:translation-pack": "node scripts/build-translation-pack.mjs",
+    "test:website": "node scripts/liveWebsite.test.mjs && node scripts/liveWebsiteSchema.test.mjs && node scripts/releaseVersion.test.mjs",
     "test:subtitle": "node scripts/run-subtitle-tests.mjs",
     "verify:translation-pack": "node scripts/verify-translation-pack.mjs",
     "preview": "electron-vite preview",

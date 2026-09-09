@@ -1,0 +1,35 @@
+name: Validate
+
+on:
+  push:
+    branches: [main, production]
+  pull_request:
+    branches: [production]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test website
+        run: npm run test:website
+
+      - name: Test subtitles
+        run: npm run test:subtitle
+
+      - name: Build application
+        run: npm run build

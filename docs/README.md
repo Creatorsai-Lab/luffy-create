@@ -8,6 +8,8 @@
 
 Welcome to the **Luffy Create** documentation. The guides below are organized by topic — pick a card to jump in. New here? Start with **Overview**, then **Elements**, then **Animations**.
 
+The production landing website and its deployment guide live in [`../live-website`](../live-website/README.md).
+
 ##  Documentation
 
 <table>
@@ -115,4 +117,3 @@ Create Matplotlib graphs and Manim math animations, then save or insert outputs.
 | 8 | [Shortcuts](shortcuts.md) | Speed up your workflow |
 | 9 | [AI Agent](ai_agent.md) | Prepare validated edits from natural-language requests |
 | 10 | [Python Sandbox](python_sandbox.md) | Generate graph and math animation assets |
-

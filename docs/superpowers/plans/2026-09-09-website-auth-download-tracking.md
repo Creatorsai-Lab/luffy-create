@@ -25,7 +25,7 @@
 
 **Files:**
 - Create: `live-website/public/index.html`
-- Create: `live-website/public/assets/site-core.js`
+- Create: `live-website/public/assets/site-core.mjs`
 - Create: `scripts/liveWebsite.test.mjs`
 - Modify: `package.json`
 
