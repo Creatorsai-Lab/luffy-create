@@ -5,13 +5,15 @@ This folder is the isolated production website. It stays independent from the El
 ## Architecture
 
 - `public/`: static Cloudflare Pages output.
-- `public/assets/auth.js`: popup authentication, session restoration, release lookup, and download-click recording.
+- `public/assets/auth.js`: homepage popup authentication and session restoration.
+- `public/download/`: session-gated account and operating-system download page.
+- `public/assets/download.js`: latest-release lookup and download-click recording.
 - `public/assets/site-core.mjs`: dependency-free, tested website rules.
 - `public/assets/config.js`: public browser identifiers only.
 - `supabase/schema.sql`: profiles, download events, RLS, and the signup-domain hook.
 - GitHub Releases: public Windows, macOS, and Linux installers.
 
-The website records account details and download-button clicks. The desktop editor remains local-first and sends no telemetry. Because release assets are public, someone with the GitHub URL can bypass the website login.
+The homepage stays public. Signed-out download links open the authentication popup and continue to the requested operating-system section after login; signed-in visitors remain on the homepage until they click Download. The website records account details and installer clicks. The desktop editor remains local-first and sends no telemetry. Because release assets are public, someone with the GitHub URL can bypass the website login.
 
 ## 1. Create Supabase Free project
 
@@ -47,7 +49,7 @@ npm run dev:website
 
 Open the Vite URL. Until `config.js` is populated, the modal deliberately displays a setup message and does not submit credentials.
 
-Test signup, email confirmation, login, logout, password recovery, session restoration, all three download buttons, and rejected email domains. In Supabase, check `profiles` for user totals and `download_events` for clicks:
+Test signup, email confirmation, login, logout, password recovery, session restoration, the protected `/download/` route, all three download buttons, and rejected email domains. In Supabase, check `profiles` for user totals and `download_events` for clicks:
 
 ```sql
 select count(*) as registered_users from public.profiles;
@@ -105,7 +107,7 @@ Step 1 — Stage and commit on main
 ```
 
 git add .
-git commit -m "fix: website signup anonyms sign ins issue"
+git commit -m "chore: add separate download page in live web"
 ```
 Step 2 — Push main
 ```

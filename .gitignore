@@ -47,3 +47,5 @@ coverage/
 .claude
 .cursor
 .worktrees/
+docs/superpowers/
+.agents/
