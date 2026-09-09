@@ -47,7 +47,7 @@ assert.throws(() => createDownloadEvent('', 'windows', 'v1.4.0'))
 assert.throws(() => createDownloadEvent('user-1', 'android', 'v1.4.0'))
 assert.equal(getDownloadUrl(assets, 'macos'), 'https://example.test/Luffy.dmg')
 assert.equal(getDownloadUrl(assets, 'android'), 'https://github.com/Creatorsai-Lab/luffy-create/releases/latest')
-assert.deepEqual(getSessionNav(null), { label: 'Log in', view: 'login' })
+assert.deepEqual(getSessionNav(null), { label: 'Start', view: 'login' })
 assert.deepEqual(getSessionNav({ user: { id: 'user-1' } }), { label: 'Account', view: 'download' })
 
 const page = await readFile(new URL('../live-website/public/index.html', import.meta.url), 'utf8')
@@ -60,5 +60,8 @@ const auth = await readFile(new URL('../live-website/public/assets/auth.js', imp
 assert.ok(auth.includes("/auth/v1/signup"), 'signup must use the email signup endpoint')
 assert.ok(auth.includes('gotrue_meta_security'), 'signup must pass the Turnstile token')
 assert.ok(!auth.includes('signInAnonymously'), 'signup must not use anonymous authentication')
+const formCaptureAt = auth.indexOf('const data = new FormData(form)')
+assert.ok(formCaptureAt >= 0 && formCaptureAt < auth.indexOf('setPending(form, true)'),
+  'form data must be captured before inputs are disabled')
 
 console.log('live website tests passed')

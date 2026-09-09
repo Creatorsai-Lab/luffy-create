@@ -105,7 +105,7 @@ Step 1 — Stage and commit on main
 ```
 
 git add .
-git commit -m "website: replace editor mock with screenshot, remove why section, smooth scroll, nav cleanup"
+git commit -m "fix: website signup anonyms sign ins issue"
 ```
 Step 2 — Push main
 ```
