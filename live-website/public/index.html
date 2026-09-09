@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -56,10 +56,10 @@
   --shadow-m:0 20px 50px -18px rgba(124, 100, 146, 0.267);
   --shadow-l:0 50px 120px -40px rgba(96, 60, 120, 0.38);
 
-  --fd: 'Fredericka the Great', system-ui, sans-serif; --fb: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif; --fm:'JetBrains Mono',monospace;
+  --fd: 'Fredericka the Great', system-ui, sans-serif;--fb: 'Segoe Print', 'Chalkboard SE', 'Chalkboard', 'Marker Felt', 'Bradley Hand', cursive, sans-serif; --fm:'JetBrains Mono',monospace;
 }
 *,*::before,*::after{box-sizing:border-box}
-html{scroll-behavior:smooth;overflow-x:hidden}
+html{scroll-behavior:auto;overflow-x:hidden}
 body,h1,h2,h3,h4,p,ul,ol,figure{margin:0}
 h3{color: var(--accent); margin: 3rem 0rem; font-size:2rem;
 }
@@ -80,16 +80,14 @@ section[id]{scroll-margin-top:84px}
 .wrap-n{max-width:64rem;margin:0 auto;padding:0 1.25rem}
 .fi{fill:currentColor;flex:none}.si{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}.swb{stroke-width:2.2}
 /* ── keyframes ── */
-@keyframes grid-move{from{background-position:0 0}to{background-position:0 44px}}
+@keyframes grid-move{from{background-position:0 0}to{background-position:0 28px}}
 @keyframes float-y{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
 @keyframes playhead-run{from{left:0%}to{left:100%}}
-@keyframes wave-bounce{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
 @keyframes marquee-x{to{transform:translateX(-50%)}}
-@keyframes rec-pulse{0%,100%{opacity:1}50%{opacity:.2}}
 @keyframes glow-drift{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(4%,-4%,0) scale(1.08)}}
 @keyframes caret-blink{0%,49%{opacity:1}50%,100%{opacity:0}}
 /* ── paper grain ── */
-.noise{position:fixed;inset:0;z-index:80;pointer-events:none;opacity:.035;mix-blend-mode:multiply;
+.noise{position:fixed;inset:0;z-index:80;pointer-events:none;opacity:.13;mix-blend-mode:multiply;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E")}
 /* ── reveal ── */
 .reveal{opacity:0;transform:translateY(30px);transition:opacity .85s cubic-bezier(.22,1,.36,1) var(--rd,0ms),transform .85s cubic-bezier(.22,1,.36,1) var(--rd,0ms);will-change:opacity,transform}
@@ -107,7 +105,7 @@ section[id]{scroll-margin-top:84px}
 .grad{background:linear-gradient(to right,var(--accent),var(--secondary));-webkit-background-clip:text;background-clip:text;color:transparent}
 /* ── nav ── */
 .nav{position:fixed;inset:0 0 auto 0;z-index:100;border-bottom:1px solid transparent;transition:background .3s,border-color .3s,box-shadow .3s}
-.nav.scrolled,.nav.menu-open{background:rgba(255,249,243,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom-color:var(--border);box-shadow:0 8px 30px -22px rgba(120,80,60,.5)}
+.nav.scrolled{background:rgba(255,249,243,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom-color:var(--border);box-shadow:0 8px 30px -22px rgba(120,80,60,.5)}
 .scrub{position:absolute;top:0;left:0;right:0;height:2px;background:rgba(100,90,81,.08)}
 .scrub-fill{position:relative;height:100%;width:0;background:linear-gradient(to right,var(--secondary),var(--accent))}
 .scrub-dot{position:absolute;right:0;top:50%;height:8px;width:8px;transform:translate(50%,-50%);border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(199,93,58,.7)}
@@ -121,21 +119,12 @@ section[id]{scroll-margin-top:84px}
 .nav-links a{position:relative;font-size:0.9rem;color:var(--muted);transition:color .2s; font-weight: 600;}
 .nav-links a:hover{color:var(--accent)}
 .nav-acts{display:flex;align-items:center;gap:.65rem}
-.burger{display:grid;place-items:center;height:2.25rem;width:2.25rem;border:1px solid var(--accent);border-radius:.55rem;color:var(--accent)}
-.burger span{position:relative;display:block;height:12px;width:16px}
-.burger i{position:absolute;left:0;width:100%;height:1.5px;background:currentColor;transition:.3s}
-.burger i:nth-child(1){top:0}.burger i:nth-child(2){top:50%;transform:translateY(-50%)}.burger i:nth-child(3){bottom:0}
-.nav.menu-open .burger i:nth-child(1){top:50%;transform:translateY(-50%) rotate(45deg)}
-.nav.menu-open .burger i:nth-child(2){opacity:0}
-.nav.menu-open .burger i:nth-child(3){bottom:auto;top:50%;transform:translateY(-50%) rotate(-45deg)}
-.mob{display:none;border-top:1px solid var(--border);background:rgba(255,249,243,.97);backdrop-filter:blur(16px);padding:.75rem 1.25rem 1.25rem}
-.nav.menu-open .mob{display:block}
-.mob a.mlink{display:block;border-radius:.55rem;padding:.65rem .75rem;font-size:.875rem;color:var(--text)}
-.mob a.mlink:hover{background:var(--accent-soft);color:var(--accent)}
 .anim-btn-wrapper {
   position: relative;
   display: inline-flex;
 }
+/* mobile-only Creators AI Lab button */
+.mob-gradient-btn{display:inline-flex}
 .grad-layer {
   position: absolute;border-radius: 7px;background-size: 300% 300%;opacity: 0.8;
   z-index: 0;transition: opacity 0.3s ease;animation: gradientMove 6s ease infinite, pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;border: none;}
@@ -180,10 +169,10 @@ section[id]{scroll-margin-top:84px}
 .gb-hero{left:-10rem;top:33%;height:420px;width:420px}
 .grid-floor{position:absolute;left:50%;bottom:-22%;width:170%;height:70%;transform:translateX(-50%) perspective(620px) rotateX(63deg);transform-origin:top center;
   background-image:linear-gradient(to right,rgba(142, 58, 199, 0.2) 1px,transparent 1px),linear-gradient(to bottom,rgba(131, 58, 199, 0.2) 1px,transparent 1px);
-  background-size:44px 44px;animation:grid-move 2.4s linear infinite;
+  background-size:28px 28px;animation:grid-move 1.2s linear infinite;
   -webkit-mask-image:linear-gradient(to bottom,transparent,#000 16%,#000 70%,transparent);mask-image:linear-gradient(to bottom,transparent,#000 16%,#000 70%,transparent);pointer-events:none}
-.grid-floor.mini{height:55%;bottom:-34%;animation-duration:3.2s}
-.particle{position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(143, 46, 253, 0.534);box-shadow:0 0 10px rgba(124, 58, 199, 0.45);animation:float-y 7s ease-in-out infinite;pointer-events:none}
+.grid-floor.mini{height:55%;bottom:-34%;animation-duration:1.6s}
+.particle{position:absolute;width:6px;height:6px;border-radius:50%;background:rgba(143, 46, 253, 0.534);box-shadow:0 0 10px rgba(134, 66, 212, 0.514);animation:float-y 7s ease-in-out infinite;pointer-events:none}
 .pl{transform:translate3d(calc(var(--px,0)*var(--depth,12)*1px),calc(var(--py,0)*var(--depth,12)*1px),0);transition:transform .6s cubic-bezier(.22,1,.36,1)}
 .hero-copy{position:relative;z-index:10;max-width:64rem;text-align:center}
 .caret{display:inline-block;height:.9rem;width:.5rem;background:var(--accent);vertical-align:-1px;margin-left:.35rem;animation:caret-blink 1s steps(1) infinite}
@@ -204,70 +193,11 @@ section[id]{scroll-margin-top:84px}
 .fchip-in p:first-child{font-family:var(--fm);font-size:9px;letter-spacing:.25em}
 .fchip-in p+p{font-family:var(--fm);font-size:10px;color:var(--text);margin-top:.35rem}
 .fc1{left:-.75rem;top:2rem}.fc2{right:-.75rem;top:7rem}.fc3{left:-1rem;bottom:5rem}
-/* ── editor mock ── */
-.mock{position:relative;border:1px solid var(--border);border-radius:1rem;background:var(--surface);
+/* ── editor screenshot mock ── */
+.mock{position:relative;border:1px solid var(--border);border-radius:1rem;overflow:hidden;
   box-shadow:var(--shadow-l),0 0 0 1px rgba(105, 43, 221, 0.05);
   transform:rotateX(calc(var(--py,0)*-5deg)) rotateY(calc(var(--px,0)*7deg));transition:transform .4s cubic-bezier(.22,1,.36,1);transform-style:preserve-3d;will-change:transform}
-.mock-bar{display:flex;align-items:center;gap:.75rem;height:2.75rem;border-bottom:1px solid var(--border);background:var(--panel);border-radius:1rem 1rem 0 0;padding:0 1rem}
-.dots{display:flex;gap:.375rem}.dots span{height:.7rem;width:.7rem;border-radius:50%}
-.dots span:nth-child(1){background:#e2725b}.dots span:nth-child(2){background:#e0a458}.dots span:nth-child(3){background:#8bab7c}
-.mock-file{display:none;font-family:var(--fm);font-size:11px;color:var(--muted)}
-.mock-main{display:flex}
-.mock-canvas{position:relative;flex:1;min-width:0;overflow:hidden}
-.canvas{position:relative;aspect-ratio:16/9;width:100%;background:radial-gradient(120% 120% at 70% 8%,#242425 0%,#19191a 46%,#0f0f0f 100%)}
-.ticks{position:absolute;top:0;left:0;right:0;height:1.25rem;border-bottom:1px solid var(--border);opacity:.9;
-  background-image:repeating-linear-gradient(90deg,rgba(139,127,117,.35) 0 1px,transparent 1px 12px)}
-.corner{position:absolute;height:1rem;width:1rem;border:0 solid rgba(139,127,117,.45)}
-.c-tl{left:2rem;top:2.25rem;border-left-width:1px;border-top-width:1px}
-.c-tr{right:2rem;top:2.25rem;border-right-width:1px;border-top-width:1px}
-.c-bl{left:2rem;bottom:2rem;border-left-width:1px;border-bottom-width:1px}
-.c-br{right:2rem;bottom:2rem;border-right-width:1px;border-bottom-width:1px}
-.sel{position:absolute;left:9%;top:26%}
-.sel-box{position:relative;border:1px solid var(--accent);background:rgba(255,255,255,.32);padding:.65rem}
-.sel-tag{position:absolute;top:-1.3rem;left:0;background:var(--accent);border-radius:3px;padding:.1rem .4rem;font-family:var(--fm);font-size:9px;letter-spacing:.18em;color:#fff;white-space:nowrap}
-.sel-box i{position:absolute;height:.5rem;width:.5rem;border:1px solid var(--accent);background:#fff;border-radius:1px}
-.hh1{top:-4px;left:-4px}.hh2{top:-4px;right:-4px}.hh3{top:-4px;left:50%}.hh4{top:50%;left:-4px}
-.hh5{top:50%;right:-4px}.hh6{bottom:-4px;left:-4px}.hh7{bottom:-4px;right:-4px}.hh8{bottom:-4px;left:50%}
-.sel-h{font-family:var(--fd);font-weight:800;font-size:clamp(1.3rem,4.2vw,2.5rem);line-height:.95;color:var(--ink)}
-.sublines{position:absolute;left:9%;top:60%;width:46%}
-.sublines span{display:block;height:.5rem;border-radius:9999px}
-.sublines span:first-child{width:80%;background:linear-gradient(to right,var(--accent),var(--secondary))}
-.sublines span:last-child{width:60%;background:var(--inline-bg);margin-top:.5rem}
-.clip{position:absolute;right:7%;top:19%;width:24%}
-.clip-in{position:relative;aspect-ratio:16/9;border:1px solid rgba(199,93,58,.35);border-radius:.5rem;overflow:hidden;background:linear-gradient(135deg,#f5ba4c,#5865af 60%,#80498e)}
-.clip-in svg{position:absolute;inset:0;margin:auto;height:1.5rem;width:1.5rem;color:rgba(255,255,255,.92)}
-.clip-in span{position:absolute;bottom:.25rem;left:.375rem;font-family:var(--fm);font-size:8px;letter-spacing:.15em;color:rgba(255,255,255,.85)}
-.ai-chip{position:absolute;bottom:26%;right:7%;border:1px solid rgba(199,93,58,.28);border-radius:.5rem;background:rgba(255,255,255,.92);padding:.375rem .65rem;font-family:var(--fm);font-size:9px;color:var(--accent);box-shadow:var(--shadow-s)}
-.cap{position:absolute;bottom:1.5rem;left:50%;transform:translateX(-50%);white-space:nowrap;border-radius:.4rem;background:rgba(74,66,59,.88);padding:.25rem .75rem;font-family:var(--fm);font-size:10px;color:#fff}
-.mock-side{display:none;width:11rem;flex:none;flex-direction:column;gap:1rem;border-left:1px solid var(--border);background:var(--panel);padding:.9rem}
-.side-h{font-family:var(--fm);font-size:9px;letter-spacing:.28em;color:var(--muted);margin-bottom:.5rem}
-.slider{display:flex;align-items:center;gap:.5rem;margin-bottom:.65rem}
-.slider b{width:2.25rem;font-family:var(--fm);font-size:8px;font-weight:400;color:var(--muted)}
-.slider .tr{position:relative;height:.25rem;flex:1;border-radius:9999px;background:var(--inline-bg)}
-.slider .fl{position:absolute;top:0;bottom:0;left:0;border-radius:9999px;background:linear-gradient(to right,var(--secondary),var(--accent))}
-.slider .kn{position:absolute;top:50%;height:.65rem;width:.65rem;transform:translateY(-50%);border-radius:50%;background:#fff;border:1px solid var(--border-h);box-shadow:0 1px 3px rgba(120,80,60,.3)}
-.plan{border:1px solid rgba(92,138,106,.28);border-radius:.55rem;background:rgba(92,138,106,.07);padding:.5rem;font-family:var(--fm);font-size:9px;color:var(--sage)}
-.plan p+p{margin-top:.3rem}.plan .dim{opacity:.6}
-.dur{margin-top:auto;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:.55rem;background:var(--surface-2);padding:.5rem .65rem}
-.dur span{font-family:var(--fm);font-size:9px;color:var(--muted)}
-.dur b{font-family:var(--fm);font-size:10px;font-weight:500;color:var(--accent)}
-.mock-tl{position:relative;border-top:1px solid var(--border);background:var(--panel);border-radius:0 0 1rem 1rem;padding:.5rem .75rem .75rem}
-.ticks2{height:.75rem;margin-bottom:.375rem;opacity:.8;background-image:repeating-linear-gradient(90deg,rgba(199,93,58,.3) 0 1px,transparent 1px 24px)}
-.tl-body{position:relative}
-.tl-row{display:flex;gap:.25rem}
-.scenes{height:2rem}
-.scenes div{display:flex;align-items:center;border:1px solid;border-radius:.4rem;padding:0 .5rem;overflow:hidden}
-.scenes span{font-family:var(--fm);font-size:8px;letter-spacing:.1em;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sc1{width:32%;border-color:rgba(199,93,58,.55);background:var(--accent)}
-.sc2{width:24%;border-color:rgba(175,109,88,.55);background:var(--secondary)}
-.sc3{width:40%;border-color:rgba(201,143,95,.55);background:var(--amber)}
-.wave{height:1.75rem;align-items:center;gap:2px;overflow:hidden;border:1px solid var(--border);border-radius:.4rem;background:var(--surface-2);padding:0 .5rem;margin-top:.375rem}
-.wave span{flex:none;width:3px;border-radius:9999px;background:var(--secondary);opacity:.85;transform-origin:center;animation:wave-bounce 1.15s ease-in-out infinite}
-.caps{height:1.25rem;margin-top:.375rem}
-.caps span{border:1px dashed var(--border-h);border-radius:.25rem;background:var(--inline-bg)}
-.caps span:nth-child(1){width:30%}.caps span:nth-child(2){width:18%}.caps span:nth-child(3){width:42%}
-.playhead{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--rec);box-shadow:0 0 10px rgba(217,79,61,.7);animation:playhead-run 9s linear infinite;pointer-events:none}
-.playhead::before{content:"";position:absolute;top:-1px;left:-5px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--rec)}
+.mock-img{display:block;width:100%;height:auto;border-radius:1rem;pointer-events:none;user-select:none}
 /* ── marquee ── */
 .marquee{position:relative;z-index:10;overflow:hidden;transform:rotate(-.7deg);margin:0 -1rem;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);padding:.9rem 0;box-shadow:0 18px 45px -30px rgba(120,80,60,.55)}
 .mtrack{display:flex;width:max-content;animation:marquee-x 30s linear infinite}
@@ -293,23 +223,14 @@ section[id]{scroll-margin-top:84px}
 .fcard p{margin-top:.5rem;font-size:.875rem;line-height:1.65;color:var(--muted)}
 /* ── demonstration ── */
 .screen-wrap{position:relative}
-.sprockets{height:20px;background:repeating-linear-gradient(90deg,transparent 0 10px,rgba(139,127,117,.18) 10px 26px,transparent 26px 36px) center/100% 62% no-repeat}
+.sprockets{height:20px;background:repeating-linear-gradient(90deg,transparent 0 10px,rgba(139, 127, 117, 0.432) 10px 26px,transparent 26px 36px) center/100% 62% no-repeat}
 .film{position:relative;border:1px solid var(--border);border-radius:1rem;background:var(--surface);padding:.65rem;box-shadow:var(--shadow-l)}
 .film-top{border-bottom:1px solid var(--border);border-radius:.5rem .5rem 0 0}
 .film-bot{border-top:1px solid var(--border);border-radius:0 0 .5rem .5rem}
 .vid{position:relative;aspect-ratio:16/9;width:100%;overflow:hidden;border-radius:.5rem;background:#1c1713}
 .vid iframe{position:absolute;inset:0;height:100%;width:100%;border:0}
 
-/* ── why ── */
-.why-lede{max-width:48rem;margin:0 auto;text-align:center;font-size:1.125rem;line-height:1.7;color:var(--text)}
-.why-lede b{color:var(--accent);font-weight:600}
-.pts{display:grid;gap:1rem;margin-top:3rem}
-.pt{display:flex;gap:.9rem;border:1px solid var(--border);border-radius:1rem;background:var(--surface);padding:1.25rem;box-shadow:var(--shadow-s);transition:border-color .3s,box-shadow .3s}
-.pt:hover{border-color:var(--border-h);box-shadow:var(--shadow-m)}
-.pt-ck{display:grid;place-items:center;height:1.5rem;width:1.5rem;flex:none;border:1px solid rgba(92,138,106,.4);border-radius:50%;background:rgba(92,138,106,.1);color:var(--sage);margin-top:.1rem}
-.pt-ck svg{height:.85rem;width:.85rem}
-.pt h3{font-size:15px;font-weight:600;color:var(--ink)}
-.pt p{margin-top:.25rem;font-size:.875rem;line-height:1.6;color:var(--muted)}
+/* ── comparison table ── */
 .tbl-box{border:1px solid var(--border);border-radius:1rem;overflow:hidden;background:var(--surface);box-shadow:var(--shadow-s)}
 .tbl-scroll{overflow-x:auto}
 table.cmp{width:100%;min-width:640px;border-collapse:collapse;text-align:left;font-size:.875rem}
@@ -358,29 +279,24 @@ table.cmp{width:100%;min-width:640px;border-collapse:collapse;text-align:left;fo
 .cta-in>p a{color:var(--accent);text-decoration:underline;text-underline-offset:4px;transition:color .2s}
 .cta-in>p a:hover{color:var(--secondary)}
 /* ── footer ── */
-footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surface);padding:3.5rem 0}
+footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5rem 0}
 
-.foot-base{display:flex;align-items:center;gap:.75rem; padding-top:0.5rem;font-size:0.85rem;color:var(--muted); font-family:var(--fm);}
-.foot-base .mono{font-family:var(--fm);font-size:0.8rem;letter-spacing:.08em}
+.foot-base{align-items:center; text-align: center; padding-top:0.5rem;font-size:0.83rem;color:var(--ink); font-family:var(--fm);}
+.foot-base .mono{font-family:var(--fm);font-size:0.85rem;letter-spacing:.08em; margin-bottom: 1rem;}
 
 /* ── responsive ── */
 @media(min-width:640px){
   .fgrid{grid-template-columns:1fr 1fr}
-  .pts{grid-template-columns:1fr 1fr}
   .docs{grid-template-columns:1fr 1fr}
   .qa-q{font-size:1rem}
-
-  .mock-file{display:block}
 }
 @media(min-width:768px){
-  .nav-links{display:flex}.burger{display:none}.mob{display:none!important}
-  .mock-side{display:flex}
-  .foot-base{flex-direction:row;justify-content:space-between}
+  .nav-links{display:flex}
+  .mob-gradient-btn{display:none}
 }
 @media(min-width:1024px){
   .fgrid{grid-template-columns:1fr 1fr 1fr}
   .fchip{display:block}
-  .why-lede{font-size:1.25rem}
 }
 /* ── reduced motion ── */
 @media(prefers-reduced-motion:reduce){
@@ -427,19 +343,16 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
       <b>Luffy Create</b>
     </a>
     <nav class="nav-links">
-      <a href="#features">Features</a><a href="#why">Why</a><a href="#docs">Guide</a>
+      <a href="#features">Features</a><a href="#docs">Guide</a>
       <div class="anim-btn-wrapper">
         <div class="grad-layer"></div>
         <a href="https://creatorsai-lab.github.io/" target="_blank" rel="noopener noreferrer" class="gradient-btn">Creators AI Lab</a>
       </div>
     </nav>
     <div class="nav-acts">
+      <a href="https://creatorsai-lab.github.io/" target="_blank" rel="noopener noreferrer" class="gradient-btn mob-gradient-btn" style="font-size:12px;padding:6px 11px;">Creators AI Lab</a>
       <button class="auth-nav-button" type="button" data-auth-open="login">Start</button>
-      <button class="burger" id="burger" type="button" aria-label="Toggle menu" aria-expanded="false"><span><i></i><i></i><i></i></span></button>
     </div>
-  </div>
-  <div class="mob" id="mobMenu">
-    <a class="mlink" href="#features">Features</a><a class="mlink" href="#why">Why</a><a class="mlink" href="#docs">Guide</a>
   </div>
 </header>
 
@@ -477,45 +390,11 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
     <div class="fchip fc3 pl" style="--depth:28"><div class="fchip-in" style="animation-delay:2.2s"><p style="color:var(--sage)">EXPORT ✓</p><p>luffy_v1.mp4 · 1080p · 30fps</p></div></div>
 
     <div class="mock" id="mock">
-      <div class="mock-bar">
-        <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
-        <span class="mock-file">launch_video.luffy — scene 04</span>
-      </div>
-      <div class="mock-main">
-        <div class="mock-canvas">
-          <div class="canvas">
-            <div class="ticks"></div>
-            <span class="corner c-tl"></span><span class="corner c-tr"></span><span class="corner c-bl"></span><span class="corner c-br"></span>
-            <div class="sel"><div class="sel-box">
-              <span class="sel-tag">TEXT · 48PX SYNE</span>
-              <i class="hh1"></i><i class="hh2"></i><i class="hh3"></i><i class="hh4"></i><i class="hh5"></i><i class="hh6"></i><i class="hh7"></i><i class="hh8"></i>
-              <div class="sel-h">LAUNCH<br />DAY</div>
-            </div></div>
-            <div class="sublines"><span></span><span></span></div>
-            <div class="clip"><div class="clip-in"><svg class="fi"><use href="#i-play"/></svg><span>CLIP_04.MP4</span></div></div>
-            <div class="ai-chip">✦ AI · add ken-burns zoom</div>
-            <div class="cap">…and now it ships in minutes<span class="caret sm" style="margin-left:.3rem"></span></div>
-          </div>
-        </div>
-        <aside class="mock-side">
-          <div><p class="side-h">PROPERTIES</p>
-            <div class="slider"><b>OP</b><div class="tr"><div class="fl" style="width:62%"></div><span class="kn" style="left:calc(62% - 5px)"></span></div></div>
-            <div class="slider"><b>BLUR</b><div class="tr"><div class="fl" style="width:38%"></div><span class="kn" style="left:calc(38% - 5px)"></span></div></div>
-            <div class="slider"><b>GLOW</b><div class="tr"><div class="fl" style="width:78%"></div><span class="kn" style="left:calc(78% - 5px)"></span></div></div>
-          </div>
-          <div><p class="side-h">AI PLAN</p><div class="plan"><p>✓ add caption cue @ 02.4</p><p>✓ zoom 1.00 → 1.15</p><p class="dim">…2 more · review →</p></div></div>
-          <div class="dur"><span>DURATION</span><b>00:04.0</b></div>
-        </aside>
-      </div>
-      <div class="mock-tl">
-        <div class="ticks2"></div>
-        <div class="tl-body">
-          <div class="tl-row scenes"><div class="sc1"><span>SCENE 01</span></div><div class="sc2"><span>SCENE 02</span></div><div class="sc3"><span>SCENE 03</span></div></div>
-          <div class="tl-row wave" id="wave" aria-hidden="true"></div>
-          <div class="tl-row caps"><span></span><span></span><span></span></div>
-          <div class="playhead"></div>
-        </div>
-      </div>
+      <img class="mock-img"
+           src="assets/images/luffy-create-editor-interface.png"
+           alt="Luffy Create editor interface"
+           width="1280" height="720"
+           draggable="false" />
     </div>
   </div>
 
@@ -541,14 +420,14 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
 
 <!-- ═══ MARQUEE ═══ -->
 <div class="marquee reveal"><div class="mtrack" id="mtrack"><div class="mrow">
-<span class="t">TIMELINE PRECISION</span><span class="x">✦</span><span class="t">AI-ASSISTED EDITS</span><span class="x">✦</span><span class="t">AUTO CAPTIONS</span><span class="x">✦</span><span class="t">PYTHON SANDBOX</span><span class="x">✦</span><span class="t">MANIM ANIMATION</span><span class="x">✦</span><span class="t">MEDIA EFFECTS</span><span class="x">✦</span><span class="t">SMOOTH TRANSITIONS</span><span class="x">✦</span><span class="t">LOCAL MP4 EXPORT</span><span class="x">✦</span><span class="t">NO WATERMARK</span><span class="x">✦</span><span class="t">OPEN SOURCE</span><span class="x">✦</span>
+<span class="t">TIMELINE PRECISION</span><span class="x">✦</span><span class="t">AI-ASSISTED EDITS</span><span class="x">✦</span><span class="t">AUTO CAPTIONS</span><span class="x">✦</span><span class="t">PYTHON SANDBOX</span><span class="x">✦</span><span class="t">MANIM ANIMATION</span><span class="x">✦</span><span class="t">MEDIA EFFECTS</span><span class="x">✦</span><span class="t">SMOOTH TRANSITIONS</span><span class="x">✦</span><span class="t">LOCAL MP4 EXPORT</span><span class="x">✦</span><span class="t">NO WATERMARK</span><span class="x">✦</span><span class="t">OPEN SOURCE</span><span class="x">✦</span><span class="t">AUTOMATIC CAPTIONO TRANSALATION</span><span class="x">✦</span>
 </div></div></div>
 
 <!-- ═══ FEATURES ═══ -->
 <section class="sec" id="features" style="position:relative">
   <div class="glow glow-b" style="right:-10%;top:6rem;height:380px;width:380px;opacity:.7" data-parallax="0.06" aria-hidden="true"></div>
   <div class="wrap-n" style="position:relative">
-    <div class="sec-head reveal"><h2>Everything! You need to create a <span class="grad">professional videos</span></h2><p>A complete editor with timeline precision, AI-assisted edits, captions, media effects, animation tools, and local export — no subscription, no cloud lock-in.</p></div>
+    <div class="sec-head reveal"><h2>Everything! You need to create a <span class="grad">professional videos</span></h2><p>A complete editor with timeline precision, AI-assisted edits, captions, media effects, animation tools, and fast export — no subscription, no cloud lock-in.</p></div>
     <div class="fgrid">
       <div class="reveal" style="--rd:0ms"><article class="fcard tilt js-tilt"><span class="tag">01</span><div class="fic-box"><svg class="si"><use href="#f-tl"/></svg></div><h3>Precise Timeline</h3><p>Scene blocks, media tracks, audio lanes, markers, transitions, and minute-level timing for real editing precision.</p><div class="tilt-glare"></div></article></div>
       <div class="reveal" style="--rd:90ms"><article class="fcard tilt js-tilt"><span class="tag">02</span><div class="fic-box"><svg class="si"><use href="#f-ai"/></svg></div><h3>AI Edits</h3><p>Structured prompts that add scenes, text, media, animation, and audio — every change arrives as a reviewable plan.</p><div class="tilt-glare"></div></article></div>
@@ -558,25 +437,11 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
       <div class="reveal" style="--rd:180ms"><article class="fcard tilt js-tilt"><span class="tag">06</span><div class="fic-box"><svg class="si"><use href="#f-sl"/></svg></div><h3>Media Styling</h3><p>Crop, blur, color, shadows, animated borders, perspective warp, and full background control for every asset.</p><div class="tilt-glare"></div></article></div>
       <div class="reveal" style="--rd:0ms"><article class="fcard tilt js-tilt"><span class="tag">07</span><div class="fic-box"><svg class="si"><use href="#f-mo"/></svg></div><h3>Animations</h3><p>Enter, loop, and exit effects with easing, typewriter, bounce, draw-path, flow, scale, and move controls.</p><div class="tilt-glare"></div></article></div>
       <div class="reveal" style="--rd:90ms"><article class="fcard tilt js-tilt"><span class="tag">08</span><div class="fic-box"><svg class="si"><use href="#f-tr"/></svg></div><h3>Smooth Transitions</h3><p>Fade, zoom, morph, slide, wipe, and push — designed for subtle scene changes and crisp launch demos.</p><div class="tilt-glare"></div></article></div>
-      <div class="reveal" style="--rd:180ms"><article class="fcard tilt js-tilt"><span class="tag">09</span><div class="fic-box"><svg class="si"><use href="#f-ex"/></svg></div><h3>Local Export</h3><p>Render MP4 video and PNG / WebP stills locally with FFmpeg. No upload, no watermark, no account required.</p><div class="tilt-glare"></div></article></div>
+      <div class="reveal" style="--rd:180ms"><article class="fcard tilt js-tilt"><span class="tag">09</span><div class="fic-box"><svg class="si"><use href="#f-ex"/></svg></div><h3>Faster Export</h3><p>Render MP4 video and PNG / WebP stills locally with FFmpeg. No upload, no watermark, no account required.</p><div class="tilt-glare"></div></article></div>
     </div>
-  </div>
-</section>
 
-<!-- ═══ WHY ═══ -->
-<section class="sec" id="why">
-  <div class="wrap-n">
-    <div class="sec-head reveal"><h2>Why Creators Choose Luffy Create?</h2></div>
-    <p class="why-lede reveal">Many AI video tools hide the timeline and ask you to trust a black box. Luffy Create takes the opposite approach — a lightweight, open-source AI video editor built around <b>scenes, media, captions, code, and precise timeline control</b>, so you keep ownership of the edit.</p>
-    <ul class="pts">
-      <li class="pt reveal" style="--rd:0ms"><span class="pt-ck"><svg class="si swb"><use href="#i-check"/></svg></span><div><h3>Free and open source</h3><p>MIT licensed, no subscription, no watermark, no locked features.</p></div></li>
-      <li class="pt reveal" style="--rd:80ms"><span class="pt-ck"><svg class="si swb"><use href="#i-check"/></svg></span><div><h3>Offline-first</h3><p>Every project and export runs locally — nothing is uploaded to a server.</p></div></li>
-      <li class="pt reveal" style="--rd:0ms"><span class="pt-ck"><svg class="si swb"><use href="#i-check"/></svg></span><div><h3>AI where it helps</h3><p>Plan and apply structured edits without abstracting away the editor.</p></div></li>
-      <li class="pt reveal" style="--rd:80ms"><span class="pt-ck"><svg class="si swb"><use href="#i-check"/></svg></span><div><h3>Made for visual explanation</h3><p>Code blocks, captions, arrows, charts, media, gradients, and diagram-friendly shapes.</p></div></li>
-      <li class="pt reveal" style="--rd:0ms"><span class="pt-ck"><svg class="si swb"><use href="#i-check"/></svg></span><div><h3>Frame-accurate animation</h3><p>Enter, loop, exit, movement, and transition controls on a real scene timeline.</p></div></li>
-      <li class="pt reveal" style="--rd:80ms"><span class="pt-ck"><svg class="si swb"><use href="#i-check"/></svg></span><div><h3>Direct MP4 export</h3><p>Render video locally with FFmpeg, plus PNG and WebP stills.</p></div></li>
-    </ul>
-    <div class="reveal" style="--rd:100ms">
+    <!-- comparison table -->
+    <div class="reveal" style="--rd:100ms;margin-top:3rem">
       <h3>COMPARISON: LUFFY CREATE vs TYPICAL VIDEO EDITORS</h3>
       <div class="tbl-box"><div class="tbl-scroll"><table class="cmp">
         <thead><tr><th>Features</th><th class="hl">Luffy Create</th><th>Typical editors</th></tr></thead>
@@ -593,18 +458,19 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
         </tbody>
       </table></div></div>
     </div>
-  </div>
-<!-- ═══ FAQ ═══ -->
-  <div class="wrap-n">
-    <div class="sec-head reveal"><h3>FAQs: Answer to questions that might come in your head </h3></div>
-    <div class="qa-list">
-      <div class="qa open reveal" style="--rd:0ms"><button class="qa-q" type="button" aria-expanded="true"><span>Is Luffy Create free?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>Yes. Luffy Create is completely free and open source under the MIT License. There is no subscription, no paywall, and no account required.</p></div></div></div>
-      <div class="qa reveal" style="--rd:60ms"><button class="qa-q" type="button" aria-expanded="false"><span>Which operating systems are supported?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>Version 1.3 ships builds for Windows, macOS, and Linux. You can also run from source on any platform with Node.js installed.</p></div></div></div>
-      <div class="qa reveal" style="--rd:120ms"><button class="qa-q" type="button" aria-expanded="false"><span>Do I need an internet connection to use it?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>No. Luffy Create is offline-first. Editing and MP4 export run entirely on your machine — there is no cloud upload and no telemetry.</p></div></div></div>
-      <div class="qa reveal" style="--rd:180ms"><button class="qa-q" type="button" aria-expanded="false"><span>What video and image formats can I export?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>You can export MP4 video at 720p or 1080p, and still images in PNG or WebP. All rendering is handled locally with FFmpeg.</p></div></div></div>
-      <div class="qa reveal" style="--rd:0ms"><button class="qa-q" type="button" aria-expanded="false"><span>Is it only for technical videos?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>No. Luffy Create is strong for technical videos, tutorials, launch demos, educational videos, product walkthroughs, and social content that needs precise text, media, audio, captions, and animation control.</p></div></div></div>
-      <div class="qa reveal" style="--rd:60ms"><button class="qa-q" type="button" aria-expanded="false"><span>Why does Windows show an “Unknown publisher” warning?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>The v1 installer is not yet code-signed. Click “More info” then “Run anyway”. The full source code is public, so you can review or build it yourself.</p></div></div></div>
-      <div class="qa reveal" style="--rd:120ms"><button class="qa-q" type="button" aria-expanded="false"><span>Is my data collected or sent anywhere?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>No. Luffy Create collects no data and contains no telemetry. Your projects are stored locally on your own computer.</p></div></div></div>
+
+    <!-- faq -->
+    <div style="margin-top:3rem">
+      <div class="sec-head reveal"><h3 style="margin:0 0 2rem">FAQs</h3></div>
+      <div class="qa-list">
+        <div class="qa open reveal" style="--rd:0ms"><button class="qa-q" type="button" aria-expanded="true"><span>Is Luffy Create free?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>Yes. Luffy Create is completely free and open source under the MIT License. There is no subscription, no paywall, and no account required.</p></div></div></div>
+        <div class="qa reveal" style="--rd:60ms"><button class="qa-q" type="button" aria-expanded="false"><span>Which operating systems are supported?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>Version 1.3 ships builds for Windows, macOS, and Linux. You can also run from source on any platform with Node.js installed.</p></div></div></div>
+        <div class="qa reveal" style="--rd:120ms"><button class="qa-q" type="button" aria-expanded="false"><span>Do I need an internet connection to use it?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>No. Luffy Create is offline-first. Editing and MP4 export run entirely on your machine — there is no cloud upload and no telemetry.</p></div></div></div>
+        <div class="qa reveal" style="--rd:180ms"><button class="qa-q" type="button" aria-expanded="false"><span>What video and image formats can I export?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>You can export MP4 video at 720p or 1080p, and still images in PNG or WebP. All rendering is handled locally with FFmpeg.</p></div></div></div>
+        <div class="qa reveal" style="--rd:0ms"><button class="qa-q" type="button" aria-expanded="false"><span>Is it only for technical videos?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>No. Luffy Create is strong for technical videos, tutorials, launch demos, educational videos, product walkthroughs, and social content that needs precise text, media, audio, captions, and animation control.</p></div></div></div>
+        <div class="qa reveal" style="--rd:60ms"><button class="qa-q" type="button" aria-expanded="false"><span>Why does Windows show an "Unknown publisher" warning?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>The v1 installer is not yet code-signed. Click "More info" then "Run anyway". The full source code is public, so you can review or build it yourself.</p></div></div></div>
+        <div class="qa reveal" style="--rd:120ms"><button class="qa-q" type="button" aria-expanded="false"><span>Is my data collected or sent anywhere?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>No. Luffy Create collects no data and contains no telemetry. Your projects are stored locally on your own computer.</p></div></div></div>
+      </div>
     </div>
   </div>
 </section>
@@ -655,11 +521,12 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
   <section class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle" tabindex="-1">
     <div class="auth-head">
       <h2 id="authTitle">Start with Luffy Create</h2>
-      <button class="auth-close" type="button" data-auth-close aria-label="Close">×</button>
-      <div>
-        <div class="label">Free Forever</div><div class="label">Open Source</div><div class="label">100% Secure</div><div class="label">Work Offline Too</div>
-      </div>
+      <button class="auth-close" type="button" data-auth-close aria-label="Close"><b>x</b></button>
     </div>
+      <div class="auth-label-wrap">
+        <div class="auth-label">Free Forever</div><div class="auth-label">Open Source</div><div class="auth-label">100% Secure</div><div class="auth-label">Work Offline Too</div><div class="auth-label">Regular New Features</div>
+      </div>
+
     <div class="auth-tabs" id="authTabs">
       <button class="auth-tab" type="button" data-auth-open="signup">Create account</button>
       <button class="auth-tab" type="button" data-auth-open="login">Log in</button>
@@ -671,7 +538,7 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
       <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
       <div data-captcha-slot></div>
       <button class="auth-submit" type="submit">Create free account</button>
-      <p class="auth-copy"><b>Note: </b>We receive only Gmail, Yahoo, Outlook/Microsoft, and Proton emails</p>
+      <p class="auth-copy"><b>Note: </b>We accept only <b></b>Gmail, Yahoo, Outlook/Microsoft</b>, and <b>Proton emails</b></p>
     </form>
 
     <form class="auth-form auth-view" id="loginForm" data-auth-view="login" hidden>
@@ -724,7 +591,7 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
 <!-- ═══ FOOTER ═══ -->
 <footer>
   <div class="wrap-n">
-    <div class="foot-base"><p>© 2026 Luffy Create | Creators AI Lab · Released under the MIT License</p><p class="mono">ORG: CREATORS AI LAB · DEV: ADYA PRASAD</p></div>
+    <div class="foot-base"><p class="mono">ORG: CREATORS AI LAB · DEV: ADYA PRASAD</p><p>© 2026 Luffy Create | Creators AI Lab · Released under the MIT License</p></div>
   </div>
 </footer>
 
@@ -752,17 +619,36 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
   }
 
 
-  /* ── waveform bars ── */
-  var wave = document.getElementById("wave");
-  if (wave) {
-    for (var i = 0; i < 56; i++) {
-      var h = 20 + Math.round(Math.abs(Math.sin(i * 0.62) * Math.cos(i * 0.21)) * 74 + (i % 7) * 3);
-      var b = document.createElement("span");
-      b.style.height = h + "%";
-      b.style.animationDelay = ((i % 12) * 90) + "ms";
-      wave.appendChild(b);
+
+  /* ── smooth scroll ── */
+  if (!reduced) (function () {
+    var current = window.scrollY, target = current, raf = 0, ease = 0.09;
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function tick() {
+      current = lerp(current, target, ease);
+      if (Math.abs(target - current) < 0.5) { current = target; raf = 0; return; }
+      window.scrollTo(0, current);
+      raf = requestAnimationFrame(tick);
     }
-  }
+    window.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      target = Math.max(0, Math.min(target + e.deltaY * 1.2, document.body.scrollHeight - window.innerHeight));
+      if (!raf) raf = requestAnimationFrame(tick);
+    }, { passive: false });
+    window.addEventListener("keydown", function (e) {
+      var step = 0;
+      if (e.key === "ArrowDown") step = 120;
+      else if (e.key === "ArrowUp") step = -120;
+      else if (e.key === "PageDown") step = window.innerHeight * 0.85;
+      else if (e.key === "PageUp") step = -window.innerHeight * 0.85;
+      else if (e.key === "End") { target = document.body.scrollHeight - window.innerHeight; if (!raf) raf = requestAnimationFrame(tick); return; }
+      else if (e.key === "Home") { target = 0; if (!raf) raf = requestAnimationFrame(tick); return; }
+      if (step) {
+        target = Math.max(0, Math.min(target + step, document.body.scrollHeight - window.innerHeight));
+        if (!raf) raf = requestAnimationFrame(tick);
+      }
+    });
+  })();
 
   /* ── marquee loop (clone row for seamless -50% travel) ── */
   var mt = document.getElementById("mtrack");
@@ -811,7 +697,7 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
     });
   }
 
-  /* ── nav: scrubber + mobile menu ── */
+  /* ── nav: scrubber ── */
   var nav = document.getElementById("top"), fill = document.getElementById("scrubFill");
   function onScroll() {
     var h = document.documentElement, max = h.scrollHeight - h.clientHeight;
@@ -820,14 +706,6 @@ footer{margin-top:1rem;border-top:1px solid var(--border);background:var(--surfa
   }
   onScroll();
   window.addEventListener("scroll", onScroll, { passive: true });
-  var burger = document.getElementById("burger");
-  burger.addEventListener("click", function () {
-    var open = nav.classList.toggle("menu-open");
-    burger.setAttribute("aria-expanded", open ? "true" : "false");
-  });
-  document.querySelectorAll("#mobMenu a").forEach(function (a) {
-    a.addEventListener("click", function () { nav.classList.remove("menu-open"); burger.setAttribute("aria-expanded", "false"); });
-  });
 
   /* ── faq accordion ── */
   document.querySelectorAll(".qa").forEach(function (qa) {

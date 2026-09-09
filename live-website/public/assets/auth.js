@@ -106,7 +106,7 @@ function setPending(form, value) {
 }
 
 function requireCaptcha() {
-  if (!captchaToken) throw new Error('Complete the verification check first.')
+  if (!captchaToken) throw new Error('Wait! Let Captacha verification check first.')
   return captchaToken
 }
 
@@ -136,8 +136,8 @@ document.getElementById('signupForm')?.addEventListener('submit', event => {
   submit(event.currentTarget, async data => {
     const email = String(data.get('email') || '').trim()
     const fullName = String(data.get('fullName') || '').trim()
-    if (fullName.length < 2) throw new Error('Enter your full name.')
-    if (!isAllowedEmail(email)) throw new Error('Use a Gmail, Yahoo, Outlook/Microsoft, or Proton email address.')
+    if (fullName.length < 2) throw new Error('Enter your full name (first letter in capital).')
+    if (!isAllowedEmail(email)) throw new Error('Please use a Gmail, Yahoo, Outlook/Microsoft, or Proton email address.')
     lastSignupEmail = email
     const supabase = await getClient()
     const { error } = await supabase.auth.signUp({
