@@ -93,16 +93,35 @@ If branch protection has not been enabled yet, the equivalent local fast-forward
 `git pull --ff-only origin main` downloads new commits from `origin/main` and advances the local `main` branch only when this can happen without creating a merge commit. If local and remote history have diverged, `--ff-only` stops with an error so you can review the difference instead of Git merging unexpectedly. The same rule applies to the production pull below.
 
 ```powershell
-git switch main
-git pull --ff-only origin main
 npm run test:website
 npm run test:subtitle
 npm run build
-git switch production
-git pull --ff-only origin production
-git merge --ff-only main
+```
+
+The full workflow — run these in order:
+
+Step 1 — Stage and commit on main
+
+```
+
+git add .
+git commit -m "website: replace editor mock with screenshot, remove why section, smooth scroll, nav cleanup"
+```
+Step 2 — Push main
+```
+git push origin main
+```
+Step 3 — Merge main into production and push
+
+```
+git checkout production
+git merge main --no-ff -m "merge main into production"
 git push origin production
-git switch main
+```
+Step 4 — Go back to main
+
+```
+git checkout main
 ```
 
 ## 6. Publish an application release
