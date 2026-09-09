@@ -1,13 +1,18 @@
-.auth-nav-button{border:1px solid var(--accent);border-radius:.55rem;padding:.48rem .85rem;color:var(--accent);font-size:.82rem;font-weight:700;transition:.2s}
+.auth-nav-button{border:1px solid var(--accent);border-radius:.55rem;padding:.48rem .85rem;color:var(--accent);font-size:.82rem;font-weight:700;transition:.2s; font-family: var(--fd);}
 .auth-nav-button:hover{background:var(--accent);color:#fff}
 .auth-modal[hidden],.auth-view[hidden]{display:none}
 .auth-modal{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:1rem}
-.auth-backdrop{position:absolute;inset:0;background:rgba(108, 87, 124, 0.6);backdrop-filter:blur(5px)}
+.auth-backdrop{position:absolute;inset:0;background:rgba(240, 233, 245, 0.6);backdrop-filter:blur(3px)}
 .auth-dialog{position:relative;width:min(100%,40rem);max-height:min(90vh,50rem);overflow:auto;border:1px solid var(--border);border-radius:1rem;background:var(--surface);padding:1.35rem;box-shadow:var(--shadow-l)}
 .auth-head,.auth-account,.auth-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
 .auth-head h2{font-family:var(--fd);font-size:1.35rem;color:var(--ink)}
-.auth-close{display:grid;place-items:center;width:2rem;height:2rem;border-radius:.5rem;color:var(--muted);font-size:1.4rem}
+.auth-close{display:grid;place-items:center;width:2rem;height:2rem;border-radius:.5rem;color:var(--muted);font-size:1.6rem}
 .auth-close:hover{background:var(--inline-bg);color:var(--ink)}
+.auth-label-wrap{display:flex;flex-wrap:wrap;gap:.4rem;margin:1rem 0;}
+.auth-label{font-size:.85rem;display:inline-flex;align-items:center;justify-content:center;
+    border:1px solid var(--muted);padding:.3rem .65rem;
+    text-align:center;border-radius:50px;color:var(--muted);
+    background-color:var(--surface-2);user-select:none;white-space:nowrap;}
 .auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:.35rem;margin:1.1rem 0;padding:.25rem;border-radius:.65rem;background:var(--inline-bg)}
 .auth-tab{border-radius:.45rem;padding:.55rem;font-size:.82rem;font-weight:700;color:var(--muted)}
 .auth-tab.active{background:var(--surface);color:var(--accent);box-shadow:var(--shadow-s)}
