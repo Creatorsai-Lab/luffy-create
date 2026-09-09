@@ -38,6 +38,9 @@ function setSessionUi(session) {
 function setMessage(text = '', ok = false) {
   status.textContent = text
   status.classList.toggle('ok', ok)
+  // mirror into the login form's status slot when it's visible
+  const mirror = document.querySelector('.auth-message-mirror')
+  if (mirror) { mirror.textContent = text; mirror.classList.toggle('ok', ok) }
 }
 
 async function getClient() {
@@ -136,7 +139,7 @@ document.getElementById('signupForm')?.addEventListener('submit', event => {
   submit(event.currentTarget, async data => {
     const email = String(data.get('email') || '').trim()
     const fullName = String(data.get('fullName') || '').trim()
-    if (fullName.length < 2) throw new Error('Enter your full name (first letter in capital).')
+    if (fullName.length < 2) throw new Error('Please enter your full name (at least 2 characters).')
     if (!isAllowedEmail(email)) throw new Error('Please use a Gmail, Yahoo, Outlook/Microsoft, or Proton email address.')
     lastSignupEmail = email
     const supabase = await getClient()
