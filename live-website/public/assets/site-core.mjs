@@ -51,5 +51,5 @@ export function getDownloadUrl(assets, platform) {
 }
 
 export function getSessionNav(session) {
-  return session ? { label: 'Account', view: 'download' } : { label: 'Log in', view: 'login' }
+  return session ? { label: 'Account', view: 'download' } : { label: 'Start', view: 'login' }
 }
