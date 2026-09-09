@@ -90,6 +90,8 @@ Keep daily development on `main`. After its checks pass, open a GitHub pull requ
 
 If branch protection has not been enabled yet, the equivalent local fast-forward promotion is:
 
+`git pull --ff-only origin main` downloads new commits from `origin/main` and advances the local `main` branch only when this can happen without creating a merge commit. If local and remote history have diverged, `--ff-only` stops with an error so you can review the difference instead of Git merging unexpectedly. The same rule applies to the production pull below.
+
 ```powershell
 git switch main
 git pull --ff-only origin main
