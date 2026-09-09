@@ -122,10 +122,11 @@ async function showDownloads(session) {
 }
 
 async function submit(form, operation) {
+  const data = new FormData(form)
   setPending(form, true)
   setMessage('')
   try {
-    await operation(new FormData(form))
+    await operation(data)
   } catch (error) {
     setMessage(error instanceof Error ? error.message : String(error))
   } finally {
