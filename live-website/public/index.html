@@ -537,14 +537,16 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
       <label>Email<input name="email" type="email" autocomplete="email" required></label>
       <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
       <div data-captcha-slot></div>
+      <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
       <button class="auth-submit" type="submit">Create free account</button>
-      <p class="auth-copy"><b>Note: </b>We accept only <b></b>Gmail, Yahoo, Outlook/Microsoft</b>, and <b>Proton emails</b></p>
+      <p class="auth-copy"><b>Note: </b>We accept only <b>Gmail, Yahoo, Outlook/Microsoft</b>, and <b>Proton emails</b></p>
     </form>
 
     <form class="auth-form auth-view" id="loginForm" data-auth-view="login" hidden>
       <label>Email<input name="email" type="email" autocomplete="email" required></label>
       <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
       <div data-captcha-slot></div>
+      <p class="auth-message-mirror" role="status" aria-live="polite"></p>
       <button class="auth-submit" type="submit">Log in</button>
       <button class="auth-link" type="button" data-auth-open="forgot">Forgot password?</button>
     </form>
@@ -584,7 +586,6 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
     </div>
 
     <div class="auth-captcha" id="authCaptcha" hidden></div>
-    <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
   </section>
 </div>
 
