@@ -15,7 +15,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="drag flex items-center justify-between h-8 bg-black px-3 flex-none relative z-50">
+      <header className="drag flex items-center justify-between h-8 bg-[#050505] px-3 flex-none relative z-50">
         <div className="nodrag flex items-center gap-2">
           <img src={luffyLogo} alt="Luffy" className="w-7 h-7 rounded-sm flex-none object-cover" />
           <span className="text-xs font-semibold text-white tracking-wide">Luffy Create</span>

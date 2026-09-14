@@ -32,7 +32,7 @@ const TOOLS: ToolItem[] = [
   { icon: <Music size={15} />, label: 'Audio', panel: 'audio' },
   { icon: <PenTool size={15} />, label: 'Hand Draw', tool: 'handDraw', panel: 'handDraw' },
   { icon: <SquareDashedMousePointer size={15} />, label: 'Perspective', panel: 'perspective' },
-  { icon: <Route size={15} />, label: 'Move', panel: 'move' },
+  { icon: <Route size={15} />, label: 'Motion', panel: 'motion' },
   { icon: <Sparkles size={15} />, label: 'Effects', panel: 'effects' },
   { icon: <Timer size={15} />, label: 'Counter', tool: 'counter', panel: 'counter' },
 ]
@@ -222,7 +222,7 @@ export default function MenuSideBar() {
                     // Don't set a shape tool - user needs to pick one from the panel
                     return
                   }
-                  if (item.panel === 'perspective' || item.panel === 'move') {
+                  if (item.panel === 'perspective' || item.panel === 'motion') {
                     setActiveTool('select')
                   }
                   if (item.tool) setActiveTool(item.tool)

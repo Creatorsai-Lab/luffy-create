@@ -230,7 +230,7 @@ function applyMove(command: Extract<AiEditorCommand, { type: 'applyMove' }>): Ai
   }
   updateElement(el.id, { animations: [...el.animations.filter(item => item.type !== 'move'), anim] } as Partial<EditorElement>)
   selectElement(el.id, false)
-  setActivePanel('move')
+  setActivePanel('motion')
   return { ok: true, message: `Applied move animation to ${el.name}.`, elementIds: [el.id] }
 }
 

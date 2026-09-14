@@ -2,7 +2,7 @@
 
 export type ElementType   = 'text' | 'shape' | 'arrow' | 'code' | 'image' | 'table' | 'chart' | 'video' | 'audio' | 'icon' | 'latex' | 'counter' | 'handDraw'
 export type ShapeType     = 'rect' | 'circle' | 'triangle' | 'star' | 'pentagon' | 'hexagon' | 'octagon' | 'diamond' | 'oval' | 'speechBubble' | 'roundedSpeech' | 'cone' | 'cube' | 'rect-hand' | 'circle-hand' | 'square-hand' | 'heart' | 'rect-sketch'
-export type AnimationType = 'fadeIn' | 'fadeOut' | 'slideIn' | 'slideOut' | 'scaleIn' | 'scaleOut' | 'wipeIn' | 'wipeOut' | 'typewriter' | 'drawPath' | 'spin' | 'pulse' | 'bounceLoop' | 'rotateLoop' | 'move' |
+export type AnimationType = 'fadeIn' | 'fadeOut' | 'slideIn' | 'slideOut' | 'scaleIn' | 'scaleOut' | 'wipeIn' | 'wipeOut' | 'typewriter' | 'drawPath' | 'spin' | 'pulse' | 'bounceLoop' | 'rotateLoop' | 'move' | 'zoomIn' | 'zoomOut' |
   // Text-specific animations
   'typewriterChars' | 'typewriterWords' | 'textBounceIn' | 'textFade' | 'outlineRevealIn' | 'outlineRevealOut' | 'colorPulse' |
   // Arrow-specific animations
@@ -18,6 +18,7 @@ export type ArrowHeadType = 'none' | 'end' | 'start' | 'both'
 export type ArrowBendDirection = 'horizontal' | 'vertical'
 export type SlideDir      = 'left' | 'right' | 'up' | 'down'
 export type MoveDirection = 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
+export type MotionZoomPosition = 'center' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
 export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push' | 'morph' | 'flashBlur' | 'flickerShake'
 export type BgType        = 'solid' | 'gradient' | 'grid' | 'dots' | 'animated' | 'transparent'
 export type FontWeight    = 'thin' | 'normal' | 'semibold' | 'bold'
@@ -31,7 +32,7 @@ export type MediaEffectTarget = 'wholeMedia' | 'centerSubject' | 'manualFocus'
 export type MediaZoomPosition = 'center' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
 export type ActiveTool    = 'select' | 'text' | 'shape-rect' | 'shape-circle' | 'shape-triangle' | 'shape-star' | 'shape-pentagon' | 'shape-hexagon' | 'shape-octagon' | 'shape-diamond' | 'shape-oval' | 'shape-speechBubble' | 'shape-roundedSpeech' | 'shape-cone' | 'shape-cube' | 'shape-rect-hand' | 'shape-circle-hand' | 'shape-square-hand' | 'shape-heart' | 'shape-rect-sketch' | 'arrow' | 'code' | 'table' | 'image' | 'chart' | 'video' | 'latex' | 'counter'
   | 'handDraw'
-export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'move' | 'effects' | 'latex' | 'counter' | 'handDraw' | null
+export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'motion' | 'effects' | 'latex' | 'counter' | 'handDraw' | null
 export type HandDrawTool = 'pen' | 'paint' | 'spray' | 'eraser'
 export type ShapeFillMode = 'solid' | 'linearGradient' | 'radialGradient'
 export type TextFillMode = 'solid' | 'linearGradient'
@@ -130,6 +131,8 @@ export interface ElementAnimation {
     startCenterY?: number
     endCenterX?: number
     endCenterY?: number
+    zoomPosition?: MotionZoomPosition
+    zoomScale?: number
     pulseColor?: string
     pulseCount?: number
     scaleAmount?: number

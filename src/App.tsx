@@ -148,7 +148,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="h-screen w-screen flex flex-col bg-black overflow-hidden gap-1.5">
+      <div className="h-screen w-screen flex flex-col bg-[#050505] overflow-hidden gap-1.5">
         <Header />
 
         {/* Main layout: MenuSideBar + Canvas + OptionsSidebar + AISidebar */}
