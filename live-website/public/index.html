@@ -24,10 +24,10 @@
 <link rel="stylesheet" href="assets/auth.css" />
 
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Luffy Create","applicationCategory":"MultimediaApplication","operatingSystem":"Windows","description":"A free, open-source AI video editor with precise timeline control, captions, Python and Manim animation tools, offline editing, and direct MP4 export.","url":"https://creatorsai-lab.github.io/luffy-create/","downloadUrl":"https://github.com/Creatorsai-Lab/luffy-create/releases/latest","softwareVersion":"1.3.3","license":"https://opensource.org/licenses/MIT","author":{"@type":"Organization","name":"Creatorsai-Lab"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Luffy Create","applicationCategory":"MultimediaApplication","operatingSystem":"Windows","description":"A free, open-source AI video editor with precise timeline control, captions, Python and Manim animation tools, offline editing, and direct MP4 export.","url":"https://creatorsai-lab.github.io/luffy-create/","downloadUrl":"https://github.com/Creatorsai-Lab/luffy-create/releases/latest","softwareVersion":"1.3.5","license":"https://opensource.org/licenses/MIT","author":{"@type":"Organization","name":"Creatorsai-Lab"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is Luffy Create free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Luffy Create is completely free and open source under the MIT License. There is no subscription, no paywall, and no account required."}},{"@type":"Question","name":"Which operating systems are supported?","acceptedAnswer":{"@type":"Answer","text":"Version 1.3 ships builds for Windows, macOS, and Linux. You can also run from source on any platform with Node.js installed."}},{"@type":"Question","name":"Do I need an internet connection to use it?","acceptedAnswer":{"@type":"Answer","text":"No. Luffy Create is offline-first. Editing and MP4 export run entirely on your machine. There is no cloud upload and no telemetry."}},{"@type":"Question","name":"What video formats can I export?","acceptedAnswer":{"@type":"Answer","text":"You can export MP4 video at 720p or 1080p, and still images in PNG or WebP. Rendering is handled locally with FFmpeg."}},{"@type":"Question","name":"Is it only for technical videos?","acceptedAnswer":{"@type":"Answer","text":"No. Luffy Create is strong for technical videos, tutorials, launch demos, educational content, and social videos that need precise layout, text, media, audio, captions, and animation control."}},{"@type":"Question","name":"Why does Windows show an 'Unknown publisher' warning?","acceptedAnswer":{"@type":"Answer","text":"The v1 installer is not yet code-signed. Click 'More info' then 'Run anyway'. The full source is public, so you can review or build it yourself."}},{"@type":"Question","name":"Is my data collected or sent anywhere?","acceptedAnswer":{"@type":"Answer","text":"No. Luffy Create collects no data and contains no telemetry. Your projects are stored locally on your computer."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is Luffy Create free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Luffy Create is completely free and open source under the MIT License. There is no subscription, no paywall, and no account required."}},{"@type":"Question","name":"Which operating systems are supported?","acceptedAnswer":{"@type":"Answer","text":"Version 1.3.5 ships builds for Windows, macOS, and Linux. You can also run from source on any platform with Node.js installed."}},{"@type":"Question","name":"Do I need an internet connection to use it?","acceptedAnswer":{"@type":"Answer","text":"No. Luffy Create is offline-first. Editing and MP4 export run entirely on your machine. There is no cloud upload and no telemetry."}},{"@type":"Question","name":"What video formats can I export?","acceptedAnswer":{"@type":"Answer","text":"You can export MP4 video at 720p or 1080p, and still images in PNG or WebP. Rendering is handled locally with FFmpeg."}},{"@type":"Question","name":"Is it only for technical videos?","acceptedAnswer":{"@type":"Answer","text":"No. Luffy Create is strong for technical videos, tutorials, launch demos, educational content, and social videos that need precise layout, text, media, audio, captions, and animation control."}},{"@type":"Question","name":"Why does Windows show an 'Unknown publisher' warning?","acceptedAnswer":{"@type":"Answer","text":"The v1 installer is not yet code-signed. Click 'More info' then 'Run anyway'. The full source is public, so you can review or build it yourself."}},{"@type":"Question","name":"Is my data collected or sent anywhere?","acceptedAnswer":{"@type":"Answer","text":"No. Luffy Create collects no data and contains no telemetry. Your projects are stored locally on your computer."}}]}
 </script>
 <style>
 /* ═════════════ Luffy Create · single-file landing page (light theme) ═════════════ */
@@ -105,7 +105,7 @@ section[id]{scroll-margin-top:84px}
 .grad{background:linear-gradient(to right,var(--accent),var(--secondary));-webkit-background-clip:text;background-clip:text;color:transparent}
 /* ── nav ── */
 .nav{position:fixed;inset:0 0 auto 0;z-index:100;border-bottom:1px solid transparent;transition:background .3s,border-color .3s,box-shadow .3s}
-.nav.scrolled{background:rgba(255,249,243,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom-color:var(--border);box-shadow:0 8px 30px -22px rgba(120,80,60,.5)}
+.nav.scrolled{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 8px 30px -22px rgba(120,80,60,.5); background-color: #fff9f354;}
 .scrub{position:absolute;top:0;left:0;right:0;height:2px;background:rgba(100,90,81,.08)}
 .scrub-fill{position:relative;height:100%;width:0;background:linear-gradient(to right,var(--secondary),var(--accent))}
 .scrub-dot{position:absolute;right:0;top:50%;height:8px;width:8px;transform:translate(50%,-50%);border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(199,93,58,.7)}
@@ -174,14 +174,15 @@ section[id]{scroll-margin-top:84px}
 .grid-floor.mini{height:55%;bottom:-34%;animation-duration:1.6s}
 .particle{position:absolute;width:6px;height:6px;border-radius:50%;background:rgba(143, 46, 253, 0.534);box-shadow:0 0 10px rgba(134, 66, 212, 0.514);animation:float-y 7s ease-in-out infinite;pointer-events:none}
 .pl{transform:translate3d(calc(var(--px,0)*var(--depth,12)*1px),calc(var(--py,0)*var(--depth,12)*1px),0);transition:transform .6s cubic-bezier(.22,1,.36,1)}
-.hero-copy{position:relative;z-index:10;max-width:64rem;text-align:center}
+.hero-copy{position:relative;z-index:10;text-align:center}
 .caret{display:inline-block;height:.9rem;width:.5rem;background:var(--accent);vertical-align:-1px;margin-left:.35rem;animation:caret-blink 1s steps(1) infinite}
 .caret.sm{height:.7rem;width:.4rem;background:#fff}
+.version-label{width: max-content; display: inline-block; border: 2px solid var(--border); border-radius: 4rem; background-color: var(--accent-soft); padding: 0.6rem 1.2rem; margin: 2rem 0; font-family: var(--fd); user-select: none;}
 .hero-h1{font-family:var(--fd);font-weight:800;font-size:clamp(2rem,7vw,5rem);line-height:.98; color:var(--ink)}
 .hero-h1 .grad-w{background:linear-gradient(100deg,var(--accent),var(--secondary) 58%,var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
 .lede{margin:1.75rem auto 0;color:var(--muted);line-height:1.7;font-size:1.3rem}
 .os-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.75rem;margin-top:2.25rem}
-.os-btn{display:inline-flex;align-items:center;gap:.75rem;border-radius:.8rem;background:linear-gradient(180deg, var(--accent),var(--secondary));color:#fff;font-weight:600;padding:.9rem 1.5rem;transition:.3s}
+.os-btn{display:inline-flex;align-items:center;gap:.75rem;border-radius:.8rem;background:linear-gradient(180deg, var(--accent),var(--secondary));color:#fff;font-weight:600;padding:.9rem 1.5rem;transition:.3s; font-family: var(--fd);}
 .os-btn:hover{transform:translateY(-4px);box-shadow:0 24px 46px -16px rgba(107, 58, 199, 0.95)}
 .os-ic{height:1.5rem;width:1.5rem;transition:transform .3s}
 .os-btn:hover .os-ic{transform:scale(1.1)}
@@ -374,9 +375,10 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
     <h1 class="hero-h1">
       <span class="mask-line"><span style="--rd:80ms">The open-source</span></span>
       <span class="mask-line"><span class="grad-w" style="--rd:220ms">AI video editor</span></span>
-      <span class="mask-line"><span style="--rd:360ms">built for professional edits.</span></span>
+      <span class="mask-line"><span style="--rd:360ms">built for faster edits.</span></span>
     </h1>
     <p class="lede" data-rise="450">Luffy Create is a free, open-source video editor built for creators who want real control with both online and offline editing, AI-assisted scene edits, automatic captions, Python &amp; Manim animation, and direct MP4 export. No cloud, no account, no watermark.</p>
+    <div class="version-label">Latest Version: <b>v1.3.5</b></div>
     <div class="os-row" data-rise="600">
       <a class="os-btn js-dl-win" href="/download/#windows"><svg class="fi os-ic"><use href="#i-win"/></svg><span class="os-t"><span class="os-l">Windows</span></span></a>
       <a class="os-btn js-dl-mac" href="/download/#macos"><svg class="fi os-ic"><use href="#i-apple"/></svg><span class="os-t"><span class="os-l">macOS</span></span></a>
@@ -464,7 +466,7 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
       <div class="sec-head reveal"><h3 style="margin:0 0 2rem">FAQs</h3></div>
       <div class="qa-list">
         <div class="qa open reveal" style="--rd:0ms"><button class="qa-q" type="button" aria-expanded="true"><span>Is Luffy Create free?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>Yes. Luffy Create is completely free and open source under the MIT License. There is no subscription, no paywall, and no account required.</p></div></div></div>
-        <div class="qa reveal" style="--rd:60ms"><button class="qa-q" type="button" aria-expanded="false"><span>Which operating systems are supported?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>Version 1.3 ships builds for Windows, macOS, and Linux. You can also run from source on any platform with Node.js installed.</p></div></div></div>
+        <div class="qa reveal" style="--rd:60ms"><button class="qa-q" type="button" aria-expanded="false"><span>Which operating systems are supported?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>Version 1.3.5 ships builds for Windows, macOS, and Linux. You can also run from source on any platform with Node.js installed.</p></div></div></div>
         <div class="qa reveal" style="--rd:120ms"><button class="qa-q" type="button" aria-expanded="false"><span>Do I need an internet connection to use it?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>No. Luffy Create is offline-first. Editing and MP4 export run entirely on your machine — there is no cloud upload and no telemetry.</p></div></div></div>
         <div class="qa reveal" style="--rd:180ms"><button class="qa-q" type="button" aria-expanded="false"><span>What video and image formats can I export?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>You can export MP4 video at 720p or 1080p, and still images in PNG or WebP. All rendering is handled locally with FFmpeg.</p></div></div></div>
         <div class="qa reveal" style="--rd:0ms"><button class="qa-q" type="button" aria-expanded="false"><span>Is it only for technical videos?</span><span class="qa-x"><svg class="si"><use href="#i-plus"/></svg></span></button><div class="qa-a"><div><p>No. Luffy Create is strong for technical videos, tutorials, launch demos, educational videos, product walkthroughs, and social content that needs precise text, media, audio, captions, and animation control.</p></div></div></div>
@@ -503,9 +505,10 @@ footer{border-top:1px solid var(--border);background:var(--surface);padding:1.5r
       <div class="grid-floor mini" aria-hidden="true"></div>
       <div class="glow glow-a" style="top:-6rem;left:50%;transform:translateX(-50%);height:300px;width:520px;opacity:.6" aria-hidden="true"></div>
       <div class="cta-in">
-        <h2>Ready to create?</h2>
+        <h2>Ready to create your professional videos?</h2>
         <p>Download Luffy Create and start building precise videos today — free, open source, and local-first. Prefer source? <a href="https://github.com/Creatorsai-Lab/luffy-create" target="_blank" rel="noopener">Build from the repo</a>.</p>
-        <div class="os-row">
+        <div class="version-label">Latest Version: <b>v1.3.5</b></div>
+        <div class="os-row">          
           <a class="os-btn js-dl-win" href="/download/#windows"><svg class="fi os-ic"><use href="#i-win"/></svg><span class="os-t"><span class="os-l">Windows</span></span></a>
           <a class="os-btn js-dl-mac" href="/download/#macos"><svg class="fi os-ic"><use href="#i-apple"/></svg><span class="os-t"><span class="os-l">macOS</span></span></a>
           <a class="os-btn js-dl-linux" href="/download/#linux"><svg class="fi os-ic"><use href="#i-linux"/></svg><span class="os-t"><span class="os-l">Linux</span></span></a>
