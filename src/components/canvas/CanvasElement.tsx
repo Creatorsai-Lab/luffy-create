@@ -50,10 +50,12 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
   const rawX = animProps?.x ?? element.x
   const rawY = animProps?.y ?? element.y
 
+  const scaleBaseX = element.type === 'arrow' ? element.x + elW / 2 : elW / 2
+  const scaleBaseY = element.type === 'arrow' ? element.y + elH / 2 : elH / 2
   const props = {
     id:       element.id,
-    x:        rawX + (animOffsetX > 0 ? animOffsetX : (elW / 2) * (1 - animScaleX)),
-    y:        rawY + (animOffsetY > 0 ? animOffsetY : (elH / 2) * (1 - animScaleY)),
+    x:        rawX + (animOffsetX > 0 ? animOffsetX : scaleBaseX * (1 - animScaleX)),
+    y:        rawY + (animOffsetY > 0 ? animOffsetY : scaleBaseY * (1 - animScaleY)),
     offsetX:  animOffsetX,
     offsetY:  animOffsetY,
     opacity:  animProps?.opacity  ?? element.opacity,

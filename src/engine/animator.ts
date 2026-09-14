@@ -1,4 +1,5 @@
-import type { EditorElement, ElementAnimation, EasingType, SlideDir } from '../types/editor'
+import type { EditorElement, ElementAnimation, EasingType, MotionZoomPosition, SlideDir } from '../types/editor'
+import { isMotionAnimation } from '../utils/moveAnimation'
 export { getOutlineRevealClips } from './textOutlineReveal'
 
 // ─── Easing ───────────────────────────────────────────────────────────────────
@@ -78,9 +79,10 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
   const isLoop = (a: ElementAnimation) => LOOP_TYPES.has(a.type) || a.timing === 'loop'
   const textRevealTypes = new Set(['typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'outlineRevealIn'])
 
-  const moves  = anims.filter(a => a.type === 'move')
-  const enters = anims.filter(a => a.type !== 'move' && !isLoop(a) && a.timing === 'onEnter')
-  const exits  = anims.filter(a => a.type !== 'move' && !isLoop(a) && a.timing === 'onExit')
+  const motions = anims.filter(isMotionAnimation).sort((a, b) =>
+    safeTime(a.startTime) + safeTime(a.delay) - safeTime(b.startTime) - safeTime(b.delay))
+  const enters = anims.filter(a => !isMotionAnimation(a) && !isLoop(a) && a.timing === 'onEnter')
+  const exits  = anims.filter(a => !isMotionAnimation(a) && !isLoop(a) && a.timing === 'onExit')
   const loops  = anims.filter(a => isLoop(a))
 
   // Guard against NaN from undefined/missing fields on older saved animations
@@ -143,9 +145,9 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
     applyAnim(anim, t, before, after, el, props, localTime)
   }
 
-  // Move is timeline motion, not a visibility enter/exit animation. Keep it out
+  // Motion is timeline movement, not a visibility enter/exit animation. Keep it out
   // of the enter window so loop effects such as arrow flow can run while moving.
-  for (const anim of moves) {
+  for (const anim of motions) {
     const start  = safe(anim.startTime) + safe(anim.delay)
     const end    = start + safe(anim.duration)
     const before = localTime < start
@@ -330,12 +332,31 @@ function applyAnim(
       const startOffsetY = anim.params?.moveMode === 'coordinates' ? (anim.params?.startOffsetY ?? 0) : 0
       if (before) return
       if (after) {
-        out.x = el.x + startOffsetX + dx
-        out.y = el.y + startOffsetY + dy
+        out.x += startOffsetX + dx
+        out.y += startOffsetY + dy
         return
       }
-      out.x = lerp(el.x + startOffsetX, el.x + startOffsetX + dx, t)
-      out.y = lerp(el.y + startOffsetY, el.y + startOffsetY + dy, t)
+      out.x += startOffsetX + dx * t
+      out.y += startOffsetY + dy * t
+      break
+    }
+
+    case 'zoomIn':
+    case 'zoomOut': {
+      if (before) return
+      const progress = after ? 1 : t
+      const requestedScale = anim.params?.zoomScale
+      const fallback = anim.type === 'zoomIn' ? 1.5 : 1
+      const targetScale = typeof requestedScale === 'number' && Number.isFinite(requestedScale)
+        ? Math.max(anim.type === 'zoomIn' ? 1 : 0.3, Math.min(anim.type === 'zoomIn' ? 10 : 1, requestedScale))
+        : fallback
+      const nextScale = lerp(out.scaleX, targetScale, progress)
+      const appliedDelta = nextScale - out.scaleX
+      const [originX, originY] = zoomOrigin(anim.params?.zoomPosition)
+      out.x += (0.5 - originX) * el.width * appliedDelta
+      out.y += (0.5 - originY) * el.height * appliedDelta
+      out.scaleX = nextScale
+      out.scaleY += appliedDelta
       break
     }
 
@@ -499,6 +520,20 @@ function applyAnim(
       out.opacity = lerp(0, el.opacity, Math.min(1, t * 4))
       out.chartAnimProgress = t
       break
+  }
+}
+
+function safeTime(value: number | undefined) {
+  return value != null && isFinite(value) ? value : 0
+}
+
+function zoomOrigin(position: MotionZoomPosition | undefined): [number, number] {
+  switch (position) {
+    case 'topLeft': return [0, 0]
+    case 'topRight': return [1, 0]
+    case 'bottomRight': return [1, 1]
+    case 'bottomLeft': return [0, 1]
+    default: return [0.5, 0.5]
   }
 }
 

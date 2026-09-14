@@ -5,6 +5,7 @@ import { makeAnimation } from '../../utils/defaults'
 import { PanelHeader, Row, Slider } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { ScaleSizeControl } from './AnimationParamControls'
+import { isMotionAnimation } from '../../utils/moveAnimation'
 
 const ANIM_TYPES: { label: string; value: AnimationType; group?: string }[] = [
   { label: 'Fade In',      value: 'fadeIn',      group: 'Entrance' },
@@ -67,7 +68,7 @@ export default function AnimationPanel() {
             <p className="text-xs text-[#f2f2f2] px-3 py-3">No animations yet.</p>
           )}
 
-          {el.animations.filter(anim => anim.type !== 'move').map((anim, i) => (
+          {el.animations.filter(anim => !isMotionAnimation(anim)).map((anim, i) => (
             <AnimBlock
               key={anim.id}
               anim={anim}

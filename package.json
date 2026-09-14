@@ -1,6 +1,6 @@
 {
   "name": "luffy-create",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "description": "Free open-source AI video editor with timeline control",
   "private": true,
   "author": "Creators AI Lab",
@@ -16,6 +16,7 @@
     "build:translation-pack": "node scripts/build-translation-pack.mjs",
     "test:website": "node scripts/liveWebsite.test.mjs && node scripts/liveWebsiteSchema.test.mjs && node scripts/releaseVersion.test.mjs",
     "test:subtitle": "node scripts/run-subtitle-tests.mjs",
+    "test:motion": "tsx scripts/motionAnimation.test.ts",
     "verify:translation-pack": "node scripts/verify-translation-pack.mjs",
     "preview": "electron-vite preview",
     "prepare-python-sandbox": "node scripts/prepare-python-sandbox.mjs",

@@ -8,6 +8,7 @@ import { makeAnimation, makeCounter } from '../../utils/defaults'
 import { PanelHeader, Row, ColorInput, Slider, NumberInput, AnimSection, isLoopAnim } from './TextPanel'
 import { ENTER_ANIMS, LOOP_ANIMS, EXIT_ANIMS } from './TextPanel'
 import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../../utils/fontWeight'
+import { isMotionAnimation } from '../../utils/moveAnimation'
 
 type CounterMode = 'number' | 'english' | 'hindi'
 
@@ -272,21 +273,21 @@ export default function CounterPanel() {
             {/* Animations */}
             <AnimSection
               label="On Enter" color="text-green-400"
-              anims={el.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onEnter')}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onEnter')}
               types={ENTER_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeIn', timing: 'onEnter' })}
               elId={el.id} isLoop={false}
             />
             <AnimSection
               label="Loop" color="text-editor-accent"
-              anims={el.animations.filter(a => a.type !== 'move' && isLoopAnim(a))}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && isLoopAnim(a))}
               types={LOOP_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'pulse', timing: 'loop', duration: 1 })}
               elId={el.id} isLoop={true}
             />
             <AnimSection
               label="On Exit" color="text-red-400"
-              anims={el.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onExit')}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onExit')}
               types={EXIT_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeOut', timing: 'onExit' })}
               elId={el.id} isLoop={false}

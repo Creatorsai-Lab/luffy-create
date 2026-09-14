@@ -10,6 +10,7 @@ import BoxShadowControls, { InnerShadowControls } from './BoxShadowControls'
 import { ScaleSizeControl } from './AnimationParamControls'
 import BorderControls from './BorderControls'
 import MediaVignetteControls from './MediaVignetteControls'
+import { isMotionAnimation } from '../../utils/moveAnimation'
 import MediaGrainControls from './MediaGrainControls'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
@@ -369,21 +370,21 @@ export default function VideoPanel() {
             {/* ── Animations ──────────────────────────────────────────── */}
             <AnimSection
               label="On Enter" color="text-green-400"
-              anims={el.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onEnter')}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onEnter')}
               types={ENTER_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeIn', timing: 'onEnter' })}
               elId={el.id} isLoop={false}
             />
             <AnimSection
               label="Loop" color="text-editor-accent"
-              anims={el.animations.filter(a => a.type !== 'move' && isLoopAnim(a))}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && isLoopAnim(a))}
               types={LOOP_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'pulse', timing: 'loop', duration: 1 })}
               elId={el.id} isLoop={true}
             />
             <AnimSection
               label="On Exit" color="text-red-400"
-              anims={el.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onExit')}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onExit')}
               types={EXIT_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeOut', timing: 'onExit' })}
               elId={el.id} isLoop={false}

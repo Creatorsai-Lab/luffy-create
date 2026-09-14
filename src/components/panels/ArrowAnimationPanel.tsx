@@ -5,6 +5,7 @@ import { makeAnimation } from '../../utils/defaults'
 import { PanelHeader, Row } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { ScaleSizeControl } from './AnimationParamControls'
+import { isMotionAnimation } from '../../utils/moveAnimation'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Draw On',      value: 'drawPath' },
@@ -78,7 +79,7 @@ export default function ArrowAnimationPanel() {
               <p className="text-xs text-[#f2f2f2] px-3 py-3">No animations yet.</p>
             )}
 
-            {el.animations.filter(anim => anim.type !== 'move').map((anim, i) => (
+            {el.animations.filter(anim => !isMotionAnimation(anim)).map((anim, i) => (
               <AnimBlock key={anim.id} anim={anim} index={i} elId={el.id} />
             ))}
           </div>

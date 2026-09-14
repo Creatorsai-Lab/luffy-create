@@ -148,7 +148,7 @@ export default function EditorCanvas() {
   // ── Auto-select sidebar panel based on selected element ──────────────────────
   useEffect(() => {
     if (selectedIds.length === 0) return
-    const stickyPanels: ActivePanel[] = ['perspective', 'move', 'handDraw', 'effects']
+    const stickyPanels: ActivePanel[] = ['perspective', 'motion', 'handDraw', 'effects']
     if (stickyPanels.includes(activePanel)) return
     
     const scene = project?.scenes.find(s => s.id === currentSceneId)
@@ -784,7 +784,7 @@ export default function EditorCanvas() {
   }
 
   function handleMouseMove(e: Konva.KonvaEventObject<MouseEvent>) {
-    if (activePanel === 'move') {
+    if (activePanel === 'motion') {
       const { x, y } = toProjectCoords(e.evt.clientX, e.evt.clientY)
       setCursorCoord({ x: Math.round(x), y: Math.round(y) })
     }
@@ -1055,7 +1055,7 @@ export default function EditorCanvas() {
           </Layer>
         </Stage>
 
-        {activePanel === 'move' && cursorCoord && (
+        {activePanel === 'motion' && cursorCoord && (
           <div
             style={{
               position: 'absolute',

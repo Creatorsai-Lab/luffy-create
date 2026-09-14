@@ -6,7 +6,7 @@ import type {
   MediaEffectClip,
 } from '../types/editor'
 
-export const DEFAULT_BG: Background = { type: 'solid', color: '#000000' }
+export const DEFAULT_BG: Background = { type: 'solid', color: '#646464' }
 
 export const DEFAULT_TRANSITION: SceneTransition = { type: 'none', duration: 0.5 }
 

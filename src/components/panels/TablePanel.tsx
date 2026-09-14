@@ -3,6 +3,7 @@ import { useEditorStore } from '../../store/editorStore'
 import type { AlignType, AnimationType, ElementAnimation, TableElement } from '../../types/editor'
 import { makeAnimation } from '../../utils/defaults'
 import { AnimSection, isLoopAnim, PanelHeader, Row, NumberInput, Slider, ColorInput } from './TextPanel'
+import { isMotionAnimation } from '../../utils/moveAnimation'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade In',   value: 'fadeIn'   },
@@ -26,7 +27,7 @@ const EXIT_ANIMS: { label: string; value: AnimationType }[] = [
 ]
 
 function nonMoveAnimations(anims: ElementAnimation[]) {
-  return anims.filter(a => a.type !== 'move')
+  return anims.filter(a => !isMotionAnimation(a))
 }
 
 export default function TablePanel() {

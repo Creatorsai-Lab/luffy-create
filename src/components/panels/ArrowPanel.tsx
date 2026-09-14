@@ -5,6 +5,7 @@ import { PanelHeader, Row, ColorInput, Slider, NumberInput } from './TextPanel'
 import { makeAnimation } from '../../utils/defaults'
 import { cn } from '../../utils/cn'
 import { ScaleSizeControl } from './AnimationParamControls'
+import { isMotionAnimation } from '../../utils/moveAnimation'
 
 const HEADS: { label: string; value: ArrowHeadType }[] = [
   { label: 'None', value: 'none' },
@@ -241,7 +242,7 @@ export default function ArrowPanel() {
           <AnimSection
             label="On Enter"
             color="text-green-400"
-            anims={el.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onEnter')}
+            anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onEnter')}
             types={ENTER_ANIMS}
             onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'drawPath', timing: 'onEnter' })}
             elId={el.id}
@@ -250,7 +251,7 @@ export default function ArrowPanel() {
           <AnimSection
             label="Loop"
             color="text-editor-accent"
-            anims={el.animations.filter(a => a.type !== 'move' && isLoopAnim(a))}
+            anims={el.animations.filter(a => !isMotionAnimation(a) && isLoopAnim(a))}
             types={LOOP_ANIMS}
             onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'flowLoop', timing: 'loop', duration: 1 })}
             elId={el.id}
@@ -259,7 +260,7 @@ export default function ArrowPanel() {
           <AnimSection
             label="On Exit"
             color="text-red-400"
-            anims={el.animations.filter(a => a.type !== 'move' && !isLoopAnim(a) && a.timing === 'onExit')}
+            anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onExit')}
             types={EXIT_ANIMS}
             onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'drawOff', timing: 'onExit' })}
             elId={el.id}

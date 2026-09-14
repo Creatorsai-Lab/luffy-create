@@ -1,4 +1,4 @@
-.auth-nav-button{border:1px solid var(--accent);border-radius:.55rem;padding:.48rem .85rem;color:var(--accent);font-size:.82rem;font-weight:700;transition:.2s;font-family:var(--fd);}
+.auth-nav-button{border:2px solid var(--accent);border-radius:.55rem;padding:.48rem .85rem;color:var(--accent);font-size:0.9rem;font-weight:700;transition:.2s;font-family:var(--fd);}
 .auth-nav-button:hover{background:var(--accent);color:#fff}
 .auth-modal[hidden],.auth-view[hidden]{display:none}
 .auth-modal{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:1rem}

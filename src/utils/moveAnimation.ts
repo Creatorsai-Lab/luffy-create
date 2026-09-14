@@ -1,7 +1,5 @@
 import type { EditorElement, ElementAnimation, MoveDirection, Project } from '../types/editor'
 
-export const MOVE_ANIMATION_TYPE = 'move' as const
-
 export const MOVE_DIRECTIONS: { label: string; value: MoveDirection }[] = [
   { label: 'Left', value: 'left' },
   { label: 'Right', value: 'right' },
@@ -13,8 +11,8 @@ export const MOVE_DIRECTIONS: { label: string; value: MoveDirection }[] = [
   { label: 'Bottom Left', value: 'bottomLeft' },
 ]
 
-export function isMoveAnimation(anim: ElementAnimation) {
-  return anim.type === MOVE_ANIMATION_TYPE
+export function isMotionAnimation(anim: ElementAnimation): anim is ElementAnimation & { type: 'move' | 'zoomIn' | 'zoomOut' } {
+  return anim.type === 'move' || anim.type === 'zoomIn' || anim.type === 'zoomOut'
 }
 
 export function elementMoveBounds(el: EditorElement) {
