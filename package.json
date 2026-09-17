@@ -51,6 +51,7 @@
     "@monaco-editor/react": "^4.6.0",
     "clsx": "^2.1.1",
     "electron-updater": "^6.3.9",
+    "gifuct-js": "^2.1.2",
     "immer": "^10.1.1",
     "konva": "^9.3.6",
     "lucide-react": "^0.439.0",

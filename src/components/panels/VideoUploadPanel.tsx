@@ -6,7 +6,7 @@ import { cn } from '../../utils/cn'
 import { toFileUrl } from '../../utils/pathUtils'
 import type { AssetMeta } from '../../types/editor'
 
-const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'gif']
+const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'avi', 'mkv']
 
 export default function VideoUploadPanel() {
   const { project, addAsset, removeAsset, addElement } = useEditorStore()

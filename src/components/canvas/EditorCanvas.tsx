@@ -922,8 +922,7 @@ export default function EditorCanvas() {
           top:  offsetY,
           width:  canvasW,
           height: canvasH,
-          boxShadow: '0 4px 12px rgba(46, 45, 45, 0.42)',
-          borderRadius: 2
+          boxShadow: '0 4px 8px rgba(46, 45, 45, 0.3)',
         }}
       >
         <Stage
