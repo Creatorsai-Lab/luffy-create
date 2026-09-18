@@ -4,7 +4,8 @@ import { useEditorStore } from '../../store/editorStore'
 import { exportToMP4WithFFmpeg, isFFmpegAvailable } from '../../engine/ffmpegExporter'
 import { getStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
-import type { Scene, VideoElement } from '../../types/editor'
+import { decodeGif } from '../../engine/gifDecoder'
+import type { ImageElement, Scene, VideoElement } from '../../types/editor'
 import { getVideoClipState } from '../../utils/videoClip'
 
 type Phase = 'idle' | 'exporting' | 'done' | 'error'
@@ -65,6 +66,8 @@ export default function ExportModal() {
     // Let React commit + the video-seek effect run.
     await new Promise(r => setTimeout(r, 0))
     await new Promise(r => requestAnimationFrame(r))
+    await waitForSceneGifs(sceneId)
+    await new Promise(r => requestAnimationFrame(r))
     if (sceneId) await waitForSceneVideos(sceneId, globalTime)
     // Wait for any video elements to finish seeking to this frame, so the
     // captured stage shows the correct video frame (not a stale one).
@@ -72,6 +75,15 @@ export default function ExportModal() {
     const stage = getStage()
     if (stage) stage.batchDraw()
     await new Promise(r => setTimeout(r, 8))
+  }
+
+  async function waitForSceneGifs(sceneId: string | null): Promise<void> {
+    const scene = project?.scenes.find(sc => sc.id === sceneId)
+    if (!scene) return
+    const gifs = scene.elements.filter((el): el is ImageElement =>
+      el.type === 'image' && /\.gif(?:$|[?#])/i.test(el.src)
+    )
+    await Promise.all(gifs.map(gif => decodeGif(gif.src)))
   }
 
   // Resolve once every registered video has finished seeking (or after a cap).

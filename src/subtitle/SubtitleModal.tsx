@@ -153,7 +153,7 @@ export default function SubtitleModal() {
       const textCueCount = cues.filter(cue => cue.text.trim()).length
       setStatus(textCueCount > 0
         ? `Generated ${textCueCount} timeline-synced text captions.`
-        : `Generated ${cues.length} speech-timing cues. Install local Whisper or paste a script to sync text.`
+        : `Whisper text was unavailable, so ${cues.length} timing cues were created without words. Install the local Whisper runtime or paste a script.`
       )
     } catch (e) {
       setStatus(e instanceof Error ? e.message : 'Caption generation failed.')

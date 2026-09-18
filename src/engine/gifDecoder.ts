@@ -30,6 +30,7 @@ export interface GifData {
 // ── Cache ────────────────────────────────────────────────────────────────────
 
 const cache = new Map<string, GifData>()
+const pending = new Map<string, Promise<GifData>>()
 
 /** Remove a cached entry (e.g. when the element is unmounted). */
 export function evictGif(src: string) {
@@ -45,6 +46,20 @@ export function evictGif(src: string) {
 export async function decodeGif(src: string): Promise<GifData> {
   const hit = cache.get(src)
   if (hit) return hit
+
+  const inFlight = pending.get(src)
+  if (inFlight) return inFlight
+
+  const promise = decodeGifUncached(src)
+  pending.set(src, promise)
+  try {
+    return await promise
+  } finally {
+    pending.delete(src)
+  }
+}
+
+async function decodeGifUncached(src: string): Promise<GifData> {
 
   // 1. Fetch the raw bytes
   const url = toFileUrl(src)
@@ -81,10 +96,9 @@ export async function decodeGif(src: string): Promise<GifData> {
   for (let i = 0; i < rawFrames.length; i++) {
     const raw = rawFrames[i]
 
-    // gifuct-js returns the raw GIF delay in centiseconds (1/100th of a second).
-    // delay=10 means 10 centiseconds = 100ms. Multiply by 10 for ms.
-    // A delay of 0 is treated as 100ms per the GIF spec.
-    const delayMs = (raw.delay <= 0 ? 10 : raw.delay) * 10
+    // gifuct-js already converts the GIF delay from centiseconds to milliseconds.
+    // A missing/zero delay is normalized to 100ms by the GIF decoder contract.
+    const delayMs = raw.delay > 0 ? raw.delay : 100
 
     // Save the current composite state before drawing this frame (for "restoreToPrevious")
     const disposal = raw.disposalType

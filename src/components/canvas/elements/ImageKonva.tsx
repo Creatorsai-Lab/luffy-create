@@ -8,7 +8,7 @@ import { buildCssFilter, applyCanvasAdjustments, drawGrain, drawVignette } from 
 import { drawBoxShadow } from '../../../engine/boxShadow'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
 import { drawMediaWithEffects, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
-import { decodeGif, getGifFrameAtTime, evictGif, type GifData } from '../../../engine/gifDecoder'
+import { decodeGif, getGifFrameAtTime, type GifData } from '../../../engine/gifDecoder'
 
 // ── Draw-function factories ──────────────────────────────────────────────────
 
@@ -82,8 +82,22 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     setImg(null)
 
     if (isGif) {
-      // Decode GIF into individual frames
+      // Show the browser-decoded first frame immediately while the frame-accurate
+      // decoder prepares the canvas frames used by preview and export.
       let cancelled = false
+      const image = new window.Image()
+      image.onload = () => {
+        if (cancelled) return
+        setImg(image)
+        setLoading(false)
+      }
+      image.onerror = () => {
+        if (cancelled) return
+        setError(true)
+        setLoading(false)
+      }
+      image.src = toFileUrl(el.src)
+
       decodeGif(el.src)
         .then(data => {
           if (cancelled) return
@@ -96,10 +110,16 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
         .catch(err => {
           if (cancelled) return
           console.error('[ImageKonva] Failed to decode GIF:', el.src, err)
-          setError(true)
-          setLoading(false)
+          // Keep the native animated image usable if frame decoding fails.
+          const nativeImageReady = image.complete && image.naturalWidth > 0
+          setError(!nativeImageReady)
+          setLoading(!nativeImageReady)
         })
-      return () => { cancelled = true }
+      return () => {
+        cancelled = true
+        image.onload = null
+        image.onerror = null
+      }
     } else {
       // Standard image loading
       const image = new window.Image()
@@ -121,13 +141,6 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
         image.onload = null
         image.onerror = null
       }
-    }
-  }, [el.src, isGif])
-
-  // Clean up GIF cache on unmount
-  useEffect(() => {
-    return () => {
-      if (isGif) evictGif(el.src)
     }
   }, [el.src, isGif])
 
@@ -173,7 +186,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
 
   // Animated GIFs and media effects need continuous redraws
   useEffect(() => {
-    const hasGif = isGif && gifData && !error
+    const hasGif = isGif && (gifData || img) && !error
     const hasMediaEffect = mediaEffectRequiresAnimation(el) && img && !error
     if (!hasGif && !hasMediaEffect) return
     let raf = 0
@@ -192,7 +205,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
   // Build offscreen canvas for perspective warp. GIFs stay dynamic and rebuild
   // from the live frame during each draw.
   useEffect(() => {
-    const hasSource = isGif ? !!gifData : !!img
+    const hasSource = isGif ? !!(gifData || img) : !!img
     if (!el.perspectivePts || !hasSource || dynamicPerspective) { setOffscreen(null); return }
     setOffscreen(buildPerspectiveSource())
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -207,7 +220,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
       !!el.perspectivePts, dynamicPerspective])
 
   // ── Determine if we have a renderable source ──────────────────────────────
-  const hasSource = isGif ? !!gifData : !!img
+  const hasSource = isGif ? !!(gifData || img) : !!img
 
   // Perspective warp rendering
   if (el.perspectivePts && (offscreen || (dynamicPerspective && hasSource))) {
