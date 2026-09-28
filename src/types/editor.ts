@@ -257,6 +257,20 @@ export interface CodeElement extends BaseElement {
   fontSize: number
   showLineNumbers: boolean
   bgColor?: string
+  fitSceneWidth?: boolean
+  wrapLines?: boolean
+  codeAnimation?: 'none' | 'characters' | 'lines' | 'blocks'
+  codeAnimationDelay?: number
+  codeAnimationDuration?: number
+  codeAnimationBlocks?: CodeAnimationBlock[]
+}
+
+export interface CodeAnimationBlock {
+  id: string
+  fromLine: number
+  toLine: number
+  delay: number
+  duration: number
 }
 
 export interface ImageElement extends BaseElement, MediaEffectControls, MediaVignetteControls, MediaGrainControls {

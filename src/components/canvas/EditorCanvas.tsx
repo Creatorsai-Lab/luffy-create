@@ -973,6 +973,7 @@ export default function EditorCanvas() {
                   }}
                   stageScale={scale}
                   localTime={localTime}
+                  sceneWidth={project?.width}
                   syncVideoToTime={!localPlayingIds.has(el.id) && (isPlaying || playhead > 0)}
                   videoPlaybackActive={isPlaying}
                 />

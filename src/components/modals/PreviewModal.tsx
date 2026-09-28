@@ -508,6 +508,7 @@ function PreviewSceneStage({
               onDblClick={() => { }}
               stageScale={scale}
               localTime={localTime}
+              sceneWidth={project.width}
               syncVideoToTime
               videoPlaybackActive={isPlaying}
             />

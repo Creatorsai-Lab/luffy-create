@@ -26,11 +26,12 @@ interface Props {
   onDblClick: () => void
   stageScale: number
   localTime?: number   // scene-local seconds — drives video seeking
+  sceneWidth?: number
   syncVideoToTime?: boolean
   videoPlaybackActive?: boolean
 }
 
-export default function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, syncVideoToTime = true, videoPlaybackActive = false }: Props) {
+export default function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, sceneWidth, syncVideoToTime = true, videoPlaybackActive = false }: Props) {
   const { activeTool, updateElement } = useEditorStore()
   const interaction = getCanvasElementInteraction(activeTool, element.locked, element.type)
   const setCursor = (target: Konva.Node, state: 'canvas' | 'selected' | 'dragging', movable = interaction.draggable) => {
@@ -144,7 +145,7 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
     case 'text':   return <TextKonva   el={element} konvaProps={props} textProgress={animProps?.textProgress ?? 1} textMode={animProps?.textMode} wipeProgress={wipeProgress} wipeDir={wipeDir} textColor={animProps?.textColor} />
     case 'shape':  return <ShapeKonva  el={element} konvaProps={props} wipeProgress={wipeProgress} wipeDir={wipeDir} dashOffset={animProps?.dashOffset ?? 0} localTime={localTime} />
     case 'arrow':  return <ArrowKonva  el={element} konvaProps={props} pathProgress={animProps?.textProgress ?? 1} dashOffset={animProps?.dashOffset ?? 0} />
-    case 'code':   return <CodeKonva   el={element} konvaProps={props} />
+    case 'code':   return <CodeKonva   el={element} konvaProps={props} localTime={localTime} sceneWidth={sceneWidth} />
     case 'image':  return <ImageKonva  el={element} konvaProps={props} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} localTime={localTime} />
     case 'table':  return <TableKonva  el={element} konvaProps={props} wipeProgress={wipeProgress} wipeDir={wipeDir} />
     case 'chart':  return <ChartKonva  el={element} konvaProps={props} animProgress={animProps?.chartAnimProgress ?? 1} />

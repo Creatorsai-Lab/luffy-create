@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Captions, Wand2, Plus, Trash2, Download, Mic, FileText } from 'lucide-react'
+import { X, Captions, Wand2, Plus, Trash2, Download, Mic, FileText, Languages, CheckSquare, Square } from 'lucide-react'
 import { useEditorStore } from '../store/editorStore'
 import { FONT_FAMILIES } from '../types/editor'
 import type { AudioElement, FontWeight, Project, SubtitleCue, SubtitleLanguage, SubtitleStyle, SubtitleTrack } from '../types/editor'
@@ -21,7 +21,35 @@ interface TimelineAudioClip {
   sceneName: string
 }
 
-type CaptionSourceId = 'all' | 'voiceover' | 'background' | string
+const WHISPER_LANGUAGES: { code: string; label: string }[] = [
+  { code: '', label: 'Auto-detect' },
+  { code: 'en', label: 'English' },
+  { code: 'hi', label: 'Hindi' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'fr', label: 'French' },
+  { code: 'de', label: 'German' },
+  { code: 'ja', label: 'Japanese' },
+  { code: 'zh', label: 'Chinese' },
+  { code: 'ko', label: 'Korean' },
+  { code: 'pt', label: 'Portuguese' },
+  { code: 'ar', label: 'Arabic' },
+  { code: 'ru', label: 'Russian' },
+  { code: 'ta', label: 'Tamil' },
+  { code: 'te', label: 'Telugu' },
+  { code: 'bn', label: 'Bengali' },
+  { code: 'mr', label: 'Marathi' },
+  { code: 'gu', label: 'Gujarati' },
+  { code: 'kn', label: 'Kannada' },
+  { code: 'ml', label: 'Malayalam' },
+  { code: 'pa', label: 'Punjabi' },
+  { code: 'ur', label: 'Urdu' },
+  { code: 'it', label: 'Italian' },
+  { code: 'nl', label: 'Dutch' },
+  { code: 'tr', label: 'Turkish' },
+  { code: 'th', label: 'Thai' },
+  { code: 'vi', label: 'Vietnamese' },
+  { code: 'id', label: 'Indonesian' },
+]
 
 const CAPTION_ANIMATIONS: { label: string; value: NonNullable<SubtitleStyle['animation']> }[] = [
   { label: 'None', value: 'none' },
@@ -37,7 +65,8 @@ export default function SubtitleModal() {
   const audioClips = useMemo(() => collectTimelineAudioClips(project), [project])
   const existingTrack = project?.subtitleTracks?.[0] ?? null
   const [track, setTrack] = useState<SubtitleTrack>(() => normalizeSubtitleTrack(existingTrack ?? makeSubtitleTrack()))
-  const [sourceId, setSourceId] = useState<CaptionSourceId>('all')
+  const [whisperLanguage, setWhisperLanguage] = useState<string>('')
+  const [selectedAudioIds, setSelectedAudioIds] = useState<Set<string>>(() => new Set(audioClips.map(c => c.id)))
   const [script, setScript] = useState('')
   const [status, setStatus] = useState<string>('')
   const [busy, setBusy] = useState(false)
@@ -47,9 +76,33 @@ export default function SubtitleModal() {
     setTrack(normalizeSubtitleTrack(existingTrack ?? makeSubtitleTrack()))
   }, [existingTrack?.id])
 
-  const hasVoiceover = audioClips.some(c => c.audio.track === 'voiceover')
-  const hasBackground = audioClips.some(c => c.audio.track === 'background')
-  const selectedClips = selectAudioClips(audioClips, sourceId)
+  // Keep selectedAudioIds in sync when audioClips change (new clips added)
+  useEffect(() => {
+    setSelectedAudioIds(prev => {
+      const next = new Set(prev)
+      let changed = false
+      for (const clip of audioClips) {
+        if (!next.has(clip.id)) { next.add(clip.id); changed = true }
+      }
+      return changed ? next : prev
+    })
+  }, [audioClips])
+
+  const selectedClips = audioClips.filter(c => selectedAudioIds.has(c.id))
+  const allSelected = audioClips.length > 0 && audioClips.every(c => selectedAudioIds.has(c.id))
+  const noneSelected = audioClips.length > 0 && audioClips.every(c => !selectedAudioIds.has(c.id))
+
+  function toggleAudioClip(id: string) {
+    setSelectedAudioIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  function toggleAllAudio() {
+    if (allSelected) setSelectedAudioIds(new Set())
+    else setSelectedAudioIds(new Set(audioClips.map(c => c.id)))
+  }
 
   function commit(next = track) {
     upsertSubtitleTrack(normalizeSubtitleTrack(next))
@@ -117,7 +170,7 @@ export default function SubtitleModal() {
         setStatus(`Analyzing ${clip.label} (${i + 1}/${selectedClips.length})...`)
         const localCues = await transcriber.transcribe({
           sourceSrc: audio.src,
-          language: track.language,
+          language: whisperLanguage || undefined,
           onProgress: (_pct, msg) => setStatus(`${clip.label}: ${msg}`),
         })
 
@@ -214,24 +267,58 @@ export default function SubtitleModal() {
         <div className="flex flex-1 min-h-0">
           <div className="w-85 flex-none border-r border-editor-border p-4 flex flex-col gap-3 overflow-y-auto">
             <label className="block">
-              <span className="text-sm uppercase tracking-wider text-editor-text-secondary">Timeline audio source:</span>
+              <span className="flex items-center gap-1 text-sm uppercase tracking-wider text-editor-text-secondary">
+                <Languages size={13} /> Whisper language
+              </span>
+              <select
+                value={whisperLanguage}
+                onChange={e => setWhisperLanguage(e.target.value)}
+                className="w-full mt-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
+              >
+                {WHISPER_LANGUAGES.map(lang => (
+                  <option key={lang.code} value={lang.code}>{lang.label}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="block">
+              <div className="flex items-center justify-between">
+                <span className="text-sm uppercase tracking-wider text-editor-text-secondary">Audio sources</span>
+                {audioClips.length > 0 && (
+                  <button onClick={toggleAllAudio} className="text-[10px] text-editor-accent hover:underline">
+                    {allSelected ? 'Deselect all' : 'Select all'}
+                  </button>
+                )}
+              </div>
               {audioClips.length === 0 ? (
                 <p className="text-sm text-red-400 mt-2">No timeline audio found. Add an audio clip to the timeline first.</p>
               ) : (
-                <select
-                  value={sourceId}
-                  onChange={e => setSourceId(e.target.value)}
-                  className="w-full mt-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1.5"
-                >
-                  <option value="all">All timeline audio</option>
-                  {hasVoiceover && <option value="voiceover">All voiceover clips</option>}
-                  {hasBackground && <option value="background">All background clips</option>}
-                  <optgroup label="Individual clips">
-                    {audioClips.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
-                  </optgroup>
-                </select>
+                <div className="mt-1.5 max-h-40 overflow-y-auto flex flex-col gap-0.5 bg-editor-elevated-highlight border border-editor-border rounded p-1.5">
+                  {audioClips.map(clip => {
+                    const checked = selectedAudioIds.has(clip.id)
+                    const trackLabel = clip.audio.track === 'voiceover' ? 'VO' : 'BG'
+                    return (
+                      <button
+                        key={clip.id}
+                        onClick={() => toggleAudioClip(clip.id)}
+                        className={`flex items-center gap-2 text-left px-2 py-1.5 rounded text-xs transition-colors ${
+                          checked
+                            ? 'bg-editor-accent/15 text-editor-text'
+                            : 'text-[#c9c4dd] hover:bg-editor-hover'
+                        }`}
+                      >
+                        {checked
+                          ? <CheckSquare size={13} className="text-editor-accent flex-none" />
+                          : <Square size={13} className="text-[#c9c4dd] flex-none" />
+                        }
+                        <span className="truncate flex-1">{clip.audio.name || 'Audio'}</span>
+                        <span className="text-[10px] text-[#c9c4dd] flex-none">{trackLabel} · {clip.sceneName}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               )}
-            </label>
+            </div>
 
             {selectedClips.length > 0 && (
               <div className="flex items-center gap-2 text-xs text-[#c9c4dd] bg-editor-elevated-highlight rounded px-2.5 py-2">
@@ -526,12 +613,7 @@ export default function SubtitleModal() {
   )
 }
 
-function selectAudioClips(clips: TimelineAudioClip[], sourceId: CaptionSourceId) {
-  if (sourceId === 'all') return clips
-  if (sourceId === 'voiceover') return clips.filter(c => c.audio.track === 'voiceover')
-  if (sourceId === 'background') return clips.filter(c => c.audio.track === 'background')
-  return clips.filter(c => c.id === sourceId)
-}
+// selectAudioClips removed — replaced by selectedAudioIds Set + filter inline
 
 function collectTimelineAudioClips(project: Project | null): TimelineAudioClip[] {
   if (!project) return []

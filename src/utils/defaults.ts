@@ -184,7 +184,13 @@ export function makeCode(x: number, y: number): CodeElement {
     animations: [],
     code: '# Enter your code here',
     language: 'python',
-    fontSize: 35, showLineNumbers: true
+    fontSize: 35, showLineNumbers: true,
+    fitSceneWidth: false,
+    wrapLines: false,
+    codeAnimation: 'none',
+    codeAnimationDelay: 0,
+    codeAnimationDuration: 2,
+    codeAnimationBlocks: [],
   }
 }
 
