@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react'
 import { Stage, Layer, Shape, Transformer, Circle, Path } from 'react-konva'
 import type Konva from 'konva'
-import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter } from 'lucide-react'
+import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowUpToLine, ArrowDownToLine } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { getAnimatedProps } from '../../engine/animator'
 import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
@@ -93,6 +93,7 @@ export default function EditorCanvas() {
   const [cropDrag, setCropDrag] = useState<{ handle: string; startX: number; startY: number; startCrop: { x: number; y: number; w: number; h: number } } | null>(null)
   const [cursorCoord, setCursorCoord] = useState<{ x: number; y: number } | null>(null)
   const clipboardRef  = useRef<EditorElement[]>([])
+  const clipboardSourceSceneRef = useRef<string | null>(null)
 
   // ── Live transition overlay ───────────────────────────────────────────────────
   const [transOverlay, setTransOverlay] = useState<{
@@ -114,7 +115,8 @@ export default function EditorCanvas() {
     cropElementId, setCropElement,
     addElement, selectElement, deselectAll,
     removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
-    undo, redo, duplicateElement
+    undo, redo, duplicateElement,
+    bringForward, sendBackward,
   } = useEditorStore()
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
@@ -275,6 +277,7 @@ export default function EditorCanvas() {
             .map(id => scene.elements.find(el => el.id === id))
             .filter((el): el is EditorElement => el != null)
             .map(el => JSON.parse(JSON.stringify(el)))
+          clipboardSourceSceneRef.current = currentSceneId ?? null
         }
         return
       }
@@ -283,13 +286,17 @@ export default function EditorCanvas() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         if (clipboardRef.current.length > 0) {
           e.preventDefault()
+          // Only offset position when pasting into the SAME scene (to avoid overlap).
+          // When pasting across scenes, preserve exact original coordinates.
+          const isSameScene = clipboardSourceSceneRef.current === currentSceneId
+          const offset = isSameScene ? 20 : 0
           clipboardRef.current.forEach(el => {
             const clone: EditorElement = { ...JSON.parse(JSON.stringify(el)), id: crypto.randomUUID() }
-            clone.x += 20
-            clone.y += 20
+            clone.x += offset
+            clone.y += offset
             // Arrows render from absolute endpoints — shift those too
             if (clone.type === 'arrow') {
-              clone.x1 += 20; clone.y1 += 20; clone.x2 += 20; clone.y2 += 20
+              clone.x1 += offset; clone.y1 += offset; clone.x2 += offset; clone.y2 += offset
             }
             addElement(clone)
           })
@@ -1296,6 +1303,7 @@ export default function EditorCanvas() {
                       .map(id => scene.elements.find(el => el.id === id))
                       .filter((el): el is EditorElement => el != null)
                       .map(el => JSON.parse(JSON.stringify(el)))
+                    clipboardSourceSceneRef.current = currentSceneId ?? null
                   }
                   setContextMenu(null)
                 }
@@ -1305,6 +1313,22 @@ export default function EditorCanvas() {
                 icon: <Copy size={14} />,
                 onClick: () => {
                   selectedIds.forEach(id => duplicateElement(id))
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Bring Forward',
+                icon: <ArrowUpToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) bringForward(contextMenu.elementId)
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Send Backward',
+                icon: <ArrowDownToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) sendBackward(contextMenu.elementId)
                   setContextMenu(null)
                 }
               },

@@ -526,11 +526,17 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         if (!s.project || !s.currentSceneId) return
         const sc = s.project.scenes.find(x => x.id === s.currentSceneId)
         if (!sc) return
-        const el = sc.elements.find(e => e.id === id)
-        if (!el) return
-        const above = sc.elements.filter(e => e.zIndex === el.zIndex + 1)
-        above.forEach(e => { e.zIndex -= 1 })
-        el.zIndex += 1
+        // Normalize first so z-indices are contiguous 0..n-1
+        normalizeZ(sc.elements)
+        const sorted = [...sc.elements].sort((a, b) => a.zIndex - b.zIndex)
+        const idx = sorted.findIndex(e => e.id === id)
+        if (idx < 0 || idx >= sorted.length - 1) return // already at top
+        // Swap with the element directly above
+        const current = sc.elements.find(e => e.id === sorted[idx].id)!
+        const above   = sc.elements.find(e => e.id === sorted[idx + 1].id)!
+        const tmp = current.zIndex
+        current.zIndex = above.zIndex
+        above.zIndex = tmp
         s.isDirty = true
       }),
 
@@ -538,11 +544,17 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         if (!s.project || !s.currentSceneId) return
         const sc = s.project.scenes.find(x => x.id === s.currentSceneId)
         if (!sc) return
-        const el = sc.elements.find(e => e.id === id)
-        if (!el || el.zIndex === 0) return
-        const below = sc.elements.filter(e => e.zIndex === el.zIndex - 1)
-        below.forEach(e => { e.zIndex += 1 })
-        el.zIndex -= 1
+        // Normalize first so z-indices are contiguous 0..n-1
+        normalizeZ(sc.elements)
+        const sorted = [...sc.elements].sort((a, b) => a.zIndex - b.zIndex)
+        const idx = sorted.findIndex(e => e.id === id)
+        if (idx <= 0) return // already at bottom
+        // Swap with the element directly below
+        const current = sc.elements.find(e => e.id === sorted[idx].id)!
+        const below   = sc.elements.find(e => e.id === sorted[idx - 1].id)!
+        const tmp = current.zIndex
+        current.zIndex = below.zIndex
+        below.zIndex = tmp
         s.isDirty = true
       }),
 

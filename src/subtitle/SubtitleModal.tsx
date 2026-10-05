@@ -301,11 +301,10 @@ export default function SubtitleModal() {
                       <button
                         key={clip.id}
                         onClick={() => toggleAudioClip(clip.id)}
-                        className={`flex items-center gap-2 text-left px-2 py-1.5 rounded text-xs transition-colors ${
-                          checked
+                        className={`flex items-center gap-2 text-left px-2 py-1.5 rounded text-xs transition-colors ${checked
                             ? 'bg-editor-accent/15 text-editor-text'
                             : 'text-[#c9c4dd] hover:bg-editor-hover'
-                        }`}
+                          }`}
                       >
                         {checked
                           ? <CheckSquare size={13} className="text-editor-accent flex-none" />
@@ -402,32 +401,33 @@ export default function SubtitleModal() {
                     ? updateCueText(c.id, text)
                     : setTrack(current => ({ ...current, cues: current.cues.map(cue => cue.id === c.id ? mergeCueTranslation(cue, language, text, cue.translations?.[language]?.warnings) : cue) }))
                   return (
-                  <div key={c.id} className="flex items-start gap-2 bg-editor-elevated-highlight border border-editor-border rounded-lg p-2.5">
-                    <span className="text-[11px] text-editor-text-secondary w-8 pt-1 text-right tabular-nums">{i + 1}</span>
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex items-center gap-1 text-[10px] text-editor-text-secondary whitespace-nowrap">
-                        <span>[Start (</span>
-                        <input aria-label="Caption start time" type="number" min={0} step={0.1} value={roundTime(c.start)}
-                          onChange={e => updateCue(c.id, { start: Math.max(0, parseFloat(e.target.value) || 0) })}
-                          className="w-14 bg-editor-base border border-editor-border rounded text-center text-[10px] text-editor-text px-1 py-0.5 tabular-nums" />
-                        <span>) - End (</span>
-                        <input aria-label="Caption end time" type="number" min={0} step={0.1} value={roundTime(c.end)}
-                          onChange={e => updateCue(c.id, { end: Math.max(0, parseFloat(e.target.value) || 0) })}
-                          className="w-14 bg-editor-base border border-editor-border rounded text-center text-[10px] text-editor-text px-1 py-0.5 tabular-nums" />
-                        <span>)]</span>
+                    <div key={c.id} className="flex items-start gap-2 bg-editor-elevated-highlight border border-editor-border rounded-lg p-2.5">
+                      <span className="text-[11px] text-editor-text-secondary w-8 pt-1 text-right tabular-nums">{i + 1}</span>
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex items-center gap-1 text-[10px] text-editor-text-secondary whitespace-nowrap">
+                          <span>[Start (</span>
+                          <input aria-label="Caption start time" type="number" min={0} step={0.1} value={roundTime(c.start)}
+                            onChange={e => updateCue(c.id, { start: Math.max(0, parseFloat(e.target.value) || 0) })}
+                            className="w-14 bg-editor-base border border-editor-border rounded text-center text-[10px] text-editor-text px-1 py-0.5 tabular-nums" />
+                          <span>) - End (</span>
+                          <input aria-label="Caption end time" type="number" min={0} step={0.1} value={roundTime(c.end)}
+                            onChange={e => updateCue(c.id, { end: Math.max(0, parseFloat(e.target.value) || 0) })}
+                            className="w-14 bg-editor-base border border-editor-border rounded text-center text-[10px] text-editor-text px-1 py-0.5 tabular-nums" />
+                          <span>)]</span>
+                        </div>
+                        {(['en', 'hi'] as const).map(language => (
+                          <label key={language} className="grid grid-cols-[42px_1fr] items-start gap-2">
+                            <span className="pt-2 text-[10px] uppercase text-editor-text-secondary">{language}</span>
+                            <textarea value={languageText(language)} rows={2} placeholder={`${language === 'en' ? 'English' : 'Hindi'} caption…`}
+                              onChange={event => editLanguage(language, event.target.value)}
+                              className="w-full bg-editor-base border border-editor-border rounded text-sm text-editor-text px-2 py-1.5 resize-none" />
+                          </label>
+                        ))}
                       </div>
-                      {(['en', 'hi'] as const).map(language => (
-                        <label key={language} className="grid grid-cols-[42px_1fr] items-start gap-2">
-                          <span className="pt-2 text-[10px] uppercase text-editor-text-secondary">{language}</span>
-                          <textarea value={languageText(language)} rows={2} placeholder={`${language === 'en' ? 'English' : 'Hindi'} caption…`}
-                            onChange={event => editLanguage(language, event.target.value)}
-                            className="w-full bg-editor-base border border-editor-border rounded text-sm text-editor-text px-2 py-1.5 resize-none" />
-                        </label>
-                      ))}
+                      <button onClick={() => removeCue(c.id)} className="text-[#c9c4dd] hover:text-red-400 transition-colors pt-1.5"><Trash2 size={14} /></button>
                     </div>
-                    <button onClick={() => removeCue(c.id)} className="text-[#c9c4dd] hover:text-red-400 transition-colors pt-1.5"><Trash2 size={14} /></button>
-                  </div>
-                )})}
+                  )
+                })}
               </div>
             )}
           </div>
