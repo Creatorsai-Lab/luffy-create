@@ -531,12 +531,14 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         const sorted = [...sc.elements].sort((a, b) => a.zIndex - b.zIndex)
         const idx = sorted.findIndex(e => e.id === id)
         if (idx < 0 || idx >= sorted.length - 1) return // already at top
-        // Swap with the element directly above
-        const current = sc.elements.find(e => e.id === sorted[idx].id)!
-        const above   = sc.elements.find(e => e.id === sorted[idx + 1].id)!
-        const tmp = current.zIndex
-        current.zIndex = above.zIndex
-        above.zIndex = tmp
+        // Move the element one position up in the sorted order
+        const [removed] = sorted.splice(idx, 1)
+        sorted.splice(idx + 1, 0, removed)
+        // Reassign all z-indices to match the new order
+        sorted.forEach((e, i) => {
+          const el = sc.elements.find(x => x.id === e.id)
+          if (el) el.zIndex = i
+        })
         s.isDirty = true
       }),
 
@@ -549,12 +551,14 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         const sorted = [...sc.elements].sort((a, b) => a.zIndex - b.zIndex)
         const idx = sorted.findIndex(e => e.id === id)
         if (idx <= 0) return // already at bottom
-        // Swap with the element directly below
-        const current = sc.elements.find(e => e.id === sorted[idx].id)!
-        const below   = sc.elements.find(e => e.id === sorted[idx - 1].id)!
-        const tmp = current.zIndex
-        current.zIndex = below.zIndex
-        below.zIndex = tmp
+        // Move the element one position down in the sorted order
+        const [removed] = sorted.splice(idx, 1)
+        sorted.splice(idx - 1, 0, removed)
+        // Reassign all z-indices to match the new order
+        sorted.forEach((e, i) => {
+          const el = sc.elements.find(x => x.id === e.id)
+          if (el) el.zIndex = i
+        })
         s.isDirty = true
       }),
 

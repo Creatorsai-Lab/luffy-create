@@ -116,7 +116,7 @@ export default function EditorCanvas() {
     addElement, selectElement, deselectAll,
     removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
     undo, redo, duplicateElement,
-    bringForward, sendBackward,
+    bringForward, sendBackward, bringToFront, sendToBack,
   } = useEditorStore()
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
@@ -348,10 +348,47 @@ export default function EditorCanvas() {
         setActiveTool('select')
         setContextMenu(null)
       }
+      
+      // Layer ordering shortcuts (Adobe-style)
+      // Bring Forward: Ctrl/Cmd + Shift + ]
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === ']') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => bringForward(id))
+        }
+        return
+      }
+      
+      // Send Backward: Ctrl/Cmd + Shift + [
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === '[') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => sendBackward(id))
+        }
+        return
+      }
+      
+      // Bring to Front: Ctrl/Cmd + ]
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === ']') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => bringToFront(id))
+        }
+        return
+      }
+      
+      // Send to Back: Ctrl/Cmd + [
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === '[') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => sendToBack(id))
+        }
+        return
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement])
+  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement, bringForward, sendBackward, bringToFront, sendToBack])
 
   // Reset local video plays when preview starts (VideoKonva takes over)
   useEffect(() => {
@@ -1002,13 +1039,13 @@ export default function EditorCanvas() {
                 width:  Math.max(10, box.width),
                 height: Math.max(10, box.height)
               })}
-              anchorSize={7}
-              anchorFill="#5a5ba0"
-              anchorStroke="#fff"
+              anchorSize={5}
+              anchorFill="#6a32c9"
+              anchorStroke="#f3e7e7"
               anchorStrokeWidth={1}
               anchorCornerRadius={3}
-              borderStroke="#f776d9"
-              borderStrokeWidth={1}
+              borderStroke="#f77681"
+              borderStrokeWidth={2}
               rotateAnchorOffset={25}
               rotateLineVisible={false}
               rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
@@ -1018,7 +1055,7 @@ export default function EditorCanvas() {
                 if (anchor.hasName('rotater')) {
                   anchor.cornerRadius(10)
                   anchor.fill('#6c6d9473')
-                  anchor.stroke('#ebebeb')
+                  anchor.stroke('#e7adad')
                   anchor.strokeWidth(1.5)
                   anchor.width(12)
                   anchor.height(12)
@@ -1329,6 +1366,22 @@ export default function EditorCanvas() {
                 icon: <ArrowDownToLine size={14} />,
                 onClick: () => {
                   if (contextMenu?.elementId) sendBackward(contextMenu.elementId)
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Bring to Front',
+                icon: <ArrowUpToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) bringToFront(contextMenu.elementId)
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Send to Back',
+                icon: <ArrowDownToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) sendToBack(contextMenu.elementId)
                   setContextMenu(null)
                 }
               },
