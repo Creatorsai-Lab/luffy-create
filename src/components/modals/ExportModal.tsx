@@ -7,6 +7,7 @@ import { videoRegistry } from '../../engine/videoRegistry'
 import { decodeGif } from '../../engine/gifDecoder'
 import type { ImageElement, Scene, VideoElement } from '../../types/editor'
 import { getVideoClipState } from '../../utils/videoClip'
+import { toast } from '../ui/Toast'
 
 type Phase = 'idle' | 'exporting' | 'done' | 'error'
 type Quality = '720p' | '1080p'
@@ -176,9 +177,11 @@ export default function ExportModal() {
     try {
       await window.api.fs.writeFile(path, buffer)
       setLog('File saved successfully!')
+      toast.success('Video saved successfully')
     } catch {
       setLog('Failed to save file')
       setPhase('error')
+      toast.error('Failed to save video file')
     }
   }
 
@@ -231,6 +234,7 @@ export default function ExportModal() {
       await window.api.fs.writeFile(path, bytes)
       setImgPhase('done')
       setImgLog('Image saved!')
+      toast.success('Image saved successfully')
     } catch (err) {
       setImgPhase('error')
       setImgLog(err instanceof Error ? err.message : 'Unknown error')

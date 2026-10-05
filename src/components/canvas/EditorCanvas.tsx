@@ -388,7 +388,7 @@ export default function EditorCanvas() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement, bringForward, sendBackward, bringToFront, sendToBack])
+  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement, bringForward, sendBackward, bringToFront, sendToBack, addElement])
 
   // Reset local video plays when preview starts (VideoKonva takes over)
   useEffect(() => {

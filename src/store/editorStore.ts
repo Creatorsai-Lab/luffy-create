@@ -9,6 +9,7 @@ import type {
 } from '../types/editor'
 import { makeScene, makeProject } from '../utils/defaults'
 import { useHistoryStore } from './historyStore'
+import { toast } from '../components/ui/Toast'
 
 interface EditorState {
   project:           Project | null
@@ -363,7 +364,11 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       }),
 
       removeScene: (id) => set(s => {
-        if (!s.project || s.project.scenes.length <= 1) return
+        if (!s.project) return
+        if (s.project.scenes.length <= 1) {
+          toast.error('Cannot delete the last scene')
+          return
+        }
         const scenes = s.project.scenes
         const idx = scenes.findIndex(sc => sc.id === id)
         if (idx < 0) return
@@ -845,8 +850,9 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 // isUndoRedo is set synchronously around undo()/redo() set() calls so the
 // subscriber can skip pushing a new history entry for those changes.
 let lastProject: Project | null = null
-let saveTimeout: NodeJS.Timeout | null = null
+let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let isUndoRedo = false
+let pendingBaseline: Project | null = null
 
 useEditorStore.subscribe(
   (state) => state.project,
@@ -854,22 +860,47 @@ useEditorStore.subscribe(
     if (isUndoRedo) {
       // Undo/redo change — cancel any pending save and update baseline
       if (saveTimeout) clearTimeout(saveTimeout)
+      saveTimeout = null
       lastProject = project
+      pendingBaseline = null
       return
     }
-    if (!project || !lastProject) {
-      lastProject = project
+    if (!project) {
+      lastProject = null
+      pendingBaseline = null
+      if (saveTimeout) clearTimeout(saveTimeout)
+      saveTimeout = null
       return
     }
+    
+    // Capture the baseline BEFORE the first change (if we don't have one yet)
+    if (!lastProject) {
+      lastProject = project
+      pendingBaseline = null
+      return
+    }
+    
+    // Store the pre-edit baseline if this is the first change in a burst
+    if (!pendingBaseline) {
+      pendingBaseline = JSON.parse(JSON.stringify(lastProject))
+    }
+    
     if (saveTimeout) clearTimeout(saveTimeout)
     saveTimeout = setTimeout(() => {
-      if (!project || !lastProject) return
+      if (!project || !pendingBaseline) return
+      
+      const baselineStr = JSON.stringify(pendingBaseline)
       const currentStr = JSON.stringify(project)
-      if (currentStr !== JSON.stringify(lastProject)) {
+      
+      if (currentStr !== baselineStr) {
         // Push the PRE-edit baseline so a single undo restores the previous state.
-        useHistoryStore.getState().pushHistory(lastProject, 'Edit')
-        lastProject = JSON.parse(currentStr)
+        useHistoryStore.getState().pushHistory(pendingBaseline, 'Edit')
       }
+      
+      // Reset for next burst of changes
+      lastProject = JSON.parse(currentStr)
+      pendingBaseline = null
+      saveTimeout = null
     }, 500)
   }
 )
