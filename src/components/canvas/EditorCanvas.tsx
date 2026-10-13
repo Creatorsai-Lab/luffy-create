@@ -1082,9 +1082,9 @@ export default function EditorCanvas() {
               anchorStroke="#f3e7e7"
               anchorStrokeWidth={1}
               anchorCornerRadius={3}
-              borderStroke="#f77681"
+              borderStroke={SELECTION_COLOR}
               borderStrokeWidth={2}
-              rotateAnchorOffset={25}
+              rotateAnchorOffset={15}
               rotateLineVisible={false}
               rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
               rotateAnchorCursor="grab"
@@ -1476,6 +1476,9 @@ export default function EditorCanvas() {
 
 // ── Transformer rotate handle icon ────────────────────────────────────────────
 
+/** Selection outline color; the rotate icon uses it too. */
+const SELECTION_COLOR = '#db1d1d'
+
 function drawRotateIcon(ctx: CanvasRenderingContext2D, size: number) {
   const c = size / 2
   const r = size * 0.27
@@ -1484,18 +1487,15 @@ function drawRotateIcon(ctx: CanvasRenderingContext2D, size: number) {
 
   ctx.save()
   ctx.beginPath()
-  ctx.arc(c, c, c - 0.5, 0, Math.PI * 2)
-  ctx.fillStyle = '#6a32c9'
+  ctx.arc(c, c, c, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(105, 50, 201, 0.36)'     // accent purple at 50%
   ctx.fill()
-  ctx.lineWidth = 1
-  ctx.strokeStyle = '#f3e7e7'
-  ctx.stroke()
 
   ctx.beginPath()
   ctx.arc(c, c, r, start, end)
   ctx.lineWidth = 1.6
   ctx.lineCap = 'round'
-  ctx.strokeStyle = '#ffffff'
+  ctx.strokeStyle = SELECTION_COLOR
   ctx.stroke()
 
   // Arrowhead at the arc's end, pointing clockwise along the tangent.
@@ -1507,7 +1507,7 @@ function drawRotateIcon(ctx: CanvasRenderingContext2D, size: number) {
   ctx.lineTo(px + nx * 2.4, py + ny * 2.4)
   ctx.lineTo(px - nx * 2.4, py - ny * 2.4)
   ctx.closePath()
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = SELECTION_COLOR
   ctx.fill()
   ctx.restore()
 }

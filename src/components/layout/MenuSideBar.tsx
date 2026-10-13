@@ -11,6 +11,8 @@ import { cn } from '../../utils/cn'
 import { makeCenteredArrow, makeCenteredTable, makeCenteredText } from '../../utils/defaults'
 import { toast } from '../ui/Toast'
 
+type ToolModal = 'subtitle' | 'pythonSandbox' | 'userGuide'
+
 interface ToolItem {
   icon: React.ReactNode
   label: string
@@ -18,27 +20,34 @@ interface ToolItem {
   panel: ActivePanel
   /** Insert this element on the current scene immediately, then open its properties. */
   insert?: (canvasW: number, canvasH: number) => EditorElement
+  /** Opens a modal instead of a sidebar panel. */
+  modal?: ToolModal
 }
+
+// Alphabetical. "Free Cursor" is rendered separately, always first.
 const TOOLS: ToolItem[] = [
-  { icon: <PaintBucket size={15} />, label: 'Background', panel: 'background' },
-  { icon: <Shuffle size={15} />, label: 'Transitions', panel: 'transitions' },
-  { icon: <Layers size={15} />, label: 'Layers', panel: 'layers' },
-  { icon: <Type size={15} />, label: 'Text', panel: 'text', insert: makeCenteredText },
-  { icon: <Square size={15} />, label: 'Shapes', tool: 'select', panel: 'shapes' },
   { icon: <ArrowRight size={15} />, label: 'Arrow', panel: 'arrows', insert: makeCenteredArrow },
-  { icon: <Code2 size={15} />, label: 'Code', tool: 'code', panel: 'code' },
-  { icon: <Sigma size={15} />, label: 'LaTeX', panel: 'latex' },
-  { icon: <Table2 size={15} />, label: 'Table', panel: 'table', insert: makeCenteredTable },
+  { icon: <Music size={15} />, label: 'Audio', panel: 'audio' },
+  { icon: <PaintBucket size={15} />, label: 'Background', panel: 'background' },
   { icon: <BarChart3 size={15} />, label: 'Charts', tool: 'chart', panel: 'charts' },
+  { icon: <Code2 size={15} />, label: 'Code', tool: 'code', panel: 'code' },
+  { icon: <Timer size={15} />, label: 'Counter', tool: 'counter', panel: 'counter' },
+  { icon: <Sparkles size={15} />, label: 'Effects', panel: 'effects' },
+  { icon: <PenTool size={15} />, label: 'Hand Draw', tool: 'handDraw', panel: 'handDraw' },
   { icon: <Shapes size={15} />, label: 'Icons', panel: 'icons' },
   { icon: <ImagePlus size={15} />, label: 'Images', tool: 'image', panel: 'upload' },
-  { icon: <SquarePlay size={15} />, label: 'Video', tool: 'video', panel: 'video' },
-  { icon: <Music size={15} />, label: 'Audio', panel: 'audio' },
-  { icon: <PenTool size={15} />, label: 'Hand Draw', tool: 'handDraw', panel: 'handDraw' },
-  { icon: <SquareDashedMousePointer size={15} />, label: 'Perspective', panel: 'perspective' },
+  { icon: <Sigma size={15} />, label: 'LaTeX', panel: 'latex' },
+  { icon: <Layers size={15} />, label: 'Layers', panel: 'layers' },
   { icon: <Route size={15} />, label: 'Motion', panel: 'motion' },
-  { icon: <Sparkles size={15} />, label: 'Effects', panel: 'effects' },
-  { icon: <Timer size={15} />, label: 'Counter', tool: 'counter', panel: 'counter' },
+  { icon: <SquareDashedMousePointer size={15} />, label: 'Perspective', panel: 'perspective' },
+  { icon: <SquareTerminal size={15} />, label: 'Python Sandbox', panel: null, modal: 'pythonSandbox' },
+  { icon: <Square size={15} />, label: 'Shapes', tool: 'select', panel: 'shapes' },
+  { icon: <Captions size={15} />, label: 'Subtitle', panel: null, modal: 'subtitle' },
+  { icon: <Table2 size={15} />, label: 'Table', panel: 'table', insert: makeCenteredTable },
+  { icon: <Type size={15} />, label: 'Text', panel: 'text', insert: makeCenteredText },
+  { icon: <Shuffle size={15} />, label: 'Transitions', panel: 'transitions' },
+  { icon: <BookOpen size={15} />, label: 'User Guide', panel: null, modal: 'userGuide' },
+  { icon: <SquarePlay size={15} />, label: 'Video', tool: 'video', panel: 'video' },
 ]
 
 export default function MenuSideBar() {
@@ -53,6 +62,12 @@ export default function MenuSideBar() {
     addElement, deselectAll,
     undo, redo
   } = useEditorStore()
+
+  const openModal: Record<ToolModal, (open: boolean) => void> = {
+    subtitle: setSubtitleOpen,
+    pythonSandbox: setPythonSandboxOpen,
+    userGuide: setUserGuideOpen,
+  }
 
   const canUndo = useHistoryStore((state) => state.canUndo)
   const canRedo = useHistoryStore((state) => state.canRedo)
@@ -208,14 +223,20 @@ export default function MenuSideBar() {
             <PointerOff size={15} />
             <span className="text-[0.78rem] whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">Free Cursor</span>
           </button>
-          {TOOLS.map((item, i) => {
-            const isActive = activePanel === item.panel
+          {TOOLS.map(item => {
+            const isActive = item.panel !== null && activePanel === item.panel
+            // The user guide is useful even before a project is open.
+            const itemDisabled = disabled && item.modal !== 'userGuide'
             return (
               <button
-                key={i}
-                disabled={disabled}
+                key={item.label}
+                disabled={itemDisabled}
                 onClick={() => {
-                  if (disabled) return
+                  if (itemDisabled) return
+                  if (item.modal) {
+                    openModal[item.modal](true)
+                    return
+                  }
                   // Insert tools add a new element on every click (no toggle-off),
                   // and the new element's properties open alongside it.
                   if (item.insert) {
@@ -246,7 +267,7 @@ export default function MenuSideBar() {
                 }}
                 className={cn(
                   'flex flex-col items-center justify-center gap-1.5 p-2 rounded transition-all',
-                  disabled ? 'text-editor-accent cursor-not-allowed' :
+                  itemDisabled ? 'text-editor-accent cursor-not-allowed' :
                     isActive ? 'text-editor-accent' : 'text-[#f2f2f2] hover:bg-editor-hover'
                 )}
               >
@@ -255,37 +276,6 @@ export default function MenuSideBar() {
               </button>
             )
           })}
-
-          {/* Less-frequent tools — open as modals */}
-          <button
-            disabled={disabled}
-            onClick={() => { if (!disabled) setSubtitleOpen(true) }}
-            className={cn(
-              'flex flex-col items-center justify-center gap-1.5 p-2 rounded transition-all',
-              disabled ? 'text-editor-accent cursor-not-allowed' : 'text-[#f2f2f2] hover:bg-editor-hover'
-            )}
-          >
-            <Captions size={15} />
-            <span className="text-[0.78rem] whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">Subtitle</span>
-          </button>
-          <button
-            disabled={disabled}
-            onClick={() => { if (!disabled) setPythonSandboxOpen(true) }}
-            className={cn(
-              'flex flex-col items-center justify-center gap-1.5 p-2 rounded transition-all',
-              disabled ? 'text-editor-accent cursor-not-allowed' : 'text-[#f2f2f2] hover:bg-editor-hover'
-            )}
-          >
-            <SquareTerminal size={16} />
-            <span className="text-[0.78rem] whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">Python Sandbox</span>
-          </button>
-          <button
-            onClick={() => setUserGuideOpen(true)}
-            className="flex flex-col items-center justify-center gap-1.5 p-2 rounded transition-all text-[#f2f2f2] hover:bg-editor-hover"
-          >
-            <BookOpen size={15} />
-            <span className="text-[0.78rem] whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">User Guide</span>
-          </button>
         </div>
       </div>
     </aside>
