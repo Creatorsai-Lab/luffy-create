@@ -3,10 +3,8 @@ import { Text, Group, Shape, Rect } from 'react-konva'
 import type Konva from 'konva'
 import type { TextElement, SlideDir } from '../../../types/editor'
 import { loadFont } from '../../../utils/fontLoader'
-import { drawPerspectiveWarp, drawTextToCtx } from '../../../engine/perspectiveUtils'
 import {
   getOutlineRevealSourceLayers,
-  makeOutlineTextElement,
   outlineRevealStrokeWidth,
 } from '../../../engine/textOutlineReveal'
 import { hasInnerShadow, innerShadowOrDefault } from '../../../engine/boxShadow'
@@ -72,11 +70,6 @@ function layoutWords(el: TextElement, fontStyle: string) {
 
 export default function TextKonva({ el, konvaProps, textProgress, textMode, wipeProgress = 1, wipeDir, textColor }: Props) {
   const nodeRef = useRef<Konva.Text | null>(null)
-  const [offscreen, setOffscreen] = useState<{
-    fill: HTMLCanvasElement
-    outline: HTMLCanvasElement
-  } | null>(null)
-  const perspectiveRevealRef = useRef<HTMLCanvasElement | null>(null)
   const [textH, setTextH] = useState(el.height)
   const effectiveColor = textColor ?? el.color
 
@@ -91,28 +84,6 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
       nodeRef.current?.getLayer()?.batchDraw()
     }).catch(() => {})
   }, [el.fontFamily, el.fontWeight, el.italic])
-
-  useEffect(() => {
-    if (!el.perspectivePts) return
-    loadFont(el.fontFamily, fontWeightToCssValue(el.fontWeight), el.italic).then(() => {
-      const makeCanvas = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = el.width
-        canvas.height = Math.max(el.height, textH) + el.fontSize * 4
-        return canvas
-      }
-      const fill = makeCanvas()
-      const outline = makeCanvas()
-      drawTextToCtx({ ...el, color: effectiveColor }, fill.getContext('2d')!)
-      drawTextToCtx(makeOutlineTextElement(el, effectiveColor), outline.getContext('2d')!)
-      setOffscreen({ fill, outline })
-    }).catch(() => {})
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [el.content, effectiveColor, el.fontSize, el.fontFamily, el.fontWeight, el.italic, el.align,
-      el.lineHeight, el.letterSpacing, el.textStroke, el.textStrokeWidth,
-      el.fillMode, el.gradientColor1, el.gradientColor2, el.gradientColor3,
-      el.gradientOpacity1, el.gradientOpacity2, el.gradientOpacity3, el.gradientUseColor3,
-      el.width, el.height, textH, !!el.perspectivePts])
 
   const content = (() => {
     if (textMode === 'bounceWords' || textMode === 'outlineReveal') return el.content
@@ -220,54 +191,6 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
       perfectDrawEnabled={false}
     />
   ) : null
-
-  if (el.perspectivePts && offscreen) {
-    return (
-      <Shape
-        {...konvaProps}
-        width={el.width}
-        height={el.height}
-        hitFunc={(ctx, shape) => {
-          ctx.beginPath(); ctx.rect(0, 0, el.width, el.height); ctx.closePath(); ctx.fillStrokeShape(shape)
-        }}
-        sceneFunc={(ctx, _shape) => {
-          const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
-          if (textMode !== 'outlineReveal' || textProgress >= 1) {
-            drawPerspectiveWarp(raw, offscreen.fill, el.perspectivePts!, el.width, el.height)
-            return
-          }
-
-          const layers = getOutlineRevealSourceLayers(
-            textProgress,
-            el.width,
-            Math.max(el.height, textH),
-            el.fontSize,
-          )
-          const masked = perspectiveRevealRef.current ?? document.createElement('canvas')
-          perspectiveRevealRef.current = masked
-          if (masked.width !== offscreen.fill.width) masked.width = offscreen.fill.width
-          if (masked.height !== offscreen.fill.height) masked.height = offscreen.fill.height
-          const maskedCtx = masked.getContext('2d')!
-          maskedCtx.setTransform(1, 0, 0, 1, 0, 0)
-          maskedCtx.clearRect(0, 0, masked.width, masked.height)
-          maskedCtx.globalCompositeOperation = 'source-over'
-          for (const layer of layers) {
-            maskedCtx.save()
-            maskedCtx.beginPath()
-            layer.points.forEach(([x, y], index) =>
-              index === 0 ? maskedCtx.moveTo(x, y) : maskedCtx.lineTo(x, y)
-            )
-            maskedCtx.closePath()
-            maskedCtx.clip()
-            maskedCtx.globalAlpha = layer.opacity
-            maskedCtx.drawImage(offscreen[layer.source], 0, 0)
-            maskedCtx.restore()
-          }
-          drawPerspectiveWarp(raw, masked, el.perspectivePts!, el.width, el.height)
-        }}
-      />
-    )
-  }
 
   if (textMode === 'outlineReveal' && textProgress < 1) {
     const [outlineLayer, fillLayer] = getOutlineRevealSourceLayers(

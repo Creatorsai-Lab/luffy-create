@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Rect, Circle, RegularPolygon, Star, Line, Ellipse, Shape, Group } from 'react-konva'
 import type Konva from 'konva'
 import type { ShapeElement, SlideDir } from '../../../types/editor'
-import { drawPerspectiveShapeStroke, drawPerspectiveWarp, drawShapeToCtx, heartPath, drawSketchRect, type PathCtx } from '../../../engine/perspectiveUtils'
+import { drawPerspectiveShapeStroke, drawPerspectiveWarp, perspectiveHitFunc, drawShapeToCtx, heartPath, drawSketchRect, type PathCtx } from '../../../engine/perspectiveUtils'
 import { drawBoxShadow, drawInnerShadow, hasBoxShadow, hasInnerShadow } from '../../../engine/boxShadow'
 import { borderCanvasStrokeStyle, borderKonvaStrokeProps, getElementBorderWidth } from '../../../engine/borderRenderer'
 import { shapeCanvasFill, shapeFillProps } from '../../../engine/shapeFill'
@@ -90,9 +90,7 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
           {...konvaProps}
           width={el.width}
           height={el.height}
-          hitFunc={(ctx, shape) => {
-            ctx.beginPath(); ctx.rect(0, 0, el.width, el.height); ctx.closePath(); ctx.fillStrokeShape(shape)
-          }}
+          hitFunc={perspectiveHitFunc(el.perspectivePts)}
           sceneFunc={(ctx, _shape) => {
             const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
             drawPerspectiveWarp(raw, offscreen, el.perspectivePts!, el.width, el.height)

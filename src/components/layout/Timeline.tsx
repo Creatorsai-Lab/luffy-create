@@ -1066,7 +1066,7 @@ export default function Timeline() {
                   key={video.id}
                   className={cn(
                     'absolute rounded overflow-hidden border transition-shadow select-none cursor-grab',
-                    isSelected ? 'border-yellow-300 ring-2 ring-yellow-300 shadow-lg shadow-yellow-300/25' : 'border-transparent hover:ring-1 hover:ring-white/45',
+                    isSelected ? 'border-yellow-300 ring-2 ring-yellow-300 shadow-lg shadow-yellow-300/25' : 'border-transparent hover:ring-1 hover:ring-yellow-300/50',
                     isResizing && 'border-white ring-2 ring-white',
                   )}
                   style={{

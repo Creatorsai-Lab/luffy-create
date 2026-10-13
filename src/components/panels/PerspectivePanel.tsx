@@ -72,7 +72,7 @@ export default function PerspectivePanel() {
 
         {unsupported && (
           <p className="text-xs text-[#d9d9d9] text-center py-4">
-            Perspective works on visual elements such as text, shapes, images, videos, icons, and LaTeX.
+            Perspective works on every visual element except arrows.
           </p>
         )}
 

@@ -7,7 +7,7 @@ import { videoRegistry } from '../../../engine/videoRegistry'
 import { createVideoFor, isAtFrame, loadVideoAt, releaseVideo, seekVideo, takeWarmVideo } from '../../../engine/videoPreloader'
 import { buildCssFilter, applyCanvasAdjustments, drawGrain, drawVignette } from '../../../engine/imageFilters'
 import { drawBoxShadow, drawInnerShadow } from '../../../engine/boxShadow'
-import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
+import { drawPerspectiveWarp, perspectiveHitFunc } from '../../../engine/perspectiveUtils'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
 import { drawMediaWithEffects, getMediaEffectClips, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
 
@@ -216,7 +216,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
       {...konvaProps}
       width={el.width}
       height={el.height}
-      hitFunc={(ctx, shape) => {
+      hitFunc={el.perspectivePts ? perspectiveHitFunc(el.perspectivePts) : (ctx, shape) => {
         ctx.beginPath(); ctx.rect(0, 0, el.width, el.height); ctx.closePath(); ctx.fillStrokeShape(shape)
       }}
       sceneFunc={(ctx, shape) => {

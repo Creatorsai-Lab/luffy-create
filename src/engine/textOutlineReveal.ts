@@ -1,5 +1,3 @@
-import type { TextElement } from '../types/editor'
-
 const clamp01 = (value: number) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0))
 
 export function getOutlineRevealClips(progress: number, width: number) {
@@ -64,17 +62,4 @@ export function getOutlineRevealSourceLayers(progress: number, width: number, he
 
 export function outlineRevealStrokeWidth(fontSize: number) {
   return Math.max(1, (Number.isFinite(fontSize) ? fontSize : 0) * 0.018)
-}
-
-export function makeOutlineTextElement(el: TextElement, color: string): TextElement {
-  return {
-    ...el,
-    fillMode: 'solid',
-    color: 'transparent',
-    textStroke: color,
-    textStrokeWidth: outlineRevealStrokeWidth(el.fontSize) / 2,
-    shadowBlur: 0,
-    shadowOffsetX: 0,
-    shadowOffsetY: 0,
-  }
 }

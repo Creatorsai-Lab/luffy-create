@@ -1089,16 +1089,22 @@ export default function EditorCanvas() {
               rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
               rotateAnchorCursor="grab"
               anchorStyleFunc={(anchor) => {
-                // Custom styling for rotation anchor - make it look like a rotation icon
+                // Rotation anchor drawn as a rotate icon: accent disc + clockwise arrow.
                 if (anchor.hasName('rotater')) {
-                  anchor.cornerRadius(10)
-                  anchor.fill('#6c6d9473')
-                  anchor.stroke('#e7adad')
-                  anchor.strokeWidth(1.5)
-                  anchor.width(12)
-                  anchor.height(12)
-                  anchor.offsetX(5) 
-                  anchor.offsetY(0)
+                  const size = 18
+                  anchor.width(size)
+                  anchor.height(size)
+                  anchor.offsetX(size / 2)
+                  anchor.offsetY(size / 2)
+                  anchor.sceneFunc(ctx => drawRotateIcon(
+                    (ctx as unknown as { _context: CanvasRenderingContext2D })._context, size,
+                  ))
+                  anchor.hitFunc((ctx, shape) => {
+                    ctx.beginPath()
+                    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
+                    ctx.closePath()
+                    ctx.fillStrokeShape(shape)
+                  })
                 }
               }}
             />
@@ -1466,6 +1472,44 @@ export default function EditorCanvas() {
       })()}
     </div>
   )
+}
+
+// ── Transformer rotate handle icon ────────────────────────────────────────────
+
+function drawRotateIcon(ctx: CanvasRenderingContext2D, size: number) {
+  const c = size / 2
+  const r = size * 0.27
+  const start = -Math.PI / 2 + 0.55            // just right of 12 o'clock
+  const end = start + Math.PI * 2 - 1.3        // clockwise, leaving a gap at the top
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(c, c, c - 0.5, 0, Math.PI * 2)
+  ctx.fillStyle = '#6a32c9'
+  ctx.fill()
+  ctx.lineWidth = 1
+  ctx.strokeStyle = '#f3e7e7'
+  ctx.stroke()
+
+  ctx.beginPath()
+  ctx.arc(c, c, r, start, end)
+  ctx.lineWidth = 1.6
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = '#ffffff'
+  ctx.stroke()
+
+  // Arrowhead at the arc's end, pointing clockwise along the tangent.
+  const px = c + r * Math.cos(end), py = c + r * Math.sin(end)
+  const tx = -Math.sin(end), ty = Math.cos(end)   // clockwise tangent
+  const nx = Math.cos(end), ny = Math.sin(end)    // outward normal
+  ctx.beginPath()
+  ctx.moveTo(px + tx * 2.8, py + ty * 2.8)
+  ctx.lineTo(px + nx * 2.4, py + ny * 2.4)
+  ctx.lineTo(px - nx * 2.4, py - ny * 2.4)
+  ctx.closePath()
+  ctx.fillStyle = '#ffffff'
+  ctx.fill()
+  ctx.restore()
 }
 
 // ── Background renderer ────────────────────────────────────────────────────────

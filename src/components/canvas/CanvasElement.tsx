@@ -17,6 +17,9 @@ import IconKonva   from './elements/IconKonva'
 import LatexKonva  from './elements/LatexKonva'
 import CounterKonva from './elements/CounterKonva'
 import HandDrawKonva from './elements/HandDrawKonva'
+import PerspectiveCapture, { CAPTURE_SOURCE_PROPS } from './PerspectiveCapture'
+
+const NATIVE_PERSPECTIVE_TYPES = new Set(['shape', 'image', 'video', 'icon'])
 
 interface Props {
   element:    EditorElement
@@ -141,32 +144,42 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
   const wipeProgress = animProps?.wipeProgress ?? 1
   const wipeDir      = animProps?.wipeDir
 
-  switch (element.type) {
-    case 'text':   return <TextKonva   el={element} konvaProps={props} textProgress={animProps?.textProgress ?? 1} textMode={animProps?.textMode} wipeProgress={wipeProgress} wipeDir={wipeDir} textColor={animProps?.textColor} />
-    case 'shape':  return <ShapeKonva  el={element} konvaProps={props} wipeProgress={wipeProgress} wipeDir={wipeDir} dashOffset={animProps?.dashOffset ?? 0} localTime={localTime} />
-    case 'arrow':  return <ArrowKonva  el={element} konvaProps={props} pathProgress={animProps?.textProgress ?? 1} dashOffset={animProps?.dashOffset ?? 0} />
-    case 'code':   return <CodeKonva   el={element} konvaProps={props} localTime={localTime} sceneWidth={sceneWidth} />
-    case 'image':  return <ImageKonva  el={element} konvaProps={props} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} localTime={localTime} />
-    case 'table':  return <TableKonva  el={element} konvaProps={props} wipeProgress={wipeProgress} wipeDir={wipeDir} />
-    case 'chart':  return <ChartKonva  el={element} konvaProps={props} animProgress={animProps?.chartAnimProgress ?? 1} />
-    case 'video': {
-      const v = element as VideoElement
-      const inClip = getVideoClipState(v, localTime).visible
-      return (
-        <VideoKonva
-          el={v}
-          konvaProps={{ ...props, opacity: inClip ? props.opacity : 0, listening: interaction.listening && inClip }}
-          localTime={localTime}
-          syncToTime={syncVideoToTime}
-          playbackActive={videoPlaybackActive}
-        />
-      )
+  const content = (p: Record<string, unknown>) => {
+    switch (element.type) {
+      case 'text':   return <TextKonva   el={element} konvaProps={p} textProgress={animProps?.textProgress ?? 1} textMode={animProps?.textMode} wipeProgress={wipeProgress} wipeDir={wipeDir} textColor={animProps?.textColor} />
+      case 'shape':  return <ShapeKonva  el={element} konvaProps={p} wipeProgress={wipeProgress} wipeDir={wipeDir} dashOffset={animProps?.dashOffset ?? 0} localTime={localTime} />
+      case 'arrow':  return <ArrowKonva  el={element} konvaProps={p} pathProgress={animProps?.textProgress ?? 1} dashOffset={animProps?.dashOffset ?? 0} />
+      case 'code':   return <CodeKonva   el={element} konvaProps={p} localTime={localTime} sceneWidth={sceneWidth} />
+      case 'image':  return <ImageKonva  el={element} konvaProps={p} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} localTime={localTime} />
+      case 'table':  return <TableKonva  el={element} konvaProps={p} wipeProgress={wipeProgress} wipeDir={wipeDir} />
+      case 'chart':  return <ChartKonva  el={element} konvaProps={p} animProgress={animProps?.chartAnimProgress ?? 1} />
+      case 'video': {
+        const v = element as VideoElement
+        const inClip = getVideoClipState(v, localTime).visible
+        return (
+          <VideoKonva
+            el={v}
+            konvaProps={{ ...p, opacity: inClip ? p.opacity : 0, listening: interaction.listening && inClip }}
+            localTime={localTime}
+            syncToTime={syncVideoToTime}
+            playbackActive={videoPlaybackActive}
+          />
+        )
+      }
+      case 'icon':   return <IconKonva   el={element as import('../../types/editor').IconElement} konvaProps={p} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} />
+      case 'latex':  return <LatexKonva  el={element as import('../../types/editor').LatexElement} konvaProps={p} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} />
+      case 'counter': return <CounterKonva el={element as import('../../types/editor').CounterElement} konvaProps={p} localTime={localTime} />
+      case 'handDraw': return <HandDrawKonva el={element as import('../../types/editor').HandDrawElement} konvaProps={p} />
+      case 'audio':  return null
+      default:       return null
     }
-    case 'icon':   return <IconKonva   el={element as import('../../types/editor').IconElement} konvaProps={props} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} />
-    case 'latex':  return <LatexKonva  el={element as import('../../types/editor').LatexElement} konvaProps={props} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} />
-    case 'counter': return <CounterKonva el={element as import('../../types/editor').CounterElement} konvaProps={props} localTime={localTime} />
-    case 'handDraw': return <HandDrawKonva el={element as import('../../types/editor').HandDrawElement} konvaProps={props} />
-    case 'audio':  return null
-    default:       return null
   }
+
+  // Shapes, images, videos and icons draw their own perspective warp. Every other
+  // visual type gets perspective by capturing its normal rendering.
+  if (element.perspectivePts && !NATIVE_PERSPECTIVE_TYPES.has(element.type) &&
+      element.type !== 'arrow' && element.type !== 'audio') {
+    return <PerspectiveCapture el={element} konvaProps={props}>{content(CAPTURE_SOURCE_PROPS)}</PerspectiveCapture>
+  }
+  return content(props)
 }

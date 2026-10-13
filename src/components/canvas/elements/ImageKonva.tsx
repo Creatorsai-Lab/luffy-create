@@ -3,7 +3,7 @@ import { Shape, Rect, Group, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { ImageElement, SlideDir } from '../../../types/editor'
 import { toFileUrl } from '../../../utils/pathUtils'
-import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
+import { drawPerspectiveWarp, perspectiveHitFunc } from '../../../engine/perspectiveUtils'
 import { buildCssFilter, applyCanvasAdjustments, drawGrain, drawVignette } from '../../../engine/imageFilters'
 import { drawBoxShadow } from '../../../engine/boxShadow'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
@@ -230,9 +230,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
         {...konvaProps}
         width={el.width}
         height={el.height}
-        hitFunc={(ctx, shape) => {
-          ctx.beginPath(); ctx.rect(0, 0, el.width, el.height); ctx.closePath(); ctx.fillStrokeShape(shape)
-        }}
+        hitFunc={perspectiveHitFunc(el.perspectivePts!)}
         sceneFunc={(ctx, _shape) => {
           const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
           drawBoxShadow(raw, el.boxShadow, el.width, el.height, el.cornerRadius)
