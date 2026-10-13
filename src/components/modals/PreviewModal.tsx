@@ -15,6 +15,7 @@ import type { Background, AudioElement, VideoElement, ImageBg, Scene, Project, S
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
 import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
+import { getMorphFrame } from '../../engine/morph'
 import { fitPreviewToViewport } from '../../utils/previewLayout'
 import {
   applyAudioEffects,
@@ -240,6 +241,23 @@ function PreviewFrame({
     )
   }
 
+  const morph = frameState.transition.type === 'morph' ? getMorphFrame(project, playhead) : null
+  if (morph) {
+    return (
+      <PreviewSceneStage
+        project={project}
+        scene={morph.scene}
+        localTime={morph.localTime}
+        globalTime={playhead}
+        width={width}
+        height={height}
+        scale={scale}
+        isPlaying={isPlaying}
+        style={{ position: 'absolute', inset: 0 }}
+      />
+    )
+  }
+
   const fromScene = project.scenes[frameState.fromSceneIndex]
   const toScene = project.scenes[frameState.toSceneIndex]
   const fromLocalTime = Math.max(0, frameState.fromTime - timeline[frameState.fromSceneIndex].startTime)
@@ -357,25 +375,17 @@ function DirectionalTransitionPreview({
   const drawLatest = useRef(draw)
   drawLatest.current = draw
 
+  // One continuous loop for the life of the transition. A one-shot rAF that is
+  // cancelled and rescheduled on every render/layer redraw never fires while
+  // playback re-renders each frame — the transition then never paints.
   useEffect(() => {
-    cancelAnimationFrame(frame.current)
-    frame.current = requestAnimationFrame(draw)
+    const loop = () => {
+      drawLatest.current()
+      frame.current = requestAnimationFrame(loop)
+    }
+    frame.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(frame.current)
-  }, [draw])
-
-  useEffect(() => {
-    if (!fromStage || !toStage) return
-    const refresh = () => {
-      cancelAnimationFrame(frame.current)
-      frame.current = requestAnimationFrame(() => drawLatest.current())
-    }
-    const layers = [...fromStage.getLayers(), ...toStage.getLayers()]
-    layers.forEach(layer => layer.on('draw.transitionPreview', refresh))
-    return () => {
-      layers.forEach(layer => layer.off('draw.transitionPreview', refresh))
-      cancelAnimationFrame(frame.current)
-    }
-  }, [fromStage, toStage])
+  }, [])
 
   return (
     <>
@@ -461,7 +471,6 @@ function transitionLayerStyles(
         },
       }
 
-    case 'morph':
     case 'fade':
     default:
       return { from: {}, to: { opacity: p } }

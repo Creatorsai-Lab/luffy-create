@@ -426,7 +426,8 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         // Audio belongs to the global timeline, not the scene — don't duplicate it.
         clone.elements = clone.elements
           .filter(e => e.type !== 'audio')
-          .map(e => ({ ...e, id: uuid() }))
+          // morphKey keeps the copy's lineage so a Morph transition can match it.
+          .map(e => ({ ...e, id: uuid(), morphKey: e.morphKey ?? e.id }))
         const audioStarts = audioAbsoluteStarts(s.project.scenes)
         s.project.scenes.splice(idx + 1, 0, clone)
         rehomeAudio(s.project.scenes, audioStarts)

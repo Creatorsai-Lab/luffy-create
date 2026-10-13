@@ -63,10 +63,6 @@ export function renderTransition(opts: TransitionRenderOptions): void {
       renderWipeTransition(ctx, width, height, e, direction ?? 'left', fromCanvas, toCanvas)
       break
 
-    case 'morph':
-      renderMorphTransition(ctx, width, height, e, fromCanvas, toCanvas)
-      break
-
     case 'flashBlur':
     case 'flickerShake':
       renderDirectionalTransition(
@@ -230,26 +226,6 @@ function renderWipeTransition(
     if (dir === 'down') ctx.fillRect(0, y, w, feather)
     ctx.restore()
   }
-}
-
-function renderMorphTransition(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  t: number,
-  from: CanvasImageSource,
-  to: CanvasImageSource
-): void {
-  // Morph is a layout merge, not an extra camera move. If matching media is
-  // resized/repositioned between scenes, this dissolve reveals that real layout
-  // change without adding a separate whole-canvas zoom.
-  ctx.globalAlpha = 1
-  ctx.drawImage(from, 0, 0, w, h)
-
-  ctx.globalAlpha = t
-  ctx.drawImage(to, 0, 0, w, h)
-
-  ctx.globalAlpha = 1
 }
 
 function renderDirectionalTransition(

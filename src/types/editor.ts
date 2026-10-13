@@ -166,6 +166,8 @@ export interface BaseElement {
   perspectivePts?: { tl: [number, number]; tr: [number, number]; br: [number, number]; bl: [number, number] }
   perspectiveControls?: PerspectiveControls
   groupId?: string   // elements sharing a groupId move together when group-locked
+  /** Lineage id shared by copies of one element across scenes (duplicate scene, paste) — lets Morph match them. */
+  morphKey?: string
 }
 
 // ─── Concrete elements ────────────────────────────────────────────────────────

@@ -164,9 +164,10 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     let transitionProgress = 0
 
     if (frameState.kind === 'transition') {
-      if (!renderSceneFrame) {
-        // Without scene-specific rendering, we can't reliably render both scenes.
-        // Fallback: render only the current frame (no transition compositing).
+      if (!renderSceneFrame || frameState.transition.type === 'morph') {
+        // Morph is drawn by the editor canvas itself as a live in-between scene,
+        // so its frame is captured like a normal frame. Without scene-specific
+        // rendering other transitions also fall back to the plain frame.
         await renderFrame(time)
         await captureStageInto(compositeCtx)
       } else {

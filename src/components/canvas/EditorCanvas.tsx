@@ -17,6 +17,7 @@ import { drawBackground } from '../../engine/backgroundRenderer'
 import { registerStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
 import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
+import { getMorphFrame } from '../../engine/morph'
 import { makeShape, makeArrow, makeChart, makeHandDrawLayer } from '../../utils/defaults'
 import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke, SlideDir, TransitionType } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
@@ -113,7 +114,7 @@ export default function EditorCanvas() {
 
   const {
     project, currentSceneId, selectedIds,
-    playhead, isPlaying, activeTool, activePanel, pendingChartType, handDrawSettings,
+    playhead, isPlaying, exportOpen, activeTool, activePanel, pendingChartType, handDrawSettings,
     cropElementId, setCropElement,
     addElement, selectElement, deselectAll,
     removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
@@ -294,6 +295,8 @@ export default function EditorCanvas() {
           const offset = isSameScene ? 20 : 0
           clipboardRef.current.forEach(el => {
             const clone: EditorElement = { ...JSON.parse(JSON.stringify(el)), id: crypto.randomUUID() }
+            // A copy pasted into another scene is "the same object" for Morph.
+            if (!isSameScene) clone.morphKey = el.morphKey ?? el.id
             clone.x += offset
             clone.y += offset
             // Arrows render from absolute endpoints — shift those too
@@ -468,6 +471,16 @@ export default function EditorCanvas() {
       }
     }
 
+    // Morph is rendered as a live in-between scene (see getMorphFrame below),
+    // not as a snapshot overlay.
+    if (frameState.kind === 'transition' && frameState.transition.type === 'morph') {
+      if (transitionKeyRef.current) {
+        transitionKeyRef.current = null
+        setTransOverlay(null)
+      }
+      return
+    }
+
     if (frameState.kind === 'transition') {
       const to = timeline[frameState.toSceneIndex]
       const key = getTransitionPreviewKey(frameState.fromSceneId, to)
@@ -520,7 +533,7 @@ export default function EditorCanvas() {
     // is a synchronous full-frame encode, so skip it at plain cuts (e.g. a
     // split video scene) where it would stall the first frame of the scene.
     const nextUsesSnapshot = !!next && next.transition.type !== 'none' &&
-      !isDirectionalTransition(next.transition.type)
+      next.transition.type !== 'morph' && !isDirectionalTransition(next.transition.type)
     if (nextUsesSnapshot && !transitionSnapshotsRef.current.has(current.sceneId)) {
       rememberTransitionSnapshot(
         current.sceneId,
@@ -552,7 +565,7 @@ export default function EditorCanvas() {
       setTransOverlay(null)
     }
 
-    if (!next || next.transition.type === 'none') return
+    if (!next || next.transition.type === 'none' || next.transition.type === 'morph') return
     const captureLead = Math.min(0.05, getEffectiveTransitionDuration(next))
     if (playhead >= current.endTime - captureLead && playhead < current.endTime) {
       if (!transitionFinalSnapshotsRef.current.has(current.sceneId)) {
@@ -593,13 +606,21 @@ export default function EditorCanvas() {
       toCanvas: captureStageToCanvas(stage, toCanvas, canvasW, canvasH),
     })
   }, [canvasH, canvasW, playhead, transOverlay])
+  const drawDirectionalPreviewRef = useRef(drawDirectionalPreview)
+  drawDirectionalPreviewRef.current = drawDirectionalPreview
 
   useEffect(() => {
     if (!transOverlay || !isDirectionalTransition(transOverlay.type)) return
-    cancelAnimationFrame(transitionFrameRef.current)
-    transitionFrameRef.current = requestAnimationFrame(drawDirectionalPreview)
+    // One continuous loop while the overlay is active. A one-shot rAF that the
+    // effect cancels and reschedules on every playhead render never fires during
+    // playback (store updates re-render synchronously inside the frame).
+    const loop = () => {
+      drawDirectionalPreviewRef.current()
+      transitionFrameRef.current = requestAnimationFrame(loop)
+    }
+    transitionFrameRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(transitionFrameRef.current)
-  }, [drawDirectionalPreview, transOverlay])
+  }, [transOverlay])
 
   // ── Crop mode: initialize pendingCrop from store trigger ──────────────────────
   useEffect(() => {
@@ -937,11 +958,16 @@ export default function EditorCanvas() {
   // the outgoing scene until the incoming scene actually begins.
   const transitionStarted = !!transOverlay && playhead >= transOverlay.transitionStart
   const activeSceneId = transitionStarted ? transOverlay.toSceneId : currentSceneId
-  const activeScene   = project.scenes.find(s => s.id === activeSceneId) ?? currentScene
+  // During a Morph (playback or export frames) render the live in-between scene.
+  // Paused editing always shows the real scene so it stays editable.
+  const morphFrame = isPlaying || exportOpen ? getMorphFrame(project, playhead) : null
+  const activeScene   = morphFrame?.scene ?? project.scenes.find(s => s.id === activeSceneId) ?? currentScene
 
   // Compute scene-local time for animations
   let localTime = 0
-  if (transitionStarted && transOverlay) {
+  if (morphFrame) {
+    localTime = morphFrame.localTime
+  } else if (transitionStarted && transOverlay) {
     localTime = Math.max(0, playhead - transOverlay.transitionStart)
   } else {
     let acc = 0
@@ -1181,15 +1207,6 @@ export default function EditorCanvas() {
             else if (dir === 'down') overlayStyle = { clipPath: `inset(${p * 100}% 0 0 0)` }
             else overlayStyle = { clipPath: `inset(0 0 ${p * 100}% 0)` }
             break
-          case 'morph': {
-            // Match export: stable center grow/blend, no directional drift.
-            overlayStyle = {
-              opacity: 1 - p,
-              transform: `scale(${1 + p * 0.025})`,
-              transformOrigin: 'center center',
-            }
-            break
-          }
         }
         return (
           <img
