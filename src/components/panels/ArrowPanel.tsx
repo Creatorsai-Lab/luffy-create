@@ -1,8 +1,9 @@
-import { ArrowRight, Plus, Trash2, Zap } from 'lucide-react'
+import { useEffect } from 'react'
+import { ArrowRight, PenLine, Plus, Trash2, Zap } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { ArrowElement, ArrowHeadType, ArrowBendDirection, AnimationType, EasingType, SlideDir, ElementAnimation } from '../../types/editor'
 import { PanelHeader, Row, ColorInput, Slider, NumberInput } from './TextPanel'
-import { makeAnimation } from '../../utils/defaults'
+import { makeAnimation, makeCenteredArrow } from '../../utils/defaults'
 import { cn } from '../../utils/cn'
 import { ScaleSizeControl } from './AnimationParamControls'
 import { isMotionAnimation } from '../../utils/moveAnimation'
@@ -75,7 +76,14 @@ export function BendCountInput({ value, onChange }: { value: number; onChange: (
 }
 
 export default function ArrowPanel() {
-  const { getSelectedEls, updateElement, addAnimation, setActiveTool } = useEditorStore()
+  const { getSelectedEls, updateElement, addAnimation, addElement, project, activeTool, setActiveTool } = useEditorStore()
+  const isDrawing = activeTool === 'arrow'
+
+  // Leaving the arrow panel cancels draw mode so the crosshair doesn't linger.
+  useEffect(() => () => {
+    const { activeTool, setActiveTool } = useEditorStore.getState()
+    if (activeTool === 'arrow') setActiveTool('select')
+  }, [])
   const el = getSelectedEls().find(e => e.type === 'arrow') as ArrowElement | undefined
 
   function upd(patch: Partial<ArrowElement>) {
@@ -101,13 +109,32 @@ export default function ArrowPanel() {
     <div className="flex flex-col overflow-y-auto flex-1">
       <PanelHeader icon={<ArrowRight size={12} />} title="Arrow / Line" />
 
-      {/* Draw button */}
+      {/* Add arrow button — always visible */}
       <div className="px-3 py-2 border-b border-editor-border">
         <button
-          onClick={() => setActiveTool('arrow')}
+          disabled={!project}
+          onClick={() => {
+            if (!project) return
+            addElement(makeCenteredArrow(project.width, project.height))
+          }}
           className="w-full text-xs py-2 text-[#f2f2f2] bg-editor-accent rounded"
         >
-          Draw Arrow
+          + Add Arrow
+        </button>
+        {/* Draw mode: drag on the canvas (crosshair) to draw one arrow */}
+        <button
+          disabled={!project}
+          onClick={() => setActiveTool(isDrawing ? 'select' : 'arrow')}
+          className={cn(
+            'w-full mt-2 flex items-center justify-center gap-1.5 text-xs py-2 rounded border transition-colors',
+            isDrawing
+              ? 'border-editor-accent bg-editor-accent/20 text-editor-text'
+              : 'border-editor-border text-[#f2f2f2] hover:border-editor-accent'
+          )}
+          title="Drag on the canvas to draw an arrow"
+        >
+          <PenLine size={12} />
+          {isDrawing ? 'Drawing… drag on canvas (Esc to cancel)' : 'Draw Arrow'}
         </button>
       </div>
 

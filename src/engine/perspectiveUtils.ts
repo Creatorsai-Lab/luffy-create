@@ -1,8 +1,8 @@
-import type { PerspectiveControls, ShapeElement, TextElement } from '../types/editor'
+import type Konva from 'konva'
+import type { PerspectiveControls, ShapeElement } from '../types/editor'
+import { warpWithGL, type Mat3 } from './perspectiveWarpGL'
 import { shapeCanvasFill } from './shapeFill'
-import { textCanvasFill } from './textFill'
 import { borderCanvasStrokeStyle, getElementBorderColor, getElementBorderWidth, hasElementBorder } from './borderRenderer'
-import { fontWeightToKonvaStyle } from '../utils/fontWeight'
 
 export interface PerspectivePts {
   tl: [number, number]
@@ -78,97 +78,87 @@ export function makePerspectivePtsFromControls(
 }
 
 type Pt = [number, number]
+type Rect = { x: number; y: number; w: number; h: number }
 
-function expandedTri(d0: Pt, d1: Pt, d2: Pt, amount = 1.4): [Pt, Pt, Pt] {
-  const cx = (d0[0] + d1[0] + d2[0]) / 3
-  const cy = (d0[1] + d1[1] + d2[1]) / 3
-  const expand = (p: Pt): Pt => {
-    const dx = p[0] - cx
-    const dy = p[1] - cy
-    const len = Math.hypot(dx, dy) || 1
-    return [p[0] + (dx / len) * amount, p[1] + (dy / len) * amount]
-  }
-  return [expand(d0), expand(d1), expand(d2)]
-}
-
-function bilerp(tl: Pt, tr: Pt, br: Pt, bl: Pt, u: number, v: number): Pt {
+/**
+ * Homography (row-major 3x3) mapping element-local box coordinates
+ * (0..w, 0..h) onto the quad `pts` — true perspective, not a bilinear blend.
+ * Null when the quad is degenerate.
+ */
+export function perspectiveHomography(pts: PerspectivePts, w: number, h: number): Mat3 | null {
+  const [x0, y0] = pts.tl, [x1, y1] = pts.tr, [x2, y2] = pts.br, [x3, y3] = pts.bl
+  const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3
+  const dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3
+  const det = dx1 * dy2 - dx2 * dy1
+  if (Math.abs(det) < 1e-9 || w <= 0 || h <= 0) return null
+  const g = (dx3 * dy2 - dx2 * dy3) / det
+  const k = (dx1 * dy3 - dx3 * dy1) / det
+  // Unit square -> quad (Heckbert), with the box scaled down to the unit square.
   return [
-    (1 - v) * ((1 - u) * tl[0] + u * tr[0]) + v * ((1 - u) * bl[0] + u * br[0]),
-    (1 - v) * ((1 - u) * tl[1] + u * tr[1]) + v * ((1 - u) * bl[1] + u * br[1]),
+    (x1 - x0 + g * x1) / w, (x3 - x0 + k * x3) / h, x0,
+    (y1 - y0 + g * y1) / w, (y3 - y0 + k * y3) / h, y0,
+    g / w,                  k / h,                  1,
   ]
 }
 
-function drawTri(
-  ctx: CanvasRenderingContext2D,
-  src: HTMLCanvasElement | HTMLImageElement,
-  sx0: number, sy0: number,
-  sx1: number, sy1: number,
-  sx2: number, sy2: number,
-  d0: Pt, d1: Pt, d2: Pt,
-  srcW: number, srcH: number,
-) {
-  ctx.save()
-  const [c0, c1, c2] = expandedTri(d0, d1, d2)
-  ctx.beginPath()
-  ctx.moveTo(c0[0], c0[1])
-  ctx.lineTo(c1[0], c1[1])
-  ctx.lineTo(c2[0], c2[1])
-  ctx.closePath()
-  ctx.clip()
-
-  const det = (sx0 - sx2) * (sy1 - sy2) - (sx1 - sx2) * (sy0 - sy2)
-  if (Math.abs(det) < 1e-8) { ctx.restore(); return }
-
-  const a  = ((d0[0] - d2[0]) * (sy1 - sy2) - (d1[0] - d2[0]) * (sy0 - sy2)) / det
-  const c  = ((sx0 - sx2) * (d1[0] - d2[0]) - (sx1 - sx2) * (d0[0] - d2[0])) / det
-  const e  = d0[0] - a * sx0 - c * sy0
-  const b  = ((d0[1] - d2[1]) * (sy1 - sy2) - (d1[1] - d2[1]) * (sy0 - sy2)) / det
-  const dv = ((sx0 - sx2) * (d1[1] - d2[1]) - (sx1 - sx2) * (d0[1] - d2[1])) / det
-  const f  = d0[1] - b * sx0 - dv * sy0
-
-  ctx.transform(a, b, c, dv, e, f)
-  ctx.drawImage(src, 0, 0, srcW, srcH)
-  ctx.restore()
+function invert3(m: Mat3): Mat3 | null {
+  const [a, b, c, d, e, f, g, h, i] = m
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g
+  const det = a * A + b * B + c * C
+  if (Math.abs(det) < 1e-12) return null
+  const s = 1 / det
+  return [
+    A * s, -(b * i - c * h) * s, (b * f - c * e) * s,
+    B * s, (a * i - c * g) * s, -(a * f - c * d) * s,
+    C * s, -(a * h - b * g) * s, (a * e - b * d) * s,
+  ]
 }
 
+/** Map an element-local point through a homography; null if it falls behind the vanishing line. */
+export function projectPoint(m: Mat3, x: number, y: number): Pt | null {
+  const z = m[6] * x + m[7] * y + m[8]
+  if (z <= 1e-6) return null
+  return [(m[0] * x + m[1] * y + m[2]) / z, (m[3] * x + m[4] * y + m[5]) / z]
+}
+
+/**
+ * Draw `src` warped onto the perspective quad. `src` covers `srcRect` in the
+ * element's local units — by default exactly the element box; a larger rect
+ * (overflowing text, shadows) is warped by the same perspective.
+ */
 export function drawPerspectiveWarp(
   ctx: CanvasRenderingContext2D,
   src: HTMLCanvasElement | HTMLImageElement,
   pts: PerspectivePts,
-  srcW: number,
-  srcH: number,
-  N = 4,
+  boxW: number,
+  boxH: number,
+  srcRect: Rect = { x: 0, y: 0, w: boxW, h: boxH },
 ) {
-  const { tl, tr, br, bl } = pts
-  const oldSmoothing = ctx.imageSmoothingEnabled
-  const oldQuality = ctx.imageSmoothingQuality
-  ctx.save()
-  ctx.beginPath()
-  ctx.moveTo(tl[0], tl[1])
-  ctx.lineTo(tr[0], tr[1])
-  ctx.lineTo(br[0], br[1])
-  ctx.lineTo(bl[0], bl[1])
-  ctx.closePath()
-  ctx.clip()
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-  for (let row = 0; row < N; row++) {
-    for (let col = 0; col < N; col++) {
-      const u0 = col / N, u1 = (col + 1) / N
-      const v0 = row / N, v1 = (row + 1) / N
-      const dTL = bilerp(tl, tr, br, bl, u0, v0)
-      const dTR = bilerp(tl, tr, br, bl, u1, v0)
-      const dBR = bilerp(tl, tr, br, bl, u1, v1)
-      const dBL = bilerp(tl, tr, br, bl, u0, v1)
-      const sx0 = u0 * srcW, sx1 = u1 * srcW
-      const sy0 = v0 * srcH, sy1 = v1 * srcH
-      drawTri(ctx, src, sx0, sy0, sx1, sy0, sx0, sy1, dTL, dTR, dBL, srcW, srcH)
-      drawTri(ctx, src, sx1, sy0, sx1, sy1, sx0, sy1, dTR, dBR, dBL, srcW, srcH)
-    }
+  const forward = perspectiveHomography(pts, boxW, boxH)
+  const inverse = forward && invert3(forward)
+  const { x, y, w, h } = srcRect
+  const corners = forward ? [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(([px, py]) => projectPoint(forward, px, py)) : []
+  if (inverse && corners.every(Boolean)) {
+    const xs = corners.map(c => c![0]), ys = corners.map(c => c![1])
+    const minX = Math.floor(Math.min(...xs)) - 1, minY = Math.floor(Math.min(...ys)) - 1
+    const bounds = { x: minX, y: minY, w: Math.ceil(Math.max(...xs)) + 1 - minX, h: Math.ceil(Math.max(...ys)) + 1 - minY }
+    if (warpWithGL(ctx, src, srcRect, inverse, bounds)) return
   }
-  ctx.imageSmoothingEnabled = oldSmoothing
-  ctx.imageSmoothingQuality = oldQuality
-  ctx.restore()
+  // No WebGL / degenerate quad: show the content unwarped rather than nothing.
+  ctx.drawImage(src, x, y, w, h)
+}
+
+/** Hit area matching the warped quad instead of the unwarped box. */
+export function perspectiveHitFunc(pts: PerspectivePts) {
+  return (ctx: Konva.Context, shape: Konva.Shape) => {
+    ctx.beginPath()
+    ctx.moveTo(pts.tl[0], pts.tl[1])
+    ctx.lineTo(pts.tr[0], pts.tr[1])
+    ctx.lineTo(pts.br[0], pts.br[1])
+    ctx.lineTo(pts.bl[0], pts.bl[1])
+    ctx.closePath()
+    ctx.fillStrokeShape(shape)
+  }
 }
 
 export interface PerspectiveStrokeOutline {
@@ -180,12 +170,15 @@ export function perspectiveShapeStrokeOutlines(el: ShapeElement): PerspectiveStr
   if (!el.perspectivePts) return []
   const w = el.width
   const h = el.height
-  if (w <= 0 || h <= 0) return []
+  const forward = perspectiveHomography(el.perspectivePts, w, h)
+  if (!forward) return []
 
   return localShapeStrokeOutlines(el)
     .map(outline => ({
       closed: outline.closed,
-      points: outline.points.map(([x, y]) => mapLocalToPerspective(el.perspectivePts!, w, h, x, y)),
+      points: outline.points
+        .map(([x, y]) => projectPoint(forward, x, y))
+        .filter((p): p is Pt => p !== null),
     }))
     .filter(outline => outline.points.length > 1)
 }
@@ -233,10 +226,6 @@ export function drawShapeBorder(ctx: CanvasRenderingContext2D, el: ShapeElement,
     ctx.stroke()
   }
   ctx.restore()
-}
-
-function mapLocalToPerspective(pts: PerspectivePts, w: number, h: number, x: number, y: number): Pt {
-  return bilerp(pts.tl, pts.tr, pts.br, pts.bl, clamp01(x / w), clamp01(y / h))
 }
 
 function localShapeStrokeOutlines(el: ShapeElement): PerspectiveStrokeOutline[] {
@@ -352,10 +341,6 @@ function heartOutlinePoints(w: number, h: number): Pt[] {
     pts.push([w / 2 + (x / 34) * w, h * 0.54 - (y / 34) * h])
   }
   return pts
-}
-
-function clamp01(value: number) {
-  return Math.max(0, Math.min(1, value))
 }
 
 // ── Shape canvas renderer ──────────────────────────────────────────────────
@@ -694,35 +679,4 @@ export function drawShapeToCtx(el: ShapeElement, ctx: CanvasRenderingContext2D) 
       ctx.closePath(); fillStroke(); break
     }
   }
-}
-
-// ── Text canvas renderer ───────────────────────────────────────────────────
-
-export function drawTextToCtx(el: TextElement, ctx: CanvasRenderingContext2D) {
-  const weight = fontWeightToKonvaStyle(el.fontWeight)
-  ctx.font = `${el.italic ? 'italic ' : ''}${weight} ${el.fontSize}px "${el.fontFamily}"`
-  ctx.textBaseline = 'top'
-  ctx.textAlign = el.align as CanvasTextAlign
-  const startX = el.align === 'center' ? el.width / 2 : el.align === 'right' ? el.width : 0
-  const lineH = el.fontSize * el.lineHeight
-
-  const lines: string[] = []
-  for (const para of el.content.split('\n')) {
-    if (!para) { lines.push(''); continue }
-    const words = para.split(' ')
-    let line = ''
-    for (const word of words) {
-      const test = line ? line + ' ' + word : word
-      if (ctx.measureText(test).width > el.width && line) { lines.push(line); line = word }
-      else line = test
-    }
-    lines.push(line)
-  }
-
-  if (el.textStroke && el.textStrokeWidth > 0) {
-    ctx.strokeStyle = el.textStroke; ctx.lineWidth = el.textStrokeWidth * 2
-    lines.forEach((ln, i) => ctx.strokeText(ln, startX, i * lineH))
-  }
-  ctx.fillStyle = textCanvasFill(ctx, el, el.width, lineH * Math.max(1, lines.length))
-  lines.forEach((ln, i) => ctx.fillText(ln, startX, i * lineH))
 }

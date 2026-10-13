@@ -57,81 +57,26 @@ group by platform, version
 order by version desc, platform;
 ```
 
-## 5. Deploy from `production`
 
-### One-time branch setup
+### * Commit and push main:
 
-Run this once from a clean, tested `main` branch:
-
-```powershell
-git switch main
-git pull --ff-only origin main
-git switch -c production
-git push -u origin production
-git switch main
-```
-
-Then create a Cloudflare **Pages** project using Git integration and select this repository:
-
-1. Set Production branch to `production`.
-2. Set Framework preset to `None`.
-3. Set Root directory to `live-website`.
-4. Leave Build command empty and set Build output directory to `public`.
-5. Set Preview branches to None if only production should deploy.
-6. Protect `production` in GitHub: require pull requests and successful `Validate` checks; block force pushes and deletion.
-
-If a Cloudflare log says `Executing user deploy command: npx wrangler deploy`, a Workers Build was created instead of a Pages project. A Pages Git project does not need a deploy command. Do not upgrade the editor's Vite dependency to fix that configuration error.
-
-Cloudflare watches `production` directly. GitHub Actions validates pushes to `main` and `production`, plus pull requests targeting `production`.
-
-### Promote tested changes
-
-Keep daily development on `main`. After its checks pass, open a GitHub pull request from `main` into `production`. Review and merge it without deleting either long-lived branch. The production push deploys the website automatically; it does not create an application release.
-
-If branch protection has not been enabled yet, the equivalent local fast-forward promotion is:
-
-`git pull --ff-only origin main` downloads new commits from `origin/main` and advances the local `main` branch only when this can happen without creating a merge commit. If local and remote history have diverged, `--ff-only` stops with an error so you can review the difference instead of Git merging unexpectedly. The same rule applies to the production pull below.
-
-```powershell
-npm run test:website
-npm run test:subtitle
-npm run build
-```
-
-The full workflow — run these in order:
-
-Step 1 — Stage and commit on main
-
-```
-
-git add .
-git commit -m "fix: website signup anonyms sign ins issue"
-```
-Step 2 — Push main
-```
+git add -A
+git commit -m "Release v1.4.0"
 git push origin main
-```
-Step 3 — Merge main into production and push
+Wait for the Validate workflow to pass (gh run watch, or the Actions tab). This is the first run with the fixed tests.
 
-```
+
+* Merge into production and push:
+
 git checkout production
-git merge main --no-ff -m "merge updated main with download page to production"
+git pull origin production
+git merge main --no-ff -m "Release v1.4.0"
 git push origin production
-```
-Step 4 — Go back to main
 
-```
+
+3. Tag that commit and push only the tag:
+
+git tag -a v1.4.0 -m "Release v1.4.0"
+git push origin v1.4.0
 git checkout main
-```
-
-## 6. Publish an application release
-
-1. Update the version in `package.json` on `main` using `npm version VERSION --no-git-tag-version` so the lockfile stays synchronized.
-2. Run `npm run test:website`, `npm run test:subtitle`, and `npm run build`.
-3. Merge `main` into protected `production` after CI passes.
-4. Create an annotated tag on that production commit, for example `git tag -a v1.3.5 -m "Release v1.3.5"`.
-5. Push only that tag with `git push origin v1.3.5`. Release CI verifies the version and production ancestry before packaging all operating systems.
-
-The live page reads the newest published GitHub Release at runtime, so it continues showing the previous valid release until the new assets are available.
-
-Do not recreate or move an existing release tag. The website deployment itself needs no tag; create one only when publishing a new application version whose value matches `package.json` exactly.
+4. Wait for the build (about 6 minutes; gh run watch). You should get a draft release with 8 files: Windows .exe, macOS .dmg, Linux .AppImage, two .blockmap files and three latest*.yml files.

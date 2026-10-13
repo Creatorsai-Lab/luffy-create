@@ -1,9 +1,9 @@
-import { useRef, useCallback, useEffect, useState, useMemo } from 'react'
+import { useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { Plus, Play, Pause, SkipBack, ZoomIn, ZoomOut, ArrowLeftRight, Music, Trash2, Copy, Scissors, Split, X, Volume2, Bookmark, Shuffle, Film, Repeat } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { cn } from '../../utils/cn'
 import { toFileUrl } from '../../utils/pathUtils'
-import { getWaveform } from '../../utils/waveform'
+import { getWaveform, peakInRange } from '../../utils/waveform'
 import type { WaveformData } from '../../utils/waveform'
 import Tooltip from '../ui/Tooltip'
 import ContextMenu from '../ui/ContextMenu'
@@ -1066,7 +1066,7 @@ export default function Timeline() {
                   key={video.id}
                   className={cn(
                     'absolute rounded overflow-hidden border transition-shadow select-none cursor-grab',
-                    isSelected ? 'border-yellow-300 ring-2 ring-yellow-300 shadow-lg shadow-yellow-300/25' : 'border-transparent hover:ring-1 hover:ring-white/45',
+                    isSelected ? 'border-yellow-300 ring-2 ring-yellow-300 shadow-lg shadow-yellow-300/25' : 'border-transparent hover:ring-1 hover:ring-yellow-300/50',
                     isResizing && 'border-white ring-2 ring-white',
                   )}
                   style={{
@@ -1164,9 +1164,10 @@ export default function Timeline() {
                   className={cn(
                     'absolute flex items-center px-3 cursor-pointer text-xs transition-all select-none rounded-md overflow-hidden',
                     isDragging && 'opacity-50',
-                    isDropTarget && 'ring-2 ring-editor-accent',
-                    isResizing && 'ring-2 ring-white',
-                    isActive && 'ring-2 ring-red shadow-lg'
+                    // One ring at a time, highest-priority state wins.
+                    isDropTarget ? 'ring-2 ring-editor-accent'
+                      : isResizing ? 'ring-2 ring-white'
+                      : isActive && 'ring-2 ring-white shadow-lg'
                   )}
                   style={{
                     left: startPx + 3, width: Math.max(widthPx - 6, 8),
@@ -1332,7 +1333,7 @@ export default function Timeline() {
                       startTime={audio.startTime ?? 0}
                       clipDuration={audioDur}
                       speed={audio.speed ?? 1}
-                      clipWidthPx={Math.max(audioWidthPx, 60)}
+                      clipWidthPx={audioWidthPx}
                       trackH={TRACK_HEIGHT - 4}
                     />
 
@@ -1762,16 +1763,24 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
   )
 }
 
-// ── Real audio waveform component ──────────────────────────────────────────────
+// ── Audio peak waveform ───────────────────────────────────────────────────────
+// Each device-pixel column draws the largest peak inside the source time span
+// it covers, mirrored around a centre line — the same style as Audacity /
+// Premiere. True silence is a flat line; any sound shows as a visible bump.
+
+const WAVEFORM_COLOR = '#eba9a4'
+const MAX_WAVEFORM_CANVAS_PX = 8192
 
 function AudioWaveformView({ url, startTime, clipDuration, speed, clipWidthPx, trackH }: {
   url: string
   startTime: number
   clipDuration: number
   speed: number
+  /** True clip width on the timeline (not the min-width the clip block is drawn at). */
   clipWidthPx: number
   trackH: number
 }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const [waveData, setWaveData] = useState<WaveformData | null>(null)
 
   useEffect(() => {
@@ -1780,53 +1789,41 @@ function AudioWaveformView({ url, startTime, clipDuration, speed, clipWidthPx, t
     return () => { cancelled = true }
   }, [url])
 
-  const svgW     = Math.max(clipWidthPx, 60)
-  const barCount = Math.max(5, Math.floor(svgW / 3))
-  const centerY  = trackH / 2
+  const cssW = Math.max(1, clipWidthPx)
 
-  const bars = useMemo(() => {
-    if (!waveData) {
-      // Fallback: subtle sine placeholder until decode finishes
-      return Array.from({ length: barCount }, (_, i) => {
-        const amp = Math.sin(i * 0.6) * 0.25 + 0.35
-        return Math.max(2, amp * (trackH - 6))
-      })
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+
+    const dpr = window.devicePixelRatio || 1
+    const w = Math.max(1, Math.min(MAX_WAVEFORM_CANVAS_PX, Math.round(cssW * dpr)))
+    const h = Math.max(1, Math.round(trackH * dpr))
+    if (canvas.width !== w) canvas.width = w
+    if (canvas.height !== h) canvas.height = h
+
+    ctx.clearRect(0, 0, w, h)
+    ctx.fillStyle = WAVEFORM_COLOR
+    const mid = h / 2
+    ctx.fillRect(0, Math.floor(mid), w, Math.max(1, Math.round(dpr)))   // centre (silence) line
+    if (!waveData) return
+
+    const span = clipDuration * speed                                  // source seconds shown
+    const maxHalf = mid - 2 * dpr
+    for (let x = 0; x < w; x++) {
+      const from = startTime + (x / w) * span
+      const to   = startTime + ((x + 1) / w) * span
+      const half = peakInRange(waveData, from, to) * maxHalf
+      if (half > 0) ctx.fillRect(x, mid - half, 1, half * 2)
     }
-
-    const { samples, duration } = waveData
-    // Map the trim window into sample indices
-    const normStart = Math.min(1, Math.max(0, startTime / duration))
-    const normEnd   = Math.min(1, Math.max(0, (startTime + clipDuration * speed) / duration))
-    const startIdx  = Math.floor(normStart * samples.length)
-    const endIdx    = Math.ceil(normEnd * samples.length)
-    const sliceLen  = Math.max(1, endIdx - startIdx)
-
-    return Array.from({ length: barCount }, (_, i) => {
-      const pos  = (i / barCount) * sliceLen
-      const idx  = startIdx + Math.min(Math.floor(pos), sliceLen - 1)
-      const amp  = samples[idx] ?? 0
-      return Math.max(2, amp * (trackH - 6))
-    })
-  }, [waveData, barCount, startTime, clipDuration, speed, trackH])
+  }, [waveData, startTime, clipDuration, speed, cssW, trackH])
 
   return (
-    <svg
-      className="absolute inset-0 pointer-events-none"
-      width={svgW}
-      height={trackH}
-      style={{ opacity: waveData ? 0.75 : 0.3 }}
-    >
-      {bars.map((barH, i) => (
-        <rect
-          key={i}
-          x={i * (svgW / barCount)}
-          y={centerY - barH / 2}
-          width={1.5}
-          height={barH}
-          fill="#eba9a4"
-        />
-      ))}
-    </svg>
+    <canvas
+      ref={canvasRef}
+      className="absolute left-0 top-0 pointer-events-none"
+      style={{ width: cssW, height: trackH, opacity: waveData ? 0.8 : 0.35 }}
+    />
   )
 }
 

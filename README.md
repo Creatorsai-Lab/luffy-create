@@ -119,7 +119,7 @@ npm install
 npm run dev
 
 # Build a production installer (output in dist/)
-npm run package
+npx electron-builder
 ```
 
 The packaged installer for your current OS lands in `dist/`.

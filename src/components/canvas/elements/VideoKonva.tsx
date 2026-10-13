@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Group, Rect, Shape } from 'react-konva'
 import type Konva from 'konva'
 import type { VideoElement } from '../../../types/editor'
-import { toFileUrl } from '../../../utils/pathUtils'
 import { getVideoClipState } from '../../../utils/videoClip'
 import { videoRegistry } from '../../../engine/videoRegistry'
+import { createVideoFor, isAtFrame, loadVideoAt, releaseVideo, seekVideo, takeWarmVideo } from '../../../engine/videoPreloader'
 import { buildCssFilter, applyCanvasAdjustments, drawGrain, drawVignette } from '../../../engine/imageFilters'
 import { drawBoxShadow, drawInnerShadow } from '../../../engine/boxShadow'
-import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
+import { drawPerspectiveWarp, perspectiveHitFunc } from '../../../engine/perspectiveUtils'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
 import { drawMediaWithEffects, getMediaEffectClips, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
 
@@ -51,34 +51,67 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
     })
   }
 
-  // Create video element, load source
-  useEffect(() => {
-    const video = document.createElement('video')
-    video.src          = toFileUrl(el.src)
-    video.crossOrigin  = 'anonymous'
+  const elRef = useRef(el)
+  elRef.current = el
+  const localTimeRef = useRef(localTime)
+  localTimeRef.current = localTime
+
+  // Source time this clip should show first — the trimmed in-point for a split
+  // clip, not source time 0.
+  const initialSourceTime = () => {
+    const clip = getVideoClipState(elRef.current, localTimeRef.current)
+    return clip.visible ? clip.sourceTime : (elRef.current.startTime ?? 0)
+  }
+
+  // Create (or take a prewarmed) video element. Layout effect so an already
+  // seeked warm video is shown in the same paint as the clip's first frame.
+  // The video is only marked loaded once it sits on the right frame, so the
+  // stage never paints source time 0 before jumping to the trim point.
+  useLayoutEffect(() => {
+    let cancelled = false
+    const warm = takeWarmVideo(el.id, el.src)
+    const video = warm?.video ?? createVideoFor(el)
     video.loop         = el.loop
     video.muted        = el.muted
     video.volume       = el.volume
     video.playbackRate = el.playbackRate
-    video.preload      = 'auto'
 
-    const onReady  = () => { videoRef.current = video; videoRegistry.register(el.id, video); setLoaded(true) }
     const onSeeked = () => redraw()
+    video.addEventListener('seeked', onSeeked)
 
-    video.addEventListener('loadeddata', onReady)
-    video.addEventListener('seeked',     onSeeked)
+    const markReady = (ok: boolean) => {
+      if (cancelled || !ok) return
+      videoRef.current = video
+      setLoaded(true)
+    }
+
+    const tolerance = playbackActive ? 0.25 : 0.015
+    if (warm?.isReady && isAtFrame(video, initialSourceTime(), tolerance)) {
+      markReady(true)
+    } else {
+      const ready = warm ? warm.ready : loadVideoAt(video, initialSourceTime)
+      ready
+        .then(ok => ok && !cancelled ? seekVideo(video, initialSourceTime()) : ok)
+        .then(markReady)
+    }
 
     return () => {
-      video.removeEventListener('loadeddata', onReady)
-      video.removeEventListener('seeked',     onSeeked)
-      video.pause()
-      video.src = ''
-      videoRegistry.unregister(el.id)
+      cancelled = true
+      video.removeEventListener('seeked', onSeeked)
       videoRef.current = null
       cancelAnimationFrame(rafRef.current)
       setLoaded(false)
+      releaseVideo(elRef.current, video)
     }
   }, [el.src])
+
+  // Expose the video to export/preview helpers only once it shows the right frame.
+  useLayoutEffect(() => {
+    const v = videoRef.current
+    if (!loaded || !v) return
+    videoRegistry.register(el.id, v)
+    return () => { videoRegistry.unregister(el.id) }
+  }, [loaded, el.id])
 
   // Sync mutable props without reloading
   useEffect(() => {
@@ -157,6 +190,9 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
   }, [localTime, loaded, syncToTime, playbackActive, el.loop, el.startTime, el.duration, el.timelineX, el.playbackRate, el.sourceDuration])
 
   if (!loaded || !videoRef.current) {
+    // During playback an unready clip draws nothing rather than flashing the
+    // dashed edit-mode placeholder at the cut.
+    if (playbackActive) return <Group {...konvaProps} />
     return (
       <Group {...konvaProps}>
         <Rect
@@ -180,7 +216,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
       {...konvaProps}
       width={el.width}
       height={el.height}
-      hitFunc={(ctx, shape) => {
+      hitFunc={el.perspectivePts ? perspectiveHitFunc(el.perspectivePts) : (ctx, shape) => {
         ctx.beginPath(); ctx.rect(0, 0, el.width, el.height); ctx.closePath(); ctx.fillStrokeShape(shape)
       }}
       sceneFunc={(ctx, shape) => {

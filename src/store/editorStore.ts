@@ -5,10 +5,12 @@ import { v4 as uuid } from 'uuid'
 import type {
   Project, Scene, EditorElement, ElementAnimation,
   Background, SceneTransition, AssetMeta,
-  ActiveTool, ActivePanel, TimeMarker, VideoElement, AudioElement, HandDrawTool, SubtitleTrack
+  ActiveTool, ActivePanel, TimeMarker, VideoElement, AudioElement, ImageElement, HandDrawTool, SubtitleTrack
 } from '../types/editor'
-import { makeScene, makeProject } from '../utils/defaults'
+import { makeScene, makeProject, DEFAULT_TRANSITION } from '../utils/defaults'
+import { isMotionAnimation } from '../utils/moveAnimation'
 import { useHistoryStore } from './historyStore'
+import { toast } from '../components/ui/Toast'
 
 interface EditorState {
   project:           Project | null
@@ -200,38 +202,101 @@ function normalizeZ(elements: EditorElement[]) {
   ordered.forEach((el, index) => { el.zIndex = index })
 }
 
-function splitElementForScene(el: EditorElement, splitAt: number): { first?: EditorElement; second?: EditorElement } {
-  if (el.type === 'audio') {
-    const audio = el as AudioElement
-    const clipStart = audio.x ?? 0
-    const clipDur = audio.duration ?? 0
-    const clipEnd = clipStart + clipDur
-    const speed = audio.speed ?? 1
+// ── Audio lives on the global timeline ───────────────────────────────────────
+// Audio clips are stored inside a scene with `x` relative to that scene's
+// start, but they must not follow scene edits. Scene operations capture every
+// clip's absolute start first, then re-home each clip into whichever scene now
+// covers that time, so narration/music never shifts when scenes are split,
+// resized, reordered, inserted or removed.
 
-    if (clipEnd <= splitAt) return { first: audio }
-    if (clipStart >= splitAt) {
-      const second = cloneElement(audio) as AudioElement
-      second.x = clipStart - splitAt
-      return { second }
+function audioAbsoluteStarts(scenes: Scene[]): Map<string, number> {
+  const starts = new Map<string, number>()
+  let elapsed = 0
+  for (const sc of scenes) {
+    for (const el of sc.elements) {
+      if (el.type === 'audio') starts.set(el.id, elapsed + ((el as AudioElement).x ?? 0))
     }
+    elapsed += sc.duration
+  }
+  return starts
+}
 
-    const firstDur = Math.max(0.1, splitAt - clipStart)
-    const secondDur = Math.max(0.1, clipEnd - splitAt)
-    const consumed = Math.max(0, splitAt - clipStart)
-    const second = cloneElement(audio) as AudioElement
+function rehomeAudio(scenes: Scene[], absStarts: Map<string, number>) {
+  if (absStarts.size === 0 || scenes.length === 0) return
 
-    audio.duration = firstDur
-    audio.markers = (audio.markers ?? []).filter(marker => marker.offset <= firstDur)
-    second.x = 0
-    second.startTime = (audio.startTime ?? 0) + consumed * speed
-    second.duration = secondDur
-    second.markers = (second.markers ?? [])
-      .filter(marker => marker.offset >= consumed && marker.offset <= consumed + secondDur)
-      .map(marker => ({ ...marker, id: uuid(), offset: marker.offset - consumed }))
-
-    return { first: audio, second }
+  const sceneStarts: number[] = []
+  let elapsed = 0
+  for (const sc of scenes) { sceneStarts.push(elapsed); elapsed += sc.duration }
+  const sceneIndexAt = (t: number) => {
+    for (let i = 0; i < scenes.length; i++) {
+      if (t < sceneStarts[i] + scenes[i].duration) return i
+    }
+    return scenes.length - 1
   }
 
+  const moved: { audio: AudioElement; target: number }[] = []
+  scenes.forEach((sc, i) => {
+    for (let k = sc.elements.length - 1; k >= 0; k--) {
+      const el = sc.elements[k]
+      if (el.type !== 'audio') continue
+      const abs = absStarts.get(el.id)
+      if (abs == null) continue
+      const audio = el as AudioElement
+      const target = sceneIndexAt(abs)
+      audio.x = Math.max(0, abs - sceneStarts[target])
+      if (target !== i) {
+        sc.elements.splice(k, 1)
+        moved.push({ audio, target })
+      }
+    }
+  })
+  for (const { audio, target } of moved) {
+    const els = scenes[target].elements
+    audio.zIndex = els.reduce((max, e) => Math.max(max, e.zIndex), -1) + 1
+    els.push(audio)
+  }
+}
+
+// The second half of a split continues the original scene, so its scene-local
+// timings move back by `splitAt` — otherwise enter animations, move offsets
+// and media effects would restart at the cut.
+const LOOP_ANIMATION_TYPES = new Set(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop', 'colorPulse'])
+
+function shiftElementTiming(el: EditorElement, splitAt: number) {
+  el.animations = el.animations
+    // An enter animation that already finished ends at the element's resting
+    // state, so it can be dropped. Motion keeps its final offset and loops keep
+    // their phase, so those are shifted (possibly to a negative start) instead.
+    .filter(a => {
+      const finishedEnter = a.timing === 'onEnter' && !isMotionAnimation(a) &&
+        !LOOP_ANIMATION_TYPES.has(a.type) &&
+        a.startTime + a.delay + a.duration <= splitAt
+      return !finishedEnter
+    })
+    .map(a => ({ ...a, startTime: a.startTime - splitAt }))
+
+  if (el.type === 'image' || el.type === 'video') {
+    const media = el as ImageElement | VideoElement
+    if (media.mediaEffects?.length) {
+      media.mediaEffects = media.mediaEffects
+        .filter(clip => clip.endAt > splitAt)
+        .map(clip => ({ ...clip, startAt: Math.max(0, clip.startAt - splitAt), endAt: clip.endAt - splitAt }))
+    }
+  }
+}
+
+function splitElementForScene(el: EditorElement, splitAt: number): { first?: EditorElement; second?: EditorElement } {
+  // Audio is never cut by a scene split — it stays whole on the global timeline
+  // and is re-homed by absolute time afterwards. Use the audio clip's own Split
+  // action to cut it explicitly.
+  if (el.type === 'audio') return { first: el }
+
+  const result = splitVisualElement(el, splitAt)
+  if (result.second) shiftElementTiming(result.second, splitAt)
+  return result
+}
+
+function splitVisualElement(el: EditorElement, splitAt: number): { first?: EditorElement; second?: EditorElement } {
   if (el.type === 'video') {
     const video = el as VideoElement
     const clipStart = video.timelineX ?? 0
@@ -343,7 +408,9 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         if (idx < 0) return
         const scene = makeScene(s.project.scenes.length + 1)
         scene.name = `Scene after ${idx + 1}`
+        const audioStarts = audioAbsoluteStarts(s.project.scenes)
         s.project.scenes.splice(idx + 1, 0, scene)
+        rehomeAudio(s.project.scenes, audioStarts)
         s.currentSceneId = scene.id
         s.selectedIds = []
         s.isDirty = true
@@ -356,37 +423,37 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         const clone: Scene = JSON.parse(JSON.stringify(s.project.scenes[idx]))
         clone.id   = uuid()
         clone.name = clone.name + ' Copy'
-        clone.elements = clone.elements.map(e => ({ ...e, id: uuid() }))
+        // Audio belongs to the global timeline, not the scene — don't duplicate it.
+        clone.elements = clone.elements
+          .filter(e => e.type !== 'audio')
+          // morphKey keeps the copy's lineage so a Morph transition can match it.
+          .map(e => ({ ...e, id: uuid(), morphKey: e.morphKey ?? e.id }))
+        const audioStarts = audioAbsoluteStarts(s.project.scenes)
         s.project.scenes.splice(idx + 1, 0, clone)
+        rehomeAudio(s.project.scenes, audioStarts)
         s.currentSceneId = clone.id
         s.isDirty = true
       }),
 
       removeScene: (id) => set(s => {
-        if (!s.project || s.project.scenes.length <= 1) return
+        if (!s.project) return
+        if (s.project.scenes.length <= 1) {
+          toast.error('Cannot delete the last scene')
+          return
+        }
         const scenes = s.project.scenes
         const idx = scenes.findIndex(sc => sc.id === id)
         if (idx < 0) return
 
-        // Preserve audio clips: move them to a neighbor scene so deleting a scene
-        // never silently drops audio that visually overlaps an adjacent scene.
-        const startOf = (i: number) => scenes.slice(0, i).reduce((a, sc) => a + sc.duration, 0)
+        // Deleting a scene never deletes or shifts audio: its clips are handed to
+        // a neighbor and then re-homed so they keep their absolute timeline start.
+        const audioStarts = audioAbsoluteStarts(scenes)
         const removed = scenes[idx]
-        const audios = removed.elements.filter(e => e.type === 'audio')
-        if (audios.length > 0) {
-          const targetIdx   = idx > 0 ? idx - 1 : idx + 1
-          const target      = scenes[targetIdx]
-          const removedStart = startOf(idx)
-          const targetStart  = startOf(targetIdx)
-          for (const a of audios) {
-            const audio = a as { x?: number }
-            const absStart = removedStart + (audio.x ?? 0)
-            audio.x = Math.max(0, absStart - targetStart)
-            target.elements.push(a)
-          }
-        }
+        const neighbor = scenes[idx > 0 ? idx - 1 : idx + 1]
+        for (const a of removed.elements.filter(e => e.type === 'audio')) neighbor.elements.push(a)
 
         scenes.splice(idx, 1)
+        rehomeAudio(scenes, audioStarts)
         if (s.currentSceneId === id) {
           s.currentSceneId = scenes[Math.max(0, idx - 1)].id
         }
@@ -402,6 +469,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         const split = Math.max(0.1, Math.min(scene.duration - 0.1, splitAt))
         if (split <= 0.1 || split >= scene.duration - 0.1) return
 
+        const audioStarts = audioAbsoluteStarts(s.project.scenes)
         const originalElements = [...scene.elements]
         const firstElements: EditorElement[] = []
         const secondElements: EditorElement[] = []
@@ -417,6 +485,9 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         secondScene.name = `${scene.name} split`
         secondScene.duration = Math.max(0.1, scene.duration - split)
         secondScene.elements = secondElements
+        // A split is a continuous cut inside one scene, not a new scene entrance:
+        // don't replay the original scene's incoming transition at the cut.
+        secondScene.transition = { ...DEFAULT_TRANSITION, type: 'none' }
 
         scene.duration = split
         scene.elements = firstElements
@@ -424,6 +495,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         normalizeZ(secondScene.elements)
 
         s.project.scenes.splice(idx + 1, 0, secondScene)
+        rehomeAudio(s.project.scenes, audioStarts)
         s.currentSceneId = secondScene.id
         s.selectedIds = []
         s.isDirty = true
@@ -431,8 +503,10 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 
       reorderScenes: (from, to) => set(s => {
         if (!s.project) return
+        const audioStarts = audioAbsoluteStarts(s.project.scenes)
         const [scene] = s.project.scenes.splice(from, 1)
         s.project.scenes.splice(to, 0, scene)
+        rehomeAudio(s.project.scenes, audioStarts)
         s.isDirty = true
       }),
 
@@ -444,7 +518,11 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       updateScene: (id, patch) => set(s => {
         if (!s.project) return
         const sc = s.project.scenes.find(x => x.id === id)
-        if (sc) { Object.assign(sc, patch); s.isDirty = true }
+        if (!sc) return
+        const audioStarts = patch.duration != null ? audioAbsoluteStarts(s.project.scenes) : null
+        Object.assign(sc, patch)
+        if (audioStarts) rehomeAudio(s.project.scenes, audioStarts)
+        s.isDirty = true
       }),
 
       setBackground: (id, bg) => set(s => {
@@ -526,11 +604,19 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         if (!s.project || !s.currentSceneId) return
         const sc = s.project.scenes.find(x => x.id === s.currentSceneId)
         if (!sc) return
-        const el = sc.elements.find(e => e.id === id)
-        if (!el) return
-        const above = sc.elements.filter(e => e.zIndex === el.zIndex + 1)
-        above.forEach(e => { e.zIndex -= 1 })
-        el.zIndex += 1
+        // Normalize first so z-indices are contiguous 0..n-1
+        normalizeZ(sc.elements)
+        const sorted = [...sc.elements].sort((a, b) => a.zIndex - b.zIndex)
+        const idx = sorted.findIndex(e => e.id === id)
+        if (idx < 0 || idx >= sorted.length - 1) return // already at top
+        // Move the element one position up in the sorted order
+        const [removed] = sorted.splice(idx, 1)
+        sorted.splice(idx + 1, 0, removed)
+        // Reassign all z-indices to match the new order
+        sorted.forEach((e, i) => {
+          const el = sc.elements.find(x => x.id === e.id)
+          if (el) el.zIndex = i
+        })
         s.isDirty = true
       }),
 
@@ -538,11 +624,19 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         if (!s.project || !s.currentSceneId) return
         const sc = s.project.scenes.find(x => x.id === s.currentSceneId)
         if (!sc) return
-        const el = sc.elements.find(e => e.id === id)
-        if (!el || el.zIndex === 0) return
-        const below = sc.elements.filter(e => e.zIndex === el.zIndex - 1)
-        below.forEach(e => { e.zIndex += 1 })
-        el.zIndex -= 1
+        // Normalize first so z-indices are contiguous 0..n-1
+        normalizeZ(sc.elements)
+        const sorted = [...sc.elements].sort((a, b) => a.zIndex - b.zIndex)
+        const idx = sorted.findIndex(e => e.id === id)
+        if (idx <= 0) return // already at bottom
+        // Move the element one position down in the sorted order
+        const [removed] = sorted.splice(idx, 1)
+        sorted.splice(idx - 1, 0, removed)
+        // Reassign all z-indices to match the new order
+        sorted.forEach((e, i) => {
+          const el = sc.elements.find(x => x.id === e.id)
+          if (el) el.zIndex = i
+        })
         s.isDirty = true
       }),
 
@@ -829,8 +923,9 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 // isUndoRedo is set synchronously around undo()/redo() set() calls so the
 // subscriber can skip pushing a new history entry for those changes.
 let lastProject: Project | null = null
-let saveTimeout: NodeJS.Timeout | null = null
+let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let isUndoRedo = false
+let pendingBaseline: Project | null = null
 
 useEditorStore.subscribe(
   (state) => state.project,
@@ -838,22 +933,47 @@ useEditorStore.subscribe(
     if (isUndoRedo) {
       // Undo/redo change — cancel any pending save and update baseline
       if (saveTimeout) clearTimeout(saveTimeout)
+      saveTimeout = null
       lastProject = project
+      pendingBaseline = null
       return
     }
-    if (!project || !lastProject) {
-      lastProject = project
+    if (!project) {
+      lastProject = null
+      pendingBaseline = null
+      if (saveTimeout) clearTimeout(saveTimeout)
+      saveTimeout = null
       return
     }
+    
+    // Capture the baseline BEFORE the first change (if we don't have one yet)
+    if (!lastProject) {
+      lastProject = project
+      pendingBaseline = null
+      return
+    }
+    
+    // Store the pre-edit baseline if this is the first change in a burst
+    if (!pendingBaseline) {
+      pendingBaseline = JSON.parse(JSON.stringify(lastProject))
+    }
+    
     if (saveTimeout) clearTimeout(saveTimeout)
     saveTimeout = setTimeout(() => {
-      if (!project || !lastProject) return
+      if (!project || !pendingBaseline) return
+      
+      const baselineStr = JSON.stringify(pendingBaseline)
       const currentStr = JSON.stringify(project)
-      if (currentStr !== JSON.stringify(lastProject)) {
+      
+      if (currentStr !== baselineStr) {
         // Push the PRE-edit baseline so a single undo restores the previous state.
-        useHistoryStore.getState().pushHistory(lastProject, 'Edit')
-        lastProject = JSON.parse(currentStr)
+        useHistoryStore.getState().pushHistory(pendingBaseline, 'Edit')
       }
+      
+      // Reset for next burst of changes
+      lastProject = JSON.parse(currentStr)
+      pendingBaseline = null
+      saveTimeout = null
     }, 500)
   }
 )

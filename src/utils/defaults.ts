@@ -6,7 +6,7 @@ import type {
   MediaEffectClip,
 } from '../types/editor'
 
-export const DEFAULT_BG: Background = { type: 'solid', color: '#646464' }
+export const DEFAULT_BG: Background = { type: 'solid', color: '#161515' }
 
 export const DEFAULT_TRANSITION: SceneTransition = { type: 'none', duration: 0.5 }
 
@@ -15,7 +15,7 @@ export const DEFAULT_BOX_SHADOW: BoxShadow = {
   color: '#342c41',
   opacity: 0.35,
   blur: 28,
-  spread: 0,
+  spread: 2,
   angle: 135,
   distance: 18,
 }
@@ -87,9 +87,9 @@ export function makeText(x: number, y: number): TextElement {
     innerShadow: { ...DEFAULT_INNER_SHADOW },
     content: 'Write in the text box',
     fontSize: 55, fontFamily: 'Noto Serif', fontWeight: 'normal',
-    italic: false, color: '#807f7f', align: 'left',
+    italic: false, color: '#d4d4d4', align: 'left',
     fillMode: 'solid',
-    gradientColor1: '#ffffff',
+    gradientColor1: '#f5e3ce',
     gradientColor2: '#8b5cf6',
     gradientColor3: '#0d3fe4',
     gradientOpacity1: 1,
@@ -115,7 +115,7 @@ export function makeLatex(x: number, y: number, latex: string, width: number, he
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
     latex,
-    color: '#222222',
+    color: '#d4d4d4',
     fontSize: 48,
   }
 }
@@ -164,11 +164,11 @@ export function makeArrow(x1: number, y1: number, x2: number, y2: number): Arrow
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
     x1, y1, x2, y2,
-    stroke: '#585252', strokeWidth: 5, arrowHead: 'end', dashed: false,
+    stroke: '#d4d4d4', strokeWidth: 5, arrowHead: 'end', dashed: false,
     dotted: false,
     pointerLength: 12,
     pointerWidth: 13,
-    arrowHeadColor: '#585252',
+    arrowHeadColor: '#d4d4d4',
     curve: 0,
     bendCount: 0,
     bendDirection: 'horizontal',
@@ -179,12 +179,18 @@ export function makeArrow(x1: number, y1: number, x2: number, y2: number): Arrow
 export function makeCode(x: number, y: number): CodeElement {
   return {
     id: uuid(), type: 'code', name: 'Code Block',
-    x, y, width: 900, height: 700,
+    x, y, width: 950, height: 700,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
     code: '# Enter your code here',
     language: 'python',
-    fontSize: 35, showLineNumbers: true
+    fontSize: 32, showLineNumbers: true,
+    fitSceneWidth: false,
+    wrapLines: false,
+    codeAnimation: 'none',
+    codeAnimationDelay: 0,
+    codeAnimationDuration: 2,
+    codeAnimationBlocks: [],
   }
 }
 
@@ -218,23 +224,45 @@ export function makeImage(x: number, y: number, src: string, assetId: string, wi
 }
 
 export function makeTable(x: number, y: number): TableElement {
-  const rows = 3, cols = 3
+  const rows = 3, cols = 3, cellWidth = 250, cellHeight = 150
   return {
     id: uuid(), type: 'table', name: 'Table',
-    x, y, width: cols * 150, height: rows * 110,
+    x, y, width: cols * cellWidth, height: rows * cellHeight,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
     rows, cols,
     cells: Array.from({ length: rows }, (_, r) =>
       Array.from({ length: cols }, (_, c) => r === 0 ? `Header ${c + 1}` : '')
     ),
-    cellWidth: 250, cellHeight: 150,
+    cellWidth, cellHeight,
     borderColor: '#aaaaaa', borderWidth: 1,
     borderRadius: 0,
     cellBorderColor: '#aaaaaa', cellBorderWidth: 1,
     headerBg: '#383838', cellBg: '#6e6e6e',
-    textColor: '#f2f4fd', textAlign: 'center', fontSize: 36, showHeader: true
+    textColor: '#d4d4d4', textAlign: 'center', fontSize: 36, showHeader: true
   }
+}
+
+// ── Instant inserts (menu click / panel "+ Add" button), centered on the canvas ──
+
+function centerOnCanvas<T extends { x: number; y: number; width: number; height: number }>(el: T, canvasW: number, canvasH: number): T {
+  el.x = Math.round((canvasW - el.width) / 2)
+  el.y = Math.round((canvasH - el.height) / 2)
+  return el
+}
+
+export function makeCenteredText(canvasW: number, canvasH: number): TextElement {
+  return centerOnCanvas(makeText(0, 0), canvasW, canvasH)
+}
+
+export function makeCenteredArrow(canvasW: number, canvasH: number): ArrowElement {
+  const halfLength = 150
+  const cx = canvasW / 2, cy = canvasH / 2
+  return makeArrow(cx - halfLength, cy, cx + halfLength, cy)
+}
+
+export function makeCenteredTable(canvasW: number, canvasH: number): TableElement {
+  return centerOnCanvas(makeTable(0, 0), canvasW, canvasH)
 }
 
 export function makeIcon(iconName: string, x: number, y: number): IconElement {
@@ -244,8 +272,8 @@ export function makeIcon(iconName: string, x: number, y: number): IconElement {
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
     iconName,
-    color: '#202020',
-    strokeWidth: 2,
+    color: '#d4d4d4',
+    strokeWidth: 1.5,
   }
 }
 
@@ -255,7 +283,7 @@ export function makeAnimation(): ElementAnimation {
     type: 'fadeIn',
     timing: 'onEnter',
     startTime: 0,
-    duration: 0.8,
+    duration: 0.6,
     delay: 0,
     easing: 'easeOut'
   }
@@ -386,7 +414,7 @@ export function makeCounter(x: number, y: number): CounterElement {
     fontFamily: 'Inter',
     fontWeight: 'bold',
     italic: false,
-    color: '#333333',
+    color: '#d4d4d4',
     lineHeight: 1.2,
     shadowBlur: 0,
     shadowColor: 'transparent',

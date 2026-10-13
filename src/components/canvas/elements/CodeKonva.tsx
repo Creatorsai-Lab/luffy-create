@@ -2,10 +2,13 @@ import { useCallback } from 'react'
 import { Shape, Group } from 'react-konva'
 import type Konva from 'konva'
 import type { CodeElement } from '../../../types/editor'
+import type { CodeAnimationBlock } from '../../../types/editor'
 
 interface Props {
   el: CodeElement
   konvaProps: Record<string, unknown>
+  localTime?: number
+  sceneWidth?: number
 }
 
 // ─── Token colors (GitHub dark theme) ─────────────────────────────────────────
@@ -92,15 +95,97 @@ const PADDING     = 12
 const LINE_NUM_W  = 28
 const HEADER_H    = 35
 
-export default function CodeKonva({ el, konvaProps }: Props) {
-  const lines = el.code.split('\n')
+interface VisibleLine {
+  number: number
+  text: string
+}
+
+function animationProgress(time: number, delay: number, duration: number) {
+  if (time < delay) return 0
+  return Math.max(0, Math.min(1, (time - delay) / Math.max(0.1, duration)))
+}
+
+function getVisibleLines(el: CodeElement, localTime: number): VisibleLine[] {
+  const code = el.code
+  const sourceLines = code.split('\n')
+  const mode = el.codeAnimation ?? 'none'
+
+  if (mode === 'characters') {
+    const progress = animationProgress(localTime, el.codeAnimationDelay ?? 0, el.codeAnimationDuration ?? 2)
+    return code.slice(0, Math.floor(code.length * progress)).split('\n')
+      .map((text, index) => ({ number: index + 1, text }))
+  }
+
+  if (mode === 'lines') {
+    const progress = animationProgress(localTime, el.codeAnimationDelay ?? 0, el.codeAnimationDuration ?? 2)
+    const count = Math.floor(sourceLines.length * progress)
+    return sourceLines.slice(0, count).map((text, index) => ({ number: index + 1, text }))
+  }
+
+  if (mode === 'blocks') {
+    const visibleNumbers = new Set<number>()
+    for (const block of el.codeAnimationBlocks ?? []) {
+      const from = Math.max(1, Math.floor(block.fromLine))
+      const to = Math.min(sourceLines.length, Math.max(from, Math.floor(block.toLine)))
+      const count = to - from + 1
+      const visibleCount = Math.floor(count * animationProgress(localTime, block.delay, block.duration))
+      for (let index = 0; index < visibleCount; index++) visibleNumbers.add(from + index)
+    }
+    return sourceLines.flatMap((text, index) => {
+      const number = index + 1
+      return visibleNumbers.has(number) ? [{ number, text }] : []
+    })
+  }
+
+  return sourceLines.map((text, index) => ({ number: index + 1, text }))
+}
+
+function wrapCodeLine(line: string, maxWidth: number, ctx: CanvasRenderingContext2D): string[] {
+  if (!line || ctx.measureText(line).width <= maxWidth) return [line]
+  const words = line.match(/\S+\s*|\s+/g) ?? [line]
+  const wrapped: string[] = []
+  let current = ''
+
+  for (const word of words) {
+    if (ctx.measureText(current + word).width <= maxWidth) {
+      current += word
+      continue
+    }
+
+    if (current) wrapped.push(current.trimEnd())
+    current = ''
+    const nextWord = word.trimStart()
+    if (ctx.measureText(nextWord).width <= maxWidth) {
+      current = nextWord
+      continue
+    }
+
+    let fragment = ''
+    for (const character of nextWord) {
+      if (fragment && ctx.measureText(fragment + character).width > maxWidth) {
+        wrapped.push(fragment)
+        fragment = character
+      } else {
+        fragment += character
+      }
+    }
+    current = fragment
+  }
+
+  if (current || wrapped.length === 0) wrapped.push(current.trimEnd())
+  return wrapped
+}
+
+export default function CodeKonva({ el, konvaProps, localTime = 0, sceneWidth }: Props) {
+  const lines = getVisibleLines(el, localTime)
   const lineH = el.fontSize * 1.65
   const numW  = el.showLineNumbers ? LINE_NUM_W : 0
   const bgColor = (el as CodeElement & { bgColor?: string }).bgColor ?? '#0d1117'
+  const width = el.fitSceneWidth && sceneWidth ? sceneWidth : el.width
 
   const sceneFunc = useCallback((ctx: Konva.Context, shape: Konva.Shape) => {
     const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
-    const w = el.width, h = el.height
+    const w = width, h = el.height
 
     raw.save()
 
@@ -127,13 +212,6 @@ export default function CodeKonva({ el, konvaProps }: Props) {
       raw.fill()
     })
 
-    // Language label (right side)
-    raw.font = `15px Consolas, monospace`
-    raw.fillStyle = '#ffffff'
-    raw.textAlign = 'right'
-    raw.fillText(el.language.toUpperCase(), w - PADDING, HEADER_H / 2 + 4)
-    raw.textAlign = 'left'
-
     // ── Separator line ───────────────────────────────────────────────────
     raw.strokeStyle = 'rgba(255,255,255,0.08)'
     raw.lineWidth = 1
@@ -157,46 +235,55 @@ export default function CodeKonva({ el, konvaProps }: Props) {
     // ── Code lines ────────────────────────────────────────────────────────
     raw.font = `${el.fontSize}px Consolas, 'Courier New', monospace`
     const baseline = HEADER_H + PADDING + el.fontSize
+    const textX = PADDING + numW + (el.showLineNumbers ? 10 : 0)
+    const textWidth = Math.max(1, w - textX - PADDING)
+    raw.beginPath()
+    raw.rect(PADDING, HEADER_H, Math.max(0, w - PADDING * 2), Math.max(0, h - HEADER_H))
+    raw.clip()
 
-    for (let i = 0; i < lines.length; i++) {
-      const y = baseline + i * lineH
-      if (y > h) break
+    let visualLine = 0
+    for (const line of lines) {
+      const displayLines = el.wrapLines ? wrapCodeLine(line.text, textWidth, raw) : [line.text]
+      for (let part = 0; part < displayLines.length; part++) {
+        const y = baseline + visualLine * lineH
+        if (y > h) break
 
-      // Line number
-      if (el.showLineNumbers) {
-        raw.fillStyle = C.lineNum
-        raw.textAlign = 'right'
-        raw.fillText(String(i + 1), PADDING + numW, y)
-        raw.textAlign = 'left'
+        if (el.showLineNumbers && part === 0) {
+          raw.fillStyle = C.lineNum
+          raw.textAlign = 'right'
+          raw.fillText(String(line.number), PADDING + numW, y)
+          raw.textAlign = 'left'
+        }
+
+        const tokens = tokenizeLine(displayLines[part], el.language)
+        let x = textX
+        for (const tok of tokens) {
+          raw.fillStyle = tok.color
+          raw.fillText(tok.text, x, y)
+          x += raw.measureText(tok.text).width
+          if (x > w - PADDING) break
+        }
+        visualLine++
       }
-
-      // Tokenized line
-      const tokens = tokenizeLine(lines[i], el.language)
-      let x = PADDING + numW + (el.showLineNumbers ? 10 : 0)
-      for (const tok of tokens) {
-        raw.fillStyle = tok.color
-        raw.fillText(tok.text, x, y)
-        x += raw.measureText(tok.text).width
-        if (x > w - PADDING) break
-      }
+      if (baseline + visualLine * lineH > h) break
     }
 
     raw.restore()
     ctx.fillStrokeShape(shape)
-  }, [el, lines, lineH, numW, bgColor])
+  }, [el, lines, lineH, numW, bgColor, width, localTime])
 
   return (
-    <Group {...konvaProps} width={el.width} height={el.height}>
+    <Group {...konvaProps} width={width} height={el.height}>
       <Shape
         id={`${el.id}-hit`}
-        width={el.width}
+        width={width}
         height={el.height}
         sceneFunc={sceneFunc}
         onClick={konvaProps.onClick as (e: Konva.KonvaEventObject<MouseEvent>) => void}
         onDblClick={konvaProps.onDblClick as (e: Konva.KonvaEventObject<MouseEvent>) => void}
         hitFunc={(ctx, shape) => {
           ctx.beginPath()
-          ctx.rect(0, 0, el.width, el.height)
+          ctx.rect(0, 0, width, el.height)
           ctx.closePath()
           ctx.fillStrokeShape(shape)
         }}

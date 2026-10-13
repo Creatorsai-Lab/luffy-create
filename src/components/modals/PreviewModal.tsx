@@ -14,6 +14,9 @@ import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
 import type { Background, AudioElement, VideoElement, ImageBg, Scene, Project, SlideDir, TransitionType } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
+import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
+import { getMorphFrame } from '../../engine/morph'
+import { fitPreviewToViewport } from '../../utils/previewLayout'
 import {
   applyAudioEffects,
   audioPreviewPlaybackRate,
@@ -33,14 +36,13 @@ export default function PreviewModal() {
   const audioPlayersRef = useRef<Map<string, HTMLAudioElement>>(new Map())
   const audioGraphsRef = useRef<AudioEffectGraphMap>(new Map())
 
-  // Fit preview into viewport, preserving aspect ratio
-  const maxW = Math.min(950, window.innerWidth * 0.88)
-  const maxH = window.innerHeight * 0.72
-  const aspect = project ? project.width / project.height : 16 / 9
-  let pw = maxW, ph = maxW / aspect
-  if (ph > maxH) { ph = maxH; pw = maxH * aspect }
-  const PREVIEW_W = Math.round(pw)
-  const PREVIEW_H = Math.round(ph)
+  // Use the whole viewport while preserving the project aspect ratio.
+  const { width: PREVIEW_W, height: PREVIEW_H } = fitPreviewToViewport(
+    project?.width ?? 16,
+    project?.height ?? 9,
+    window.innerWidth,
+    window.innerHeight,
+  )
   const scale = project ? PREVIEW_W / project.width : 1
 
   const totalDur = project?.scenes.reduce((s, sc) => s + sc.duration, 0) ?? 0
@@ -64,6 +66,11 @@ export default function PreviewModal() {
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
   }, [isPlaying, totalDur])
+
+  // Load + seek upcoming video clips (split/trimmed clips, next scene) ahead of the cut.
+  useEffect(() => {
+    if (project && isPlaying) prewarmUpcomingVideos(project, playhead)
+  }, [project, isPlaying, playhead])
 
   // Audio sync RAF — mirrors Timeline.tsx logic
   useEffect(() => {
@@ -138,7 +145,7 @@ export default function PreviewModal() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#040105]/90 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) setPreviewOpen(false) }}
     >
       {/* Prominent close */}
@@ -149,56 +156,50 @@ export default function PreviewModal() {
         <X size={18} />
       </button>
 
-      <div className="flex flex-col items-center gap-3">
-        {/* Stage */}
-        <div
-          className="rounded-lg shadow-2xl bg-black relative overflow-hidden"
-          style={{ width: PREVIEW_W, height: PREVIEW_H }}
+      {/* Edge-to-edge stage */}
+      <div
+        className="relative overflow-hidden"
+        style={{ width: PREVIEW_W, height: PREVIEW_H }}
+      >
+        <PreviewFrame
+          project={project}
+          frameState={frameState}
+          timeline={timeline}
+          width={PREVIEW_W}
+          height={PREVIEW_H}
+          scale={scale}
+          playhead={playhead}
+          isPlaying={isPlaying}
+        />
+      </div>
+
+      {/* Playback rail overlays the video so it never reduces preview size. */}
+      <div className="absolute left-0 top-1/2 z-10 flex -translate-y-1/2 flex-col items-center gap-3 rounded-r-xl border-y border-r border-white/15 bg-black/65 px-2 py-3 text-white backdrop-blur-sm">
+        <button
+          onClick={() => { playheadRef.current = 0; setPlayhead(0); setIsPlaying(false) }}
+          className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/15 transition-colors"
+          title="Restart"
         >
-          <PreviewFrame
-            project={project}
-            frameState={frameState}
-            timeline={timeline}
-            width={PREVIEW_W}
-            height={PREVIEW_H}
-            scale={scale}
-            playhead={playhead}
-            isPlaying={isPlaying}
-          />
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center gap-3 bg-editor-panel/90 backdrop-blur-sm border border-editor-border rounded-xl px-4 py-2.5">
-          <button
-            onClick={() => { setPlayhead(0); setIsPlaying(false) }}
-            className="text-[#f2f2f2] hover:text-editor-text transition-colors"
-          >
-            <SkipBack size={14} />
-          </button>
-          <button
-            onClick={() => setIsPlaying(v => !v)}
-            className="flex items-center justify-center w-8 h-8 rounded-lg bg-editor-accent hover:bg-editor-accent-hover text-white transition-colors"
-          >
-            {isPlaying ? <Pause size={13} /> : <Play size={13} />}
-          </button>
-
-          <input
-            type="range" min={0} max={totalDur} step={0.05}
-            value={playhead}
-            onChange={e => { const v = Number(e.target.value); playheadRef.current = v; setPlayhead(v) }}
-            className="w-52 accent-editor-accent"
-          />
-          <span className="text-xs text-[#f2f2f2] tabular-nums w-24">
-            {playhead.toFixed(1)}s / {totalDur.toFixed(1)}s
-          </span>
-
-          <button
-            onClick={() => setPreviewOpen(false)}
-            className="text-[#f2f2f2] hover:text-editor-text transition-colors ml-1"
-          >
-            <X size={16} />
-          </button>
-        </div>
+          <SkipBack size={14} />
+        </button>
+        <button
+          onClick={() => setIsPlaying(v => !v)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-editor-accent hover:bg-editor-accent-hover transition-colors"
+          title={isPlaying ? 'Pause' : 'Play'}
+        >
+          {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+        </button>
+        <input
+          type="range" min={0} max={totalDur} step={0.05}
+          value={playhead}
+          onChange={e => { const v = Number(e.target.value); playheadRef.current = v; setPlayhead(v) }}
+          className="h-40 w-4 accent-editor-accent"
+          style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
+          aria-label="Preview position"
+        />
+        <span className="w-12 text-center text-[10px] leading-tight tabular-nums text-white/80">
+          {playhead.toFixed(1)}s<br />{totalDur.toFixed(1)}s
+        </span>
       </div>
     </div>
   )
@@ -230,6 +231,23 @@ function PreviewFrame({
         project={project}
         scene={scene}
         localTime={frameState.sceneTime}
+        globalTime={playhead}
+        width={width}
+        height={height}
+        scale={scale}
+        isPlaying={isPlaying}
+        style={{ position: 'absolute', inset: 0 }}
+      />
+    )
+  }
+
+  const morph = frameState.transition.type === 'morph' ? getMorphFrame(project, playhead) : null
+  if (morph) {
+    return (
+      <PreviewSceneStage
+        project={project}
+        scene={morph.scene}
+        localTime={morph.localTime}
         globalTime={playhead}
         width={width}
         height={height}
@@ -357,25 +375,17 @@ function DirectionalTransitionPreview({
   const drawLatest = useRef(draw)
   drawLatest.current = draw
 
+  // One continuous loop for the life of the transition. A one-shot rAF that is
+  // cancelled and rescheduled on every render/layer redraw never fires while
+  // playback re-renders each frame — the transition then never paints.
   useEffect(() => {
-    cancelAnimationFrame(frame.current)
-    frame.current = requestAnimationFrame(draw)
+    const loop = () => {
+      drawLatest.current()
+      frame.current = requestAnimationFrame(loop)
+    }
+    frame.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(frame.current)
-  }, [draw])
-
-  useEffect(() => {
-    if (!fromStage || !toStage) return
-    const refresh = () => {
-      cancelAnimationFrame(frame.current)
-      frame.current = requestAnimationFrame(() => drawLatest.current())
-    }
-    const layers = [...fromStage.getLayers(), ...toStage.getLayers()]
-    layers.forEach(layer => layer.on('draw.transitionPreview', refresh))
-    return () => {
-      layers.forEach(layer => layer.off('draw.transitionPreview', refresh))
-      cancelAnimationFrame(frame.current)
-    }
-  }, [fromStage, toStage])
+  }, [])
 
   return (
     <>
@@ -461,7 +471,6 @@ function transitionLayerStyles(
         },
       }
 
-    case 'morph':
     case 'fade':
     default:
       return { from: {}, to: { opacity: p } }
@@ -514,6 +523,7 @@ function PreviewSceneStage({
               onDblClick={() => { }}
               stageScale={scale}
               localTime={localTime}
+              sceneWidth={project.width}
               syncVideoToTime
               videoPlaybackActive={isPlaying}
             />

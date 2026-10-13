@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react'
 import { Stage, Layer, Shape, Transformer, Circle, Path } from 'react-konva'
 import type Konva from 'konva'
-import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter } from 'lucide-react'
+import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowUpToLine, ArrowDownToLine } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { getAnimatedProps } from '../../engine/animator'
 import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
@@ -16,7 +16,9 @@ import {
 import { drawBackground } from '../../engine/backgroundRenderer'
 import { registerStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
-import { makeShape, makeArrow, makeTable, makeChart, makeHandDrawLayer } from '../../utils/defaults'
+import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
+import { getMorphFrame } from '../../engine/morph'
+import { makeShape, makeArrow, makeChart, makeHandDrawLayer } from '../../utils/defaults'
 import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke, SlideDir, TransitionType } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
@@ -85,6 +87,7 @@ export default function EditorCanvas() {
   const [drawingArrow, setDrawingArrow] = useState<{x1:number;y1:number;x2:number;y2:number}|null>(null)
   const [drawingStroke, setDrawingStroke] = useState<HandDrawStroke | null>(null)
   const drawingStrokeRef = useRef<HandDrawStroke | null>(null)
+  const suppressStageClickRef = useRef(false)
   const drawingLayerIdRef = useRef<string | null>(null)
   const drawingBaseStrokesRef = useRef<HandDrawStroke[]>([])
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; elementId: string } | null>(null)
@@ -93,6 +96,7 @@ export default function EditorCanvas() {
   const [cropDrag, setCropDrag] = useState<{ handle: string; startX: number; startY: number; startCrop: { x: number; y: number; w: number; h: number } } | null>(null)
   const [cursorCoord, setCursorCoord] = useState<{ x: number; y: number } | null>(null)
   const clipboardRef  = useRef<EditorElement[]>([])
+  const clipboardSourceSceneRef = useRef<string | null>(null)
 
   // ── Live transition overlay ───────────────────────────────────────────────────
   const [transOverlay, setTransOverlay] = useState<{
@@ -110,11 +114,12 @@ export default function EditorCanvas() {
 
   const {
     project, currentSceneId, selectedIds,
-    playhead, isPlaying, activeTool, activePanel, pendingChartType, handDrawSettings,
+    playhead, isPlaying, exportOpen, activeTool, activePanel, pendingChartType, handDrawSettings,
     cropElementId, setCropElement,
     addElement, selectElement, deselectAll,
     removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
-    undo, redo, duplicateElement
+    undo, redo, duplicateElement,
+    bringForward, sendBackward, bringToFront, sendToBack,
   } = useEditorStore()
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
@@ -275,6 +280,7 @@ export default function EditorCanvas() {
             .map(id => scene.elements.find(el => el.id === id))
             .filter((el): el is EditorElement => el != null)
             .map(el => JSON.parse(JSON.stringify(el)))
+          clipboardSourceSceneRef.current = currentSceneId ?? null
         }
         return
       }
@@ -283,13 +289,19 @@ export default function EditorCanvas() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         if (clipboardRef.current.length > 0) {
           e.preventDefault()
+          // Only offset position when pasting into the SAME scene (to avoid overlap).
+          // When pasting across scenes, preserve exact original coordinates.
+          const isSameScene = clipboardSourceSceneRef.current === currentSceneId
+          const offset = isSameScene ? 20 : 0
           clipboardRef.current.forEach(el => {
             const clone: EditorElement = { ...JSON.parse(JSON.stringify(el)), id: crypto.randomUUID() }
-            clone.x += 20
-            clone.y += 20
+            // A copy pasted into another scene is "the same object" for Morph.
+            if (!isSameScene) clone.morphKey = el.morphKey ?? el.id
+            clone.x += offset
+            clone.y += offset
             // Arrows render from absolute endpoints — shift those too
             if (clone.type === 'arrow') {
-              clone.x1 += 20; clone.y1 += 20; clone.x2 += 20; clone.y2 += 20
+              clone.x1 += offset; clone.y1 += offset; clone.x2 += offset; clone.y2 += offset
             }
             addElement(clone)
           })
@@ -341,15 +353,57 @@ export default function EditorCanvas() {
         setActiveTool('select')
         setContextMenu(null)
       }
+      
+      // Layer ordering shortcuts (Adobe-style)
+      // Bring Forward: Ctrl/Cmd + Shift + ]
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === ']') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => bringForward(id))
+        }
+        return
+      }
+      
+      // Send Backward: Ctrl/Cmd + Shift + [
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === '[') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => sendBackward(id))
+        }
+        return
+      }
+      
+      // Bring to Front: Ctrl/Cmd + ]
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === ']') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => bringToFront(id))
+        }
+        return
+      }
+      
+      // Send to Back: Ctrl/Cmd + [
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === '[') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => sendToBack(id))
+        }
+        return
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement])
+  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement, bringForward, sendBackward, bringToFront, sendToBack, addElement])
 
   // Reset local video plays when preview starts (VideoKonva takes over)
   useEffect(() => {
     if (isPlaying) setLocalPlayingIds(new Set())
   }, [isPlaying])
+
+  // Load + seek upcoming video clips (split/trimmed clips, next scene) ahead of the cut.
+  useEffect(() => {
+    if (project && isPlaying) prewarmUpcomingVideos(project, playhead)
+  }, [project, isPlaying, playhead])
 
   useEffect(() => {
     transitionSnapshotsRef.current.clear()
@@ -417,6 +471,16 @@ export default function EditorCanvas() {
       }
     }
 
+    // Morph is rendered as a live in-between scene (see getMorphFrame below),
+    // not as a snapshot overlay.
+    if (frameState.kind === 'transition' && frameState.transition.type === 'morph') {
+      if (transitionKeyRef.current) {
+        transitionKeyRef.current = null
+        setTransOverlay(null)
+      }
+      return
+    }
+
     if (frameState.kind === 'transition') {
       const to = timeline[frameState.toSceneIndex]
       const key = getTransitionPreviewKey(frameState.fromSceneId, to)
@@ -465,7 +529,12 @@ export default function EditorCanvas() {
     const current = timeline[frameState.sceneIndex]
     const next = timeline[frameState.sceneIndex + 1]
     if (!stage) return
-    if (!transitionSnapshotsRef.current.has(current.sceneId)) {
+    // Fallback "from" snapshot for an upcoming fade-style transition. toDataURL
+    // is a synchronous full-frame encode, so skip it at plain cuts (e.g. a
+    // split video scene) where it would stall the first frame of the scene.
+    const nextUsesSnapshot = !!next && next.transition.type !== 'none' &&
+      next.transition.type !== 'morph' && !isDirectionalTransition(next.transition.type)
+    if (nextUsesSnapshot && !transitionSnapshotsRef.current.has(current.sceneId)) {
       rememberTransitionSnapshot(
         current.sceneId,
         stage.toDataURL({ pixelRatio: 1 }),
@@ -496,7 +565,7 @@ export default function EditorCanvas() {
       setTransOverlay(null)
     }
 
-    if (!next || next.transition.type === 'none') return
+    if (!next || next.transition.type === 'none' || next.transition.type === 'morph') return
     const captureLead = Math.min(0.05, getEffectiveTransitionDuration(next))
     if (playhead >= current.endTime - captureLead && playhead < current.endTime) {
       if (!transitionFinalSnapshotsRef.current.has(current.sceneId)) {
@@ -537,13 +606,21 @@ export default function EditorCanvas() {
       toCanvas: captureStageToCanvas(stage, toCanvas, canvasW, canvasH),
     })
   }, [canvasH, canvasW, playhead, transOverlay])
+  const drawDirectionalPreviewRef = useRef(drawDirectionalPreview)
+  drawDirectionalPreviewRef.current = drawDirectionalPreview
 
   useEffect(() => {
     if (!transOverlay || !isDirectionalTransition(transOverlay.type)) return
-    cancelAnimationFrame(transitionFrameRef.current)
-    transitionFrameRef.current = requestAnimationFrame(drawDirectionalPreview)
+    // One continuous loop while the overlay is active. A one-shot rAF that the
+    // effect cancels and reschedules on every playhead render never fires during
+    // playback (store updates re-render synchronously inside the frame).
+    const loop = () => {
+      drawDirectionalPreviewRef.current()
+      transitionFrameRef.current = requestAnimationFrame(loop)
+    }
+    transitionFrameRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(transitionFrameRef.current)
-  }, [drawDirectionalPreview, transOverlay])
+  }, [transOverlay])
 
   // ── Crop mode: initialize pendingCrop from store trigger ──────────────────────
   useEffect(() => {
@@ -679,6 +756,7 @@ export default function EditorCanvas() {
     setContextMenu({ x: e.evt.clientX, y: e.evt.clientY, elementId: id })
   }
   function handleStageClick(e: Konva.KonvaEventObject<MouseEvent>) {
+    if (suppressStageClickRef.current) { suppressStageClickRef.current = false; return }
     if (cropState) { exitCropMode(); return }
     if (!currentScene) return
     if (activeTool === 'handDraw') return
@@ -712,10 +790,6 @@ export default function EditorCanvas() {
         openCodeModal()
         setActiveTool('select')
         break
-      case 'table':
-        addElement(makeTable(x - 180, y - 60))
-        setActiveTool('select')
-        break
       case 'chart': {
         const chart = makeChart(x - 200, y - 150)
         chart.chartType = pendingChartType
@@ -735,6 +809,7 @@ export default function EditorCanvas() {
   }
 
   function handleMouseDown(e: Konva.KonvaEventObject<MouseEvent>) {
+    suppressStageClickRef.current = false
     if (activeTool === 'handDraw') {
       if (!project || !currentScene) return
       e.evt.preventDefault()
@@ -837,6 +912,8 @@ export default function EditorCanvas() {
     const { x1, y1, x2, y2 } = drawingArrow
     if (Math.abs(x2 - x1) > 5 || Math.abs(y2 - y1) > 5) {
       addElement(makeArrow(x1, y1, x2, y2))
+      // The stage click that follows this mouseup would deselect the new arrow.
+      suppressStageClickRef.current = true
     }
     setDrawingArrow(null)
     setActiveTool('select')
@@ -881,11 +958,16 @@ export default function EditorCanvas() {
   // the outgoing scene until the incoming scene actually begins.
   const transitionStarted = !!transOverlay && playhead >= transOverlay.transitionStart
   const activeSceneId = transitionStarted ? transOverlay.toSceneId : currentSceneId
-  const activeScene   = project.scenes.find(s => s.id === activeSceneId) ?? currentScene
+  // During a Morph (playback or export frames) render the live in-between scene.
+  // Paused editing always shows the real scene so it stays editable.
+  const morphFrame = isPlaying || exportOpen ? getMorphFrame(project, playhead) : null
+  const activeScene   = morphFrame?.scene ?? project.scenes.find(s => s.id === activeSceneId) ?? currentScene
 
   // Compute scene-local time for animations
   let localTime = 0
-  if (transitionStarted && transOverlay) {
+  if (morphFrame) {
+    localTime = morphFrame.localTime
+  } else if (transitionStarted && transOverlay) {
     localTime = Math.max(0, playhead - transOverlay.transitionStart)
   } else {
     let acc = 0
@@ -922,8 +1004,7 @@ export default function EditorCanvas() {
           top:  offsetY,
           width:  canvasW,
           height: canvasH,
-          boxShadow: '0 4px 12px rgba(46, 45, 45, 0.42)',
-          borderRadius: 2
+          boxShadow: '0 4px 8px rgba(46, 45, 45, 0.3)',
         }}
       >
         <Stage
@@ -974,6 +1055,7 @@ export default function EditorCanvas() {
                   }}
                   stageScale={scale}
                   localTime={localTime}
+                  sceneWidth={project?.width}
                   syncVideoToTime={!localPlayingIds.has(el.id) && (isPlaying || playhead > 0)}
                   videoPlaybackActive={isPlaying}
                 />
@@ -995,28 +1077,34 @@ export default function EditorCanvas() {
                 width:  Math.max(10, box.width),
                 height: Math.max(10, box.height)
               })}
-              anchorSize={7}
-              anchorFill="#5a5ba0"
-              anchorStroke="#fff"
+              anchorSize={5}
+              anchorFill="#6a32c9"
+              anchorStroke="#f3e7e7"
               anchorStrokeWidth={1}
               anchorCornerRadius={3}
-              borderStroke="#f776d9"
-              borderStrokeWidth={1}
-              rotateAnchorOffset={25}
+              borderStroke={SELECTION_COLOR}
+              borderStrokeWidth={2}
+              rotateAnchorOffset={15}
               rotateLineVisible={false}
               rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
               rotateAnchorCursor="grab"
               anchorStyleFunc={(anchor) => {
-                // Custom styling for rotation anchor - make it look like a rotation icon
+                // Rotation anchor drawn as a rotate icon: accent disc + clockwise arrow.
                 if (anchor.hasName('rotater')) {
-                  anchor.cornerRadius(10)
-                  anchor.fill('#6c6d9473')
-                  anchor.stroke('#ebebeb')
-                  anchor.strokeWidth(1.5)
-                  anchor.width(12)
-                  anchor.height(12)
-                  anchor.offsetX(5) 
-                  anchor.offsetY(0)
+                  const size = 18
+                  anchor.width(size)
+                  anchor.height(size)
+                  anchor.offsetX(size / 2)
+                  anchor.offsetY(size / 2)
+                  anchor.sceneFunc(ctx => drawRotateIcon(
+                    (ctx as unknown as { _context: CanvasRenderingContext2D })._context, size,
+                  ))
+                  anchor.hitFunc((ctx, shape) => {
+                    ctx.beginPath()
+                    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
+                    ctx.closePath()
+                    ctx.fillStrokeShape(shape)
+                  })
                 }
               }}
             />
@@ -1125,15 +1213,6 @@ export default function EditorCanvas() {
             else if (dir === 'down') overlayStyle = { clipPath: `inset(${p * 100}% 0 0 0)` }
             else overlayStyle = { clipPath: `inset(0 0 ${p * 100}% 0)` }
             break
-          case 'morph': {
-            // Match export: stable center grow/blend, no directional drift.
-            overlayStyle = {
-              opacity: 1 - p,
-              transform: `scale(${1 + p * 0.025})`,
-              transformOrigin: 'center center',
-            }
-            break
-          }
         }
         return (
           <img
@@ -1296,6 +1375,7 @@ export default function EditorCanvas() {
                       .map(id => scene.elements.find(el => el.id === id))
                       .filter((el): el is EditorElement => el != null)
                       .map(el => JSON.parse(JSON.stringify(el)))
+                    clipboardSourceSceneRef.current = currentSceneId ?? null
                   }
                   setContextMenu(null)
                 }
@@ -1305,6 +1385,38 @@ export default function EditorCanvas() {
                 icon: <Copy size={14} />,
                 onClick: () => {
                   selectedIds.forEach(id => duplicateElement(id))
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Bring Forward',
+                icon: <ArrowUpToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) bringForward(contextMenu.elementId)
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Send Backward',
+                icon: <ArrowDownToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) sendBackward(contextMenu.elementId)
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Bring to Front',
+                icon: <ArrowUpToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) bringToFront(contextMenu.elementId)
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Send to Back',
+                icon: <ArrowDownToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) sendToBack(contextMenu.elementId)
                   setContextMenu(null)
                 }
               },
@@ -1360,6 +1472,44 @@ export default function EditorCanvas() {
       })()}
     </div>
   )
+}
+
+// ── Transformer rotate handle icon ────────────────────────────────────────────
+
+/** Selection outline color; the rotate icon uses it too. */
+const SELECTION_COLOR = '#d44747'
+
+function drawRotateIcon(ctx: CanvasRenderingContext2D, size: number) {
+  const c = size / 2
+  const r = size * 0.27
+  const start = -Math.PI / 2 + 0.55            // just right of 12 o'clock
+  const end = start + Math.PI * 2 - 1.3        // clockwise, leaving a gap at the top
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(c, c, c, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(105, 50, 201, 0.36)'     // accent purple at 50%
+  ctx.fill()
+
+  ctx.beginPath()
+  ctx.arc(c, c, r, start, end)
+  ctx.lineWidth = 1.6
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = SELECTION_COLOR
+  ctx.stroke()
+
+  // Arrowhead at the arc's end, pointing clockwise along the tangent.
+  const px = c + r * Math.cos(end), py = c + r * Math.sin(end)
+  const tx = -Math.sin(end), ty = Math.cos(end)   // clockwise tangent
+  const nx = Math.cos(end), ny = Math.sin(end)    // outward normal
+  ctx.beginPath()
+  ctx.moveTo(px + tx * 2.8, py + ty * 2.8)
+  ctx.lineTo(px + nx * 2.4, py + ny * 2.4)
+  ctx.lineTo(px - nx * 2.4, py - ny * 2.4)
+  ctx.closePath()
+  ctx.fillStyle = SELECTION_COLOR
+  ctx.fill()
+  ctx.restore()
 }
 
 // ── Background renderer ────────────────────────────────────────────────────────

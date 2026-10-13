@@ -1,7 +1,7 @@
 import { AlignCenter, AlignLeft, AlignRight, Table2 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { AlignType, AnimationType, ElementAnimation, TableElement } from '../../types/editor'
-import { makeAnimation } from '../../utils/defaults'
+import { makeAnimation, makeCenteredTable } from '../../utils/defaults'
 import { AnimSection, isLoopAnim, PanelHeader, Row, NumberInput, Slider, ColorInput } from './TextPanel'
 import { isMotionAnimation } from '../../utils/moveAnimation'
 
@@ -31,7 +31,7 @@ function nonMoveAnimations(anims: ElementAnimation[]) {
 }
 
 export default function TablePanel() {
-  const { getSelectedEls, updateElement, addAnimation } = useEditorStore()
+  const { getSelectedEls, updateElement, addAnimation, addElement, project } = useEditorStore()
   const el = getSelectedEls().find(e => e.type === 'table') as TableElement | undefined
 
   function upd(patch: Partial<TableElement>) {
@@ -58,11 +58,19 @@ export default function TablePanel() {
     <div className="flex flex-col overflow-y-auto flex-1">
       <PanelHeader icon={<Table2 size={12} />} title="Table" />
 
-      {!el && (
-        <p className="text-sm text-[#f2f2f2] px-3 py-3">
-          Table tool is selected, please click on the scene first to add <b>Table</b>, then edit it
-        </p>
-      )}
+      {/* Add table button — always visible */}
+      <div className="px-3 py-2 border-b border-editor-border">
+        <button
+          disabled={!project}
+          onClick={() => {
+            if (!project) return
+            addElement(makeCenteredTable(project.width, project.height))
+          }}
+          className="w-full text-xs py-2 text-[#f2f2f2] bg-editor-accent rounded"
+        >
+          + Add Table
+        </button>
+      </div>
 
       {el && (
         <div className="flex flex-col px-1 py-1 gap-0.5">

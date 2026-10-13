@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Shape, Rect, Group, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { ImageElement, SlideDir } from '../../../types/editor'
 import { toFileUrl } from '../../../utils/pathUtils'
-import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
+import { drawPerspectiveWarp, perspectiveHitFunc } from '../../../engine/perspectiveUtils'
 import { buildCssFilter, applyCanvasAdjustments, drawGrain, drawVignette } from '../../../engine/imageFilters'
 import { drawBoxShadow } from '../../../engine/boxShadow'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
 import { drawMediaWithEffects, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
+import { decodeGif, getGifFrameAtTime, type GifData } from '../../../engine/gifDecoder'
+
+// ── Draw-function factories ──────────────────────────────────────────────────
 
 function makeImageDrawFns(img: HTMLImageElement, el: ImageElement): MediaDrawFns {
   const cropX = (el.crop?.x ?? 0) * img.naturalWidth
@@ -27,6 +30,28 @@ function makeImageDrawFns(img: HTMLImageElement, el: ImageElement): MediaDrawFns
   }
 }
 
+function makeGifDrawFns(frameCanvas: HTMLCanvasElement, el: ImageElement): MediaDrawFns {
+  const fw = frameCanvas.width
+  const fh = frameCanvas.height
+  const cropX = (el.crop?.x ?? 0) * fw
+  const cropY = (el.crop?.y ?? 0) * fh
+  const cropW = (el.crop?.w ?? 1) * fw
+  const cropH = (el.crop?.h ?? 1) * fh
+
+  return {
+    drawBase: (ctx, dx = 0, dy = 0, dw = el.width, dh = el.height) => {
+      ctx.drawImage(frameCanvas, cropX, cropY, cropW, cropH, dx, dy, dw, dh)
+    },
+    drawSlice: (ctx, sourceY, sourceH, destX, destY, destW, destH) => {
+      const sy = cropY + (sourceY / el.height) * cropH
+      const sh = (sourceH / el.height) * cropH
+      ctx.drawImage(frameCanvas, cropX, sy, cropW, sh, destX, destY, destW, destH)
+    },
+  }
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
 interface Props {
   el: ImageElement
   konvaProps: Record<string, unknown>
@@ -39,44 +64,107 @@ interface Props {
 export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgress = 1, wipeDir, localTime = 0 }: Props) {
   const shapeRef = useRef<Konva.Shape | null>(null)
   const [img, setImg] = useState<HTMLImageElement | null>(null)
+  const [gifData, setGifData] = useState<GifData | null>(null)
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [offscreen, setOffscreen] = useState<HTMLCanvasElement | null>(null)
   const isGif = /\.gif(?:$|[?#])/i.test(el.src)
   const dynamicPerspective = isGif || mediaEffectRequiresAnimation(el)
 
+  // Track wall-clock start time for live GIF playback (when localTime isn't advancing)
+  const gifStartRef = useRef<number>(0)
+
+  // ── Load image or GIF frames ───────────────────────────────────────────────
   useEffect(() => {
     setLoading(true)
     setError(false)
+    setGifData(null)
+    setImg(null)
 
-    const image = new window.Image()
+    if (isGif) {
+      // Show the browser-decoded first frame immediately while the frame-accurate
+      // decoder prepares the canvas frames used by preview and export.
+      let cancelled = false
+      const image = new window.Image()
+      image.onload = () => {
+        if (cancelled) return
+        setImg(image)
+        setLoading(false)
+      }
+      image.onerror = () => {
+        if (cancelled) return
+        setError(true)
+        setLoading(false)
+      }
+      image.src = toFileUrl(el.src)
 
-    image.onload = () => {
-      console.log('[ImageKonva] Image loaded successfully:', el.src)
-      setImg(image)
-      setError(false)
-      setLoading(false)
+      decodeGif(el.src)
+        .then(data => {
+          if (cancelled) return
+          console.log(`[ImageKonva] GIF decoded: ${data.frames.length} frames, ${data.totalDuration}ms total`, el.src)
+          setGifData(data)
+          gifStartRef.current = performance.now()
+          setError(false)
+          setLoading(false)
+        })
+        .catch(err => {
+          if (cancelled) return
+          console.error('[ImageKonva] Failed to decode GIF:', el.src, err)
+          // Keep the native animated image usable if frame decoding fails.
+          const nativeImageReady = image.complete && image.naturalWidth > 0
+          setError(!nativeImageReady)
+          setLoading(!nativeImageReady)
+        })
+      return () => {
+        cancelled = true
+        image.onload = null
+        image.onerror = null
+      }
+    } else {
+      // Standard image loading
+      const image = new window.Image()
+      image.onload = () => {
+        console.log('[ImageKonva] Image loaded successfully:', el.src)
+        setImg(image)
+        setError(false)
+        setLoading(false)
+      }
+      image.onerror = (e) => {
+        console.error('[ImageKonva] Failed to load image:', el.src, e)
+        setError(true)
+        setLoading(false)
+      }
+      const imageUrl = toFileUrl(el.src)
+      image.src = imageUrl
+      console.log('[ImageKonva] Loading image from:', imageUrl)
+      return () => {
+        image.onload = null
+        image.onerror = null
+      }
     }
+  }, [el.src, isGif])
 
-    image.onerror = (e) => {
-      console.error('[ImageKonva] Failed to load image:', el.src, e)
-      setError(true)
-      setLoading(false)
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  /** Get the current GIF frame canvas based on localTime. */
+  const getGifFrame = useCallback((): HTMLCanvasElement | null => {
+    if (!gifData) return null
+    // Use localTime (scene-local seconds) converted to milliseconds
+    return getGifFrameAtTime(gifData, localTime * 1000)
+  }, [gifData, localTime])
+
+  /** Get draw functions for the current source (GIF frame or static image). */
+  const getCurrentDrawFns = useCallback((): MediaDrawFns | null => {
+    if (isGif) {
+      const frame = getGifFrame()
+      return frame ? makeGifDrawFns(frame, el) : null
     }
-
-    const imageUrl = toFileUrl(el.src)
-    image.src = imageUrl
-
-    console.log('[ImageKonva] Loading image from:', imageUrl)
-
-    return () => {
-      image.onload = null
-      image.onerror = null
-    }
-  }, [el.src])
+    return img ? makeImageDrawFns(img, el) : null
+  }, [isGif, getGifFrame, img, el])
 
   function buildPerspectiveSource() {
-    if (!img) return null
+    const fns = getCurrentDrawFns()
+    if (!fns) return null
     const canvas = document.createElement('canvas')
     canvas.width = el.width; canvas.height = el.height
     const ctx = canvas.getContext('2d')!
@@ -87,7 +175,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
       ctx.arcTo(0,H,0,0,r); ctx.arcTo(0,0,W,0,r); ctx.closePath(); ctx.clip()
     }
     ctx.filter = buildCssFilter(el) || 'none'
-    drawMediaWithEffects(ctx, el, el.width, el.height, localTime, makeImageDrawFns(img, el))
+    drawMediaWithEffects(ctx, el, el.width, el.height, localTime, fns)
     if (el.glass) { ctx.filter = 'none'; ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(0,0,el.width,el.height) }
     applyCanvasAdjustments(ctx, el)
     drawGrain(ctx, el)
@@ -96,10 +184,11 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     return canvas
   }
 
-  // Animated GIFs advance internally; keep the Konva layer redrawing so the
-  // current frame is sampled instead of freezing on the first drawn frame.
+  // Animated GIFs and media effects need continuous redraws
   useEffect(() => {
-    if ((!isGif && !mediaEffectRequiresAnimation(el)) || !img || error) return
+    const hasGif = isGif && (gifData || img) && !error
+    const hasMediaEffect = mediaEffectRequiresAnimation(el) && img && !error
+    if (!hasGif && !hasMediaEffect) return
     let raf = 0
     const tick = () => {
       shapeRef.current?.getLayer()?.batchDraw()
@@ -108,18 +197,19 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [
-    isGif, img, error,
+    isGif, gifData, img, error,
     el.mediaEffects, el.mediaEffect, el.mediaEffectIntensity, el.mediaEffectSpeed, el.mediaEffectHardness,
     el.mediaEffectDirection, el.mediaEffectBlend, el.mediaEffectColor,
   ])
 
   // Build offscreen canvas for perspective warp. GIFs stay dynamic and rebuild
-  // from the live image frame during each draw.
+  // from the live frame during each draw.
   useEffect(() => {
-    if (!el.perspectivePts || !img || dynamicPerspective) { setOffscreen(null); return }
+    const hasSource = isGif ? !!(gifData || img) : !!img
+    if (!el.perspectivePts || !hasSource || dynamicPerspective) { setOffscreen(null); return }
     setOffscreen(buildPerspectiveSource())
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [img, el.width, el.height, el.cornerRadius, el.crop,
+  }, [img, gifData, el.width, el.height, el.cornerRadius, el.crop,
       el.brightness, el.contrast, el.saturation, el.hueRotate, el.blur, el.glass,
       el.exposure, el.highlights, el.shadows, el.whites, el.blacks,
       el.temperature, el.tint, el.vibrance, el.vignetteEnabled, el.vignetteColor,
@@ -129,17 +219,18 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
       el.mediaEffectHardness, el.mediaEffectBlend, el.mediaEffectSize,
       !!el.perspectivePts, dynamicPerspective])
 
+  // ── Determine if we have a renderable source ──────────────────────────────
+  const hasSource = isGif ? !!(gifData || img) : !!img
+
   // Perspective warp rendering
-  if (el.perspectivePts && (offscreen || (dynamicPerspective && img))) {
+  if (el.perspectivePts && (offscreen || (dynamicPerspective && hasSource))) {
     return (
       <Shape
         ref={shapeRef}
         {...konvaProps}
         width={el.width}
         height={el.height}
-        hitFunc={(ctx, shape) => {
-          ctx.beginPath(); ctx.rect(0, 0, el.width, el.height); ctx.closePath(); ctx.fillStrokeShape(shape)
-        }}
+        hitFunc={perspectiveHitFunc(el.perspectivePts!)}
         sceneFunc={(ctx, _shape) => {
           const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
           drawBoxShadow(raw, el.boxShadow, el.width, el.height, el.cornerRadius)
@@ -176,7 +267,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     )
   }
 
-  if (error || !img) {
+  if (error || !hasSource) {
     return (
       <Group {...konvaProps}>
         <Rect
@@ -251,8 +342,12 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
           raw.clip()
         }
 
-        raw.filter = buildCssFilter(el) || 'none'
-        drawMediaWithEffects(raw, el, el.width, el.height, localTime, makeImageDrawFns(img, el))
+        // Get draw functions for the current source
+        const fns = getCurrentDrawFns()
+        if (fns) {
+          raw.filter = buildCssFilter(el) || 'none'
+          drawMediaWithEffects(raw, el, el.width, el.height, localTime, fns)
+        }
         if (el.glass) {
           raw.filter = 'none'
           raw.fillStyle = 'rgba(255,255,255,0.18)'

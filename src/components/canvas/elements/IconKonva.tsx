@@ -3,7 +3,7 @@ import { Image as KonvaImage, Shape } from 'react-konva'
 import type Konva from 'konva'
 import type { IconElement, SlideDir } from '../../../types/editor'
 import { buildIconSvg, svgToDataUrl } from '../../../engine/iconData'
-import { drawPerspectiveWarp } from '../../../engine/perspectiveUtils'
+import { drawPerspectiveWarp, perspectiveHitFunc } from '../../../engine/perspectiveUtils'
 
 interface Props {
   el: IconElement
@@ -58,9 +58,7 @@ export default function IconKonva({ el, konvaProps, textProgress = 1, wipeProgre
         {...konvaProps}
         width={el.width}
         height={el.height}
-        hitFunc={(ctx, shape) => {
-          ctx.beginPath(); ctx.rect(0, 0, el.width, el.height); ctx.closePath(); ctx.fillStrokeShape(shape)
-        }}
+        hitFunc={perspectiveHitFunc(el.perspectivePts!)}
         sceneFunc={(ctx, _shape) => {
           const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
           drawPerspectiveWarp(raw, offscreen, el.perspectivePts!, el.width, el.height)
