@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, BookOpen, LayoutGrid, Sparkles, Image as ImageIcon, Shuffle, Keyboard, Download, Clapperboard, BrainCircuit, Terminal, Volume2, Video } from 'lucide-react'
+import { X, BookOpen, LayoutGrid, Sparkles, Image as ImageIcon, Shuffle, Keyboard, Download, Clapperboard, BrainCircuit, Terminal, Volume2, Video, Rocket, Wand2, Film, Captions } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 
 interface Section {
@@ -56,25 +56,45 @@ const SECTIONS: Section[] = [
     content: (
       <>
         <H>Welcome to Luffy Create</H>
-        <P>Luffy Create is a scene-based animated video editor for technical and educational content. A project is a sequence of <strong>scenes</strong>; each scene has its own background, elements, duration, and entry transition.</P>
+        <P>Luffy Create is a scene-based animated video editor for technical, educational and creator content. A project is a sequence of <strong>scenes</strong>; each scene has its own background, elements, duration, and the transition that leads into it. Audio lives on the project timeline, independent of scenes.</P>
         <H>The interface</H>
         <ul className="list-disc pl-5">
-          <LI><strong>Left sidebar (Menu):</strong> project name, canvas size, undo/redo, preview/export, and all creation tools.</LI>
-          <LI><strong>Canvas (center):</strong> the editing surface. Click to select, drag to move, handles to resize/rotate, double-click code/image/video to edit/crop.</LI>
-          <LI><strong>Right sidebar (Options):</strong> properties for the active tool or selected element.</LI>
-          <LI><strong>Timeline (bottom):</strong> scenes, playhead, playback, audio tracks. Drag its top edge to resize.</LI>
-          <LI><strong>AI Agents (far right):</strong> prepare validated editor commands from natural-language requests.</LI>
+          <LI><strong>Left sidebar (Menu):</strong> project name, canvas size, undo/redo, Preview/Export, and every tool. <strong>Free Cursor</strong> is always first; all other tools are listed alphabetically.</LI>
+          <LI><strong>Canvas (center):</strong> the editing surface. Click to select, drag to move, drag handles to resize, drag the round rotate icon above a selection to rotate, double-click code to edit it or an image/video to crop it.</LI>
+          <LI><strong>Canvas toolbar (top-right):</strong> toggle the grid, toggle the safe area, and clear every animation on the current scene.</LI>
+          <LI><strong>Right sidebar (Options):</strong> properties for the active tool or the selected element.</LI>
+          <LI><strong>Timeline (bottom):</strong> video clips, scenes, transitions, audio clips and the playhead. Drag its top edge to make it taller.</LI>
+          <LI><strong>AI Agents (far right):</strong> turn natural-language requests into validated editor commands.</LI>
         </ul>
         <H>Quick start</H>
         <ul className="list-disc pl-5">
-          <LI>Pick a canvas size, set a background.</LI>
-          <LI>Add elements (text, shapes, code, images, video…).</LI>
-          <LI>Select an element and add enter / loop / exit animations.</LI>
-          <LI>Preview, then Export to MP4 or an image.</LI>
+          <LI>Pick a canvas size and set a background.</LI>
+          <LI>Click Text, Arrow or Table in the menu — the element appears on the scene immediately with its properties open. Use the other tools to add shapes, code, images, video and more.</LI>
+          <LI>Select an element and add enter / loop / exit animations, motion or media effects.</LI>
+          <LI>Add scenes, set transitions, place audio, then Preview and Export to MP4 or an image.</LI>
         </ul>
         <H>How to think while editing</H>
-        <P>Build each scene in layers: background first, then media, then shapes and charts, then text and icons. After the visual layout feels right, use the right Options panel to refine every selected item. Most creative control in Luffy Create lives in those property panels: size, color, opacity, shadows, borders, crop, perspective, timing, and animation settings.</P>
-        <P>The timeline is not just for playback. It is where you control scene duration, clip placement, audio timing, transitions, and the order of the story. Use preview often, make small adjustments, then export when the rhythm feels clean.</P>
+        <P>Build each scene in layers: background first, then media, then shapes and charts, then text and icons. After the layout feels right, refine every selected item in the right Options panel — size, color, opacity, shadows, borders, crop, perspective, timing and animation all live there.</P>
+        <P>The timeline is not just for playback. It is where you control scene duration, clip placement, audio timing, transitions and the order of the story. Preview often, make small adjustments, then export when the rhythm feels clean.</P>
+      </>
+    ),
+  },
+  {
+    id: 'whats-new', title: "What's New in 1.4", icon: <Rocket size={15} />,
+    content: (
+      <>
+        <ul className="list-disc pl-5">
+          <LI><strong>Real Morph transition</strong> — objects that exist in both scenes glide, resize and change color into their new place. See Transitions.</LI>
+          <LI><strong>Media effects</strong> for images and video — stackable, timed effects such as zoom, light sweep, glitch, rain and snow, plus grain and vignette. See Effects.</LI>
+          <LI><strong>Flash Blur and Flicker Shake</strong> transitions with direction, speed and hardness.</LI>
+          <LI><strong>Bilingual, offline captions</strong> — Hindi transcription, optional offline English↔Hindi translation and bilingual SRT export. See Captions.</LI>
+          <LI><strong>Perspective on every element</strong> except arrows, with true perspective and no seam lines.</LI>
+          <LI><strong>One-click inserts</strong> for Text, Arrow and Table, plus a <strong>Draw Arrow</strong> mode.</LI>
+          <LI><strong>New animations:</strong> Outline Reveal and Bounce Words for text, Color Pulse, and character / line / block typing for code.</LI>
+          <LI><strong>Audio stays put</strong> when you split, resize, reorder, duplicate or delete scenes, and the waveform now shows true peaks.</LI>
+          <LI><strong>Smooth cuts</strong> on split or trimmed video in the editor, Preview and export.</LI>
+          <LI>Layer ordering shortcuts and right-click commands, a redesigned rotate handle, and alphabetical menu tools.</LI>
+        </ul>
       </>
     ),
   },
@@ -82,26 +102,41 @@ const SECTIONS: Section[] = [
     id: 'tools', title: 'Tools & Elements', icon: <LayoutGrid size={15} />,
     content: (
       <>
-        <H>Creation tools</H>
+        <H>Tools</H>
         <Table head={['Tool', 'What it does']} rows={[
-          ['Text', 'Add text. Font, size, weight, color, alignment, stretch, stroke, shadow, background box, effects.'],
-          ['Shapes', 'Rect, circle, polygons, star, diamond, speech bubbles, 3D cube/cone, hand-drawn + sketch box, heart.'],
-          ['Arrow', 'Lines/arrows with heads, dashes, curve. Drag endpoints on canvas.'],
-          ['Code', 'Monaco editor; 15 languages, syntax highlighting, line numbers.'],
-          ['LaTeX', 'Render equations as vector graphics; color + size; full animations.'],
-          ['Table', 'Editable grid; rows/cols, colors, borders, header.'],
-          ['Charts', 'Bar, line, area, pie, doughnut; editable data + styling.'],
-          ['Icons', 'Searchable Lucide icon library; color + stroke width.'],
-          ['Images', 'Upload PNG/JPG/WebP; adjustments, crop, perspective.'],
-          ['Video', 'Upload MP4/WebM; volume, speed, loop, crop, adjustments.'],
-          ['Audio', 'Background / voiceover tracks; trim, fade, speed, markers.'],
-          ['Perspective', 'Warp an image/shape into any quadrilateral.'],
+          ['Free Cursor', 'Back to plain selection: clears the active tool, deselects and closes the Options panel.'],
+          ['Arrow', 'Click to add an arrow in the scene center. In its panel, “+ Add Arrow” adds another; “Draw Arrow” lets you drag one on the canvas (crosshair cursor, Esc cancels). Heads, dashes, curve, bends, colors.'],
+          ['Audio', 'Upload music, voiceover and sound effects; add them to the timeline or drag them onto the audio track.'],
+          ['Background', 'Solid, gradient, grid, dots, animated, transparent or image background for the current scene.'],
+          ['Charts', 'Bar, line, area, points, pie and doughnut charts with editable data, axes and styling.'],
+          ['Code', 'Monaco code editor with syntax highlighting, line numbers and typing animations.'],
+          ['Counter', 'Animated counter that counts as numbers, English words or Hindi words, with range, speed, loop and text styling.'],
+          ['Effects', 'Timed media effects, grain and vignette for the selected image or video.'],
+          ['Hand Draw', 'Freehand drawing with Pen, Paint, Spray and Eraser.'],
+          ['Icons', 'Searchable icon library; color and stroke width.'],
+          ['Images', 'Upload PNG/JPG/WebP/GIF; crop, adjustments, borders, shadows, perspective, effects.'],
+          ['LaTeX', 'Equations rendered as crisp graphics; color, size, animations.'],
+          ['Layers', 'All elements of the scene: show/hide, lock, bring forward/back, delete, Shift+drag to reorder.'],
+          ['Motion', 'Move an element along a direction or to coordinates, or Zoom In / Zoom Out toward a corner or the center.'],
+          ['Perspective', 'Tilt, skew and corner-warp any visual element except arrows.'],
+          ['Python Sandbox', 'Generate charts and math animations with Python (Matplotlib, Manim).'],
+          ['Shapes', 'Rectangle, circle, oval, polygons, star, diamond, heart, speech bubbles, 3D cube/cone, hand-drawn and sketch boxes.'],
+          ['Subtitle', 'Automatic captions, caption styles and translation.'],
+          ['Table', 'Click to add a table in the scene center; edit rows, columns, cells, colors, borders, header.'],
+          ['Text', 'Click to add a text box in the scene center; “+ Add Text” in its panel adds more. Fonts, gradient fill, stroke, shadow, background box, Glow and Hollow effects.'],
+          ['Transitions', 'Choose how the current scene enters from the previous one.'],
+          ['User Guide', 'This guide — available even before a project is open.'],
+          ['Video', 'Upload MP4/WebM/MOV; trim, speed, volume, loop, crop, color grading, effects.'],
         ]} />
         <H>Editing an element</H>
-        <P>Select it, then use the right Options panel. Move with the mouse or arrow keys: <Kbd>Arrow</Kbd> nudges, <Kbd>Shift</Kbd> faster, <Kbd>Ctrl</Kbd> fastest. Right-click for Copy, Duplicate, Center Horizontally/Vertically, and Delete.</P>
+        <P>Select it, then use the right Options panel. Nudge with the arrow keys: <Kbd>Arrow</Kbd> moves 12 px, <Kbd>Shift</Kbd> 40 px, <Kbd>Ctrl</Kbd> 100 px. Rotate with the round rotate icon above the selection; it snaps to 45° angles when you get close.</P>
+        <P>Right-click an element for Copy, Duplicate, Bring Forward, Send Backward, Bring to Front, Send to Back, Center Horizontally, Center Vertically and Delete. Images also offer Set Background (Cover / Fill).</P>
+        <P>Pasting into the same scene offsets the copy by 20 px. Pasting into a different scene keeps the exact position and links the copy to the original, so a Morph transition between those scenes moves it.</P>
+        <H>Perspective</H>
+        <P>Open Perspective with an element selected. Use X-Axis Tilt, Y-Axis Tilt, Skew X, Skew Y and Depth for quick results, or drag the orange corner handles and red edge handles on the canvas for full control. Corner fields set exact positions in the element's own pixels. Reset removes the warp. Perspective is true perspective: straight lines stay straight, text keeps all its styling, and the click area follows the warped shape.</P>
         <H>Property panels are the power layer</H>
-        <P>Every element has a different set of controls. Text can use fonts, gradient fills, text backgrounds, shadows, outlines, and multiple animations. Shapes can use solid or gradient fills, borders, shadows, inner shadows, perspective, and animated borders. Images and videos can be cropped, rounded, color-adjusted, bordered, shadowed, and warped. Spend time experimenting with these controls because small property changes often create the difference between a rough slide and a polished video frame.</P>
-        <P>When a scene feels crowded, use the Layers panel to rename items, hide experiments, lock finished objects, and reorder what appears above or below. Keeping layers organized makes complex scenes easier to edit later.</P>
+        <P>Every element has its own controls. Text can use fonts, gradient fills, text backgrounds, shadows, outlines, effects and several animations. Shapes can use solid or gradient fills, borders, shadows, inner shadows, perspective and animated borders. Images and videos can be cropped, rounded, color-adjusted, bordered, shadowed, warped and given media effects. Small property changes often make the difference between a rough slide and a polished frame.</P>
+        <P>When a scene feels crowded, use the Layers panel to hide experiments, lock finished objects and reorder what appears above or below.</P>
       </>
     ),
   },
@@ -109,18 +144,41 @@ const SECTIONS: Section[] = [
     id: 'animations', title: 'Animations', icon: <Sparkles size={15} />,
     content: (
       <>
-        <P>Every element has three animation slots. Add as many as you like per slot; configure type, start, duration, delay, easing, and (where relevant) direction/distance.</P>
+        <P>Every element has three animation slots. Add as many as you like per slot and set type, start, duration, delay, easing and, where relevant, direction and distance. Click a slider's value to type an exact number.</P>
         <H>1 · On Enter</H>
-        <P>Plays once when the element appears: Fade In, Slide In, Scale In, Wipe In, Spin, plus text-only Typewriter (chars/words).</P>
+        <P>Plays once when the element appears: Fade In, Slide In, Scale In, Wipe In. Text adds Typewriter (chars / words), Bounce Words and Outline Reveal In. Shapes add Spin In. Arrows use Draw On, Direction Slide and Zoom In. Code adds Character typing, Line typing and Block reveal.</P>
         <H>2 · Loop</H>
-        <P>Repeats continuously while the element is visible: Pulse, Bounce, Rotate, Fade Loop, and Flow (marching-dash border on shapes/arrows).</P>
+        <P>Repeats while the element is visible, after its enter animations finish: Pulse, Bounce, Rotate, Fade Loop. Text adds Color Pulse; shapes and arrows add Flow (marching dashes).</P>
         <H>3 · On Exit</H>
-        <P>Plays once as the element leaves: Fade Out, Slide Out, Scale Out, Wipe Out (and Draw Off for arrows).</P>
+        <P>Plays once as the element leaves: Fade Out, Slide Out, Scale Out, Wipe Out. Text adds Outline Reveal Out; arrows use Draw Off and Zoom Out.</P>
+        <H>Motion</H>
+        <P>The Motion tool adds movement that is not an entrance or exit: <strong>Move</strong> slides an element by direction or to exact center coordinates (it can travel outside the scene), and <strong>Zoom In / Zoom Out</strong> scale toward the center or a corner.</P>
         <H>Easing</H>
-        <P>Linear, Ease In, Ease Out, Ease In-Out, Bounce — controls the acceleration of the motion.</P>
+        <P>Linear, Ease In, Ease Out, Ease In-Out and Bounce control the acceleration of the motion.</P>
         <H>Combining animations</H>
-        <P>Use On Enter for how an element arrives, Loop for what it does while visible, and On Exit for how it leaves. A useful pattern is Fade In plus a gentle Pulse loop for emphasis, or Scale In plus Typewriter for text that feels more alive. Keep durations short for UI-like motion, and use longer durations for educational reveals where the viewer needs time to follow the idea.</P>
-        <P>Tip: clear every animation on the current slide with the eraser button on the canvas toolbar (top-right). When an animation feels wrong, adjust duration, delay, easing, and direction before replacing the whole effect.</P>
+        <P>Use On Enter for how an element arrives, Loop for what it does while visible, and On Exit for how it leaves. Fade In plus a gentle Pulse works well for emphasis; Outline Reveal suits titles; code typing suits walkthroughs. Keep durations short for UI-like motion and longer for educational reveals.</P>
+        <P>Tip: clear every animation on the current scene with the eraser button on the canvas toolbar.</P>
+      </>
+    ),
+  },
+  {
+    id: 'effects', title: 'Effects', icon: <Wand2 size={15} />,
+    content: (
+      <>
+        <P>Select an image or video and open <strong>Effects</strong>. Effects are cards you can stack; each one runs between its own <strong>Start At</strong> and <strong>End At</strong> times (in seconds from the scene start).</P>
+        <Table head={['Effect', 'What it does']} rows={[
+          ['Subtle Hover / Wiggle / Doodle Drift', 'Gentle floating or hand-made movement.'],
+          ['Shake / Vibration Distort', 'Camera shake and vibrating distortion.'],
+          ['Zoom In / Zoom Out', 'Slow zoom toward the center or a chosen corner.'],
+          ['God Rays / Light Sweep / Light Flicker', 'Light beams, a sweeping highlight, or flickering light.'],
+          ['Glitch', 'Digital glitch bursts.'],
+          ['Rain / Snow', 'Weather particles over the media.'],
+        ]} />
+        <P>Depending on the effect, a card offers Intensity, Speed, Direction, Color and Color Opacity, Zoom Position, and a Target: Whole Media, Center Subject, or Manual Focus with Focus X / Focus Y.</P>
+        <H>Grain and vignette</H>
+        <P>Grain adds film texture (color, size, hardness). Vignette darkens or tints the edges (color, size, fade, hardness). Both work on images and videos.</P>
+        <H>Video-only looks</H>
+        <P>The Video panel also has color grading presets, legacy video effects and frame shapes (circle, triangle).</P>
       </>
     ),
   },
@@ -131,16 +189,15 @@ const SECTIONS: Section[] = [
         <P>Set per scene from the Background tool.</P>
         <Table head={['Type', 'Controls']} rows={[
           ['Solid', 'Single color.'],
-          ['Gradient', 'Linear / radial / conic, from–via–to colors, angle, stops.'],
-          ['Grid', 'Background + line color, cell size.'],
-          ['Dots', 'Background + dot color, spacing, radius.'],
-          ['Animated', 'Gradient Flow, Gradient Shift, Conic Rotate, Aurora, Wave — two colors + speed.'],
-          ['Transparent', 'Checkerboard in the editor; real alpha in PNG/WebP export (MP4 has no alpha).'],
-          ['Image', 'Right-click an image element → Set Background (cover/fill).'],
+          ['Gradient', 'Linear / radial / conic, from–middle–to colors, angle, start and end stops.'],
+          ['Grid', 'Background and line color, cell size.'],
+          ['Dots', 'Background and dot color, spacing, radius.'],
+          ['Animated', 'Gradient Flow, Gradient Shift, Three Color Drift, Grainy Sand Gradient, Conic Rotate, Aurora, Wave — colors and speed.'],
+          ['Transparent', 'Checkerboard in the editor; real transparency in PNG/WebP export (MP4 has no alpha).'],
+          ['Image', 'Right-click an image → Set Background (Cover / Fill), then adjust fit, opacity, blur, glass and color.'],
         ]} />
         <H>Design tips</H>
-        <P>Use quiet backgrounds when the scene contains important text, code, charts, or UI screenshots. Strong gradients and animated backgrounds work best behind short titles, logos, or simple hero scenes. If the foreground is visually busy, reduce background contrast or add blur so the viewer's eye stays on the message.</P>
-        <P>Animated gradients can make an intro feel modern, but keep the speed subtle for longer explanations. For transparent exports, use PNG or WebP because MP4 does not preserve alpha.</P>
+        <P>Use quiet backgrounds when the scene contains important text, code, charts or screenshots. Strong gradients and animated backgrounds work best behind short titles or simple hero scenes. If the foreground is busy, lower the background contrast or add blur.</P>
       </>
     ),
   },
@@ -148,18 +205,53 @@ const SECTIONS: Section[] = [
     id: 'transitions', title: 'Transitions', icon: <Shuffle size={15} />,
     content: (
       <>
-        <P>A transition plays at the <strong>start</strong> of a scene (from the previous scene into it). Set it in the Transitions tool, or right-click a scene in the timeline → Edit Transition.</P>
+        <P>A transition plays at the <strong>start</strong> of a scene, leading in from the previous scene. Set it in the Transitions tool, or right-click a scene in the timeline → Edit Transition. Duration is 0.1–2 seconds.</P>
         <Table head={['Transition', 'Effect']} rows={[
+          ['None', 'Hard cut.'],
           ['Fade', 'Cross-fade from the previous scene.'],
-          ['Slide', 'New scene slides in from an edge (direction).'],
-          ['Push', 'New scene pushes the old one out (direction).'],
-          ['Zoom', 'Zoom in from center.'],
-          ['Wipe', 'Curtain reveal (direction).'],
-          ['Morph', 'Smooth scale + drift blend (direction).'],
+          ['Push', 'The new scene pushes the old one out (direction).'],
+          ['Zoom', 'The new scene eases in with a gentle zoom.'],
+          ['Wipe', 'A soft-edged reveal (direction).'],
+          ['Morph', 'Matching objects move, resize and recolor into their new place.'],
+          ['Flash Blur', 'A directional blur through a white flash (direction, speed, hardness).'],
+          ['Flicker Shake', 'Rapid flicker between the scenes with a shake (direction, speed, hardness).'],
         ]} />
-        <P>Each transition type has a fixed color shown on its timeline block for quick recognition.</P>
+        <H>Using Morph</H>
+        <P>Morph works like PowerPoint Morph. Duplicate a scene (or copy elements into the next scene), then move, resize or recolor things in the copy and give the copy a Morph transition. Objects are matched across the two scenes — copies are linked automatically, and otherwise elements of the same type with the same content (same text, image or shape type) are paired. Unmatched objects fade out or in. If matched text changes its wording, the old and new text cross-fade while the box moves.</P>
+        <P>Morph plays in timeline playback, Preview and export. While paused, the editor shows the real scene so it stays editable.</P>
         <H>When to use transitions</H>
-        <P>Use transitions to separate ideas, not to decorate every cut. Fade works well for calm narration, Push and Slide are useful for step-by-step movement, Wipe can reveal before/after comparisons, and Morph gives a smoother feeling when two scenes share similar layout. Keep transition durations short unless the transition itself is part of the explanation.</P>
+        <P>Use transitions to separate ideas, not to decorate every cut. Fade suits calm narration, Push suits step-by-step movement, Wipe reveals before/after comparisons, Morph explains change, and Flash Blur / Flicker Shake give energetic social-style cuts. Each transition has a fixed color on its timeline marker.</P>
+      </>
+    ),
+  },
+  {
+    id: 'timeline', title: 'Timeline & Scenes', icon: <Film size={15} />,
+    content: (
+      <>
+        <H>Scenes</H>
+        <ul className="list-disc pl-5">
+          <LI><strong>+ Scene</strong> adds a scene at the end. Click a scene block to make it active.</LI>
+          <LI>Drag a scene's left or right edge to change its duration. <Kbd>Shift</Kbd> + drag a scene to reorder it.</LI>
+          <LI>Right-click a scene: Edit Transition, Split at the clicked time, Add scene after, Duplicate, Delete.</LI>
+          <LI><strong>Split</strong> cuts the scene in two: video clips are split at that point and the second half continues smoothly as a hard cut. Audio is not cut.</LI>
+          <LI><strong>Duplicate</strong> copies the scene's visual elements (not its audio) and links them for Morph.</LI>
+        </ul>
+        <H>Audio is independent of scenes</H>
+        <P>Audio clips keep their place on the project timeline when you split, resize, reorder, duplicate or delete scenes. To cut audio, use the clip's own Split.</P>
+        <H>Audio clips</H>
+        <ul className="list-disc pl-5">
+          <LI>Drag a clip to move it, or drag its edges to trim. Drag an audio file from the Audio panel onto the audio track to place it at that time.</LI>
+          <LI>Right-click a clip: Duplicate, Trim after, Trim before, Split here, Add mark, Delete. Click a green marker dot to remove it.</LI>
+          <LI><Kbd>Shift</Kbd> + click a clip to move it to another lane.</LI>
+          <LI>The waveform shows true peaks: a flat line is real silence, and any bump is sound.</LI>
+        </ul>
+        <H>Video clips</H>
+        <ul className="list-disc pl-5">
+          <LI>Video clips sit on the track above the scenes. Drag to move within the scene, drag edges to trim.</LI>
+          <LI>Right-click: Duplicate, Trim after, Trim before, Split here, Delete. With a clip selected, the timeline bar shows volume, speed, Trim (cut at the playhead) and Split at the playhead.</LI>
+        </ul>
+        <H>Navigating</H>
+        <P>Click or drag on the ruler to move the playhead; right-click empty timeline space → Set playhead. Positions snap to 0.1 s. Zoom with the zoom buttons or <Kbd>Ctrl</Kbd> + <Kbd>+</Kbd> / <Kbd>−</Kbd>.</P>
       </>
     ),
   },
@@ -168,22 +260,21 @@ const SECTIONS: Section[] = [
     content: (
       <>
         <H>Adding audio</H>
-        <P>Open the Audio tool, upload MP3, WAV, OGG, AAC, or M4A files, then add them to the timeline. Audio clips appear below scenes and can be moved, trimmed, split, and arranged into lanes. Use background tracks for music and voiceover tracks for narration so your timeline stays readable.</P>
+        <P>Open the Audio tool, upload MP3, WAV, OGG, AAC or M4A files, then add them to the timeline or drag them onto the audio track. Use separate lanes for music and narration so the timeline stays readable.</P>
         <H>Core controls</H>
         <Table head={['Control', 'How to use it']} rows={[
-          ['Volume', 'Set the base loudness. Use up to boosted values when a clip is quiet, then balance it against narration.'],
-          ['Start Time', 'Trim from the beginning of the source file without editing the original file.'],
-          ['Duration', 'Control how long the clip plays on the timeline.'],
-          ['Playback Speed', 'Speed up or slow down audio when timing needs to match the scene.'],
-          ['Fade In / Fade Out', 'Smoothly enter or leave music, ambience, and voice clips.'],
-          ['Fade Volume', 'Choose the target fade level, useful for ducking music under speech.'],
-          ['Loop', 'Repeat a sound bed to fill a longer scene.'],
-          ['Markers', 'Place timing marks for beats, voice cues, and edit points.'],
+          ['Volume', 'Base loudness, including boosted values for quiet clips.'],
+          ['Start Time', 'Trim from the beginning of the source file without changing the file.'],
+          ['Duration', 'How long the clip plays on the timeline.'],
+          ['Playback Speed', 'Speed audio up or down to match the scene.'],
+          ['Fade In / Fade Out', 'Smoothly enter or leave music, ambience and voice.'],
+          ['Fade Volume', 'Target fade level — useful for ducking music under speech.'],
+          ['Markers', 'Timing marks for beats, voice cues and edit points.'],
         ]} />
         <H>Audio effects</H>
-        <P>The audio properties panel includes voice, pitch, bass, and saturation controls. Use them carefully: small changes can make a voice clearer or a sound effect more present, while large changes create stylized results. For launch demos, keep voiceover clean, lower the music under speech, and use short sound effects only where they support the visual beat.</P>
+        <P>Voice, pitch, bass and saturation. Pitch changes the tone without changing timing, so pitched clips stay in sync with the timeline. The editor preview of pitch is an approximation; the exported MP4 uses the full-quality version.</P>
         <H>Timeline workflow</H>
-        <P>Scrub the playhead while watching the canvas. Align key visual moments to audio markers, scene starts, or short pauses in the narration. If a clip starts on the wrong scene, move or split it in the timeline and verify the scene duration still matches your voiceover.</P>
+        <P>Scrub the playhead while watching the canvas. Align key visual moments to audio markers, scene starts or pauses in the narration. Because audio stays put when scenes change, you can rearrange scenes freely and then nudge clips only where needed.</P>
       </>
     ),
   },
@@ -192,22 +283,45 @@ const SECTIONS: Section[] = [
     content: (
       <>
         <H>Adding video</H>
-        <P>Open the Video tool, upload MP4, WebM, or MOV files, then place the clip on the canvas. A video element behaves like a visual layer: move it, resize it, crop it, round its corners, apply borders and shadows, adjust its colors, and animate it like other elements.</P>
+        <P>Open the Video tool, upload MP4, WebM or MOV files, then place the clip on the canvas. A video element behaves like a visual layer: move, resize, crop, round its corners, add borders and shadows, adjust colors, apply effects, and animate it.</P>
         <H>Core controls</H>
         <Table head={['Control', 'How to use it']} rows={[
-          ['Width / Height', 'Set exact size or resize on the canvas. Lock ratio when preserving the source aspect matters.'],
-          ['Timeline Start', 'Place the video inside the scene timeline instead of always starting at 0 seconds.'],
-          ['Start Time', 'Trim into the source video without changing the original file.'],
-          ['Duration', 'Control how much of the clip plays in the scene.'],
-          ['Volume / Muted', 'Keep original audio, lower it under narration, or mute it entirely.'],
-          ['Playback Speed', 'Use slow motion for detail or faster playback for quick context.'],
-          ['Loop', 'Repeat short clips, GIF-like loops, and background motion.'],
-          ['Crop', 'Focus on the important area of a recording or remove unwanted edges.'],
+          ['Width / Height', 'Exact size, or resize on the canvas. Lock ratio to keep the source aspect.'],
+          ['Timeline Start', 'Where the clip starts inside the scene.'],
+          ['Start Time', 'Trim into the source video without changing the file.'],
+          ['Duration', 'How much of the clip plays in the scene.'],
+          ['Volume / Muted', 'Keep, lower or mute the original audio.'],
+          ['Playback Speed', 'Slow motion for detail or faster playback for context.'],
+          ['Loop', 'Repeat short clips and background motion.'],
+          ['Crop', 'Double-click the video, adjust the frame, press Enter to apply or Escape to cancel.'],
         ]} />
-        <H>Styling and visual control</H>
-        <P>Videos support many of the same controls as images: brightness, contrast, saturation, blur, temperature, tint, vibrance, crop, perspective, corner radius, border, gradient border, animated border, box shadow, and inner shadow. This means a raw screen recording can become a polished visual card, a phone mockup, a floating preview, or an angled product shot directly inside the editor.</P>
-        <H>Creative workflow</H>
-        <P>Use crop first to isolate the important content, then set size and position, then apply color and border styling. If a video sits behind text, reduce contrast or add blur so the text remains readable. For demo scenes, combine a subtle Scale In or Fade In with a clean border and shadow to make the video feel intentionally placed.</P>
+        <H>Cutting video</H>
+        <P>To remove a middle section, split the scene (or the clip) at the start of the unwanted part, split again at its end, and delete the middle. Playback continues smoothly from the new trim point in the editor, Preview and export.</P>
+        <H>Styling</H>
+        <P>Brightness, contrast, saturation, blur, temperature, tint, vibrance, color grading presets, frame shapes, perspective, corner radius, borders (including gradient and animated), box shadow, inner shadow, grain, vignette and timed media effects.</P>
+      </>
+    ),
+  },
+  {
+    id: 'captions', title: 'Captions', icon: <Captions size={15} />,
+    content: (
+      <>
+        <P>Open <strong>Subtitle</strong> from the menu. Captions are generated on your computer — nothing is uploaded.</P>
+        <H>Automatic captions</H>
+        <ul className="list-disc pl-5">
+          <LI>Choose the audio sources to transcribe and the spoken language, or Auto-detect. More than 25 languages are listed, including Hindi.</LI>
+          <LI>Optionally paste the script; it is distributed across the detected speech timings for accurate wording.</LI>
+        </ul>
+        <H>Caption style</H>
+        <P>Font, size, weight, solid or gradient color, width and position. Animations: None, Word Pop, Word Rise, Karaoke Pulse, Smooth Reveal. Looks: Normal, Bulge Warp, Inflate Warp.</P>
+        <H>Translation (English ↔ Hindi)</H>
+        <ul className="list-disc pl-5">
+          <LI>Install the translation model once (Install Model); after that it works fully offline. Remove Model frees the space.</LI>
+          <LI>Show translation adds a second caption line in the other language; style it separately or inherit the main font.</LI>
+          <LI>Add glossary terms so names and technical words are translated the way you want.</LI>
+        </ul>
+        <H>Export</H>
+        <P>Export SRT files: Source, Translated, or Bilingual.</P>
       </>
     ),
   },
@@ -215,26 +329,41 @@ const SECTIONS: Section[] = [
     id: 'shortcuts', title: 'Shortcuts', icon: <Keyboard size={15} />,
     content: (
       <>
+        <P>On macOS use <Kbd>Cmd</Kbd> wherever <Kbd>Ctrl</Kbd> is shown. Shortcuts are ignored while you are typing in a text field.</P>
         <H>Editing</H>
         <Table head={['Action', 'Keys']} rows={[
           ['Undo / Redo', 'Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y)'],
-          ['Copy / Paste', 'Ctrl+C / Ctrl+V'],
-          ['Delete element', 'Delete / Backspace'],
-          ['Deselect / cancel', 'Escape'],
-          ['Move element', 'Arrow keys (Shift = fast, Ctrl = fastest)'],
+          ['Copy / Paste', 'Ctrl+C / Ctrl+V (same scene: 20 px offset; other scene: same position)'],
+          ['Delete selected element', 'Delete / Backspace'],
+          ['Deselect, cancel the active tool or Draw Arrow', 'Escape'],
+          ['Move element', 'Arrow keys — 12 px; Shift 40 px; Ctrl 100 px'],
+        ]} />
+        <H>Layer order</H>
+        <Table head={['Action', 'Keys']} rows={[
+          ['Bring forward', 'Ctrl+Shift+]'],
+          ['Send backward', 'Ctrl+Shift+['],
+          ['Bring to front', 'Ctrl+]'],
+          ['Send to back', 'Ctrl+['],
         ]} />
         <H>Timeline & playback</H>
         <Table head={['Action', 'Keys']} rows={[
           ['Play / Pause', 'Space'],
-          ['Step frame', '← / → (when nothing is selected)'],
+          ['Step one frame', '← / → (when nothing is selected)'],
           ['Jump to start / end', 'Home / End'],
-          ['Zoom timeline', 'Ctrl + / Ctrl − / Ctrl 0'],
-          ['Reorder scene', 'Shift + drag the scene block'],
-          ['Change audio lane', 'Shift + click an audio clip'],
-          ['Crop apply / cancel', 'Enter / Escape'],
+          ['Zoom timeline in / out / reset', 'Ctrl+= (or Ctrl++) / Ctrl+− / Ctrl+0'],
+          ['Delete selected audio or video clip', 'Delete / Backspace'],
+          ['Delete the current scene', 'Delete / Backspace with nothing selected'],
+          ['Reorder a scene', 'Shift + drag the scene block'],
+          ['Change an audio clip’s lane', 'Shift + click the clip'],
         ]} />
-        <H>How to use shortcuts well</H>
-        <P>Use shortcuts while reviewing a scene repeatedly. Space starts and stops playback, arrow keys help with frame-by-frame checks, and copy/paste or duplicate lets you build repeated design patterns quickly. When positioning elements, combine arrow nudging with the Layers panel and center commands from the right-click menu for cleaner alignment.</P>
+        <H>Crop, fields and code</H>
+        <Table head={['Action', 'Keys']} rows={[
+          ['Apply / cancel crop', 'Enter / Escape'],
+          ['Type an exact slider value', 'Click the value, then Enter to apply or Escape to cancel'],
+          ['Rename project', 'Click the name, then Enter to save or Escape to cancel'],
+          ['Code editor', 'Standard editor keys: Ctrl+/ comment, Ctrl+F find, Shift+Alt+F format, Alt+↑/↓ move line'],
+        ]} />
+        <P>Tip: Space, the arrow keys and Home/End make repeated review fast. Combine arrow nudging with the right-click Center commands and the layer shortcuts for clean alignment.</P>
       </>
     ),
   },
@@ -243,14 +372,14 @@ const SECTIONS: Section[] = [
     content: (
       <>
         <H>Video (MP4)</H>
-        <P>Export → Video. Choose 720p or 1080p. Frames are rendered locally with FFmpeg and saved as an MP4. A progress bar shows status; do not interact with the canvas while it renders.</P>
-        <P>Before final export, preview the full project once from the beginning. Check that video clips start on the intended scene, audio fades feel natural, captions are readable, and transitions do not cut off important words or visuals.</P>
+        <P>Export → Video. Choose 720p or 1080p. Frames are rendered locally with FFmpeg, including transitions, effects, captions and all audio, and saved as an MP4. A progress bar shows status; do not interact with the canvas while it renders.</P>
+        <P>Before the final export, preview the whole project once. Check that video clips start on the intended scene, audio fades feel natural, captions are readable, and transitions do not cut off important words or visuals.</P>
         <H>Image (PNG / WebP)</H>
         <P>Export → Image. Pick a scene; the snapshot is taken after enter animations finish. PNG/WebP keep transparency when the scene background is Transparent.</P>
         <H>Notes</H>
         <ul className="list-disc pl-5">
           <LI>Everything runs offline — no account, no upload.</LI>
-          <LI>MP4 can't store transparency (H.264 has no alpha). Use PNG/WebP for transparent stills.</LI>
+          <LI>MP4 cannot store transparency. Use PNG/WebP for transparent stills.</LI>
         </ul>
       </>
     ),

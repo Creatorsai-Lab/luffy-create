@@ -1477,7 +1477,7 @@ export default function EditorCanvas() {
 // ── Transformer rotate handle icon ────────────────────────────────────────────
 
 /** Selection outline color; the rotate icon uses it too. */
-const SELECTION_COLOR = '#db1d1d'
+const SELECTION_COLOR = '#d44747'
 
 function drawRotateIcon(ctx: CanvasRenderingContext2D, size: number) {
   const c = size / 2

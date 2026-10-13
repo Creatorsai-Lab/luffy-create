@@ -98,8 +98,8 @@ Create Matplotlib graphs and Manim math animations, then save or insert outputs.
 
 ## Release notes
 
-- [v1.3.3 Launch Release](release-notes-v1.3.3.md)
-- [v1.3 Feature Release](release-notes-v1.3.md)
+- [Changelog](../CHANGE_LOG.md) — what changed in each version, starting with 1.4.0
+- [All releases and downloads](https://github.com/Creatorsai-Lab/luffy-create/releases)
 
 ---
 
