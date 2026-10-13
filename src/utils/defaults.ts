@@ -224,23 +224,45 @@ export function makeImage(x: number, y: number, src: string, assetId: string, wi
 }
 
 export function makeTable(x: number, y: number): TableElement {
-  const rows = 3, cols = 3
+  const rows = 3, cols = 3, cellWidth = 250, cellHeight = 150
   return {
     id: uuid(), type: 'table', name: 'Table',
-    x, y, width: cols * 150, height: rows * 110,
+    x, y, width: cols * cellWidth, height: rows * cellHeight,
     rotation: 0, opacity: 1, zIndex: 0, locked: false, visible: true,
     animations: [],
     rows, cols,
     cells: Array.from({ length: rows }, (_, r) =>
       Array.from({ length: cols }, (_, c) => r === 0 ? `Header ${c + 1}` : '')
     ),
-    cellWidth: 250, cellHeight: 150,
+    cellWidth, cellHeight,
     borderColor: '#aaaaaa', borderWidth: 1,
     borderRadius: 0,
     cellBorderColor: '#aaaaaa', cellBorderWidth: 1,
     headerBg: '#383838', cellBg: '#6e6e6e',
     textColor: '#d4d4d4', textAlign: 'center', fontSize: 36, showHeader: true
   }
+}
+
+// ── Instant inserts (menu click / panel "+ Add" button), centered on the canvas ──
+
+function centerOnCanvas<T extends { x: number; y: number; width: number; height: number }>(el: T, canvasW: number, canvasH: number): T {
+  el.x = Math.round((canvasW - el.width) / 2)
+  el.y = Math.round((canvasH - el.height) / 2)
+  return el
+}
+
+export function makeCenteredText(canvasW: number, canvasH: number): TextElement {
+  return centerOnCanvas(makeText(0, 0), canvasW, canvasH)
+}
+
+export function makeCenteredArrow(canvasW: number, canvasH: number): ArrowElement {
+  const halfLength = 150
+  const cx = canvasW / 2, cy = canvasH / 2
+  return makeArrow(cx - halfLength, cy, cx + halfLength, cy)
+}
+
+export function makeCenteredTable(canvasW: number, canvasH: number): TableElement {
+  return centerOnCanvas(makeTable(0, 0), canvasW, canvasH)
 }
 
 export function makeIcon(iconName: string, x: number, y: number): IconElement {

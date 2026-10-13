@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react'
 import { Stage, Layer, Shape, Transformer, Circle, Path } from 'react-konva'
 import type Konva from 'konva'
-import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter } from 'lucide-react'
+import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowUpToLine, ArrowDownToLine } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { getAnimatedProps } from '../../engine/animator'
 import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
@@ -17,7 +17,7 @@ import { drawBackground } from '../../engine/backgroundRenderer'
 import { registerStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
 import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
-import { makeShape, makeArrow, makeTable, makeChart, makeHandDrawLayer } from '../../utils/defaults'
+import { makeShape, makeArrow, makeChart, makeHandDrawLayer } from '../../utils/defaults'
 import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke, SlideDir, TransitionType } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
@@ -86,6 +86,7 @@ export default function EditorCanvas() {
   const [drawingArrow, setDrawingArrow] = useState<{x1:number;y1:number;x2:number;y2:number}|null>(null)
   const [drawingStroke, setDrawingStroke] = useState<HandDrawStroke | null>(null)
   const drawingStrokeRef = useRef<HandDrawStroke | null>(null)
+  const suppressStageClickRef = useRef(false)
   const drawingLayerIdRef = useRef<string | null>(null)
   const drawingBaseStrokesRef = useRef<HandDrawStroke[]>([])
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; elementId: string } | null>(null)
@@ -94,6 +95,7 @@ export default function EditorCanvas() {
   const [cropDrag, setCropDrag] = useState<{ handle: string; startX: number; startY: number; startCrop: { x: number; y: number; w: number; h: number } } | null>(null)
   const [cursorCoord, setCursorCoord] = useState<{ x: number; y: number } | null>(null)
   const clipboardRef  = useRef<EditorElement[]>([])
+  const clipboardSourceSceneRef = useRef<string | null>(null)
 
   // ── Live transition overlay ───────────────────────────────────────────────────
   const [transOverlay, setTransOverlay] = useState<{
@@ -115,7 +117,8 @@ export default function EditorCanvas() {
     cropElementId, setCropElement,
     addElement, selectElement, deselectAll,
     removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
-    undo, redo, duplicateElement
+    undo, redo, duplicateElement,
+    bringForward, sendBackward, bringToFront, sendToBack,
   } = useEditorStore()
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
@@ -276,6 +279,7 @@ export default function EditorCanvas() {
             .map(id => scene.elements.find(el => el.id === id))
             .filter((el): el is EditorElement => el != null)
             .map(el => JSON.parse(JSON.stringify(el)))
+          clipboardSourceSceneRef.current = currentSceneId ?? null
         }
         return
       }
@@ -284,13 +288,17 @@ export default function EditorCanvas() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         if (clipboardRef.current.length > 0) {
           e.preventDefault()
+          // Only offset position when pasting into the SAME scene (to avoid overlap).
+          // When pasting across scenes, preserve exact original coordinates.
+          const isSameScene = clipboardSourceSceneRef.current === currentSceneId
+          const offset = isSameScene ? 20 : 0
           clipboardRef.current.forEach(el => {
             const clone: EditorElement = { ...JSON.parse(JSON.stringify(el)), id: crypto.randomUUID() }
-            clone.x += 20
-            clone.y += 20
+            clone.x += offset
+            clone.y += offset
             // Arrows render from absolute endpoints — shift those too
             if (clone.type === 'arrow') {
-              clone.x1 += 20; clone.y1 += 20; clone.x2 += 20; clone.y2 += 20
+              clone.x1 += offset; clone.y1 += offset; clone.x2 += offset; clone.y2 += offset
             }
             addElement(clone)
           })
@@ -342,10 +350,47 @@ export default function EditorCanvas() {
         setActiveTool('select')
         setContextMenu(null)
       }
+      
+      // Layer ordering shortcuts (Adobe-style)
+      // Bring Forward: Ctrl/Cmd + Shift + ]
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === ']') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => bringForward(id))
+        }
+        return
+      }
+      
+      // Send Backward: Ctrl/Cmd + Shift + [
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === '[') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => sendBackward(id))
+        }
+        return
+      }
+      
+      // Bring to Front: Ctrl/Cmd + ]
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === ']') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => bringToFront(id))
+        }
+        return
+      }
+      
+      // Send to Back: Ctrl/Cmd + [
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === '[') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          selectedIds.forEach(id => sendToBack(id))
+        }
+        return
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement])
+  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement, bringForward, sendBackward, bringToFront, sendToBack, addElement])
 
   // Reset local video plays when preview starts (VideoKonva takes over)
   useEffect(() => {
@@ -690,6 +735,7 @@ export default function EditorCanvas() {
     setContextMenu({ x: e.evt.clientX, y: e.evt.clientY, elementId: id })
   }
   function handleStageClick(e: Konva.KonvaEventObject<MouseEvent>) {
+    if (suppressStageClickRef.current) { suppressStageClickRef.current = false; return }
     if (cropState) { exitCropMode(); return }
     if (!currentScene) return
     if (activeTool === 'handDraw') return
@@ -723,10 +769,6 @@ export default function EditorCanvas() {
         openCodeModal()
         setActiveTool('select')
         break
-      case 'table':
-        addElement(makeTable(x - 180, y - 60))
-        setActiveTool('select')
-        break
       case 'chart': {
         const chart = makeChart(x - 200, y - 150)
         chart.chartType = pendingChartType
@@ -746,6 +788,7 @@ export default function EditorCanvas() {
   }
 
   function handleMouseDown(e: Konva.KonvaEventObject<MouseEvent>) {
+    suppressStageClickRef.current = false
     if (activeTool === 'handDraw') {
       if (!project || !currentScene) return
       e.evt.preventDefault()
@@ -848,6 +891,8 @@ export default function EditorCanvas() {
     const { x1, y1, x2, y2 } = drawingArrow
     if (Math.abs(x2 - x1) > 5 || Math.abs(y2 - y1) > 5) {
       addElement(makeArrow(x1, y1, x2, y2))
+      // The stage click that follows this mouseup would deselect the new arrow.
+      suppressStageClickRef.current = true
     }
     setDrawingArrow(null)
     setActiveTool('select')
@@ -984,6 +1029,7 @@ export default function EditorCanvas() {
                   }}
                   stageScale={scale}
                   localTime={localTime}
+                  sceneWidth={project?.width}
                   syncVideoToTime={!localPlayingIds.has(el.id) && (isPlaying || playhead > 0)}
                   videoPlaybackActive={isPlaying}
                 />
@@ -1005,13 +1051,13 @@ export default function EditorCanvas() {
                 width:  Math.max(10, box.width),
                 height: Math.max(10, box.height)
               })}
-              anchorSize={7}
-              anchorFill="#5a5ba0"
-              anchorStroke="#fff"
+              anchorSize={5}
+              anchorFill="#6a32c9"
+              anchorStroke="#f3e7e7"
               anchorStrokeWidth={1}
               anchorCornerRadius={3}
-              borderStroke="#f776d9"
-              borderStrokeWidth={1}
+              borderStroke="#f77681"
+              borderStrokeWidth={2}
               rotateAnchorOffset={25}
               rotateLineVisible={false}
               rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
@@ -1021,7 +1067,7 @@ export default function EditorCanvas() {
                 if (anchor.hasName('rotater')) {
                   anchor.cornerRadius(10)
                   anchor.fill('#6c6d9473')
-                  anchor.stroke('#ebebeb')
+                  anchor.stroke('#e7adad')
                   anchor.strokeWidth(1.5)
                   anchor.width(12)
                   anchor.height(12)
@@ -1306,6 +1352,7 @@ export default function EditorCanvas() {
                       .map(id => scene.elements.find(el => el.id === id))
                       .filter((el): el is EditorElement => el != null)
                       .map(el => JSON.parse(JSON.stringify(el)))
+                    clipboardSourceSceneRef.current = currentSceneId ?? null
                   }
                   setContextMenu(null)
                 }
@@ -1315,6 +1362,38 @@ export default function EditorCanvas() {
                 icon: <Copy size={14} />,
                 onClick: () => {
                   selectedIds.forEach(id => duplicateElement(id))
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Bring Forward',
+                icon: <ArrowUpToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) bringForward(contextMenu.elementId)
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Send Backward',
+                icon: <ArrowDownToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) sendBackward(contextMenu.elementId)
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Bring to Front',
+                icon: <ArrowUpToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) bringToFront(contextMenu.elementId)
+                  setContextMenu(null)
+                }
+              },
+              {
+                label: 'Send to Back',
+                icon: <ArrowDownToLine size={14} />,
+                onClick: () => {
+                  if (contextMenu?.elementId) sendToBack(contextMenu.elementId)
                   setContextMenu(null)
                 }
               },

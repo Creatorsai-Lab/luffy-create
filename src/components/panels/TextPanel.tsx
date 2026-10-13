@@ -4,7 +4,7 @@ import { FONT_FAMILIES } from '../../types/editor'
 import type { TextElement, TextFillMode, FontWeight, AlignType, AnimationType, EasingType, SlideDir, ElementAnimation, TextEffectType } from '../../types/editor'
 import { AlignLeft, AlignCenter, AlignRight, Italic, Underline, Type, Plus, Trash2 } from 'lucide-react'
 import { cn } from '../../utils/cn'
-import { makeAnimation, makeText } from '../../utils/defaults'
+import { makeAnimation, makeCenteredText } from '../../utils/defaults'
 import { InnerShadowControls } from './BoxShadowControls'
 import { ScaleSizeControl } from './AnimationParamControls'
 import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../../utils/fontWeight'
@@ -95,7 +95,7 @@ export default function TextPanel() {
           disabled={!project}
           onClick={() => {
             if (!project) return
-            addElement(makeText(project.width / 2 - 250, project.height / 2 - 30))
+            addElement(makeCenteredText(project.width, project.height))
           }}
           className="w-full text-xs py-2 text-[#f2f2f2] bg-editor-accent rounded"
         >
@@ -104,12 +104,6 @@ export default function TextPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {!el && (
-          <p className="text-sn text-[#c1c1c1] px-3 py-4 text-center">
-            Click on '+ Add Text' to add a text box in scene
-          </p>
-        )}
-
         {el && (
           <>
             <div className="flex flex-col gap-0.5 px-3 py-2">

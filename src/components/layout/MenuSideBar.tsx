@@ -6,25 +6,29 @@ import {
 import { useEditorStore } from '../../store/editorStore'
 import { useHistoryStore } from '../../store/historyStore'
 import { CANVAS_PRESETS } from '../../types/editor'
-import type { ActiveTool, ActivePanel } from '../../types/editor'
+import type { ActiveTool, ActivePanel, EditorElement } from '../../types/editor'
 import { cn } from '../../utils/cn'
+import { makeCenteredArrow, makeCenteredTable, makeCenteredText } from '../../utils/defaults'
+import { toast } from '../ui/Toast'
 
 interface ToolItem {
   icon: React.ReactNode
   label: string
   tool?: ActiveTool
   panel: ActivePanel
+  /** Insert this element on the current scene immediately, then open its properties. */
+  insert?: (canvasW: number, canvasH: number) => EditorElement
 }
 const TOOLS: ToolItem[] = [
   { icon: <PaintBucket size={15} />, label: 'Background', panel: 'background' },
   { icon: <Shuffle size={15} />, label: 'Transitions', panel: 'transitions' },
   { icon: <Layers size={15} />, label: 'Layers', panel: 'layers' },
-  { icon: <Type size={15} />, label: 'Text', tool: 'text', panel: 'text' },
+  { icon: <Type size={15} />, label: 'Text', panel: 'text', insert: makeCenteredText },
   { icon: <Square size={15} />, label: 'Shapes', tool: 'select', panel: 'shapes' },
-  { icon: <ArrowRight size={15} />, label: 'Arrow', tool: 'arrow', panel: 'arrows' },
+  { icon: <ArrowRight size={15} />, label: 'Arrow', panel: 'arrows', insert: makeCenteredArrow },
   { icon: <Code2 size={15} />, label: 'Code', tool: 'code', panel: 'code' },
   { icon: <Sigma size={15} />, label: 'LaTeX', panel: 'latex' },
-  { icon: <Table2 size={15} />, label: 'Table', tool: 'table', panel: 'table' },
+  { icon: <Table2 size={15} />, label: 'Table', panel: 'table', insert: makeCenteredTable },
   { icon: <BarChart3 size={15} />, label: 'Charts', tool: 'chart', panel: 'charts' },
   { icon: <Shapes size={15} />, label: 'Icons', panel: 'icons' },
   { icon: <ImagePlus size={15} />, label: 'Images', tool: 'image', panel: 'upload' },
@@ -46,11 +50,12 @@ export default function MenuSideBar() {
     setUserGuideOpen, setSubtitleOpen,
     setPythonSandboxOpen,
     openCodeModal,
-    deselectAll,
+    addElement, deselectAll,
     undo, redo
   } = useEditorStore()
 
-  const { canUndo, canRedo } = useHistoryStore()
+  const canUndo = useHistoryStore((state) => state.canUndo)
+  const canRedo = useHistoryStore((state) => state.canRedo)
   const [editingName, setEditingName] = useState(false)
   const [sizeOpen, setSizeOpen] = useState(false)
 
@@ -70,9 +75,11 @@ export default function MenuSideBar() {
       if (latest) {
         await window.api.projects.save(latest.id, JSON.stringify(latest))
         useEditorStore.getState().markClean()
+        toast.success('Project renamed successfully')
       }
     } catch (e) {
       console.error('Failed to rename project', e)
+      toast.error('Failed to rename project')
     }
   }
 
@@ -209,6 +216,15 @@ export default function MenuSideBar() {
                 disabled={disabled}
                 onClick={() => {
                   if (disabled) return
+                  // Insert tools add a new element on every click (no toggle-off),
+                  // and the new element's properties open alongside it.
+                  if (item.insert) {
+                    if (!project) return
+                    setActiveTool('select')
+                    addElement(item.insert(project.width, project.height))
+                    setActivePanel(item.panel)
+                    return
+                  }
                   if (activePanel === item.panel) {
                     setActivePanel(null)
                     if (item.tool === 'handDraw') setActiveTool('select')

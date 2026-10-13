@@ -1167,7 +1167,7 @@ export default function Timeline() {
                     // One ring at a time, highest-priority state wins.
                     isDropTarget ? 'ring-2 ring-editor-accent'
                       : isResizing ? 'ring-2 ring-white'
-                      : isActive && 'ring-2 ring-red-500 shadow-lg'
+                      : isActive && 'ring-2 ring-white shadow-lg'
                   )}
                   style={{
                     left: startPx + 3, width: Math.max(widthPx - 6, 8),

@@ -30,7 +30,7 @@ export type MediaEffectAxis = 'horizontal' | 'vertical'
 export type MediaEffectDirection = 'left' | 'right' | 'up' | 'down' | 'diagonal'
 export type MediaEffectTarget = 'wholeMedia' | 'centerSubject' | 'manualFocus'
 export type MediaZoomPosition = 'center' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
-export type ActiveTool    = 'select' | 'text' | 'shape-rect' | 'shape-circle' | 'shape-triangle' | 'shape-star' | 'shape-pentagon' | 'shape-hexagon' | 'shape-octagon' | 'shape-diamond' | 'shape-oval' | 'shape-speechBubble' | 'shape-roundedSpeech' | 'shape-cone' | 'shape-cube' | 'shape-rect-hand' | 'shape-circle-hand' | 'shape-square-hand' | 'shape-heart' | 'shape-rect-sketch' | 'arrow' | 'code' | 'table' | 'image' | 'chart' | 'video' | 'latex' | 'counter'
+export type ActiveTool    = 'select' | 'shape-rect' | 'shape-circle' | 'shape-triangle' | 'shape-star' | 'shape-pentagon' | 'shape-hexagon' | 'shape-octagon' | 'shape-diamond' | 'shape-oval' | 'shape-speechBubble' | 'shape-roundedSpeech' | 'shape-cone' | 'shape-cube' | 'shape-rect-hand' | 'shape-circle-hand' | 'shape-square-hand' | 'shape-heart' | 'shape-rect-sketch' | 'arrow' | 'code' | 'image' | 'chart' | 'video' | 'latex' | 'counter'
   | 'handDraw'
 export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'motion' | 'effects' | 'latex' | 'counter' | 'handDraw' | null
 export type HandDrawTool = 'pen' | 'paint' | 'spray' | 'eraser'
@@ -257,6 +257,20 @@ export interface CodeElement extends BaseElement {
   fontSize: number
   showLineNumbers: boolean
   bgColor?: string
+  fitSceneWidth?: boolean
+  wrapLines?: boolean
+  codeAnimation?: 'none' | 'characters' | 'lines' | 'blocks'
+  codeAnimationDelay?: number
+  codeAnimationDuration?: number
+  codeAnimationBlocks?: CodeAnimationBlock[]
+}
+
+export interface CodeAnimationBlock {
+  id: string
+  fromLine: number
+  toLine: number
+  delay: number
+  duration: number
 }
 
 export interface ImageElement extends BaseElement, MediaEffectControls, MediaVignetteControls, MediaGrainControls {
