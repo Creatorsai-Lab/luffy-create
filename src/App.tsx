@@ -14,7 +14,6 @@ import ExportModal from './components/modals/ExportModal'
 import UserGuideModal from './components/modals/UserGuideModal'
 import SubtitleModal from './subtitle/SubtitleModal'
 import { PythonSandboxModal } from './pythonSandbox'
-import ToastContainer from './components/ui/Toast'
 
 const AUTO_SAVE_DELAY = 2500
 const OPTIONS_MIN_WIDTH = 220
@@ -205,7 +204,6 @@ export default function App() {
         {userGuideOpen && <UserGuideModal />}
         {subtitleOpen  && <SubtitleModal />}
         {pythonSandboxOpen && <PythonSandboxModal />}
-        <ToastContainer />
       </div>
     </ErrorBoundary>
   )

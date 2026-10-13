@@ -14,6 +14,7 @@ import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
 import type { Background, AudioElement, VideoElement, ImageBg, Scene, Project, SlideDir, TransitionType } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
+import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
 import { fitPreviewToViewport } from '../../utils/previewLayout'
 import {
   applyAudioEffects,
@@ -64,6 +65,11 @@ export default function PreviewModal() {
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
   }, [isPlaying, totalDur])
+
+  // Load + seek upcoming video clips (split/trimmed clips, next scene) ahead of the cut.
+  useEffect(() => {
+    if (project && isPlaying) prewarmUpcomingVideos(project, playhead)
+  }, [project, isPlaying, playhead])
 
   // Audio sync RAF — mirrors Timeline.tsx logic
   useEffect(() => {

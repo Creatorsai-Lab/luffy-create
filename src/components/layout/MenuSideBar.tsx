@@ -8,7 +8,6 @@ import { useHistoryStore } from '../../store/historyStore'
 import { CANVAS_PRESETS } from '../../types/editor'
 import type { ActiveTool, ActivePanel } from '../../types/editor'
 import { cn } from '../../utils/cn'
-import { toast } from '../ui/Toast'
 
 interface ToolItem {
   icon: React.ReactNode
@@ -51,8 +50,7 @@ export default function MenuSideBar() {
     undo, redo
   } = useEditorStore()
 
-  const canUndo = useHistoryStore((state) => state.canUndo)
-  const canRedo = useHistoryStore((state) => state.canRedo)
+  const { canUndo, canRedo } = useHistoryStore()
   const [editingName, setEditingName] = useState(false)
   const [sizeOpen, setSizeOpen] = useState(false)
 
@@ -72,11 +70,9 @@ export default function MenuSideBar() {
       if (latest) {
         await window.api.projects.save(latest.id, JSON.stringify(latest))
         useEditorStore.getState().markClean()
-        toast.success('Project renamed successfully')
       }
     } catch (e) {
       console.error('Failed to rename project', e)
-      toast.error('Failed to rename project')
     }
   }
 

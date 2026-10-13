@@ -1164,9 +1164,10 @@ export default function Timeline() {
                   className={cn(
                     'absolute flex items-center px-3 cursor-pointer text-xs transition-all select-none rounded-md overflow-hidden',
                     isDragging && 'opacity-50',
-                    isDropTarget && 'ring-2 ring-editor-accent',
-                    isResizing && 'ring-2 ring-white',
-                    isActive && 'ring-2 ring-red shadow-lg'
+                    // One ring at a time, highest-priority state wins.
+                    isDropTarget ? 'ring-2 ring-editor-accent'
+                      : isResizing ? 'ring-2 ring-white'
+                      : isActive && 'ring-2 ring-red-500 shadow-lg'
                   )}
                   style={{
                     left: startPx + 3, width: Math.max(widthPx - 6, 8),

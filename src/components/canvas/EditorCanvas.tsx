@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react'
 import { Stage, Layer, Shape, Transformer, Circle, Path } from 'react-konva'
 import type Konva from 'konva'
-import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowUpToLine, ArrowDownToLine } from 'lucide-react'
+import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { getAnimatedProps } from '../../engine/animator'
 import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
@@ -16,6 +16,7 @@ import {
 import { drawBackground } from '../../engine/backgroundRenderer'
 import { registerStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
+import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
 import { makeShape, makeArrow, makeTable, makeChart, makeHandDrawLayer } from '../../utils/defaults'
 import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke, SlideDir, TransitionType } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
@@ -93,7 +94,6 @@ export default function EditorCanvas() {
   const [cropDrag, setCropDrag] = useState<{ handle: string; startX: number; startY: number; startCrop: { x: number; y: number; w: number; h: number } } | null>(null)
   const [cursorCoord, setCursorCoord] = useState<{ x: number; y: number } | null>(null)
   const clipboardRef  = useRef<EditorElement[]>([])
-  const clipboardSourceSceneRef = useRef<string | null>(null)
 
   // ── Live transition overlay ───────────────────────────────────────────────────
   const [transOverlay, setTransOverlay] = useState<{
@@ -115,8 +115,7 @@ export default function EditorCanvas() {
     cropElementId, setCropElement,
     addElement, selectElement, deselectAll,
     removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
-    undo, redo, duplicateElement,
-    bringForward, sendBackward, bringToFront, sendToBack,
+    undo, redo, duplicateElement
   } = useEditorStore()
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
@@ -277,7 +276,6 @@ export default function EditorCanvas() {
             .map(id => scene.elements.find(el => el.id === id))
             .filter((el): el is EditorElement => el != null)
             .map(el => JSON.parse(JSON.stringify(el)))
-          clipboardSourceSceneRef.current = currentSceneId ?? null
         }
         return
       }
@@ -286,17 +284,13 @@ export default function EditorCanvas() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         if (clipboardRef.current.length > 0) {
           e.preventDefault()
-          // Only offset position when pasting into the SAME scene (to avoid overlap).
-          // When pasting across scenes, preserve exact original coordinates.
-          const isSameScene = clipboardSourceSceneRef.current === currentSceneId
-          const offset = isSameScene ? 20 : 0
           clipboardRef.current.forEach(el => {
             const clone: EditorElement = { ...JSON.parse(JSON.stringify(el)), id: crypto.randomUUID() }
-            clone.x += offset
-            clone.y += offset
+            clone.x += 20
+            clone.y += 20
             // Arrows render from absolute endpoints — shift those too
             if (clone.type === 'arrow') {
-              clone.x1 += offset; clone.y1 += offset; clone.x2 += offset; clone.y2 += offset
+              clone.x1 += 20; clone.y1 += 20; clone.x2 += 20; clone.y2 += 20
             }
             addElement(clone)
           })
@@ -348,52 +342,20 @@ export default function EditorCanvas() {
         setActiveTool('select')
         setContextMenu(null)
       }
-      
-      // Layer ordering shortcuts (Adobe-style)
-      // Bring Forward: Ctrl/Cmd + Shift + ]
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === ']') {
-        e.preventDefault()
-        if (selectedIds.length > 0) {
-          selectedIds.forEach(id => bringForward(id))
-        }
-        return
-      }
-      
-      // Send Backward: Ctrl/Cmd + Shift + [
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === '[') {
-        e.preventDefault()
-        if (selectedIds.length > 0) {
-          selectedIds.forEach(id => sendBackward(id))
-        }
-        return
-      }
-      
-      // Bring to Front: Ctrl/Cmd + ]
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === ']') {
-        e.preventDefault()
-        if (selectedIds.length > 0) {
-          selectedIds.forEach(id => bringToFront(id))
-        }
-        return
-      }
-      
-      // Send to Back: Ctrl/Cmd + [
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === '[') {
-        e.preventDefault()
-        if (selectedIds.length > 0) {
-          selectedIds.forEach(id => sendToBack(id))
-        }
-        return
-      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement, bringForward, sendBackward, bringToFront, sendToBack, addElement])
+  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement])
 
   // Reset local video plays when preview starts (VideoKonva takes over)
   useEffect(() => {
     if (isPlaying) setLocalPlayingIds(new Set())
   }, [isPlaying])
+
+  // Load + seek upcoming video clips (split/trimmed clips, next scene) ahead of the cut.
+  useEffect(() => {
+    if (project && isPlaying) prewarmUpcomingVideos(project, playhead)
+  }, [project, isPlaying, playhead])
 
   useEffect(() => {
     transitionSnapshotsRef.current.clear()
@@ -509,7 +471,12 @@ export default function EditorCanvas() {
     const current = timeline[frameState.sceneIndex]
     const next = timeline[frameState.sceneIndex + 1]
     if (!stage) return
-    if (!transitionSnapshotsRef.current.has(current.sceneId)) {
+    // Fallback "from" snapshot for an upcoming fade-style transition. toDataURL
+    // is a synchronous full-frame encode, so skip it at plain cuts (e.g. a
+    // split video scene) where it would stall the first frame of the scene.
+    const nextUsesSnapshot = !!next && next.transition.type !== 'none' &&
+      !isDirectionalTransition(next.transition.type)
+    if (nextUsesSnapshot && !transitionSnapshotsRef.current.has(current.sceneId)) {
       rememberTransitionSnapshot(
         current.sceneId,
         stage.toDataURL({ pixelRatio: 1 }),
@@ -1017,7 +984,6 @@ export default function EditorCanvas() {
                   }}
                   stageScale={scale}
                   localTime={localTime}
-                  sceneWidth={project?.width}
                   syncVideoToTime={!localPlayingIds.has(el.id) && (isPlaying || playhead > 0)}
                   videoPlaybackActive={isPlaying}
                 />
@@ -1039,13 +1005,13 @@ export default function EditorCanvas() {
                 width:  Math.max(10, box.width),
                 height: Math.max(10, box.height)
               })}
-              anchorSize={5}
-              anchorFill="#6a32c9"
-              anchorStroke="#f3e7e7"
+              anchorSize={7}
+              anchorFill="#5a5ba0"
+              anchorStroke="#fff"
               anchorStrokeWidth={1}
               anchorCornerRadius={3}
-              borderStroke="#f77681"
-              borderStrokeWidth={2}
+              borderStroke="#f776d9"
+              borderStrokeWidth={1}
               rotateAnchorOffset={25}
               rotateLineVisible={false}
               rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
@@ -1055,7 +1021,7 @@ export default function EditorCanvas() {
                 if (anchor.hasName('rotater')) {
                   anchor.cornerRadius(10)
                   anchor.fill('#6c6d9473')
-                  anchor.stroke('#e7adad')
+                  anchor.stroke('#ebebeb')
                   anchor.strokeWidth(1.5)
                   anchor.width(12)
                   anchor.height(12)
@@ -1340,7 +1306,6 @@ export default function EditorCanvas() {
                       .map(id => scene.elements.find(el => el.id === id))
                       .filter((el): el is EditorElement => el != null)
                       .map(el => JSON.parse(JSON.stringify(el)))
-                    clipboardSourceSceneRef.current = currentSceneId ?? null
                   }
                   setContextMenu(null)
                 }
@@ -1350,38 +1315,6 @@ export default function EditorCanvas() {
                 icon: <Copy size={14} />,
                 onClick: () => {
                   selectedIds.forEach(id => duplicateElement(id))
-                  setContextMenu(null)
-                }
-              },
-              {
-                label: 'Bring Forward',
-                icon: <ArrowUpToLine size={14} />,
-                onClick: () => {
-                  if (contextMenu?.elementId) bringForward(contextMenu.elementId)
-                  setContextMenu(null)
-                }
-              },
-              {
-                label: 'Send Backward',
-                icon: <ArrowDownToLine size={14} />,
-                onClick: () => {
-                  if (contextMenu?.elementId) sendBackward(contextMenu.elementId)
-                  setContextMenu(null)
-                }
-              },
-              {
-                label: 'Bring to Front',
-                icon: <ArrowUpToLine size={14} />,
-                onClick: () => {
-                  if (contextMenu?.elementId) bringToFront(contextMenu.elementId)
-                  setContextMenu(null)
-                }
-              },
-              {
-                label: 'Send to Back',
-                icon: <ArrowDownToLine size={14} />,
-                onClick: () => {
-                  if (contextMenu?.elementId) sendToBack(contextMenu.elementId)
                   setContextMenu(null)
                 }
               },
