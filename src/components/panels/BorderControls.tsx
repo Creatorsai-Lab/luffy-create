@@ -1,6 +1,7 @@
 import type { BorderFillMode, ImageElement, ShapeElement, VideoElement } from '../../types/editor'
 import { cn } from '../../utils/cn'
 import { ColorInput, Row, Slider } from './TextPanel'
+import { DEFAULT_BORDER_COLOR, isInvisibleColor } from '../../engine/borderRenderer'
 
 type BorderTarget = ShapeElement | ImageElement | VideoElement
 
@@ -12,15 +13,22 @@ interface Props<T extends BorderTarget> {
 export default function BorderControls<T extends BorderTarget>({ value, onChange }: Props<T>) {
   const width = value.type === 'shape' ? value.strokeWidth : value.borderWidth
   const color = value.type === 'shape' ? value.stroke : value.borderColor
+  const shownColor = isInvisibleColor(color) ? DEFAULT_BORDER_COLOR : color
   const fillMode = value.borderFillMode ?? 'solid'
-  const gradientFrom = value.borderGradientFrom ?? (color === 'transparent' ? '#ffffff' : color)
+  const gradientFrom = value.borderGradientFrom ?? shownColor
   const gradientTo = value.borderGradientTo ?? '#22d3ee'
   const animated = fillMode === 'linearGradient' && (value.borderAnimate ?? false)
   const speed = value.borderAnimationSpeed ?? 1
 
+  // Giving the border a width also commits the color the picker shows, so the
+  // border appears right away instead of being drawn in "transparent".
   const patchWidth = (borderWidth: number) => {
-    if (value.type === 'shape') onChange({ strokeWidth: borderWidth } as Partial<T>)
-    else onChange({ borderWidth } as Partial<T>)
+    const fillColor = borderWidth > 0 && isInvisibleColor(color) ? { color: DEFAULT_BORDER_COLOR } : null
+    if (value.type === 'shape') {
+      onChange({ strokeWidth: borderWidth, ...(fillColor && { stroke: fillColor.color }) } as Partial<T>)
+    } else {
+      onChange({ borderWidth, ...(fillColor && { borderColor: fillColor.color }) } as Partial<T>)
+    }
   }
 
   const patchColor = (borderColor: string) => {
@@ -66,7 +74,7 @@ export default function BorderControls<T extends BorderTarget>({ value, onChange
       </Row>
       {fillMode === 'solid' ? (
         <Row label="Color">
-          <ColorInput value={color === 'transparent' ? '#ffffff' : color} onChange={patchColor} />
+          <ColorInput value={shownColor} onChange={patchColor} />
         </Row>
       ) : (
         <>

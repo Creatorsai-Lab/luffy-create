@@ -984,6 +984,8 @@ export default function EditorCanvas() {
     if (selectedIds.length !== 1) return false
     const sel = currentScene.elements.find(e => e.id === selectedIds[0])
     if (!sel) return false
+    // Cuboid: edge handles change width or height only; corners scale the whole solid.
+    if (sel.type === 'shape' && sel.shapeType === 'cube') return true
     return (sel.type === 'image' || sel.type === 'video') &&
       ((sel as ImageElement | VideoElement).lockRatio ?? true)
   })()

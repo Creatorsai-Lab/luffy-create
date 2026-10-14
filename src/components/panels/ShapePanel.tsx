@@ -1,6 +1,6 @@
 import { Shapes, Square, Circle, Triangle, Star, Pentagon, Hexagon, Octagon, Diamond, MessageCircle, MessageSquare, Cone, Box, Plus, Trash2, Heart, SquareDashedBottom } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
-import type { ShapeElement, ShapeType, ShapeFillMode, AnimationType, EasingType, SlideDir, ElementAnimation } from '../../types/editor'
+import type { Face3D, ShapeElement, ShapeType, ShapeFillMode, AnimationType, EasingType, SlideDir, ElementAnimation } from '../../types/editor'
 import { PanelHeader, Row, ColorInput, Slider, NumberInput } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { makeAnimation, makeShape } from '../../utils/defaults'
@@ -8,6 +8,7 @@ import BoxShadowControls, { InnerShadowControls } from './BoxShadowControls'
 import { ScaleSizeControl } from './AnimationParamControls'
 import BorderControls from './BorderControls'
 import { isMotionAnimation } from '../../utils/moveAnimation'
+import { CONE_FACES, CUBE_FACES, cuboidDepth, faceFill, get3DRotation } from '../../engine/shape3d'
 
 
 
@@ -123,64 +124,70 @@ export default function ShapePanel() {
       {el && (
         <>
           <div className="flex flex-col px-3 py-2 gap-0.5 bg-red">
-            <Row label="Fill Mode">
-              <select
-                value={el.fillMode ?? 'solid'}
-                onChange={e => upd({ fillMode: e.target.value as ShapeFillMode })}
-                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
-              >
-                <option value="solid">Solid</option>
-                <option value="linearGradient">Linear Gradient</option>
-                <option value="radialGradient">Radial Gradient</option>
-              </select>
-            </Row>
-
-            {(el.fillMode ?? 'solid') === 'solid' ? (
-              <>
-                <Row label="Fill">
-                  <div className="flex items-center gap-1">
-                    <ColorInput value={el.fill === 'transparent' ? '#6366f1' : el.fill} onChange={v => upd({ fill: v })} disabled={el.fill === 'transparent'} />
-                    <button
-                      onClick={() => upd({ fill: el.fill === 'transparent' ? '#6366f1' : 'transparent' })}
-                      className={cn(
-                        'px-2 py-1 text-2xs rounded border transition-colors',
-                        el.fill === 'transparent'
-                          ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
-                          : 'bg-editor-elevated-highlight border-editor-border text-[#f2f2f2] hover:text-editor-text'
-                      )}
-                      title="Toggle transparent fill"
-                    >
-                      {el.fill === 'transparent' ? 'No Fill' : 'Filled'}
-                    </button>
-                  </div>
-                </Row>
-                <Row label="Fill Opacity">
-                  <Slider value={Math.round((el.fillOpacity ?? 1) * 100)} min={0} max={100} step={1}
-                    onChange={v => upd({ fillOpacity: v / 100 })} display={`${Math.round((el.fillOpacity ?? 1) * 100)}%`} />
-                </Row>
-              </>
+            {SHAPES_3D.has(el.shapeType) ? (
+              <Solid3DControls el={el} upd={upd} />
             ) : (
               <>
-                <Row label="Color 1">
-                  <ColorInput value={el.gradientFrom ?? (el.fill === 'transparent' ? '#6366f1' : el.fill)} onChange={v => upd({ gradientFrom: v })} />
-                </Row>
-                <Row label="Color 1 Opacity">
-                  <Slider value={Math.round((el.gradientFromOpacity ?? 1) * 100)} min={0} max={100} step={1}
-                    onChange={v => upd({ gradientFromOpacity: v / 100 })} display={`${Math.round((el.gradientFromOpacity ?? 1) * 100)}%`} />
-                </Row>
-                <Row label="Color 2">
-                  <ColorInput value={el.gradientTo ?? '#22d3ee'} onChange={v => upd({ gradientTo: v })} />
-                </Row>
-                <Row label="Color 2 Opacity">
-                  <Slider value={Math.round((el.gradientToOpacity ?? 1) * 100)} min={0} max={100} step={1}
-                    onChange={v => upd({ gradientToOpacity: v / 100 })} display={`${Math.round((el.gradientToOpacity ?? 1) * 100)}%`} />
-                </Row>
-                {(el.fillMode ?? 'solid') === 'linearGradient' && (
-                  <Row label="Gradient Angle">
-                    <Slider value={el.gradientAngle ?? 135} min={0} max={360} step={1}
-                      onChange={v => upd({ gradientAngle: v })} display={`${el.gradientAngle ?? 135}°`} />
+              <Row label="Fill Mode">
+                <select
+                  value={el.fillMode ?? 'solid'}
+                  onChange={e => upd({ fillMode: e.target.value as ShapeFillMode })}
+                  className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+                >
+                  <option value="solid">Solid</option>
+                  <option value="linearGradient">Linear Gradient</option>
+                  <option value="radialGradient">Radial Gradient</option>
+                </select>
+              </Row>
+  
+              {(el.fillMode ?? 'solid') === 'solid' ? (
+                <>
+                  <Row label="Fill">
+                    <div className="flex items-center gap-1">
+                      <ColorInput value={el.fill === 'transparent' ? '#6366f1' : el.fill} onChange={v => upd({ fill: v })} disabled={el.fill === 'transparent'} />
+                      <button
+                        onClick={() => upd({ fill: el.fill === 'transparent' ? '#6366f1' : 'transparent' })}
+                        className={cn(
+                          'px-2 py-1 text-2xs rounded border transition-colors',
+                          el.fill === 'transparent'
+                            ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
+                            : 'bg-editor-elevated-highlight border-editor-border text-[#f2f2f2] hover:text-editor-text'
+                        )}
+                        title="Toggle transparent fill"
+                      >
+                        {el.fill === 'transparent' ? 'No Fill' : 'Filled'}
+                      </button>
+                    </div>
                   </Row>
-                )}
+                  <Row label="Fill Opacity">
+                    <Slider value={Math.round((el.fillOpacity ?? 1) * 100)} min={0} max={100} step={1}
+                      onChange={v => upd({ fillOpacity: v / 100 })} display={`${Math.round((el.fillOpacity ?? 1) * 100)}%`} />
+                  </Row>
+                </>
+              ) : (
+                <>
+                  <Row label="Color 1">
+                    <ColorInput value={el.gradientFrom ?? (el.fill === 'transparent' ? '#6366f1' : el.fill)} onChange={v => upd({ gradientFrom: v })} />
+                  </Row>
+                  <Row label="Color 1 Opacity">
+                    <Slider value={Math.round((el.gradientFromOpacity ?? 1) * 100)} min={0} max={100} step={1}
+                      onChange={v => upd({ gradientFromOpacity: v / 100 })} display={`${Math.round((el.gradientFromOpacity ?? 1) * 100)}%`} />
+                  </Row>
+                  <Row label="Color 2">
+                    <ColorInput value={el.gradientTo ?? '#22d3ee'} onChange={v => upd({ gradientTo: v })} />
+                  </Row>
+                  <Row label="Color 2 Opacity">
+                    <Slider value={Math.round((el.gradientToOpacity ?? 1) * 100)} min={0} max={100} step={1}
+                      onChange={v => upd({ gradientToOpacity: v / 100 })} display={`${Math.round((el.gradientToOpacity ?? 1) * 100)}%`} />
+                  </Row>
+                  {(el.fillMode ?? 'solid') === 'linearGradient' && (
+                    <Row label="Gradient Angle">
+                      <Slider value={el.gradientAngle ?? 135} min={0} max={360} step={1}
+                        onChange={v => upd({ gradientAngle: v })} display={`${el.gradientAngle ?? 135}°`} />
+                    </Row>
+                  )}
+                </>
+              )}
               </>
             )}
             <BorderControls value={el} onChange={upd} />
@@ -189,39 +196,6 @@ export default function ShapePanel() {
                 <Slider value={el.cornerRadius} min={0} max={250} step={1}
                   onChange={v => upd({ cornerRadius: v })} display={`${el.cornerRadius}px`} />
               </Row>
-            )}
-            {SHAPES_3D.has(el.shapeType) && (
-              <>
-                <Row label="Depth">
-                  <Slider
-                    value={el.depth ?? 55}
-                    min={10} max={300} step={1}
-                    onChange={v => upd({ depth: v })}
-                    display={`${el.depth ?? 55}px`}
-                  />
-                </Row>
-                <Row label="Face Color">
-                  <div className="flex items-center gap-1">
-                    <ColorInput
-                      value={el.faceColor || '#808080'}
-                      onChange={v => upd({ faceColor: v })}
-                      disabled={!el.faceColor}
-                    />
-                    <button
-                      onClick={() => upd({ faceColor: el.faceColor ? '' : '#808080' })}
-                      className={cn(
-                        'px-2 py-1 text-2xs rounded border transition-colors',
-                        el.faceColor
-                          ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
-                          : 'bg-editor-elevated-highlight border-editor-border text-[#f2f2f2] hover:text-editor-text'
-                      )}
-                      title="Toggle custom face color"
-                    >
-                      {el.faceColor ? 'Custom' : 'Auto'}
-                    </button>
-                  </div>
-                </Row>
-              </>
             )}
             <Row label="Width">
               <NumberInput value={Math.round(el.width)} min={4} max={4000} onChange={v => upd({ width: v })} />
@@ -394,5 +368,70 @@ function AnimBlock({
         </Row>
       )}
     </div>
+  )
+}
+
+// ── 3D cube / cone ───────────────────────────────────────────────────────────
+
+const FACE_LABELS: Record<Face3D, string> = {
+  front: 'Front', back: 'Back', top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right',
+  slant: 'Slant', base: 'Base',
+}
+
+const ROTATION_KEY = { x: 'rotateX', y: 'rotateY', z: 'rotateZ' } as const
+
+function Solid3DControls({ el, upd }: { el: ShapeElement; upd: (patch: Partial<ShapeElement>) => void }) {
+  const rotation = get3DRotation(el)
+  const faces: readonly Face3D[] = el.shapeType === 'cone' ? CONE_FACES : CUBE_FACES
+  // Store only what the user changed, so untouched properties keep following the base color.
+  const setFace = (face: Face3D, patch: { color?: string; opacity?: number }) =>
+    upd({ faces3d: { ...el.faces3d, [face]: { ...el.faces3d?.[face], ...patch } } })
+  const resetButton = (onClick: () => void) => (
+    <button onClick={onClick} className="text-2xs text-editor-text-secondary hover:text-editor-text">Reset</button>
+  )
+
+  return (
+    <>
+      <Row label="Base Color">
+        <ColorInput value={el.fill === 'transparent' ? '#6366f1' : el.fill} onChange={v => upd({ fill: v })} />
+      </Row>
+      {el.shapeType === 'cube' && (
+        // Width and height follow the element box; depth is set here.
+        <Row label="Depth">
+          <Slider value={Math.round(cuboidDepth(el))} min={10} max={2000} step={1}
+            onChange={v => upd({ depth3d: v })} display={`${Math.round(cuboidDepth(el))}px`} />
+        </Row>
+      )}
+
+      <div className="flex items-center justify-between pt-2">
+        <span className="label">Rotation</span>
+        {resetButton(() => upd({ rotateX: undefined, rotateY: undefined, rotateZ: undefined }))}
+      </div>
+      {(['x', 'y', 'z'] as const).map(axis => (
+        <Row key={axis} label={`Rotate ${axis.toUpperCase()}`}>
+          <Slider value={Math.round(rotation[axis])} min={-180} max={180} step={1}
+            onChange={v => upd({ [ROTATION_KEY[axis]]: v })}
+            display={`${Math.round(rotation[axis])}°`} />
+        </Row>
+      ))}
+
+      <div className="flex items-center justify-between pt-2">
+        <span className="label">Faces</span>
+        {resetButton(() => upd({ faces3d: undefined }))}
+      </div>
+      {faces.map(face => {
+        const fill = faceFill(el, face)
+        return (
+          <Row key={face} label={FACE_LABELS[face]}>
+            <div className="flex flex-col gap-1">
+              <ColorInput value={fill.color} onChange={color => setFace(face, { color })} />
+              <Slider value={Math.round(fill.opacity * 100)} min={0} max={100} step={1}
+                onChange={v => setFace(face, { opacity: v / 100 })}
+                display={`${Math.round(fill.opacity * 100)}%`} />
+            </div>
+          </Row>
+        )
+      })}
+    </>
   )
 }

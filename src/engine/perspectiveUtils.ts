@@ -2,6 +2,7 @@ import type Konva from 'konva'
 import type { PerspectiveControls, ShapeElement } from '../types/editor'
 import { warpWithGL, type Mat3 } from './perspectiveWarpGL'
 import { shapeCanvasFill } from './shapeFill'
+import { draw3DShape } from './shape3d'
 import { borderCanvasStrokeStyle, getElementBorderColor, getElementBorderWidth, hasElementBorder } from './borderRenderer'
 
 export interface PerspectivePts {
@@ -265,9 +266,8 @@ function localShapeStrokeOutlines(el: ShapeElement): PerspectiveStrokeOutline[] 
     case 'heart':
       return [{ closed: true, points: heartOutlinePoints(w, h) }]
     case 'cone':
-      return [{ closed: true, points: [[cx, 0], [w, h - Math.max(6, Math.min(h * 0.14, 28))], [cx, h], [0, h - Math.max(6, Math.min(h * 0.14, 28))]] }]
     case 'cube':
-      return [{ closed: true, points: [[0, h], [0, h * 0.25], [w * 0.25, 0], [w, 0], [w, h * 0.72], [w * 0.72, h], [0, h]] }]
+      return []   // 3D solids draw their own edges (see shape3d)
     case 'rect-hand':
     case 'rect-sketch':
       return [{ closed: true, points: roundedRectOutlinePoints(w, h, Math.min(w, h) * 0.06) }]
@@ -344,25 +344,6 @@ function heartOutlinePoints(w: number, h: number): Pt[] {
 }
 
 // ── Shape canvas renderer ──────────────────────────────────────────────────
-
-function hexChannel(hex: string, idx: number): number {
-  return parseInt(hex.slice(idx, idx + 2), 16)
-}
-
-function adjustHex(color: string, pct: number): string {
-  const m = color.match(/^#([0-9a-f]{3,6})$/i)
-  if (!m) return color
-  const s = m[1].length === 3 ? m[1].split('').map(c => c + c).join('') : m[1]
-  const adj = (i: number) => {
-    const v = hexChannel(s, i)
-    const out = pct > 0 ? Math.round(v + (255 - v) * pct) : Math.round(v * (1 + pct))
-    return Math.max(0, Math.min(255, out)).toString(16).padStart(2, '0')
-  }
-  return `#${adj(0)}${adj(2)}${adj(4)}`
-}
-
-function topFaceColor(fill: string, faceColor?: string) { return faceColor || adjustHex(fill, 0.35) }
-function sideFaceColor(fill: string, faceColor?: string) { return faceColor ? adjustHex(faceColor, -0.25) : adjustHex(fill, -0.35) }
 
 function regPoly(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, sides: number) {
   ctx.beginPath()
@@ -593,41 +574,10 @@ export function drawShapeToCtx(el: ShapeElement, ctx: CanvasRenderingContext2D) 
     case 'oval':
       ctx.beginPath(); ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2); fillStroke(); break
 
-    case 'cone': {
-      const baseRY = Math.max(6, Math.min(h * 0.14, 28))
-      const baseY = h - baseRY
-      const sw = getElementBorderWidth(el), sk = getElementBorderColor(el)
-
-      ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(0, baseY)
-      ctx.ellipse(cx, baseY, cx, baseRY, 0, Math.PI, 0, false); ctx.closePath()
-      ctx.fillStyle = shapeCanvasFill(ctx, el, w, h); ctx.fill()
-      if (sw > 0) { ctx.strokeStyle = sk; ctx.lineWidth = sw; ctx.stroke() }
-
-      ctx.beginPath(); ctx.ellipse(cx, baseY, cx, baseRY, 0, 0, Math.PI * 2)
-      ctx.fillStyle = topFaceColor(el.fill, el.faceColor); ctx.fill()
-      if (sw > 0) ctx.stroke()
-
-      ctx.beginPath(); ctx.ellipse(cx, baseY, cx, baseRY, 0, Math.PI, Math.PI * 2, false)
-      ctx.strokeStyle = sideFaceColor(el.fill, el.faceColor)
-      ctx.lineWidth = Math.max(1, sw); ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([])
-      break
-    }
-
+    case 'cone':
     case 'cube': {
-      const depth = el.depth ?? Math.min(w, h) * 0.38
-      const ANGLE = Math.PI / 6
-      const ox = depth * Math.cos(ANGLE), oy = depth * Math.sin(ANGLE)
-      const fw = w - ox, fh = h - oy
-      const sw = getElementBorderWidth(el), sk = getElementBorderColor(el)
-      const drawFace = (pts: number[], fill: string | CanvasGradient) => {
-        ctx.beginPath(); ctx.moveTo(pts[0], pts[1])
-        for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1])
-        ctx.closePath(); ctx.fillStyle = fill; ctx.fill()
-        if (sw > 0) { ctx.strokeStyle = sk; ctx.lineWidth = sw; ctx.stroke() }
-      }
-      drawFace([0, oy, fw, oy, fw, h, 0, h], shapeCanvasFill(ctx, el, w, h))
-      drawFace([ox, 0, w, 0, fw, oy, 0, oy], topFaceColor(el.fill, el.faceColor))
-      drawFace([fw, oy, w, 0, w, fh, fw, h], sideFaceColor(el.fill, el.faceColor))
+      const sw = getElementBorderWidth(el)
+      draw3DShape(ctx, el, w, h, sw > 0 ? { style: getElementBorderColor(el), width: sw } : undefined)
       break
     }
 

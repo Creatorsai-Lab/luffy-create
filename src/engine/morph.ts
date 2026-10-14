@@ -7,11 +7,12 @@
 
 import type { ArrowElement, Background, EditorElement, Project, Scene } from '../types/editor'
 import { getAnimatedProps } from './animator'
+import { get3DRotation, is3DShape } from './shape3d'
 import { easeInOutCubic } from './transitionRenderer'
 import { buildTransitionTimeline, getEffectiveTransitionDuration, getTransitionFrameState } from '../utils/transitionTiming'
 
 const NUMERIC_KEYS = [
-  'x', 'y', 'width', 'height', 'opacity',
+  'x', 'y', 'width', 'height', 'opacity', 'rotateX', 'rotateY', 'rotateZ', 'depth3d',
   'x1', 'y1', 'x2', 'y2', 'curve',
   'fontSize', 'letterSpacing', 'lineHeight', 'stretchX', 'stretchY',
   'cornerRadius', 'strokeWidth', 'borderWidth', 'textStrokeWidth',
@@ -73,6 +74,11 @@ function bake(el: EditorElement, time: number): EditorElement {
     const dx = a.x - el.x, dy = a.y - el.y
     const src = el as ArrowElement
     Object.assign(baked, { x1: src.x1 + dx, y1: src.y1 + dy, x2: src.x2 + dx, y2: src.y2 + dy })
+  }
+  if (baked.type === 'shape' && is3DShape(baked)) {
+    // Fill in default rotations so an untouched solid still turns into a rotated copy.
+    const r = get3DRotation(baked)
+    Object.assign(baked, { rotateX: r.x, rotateY: r.y, rotateZ: r.z })
   }
   return baked
 }

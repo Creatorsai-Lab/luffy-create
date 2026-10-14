@@ -228,9 +228,18 @@ export interface ShapeElement extends BaseElement {
   stroke: string
   strokeWidth: number
   cornerRadius: number
-  depth?: number      // 3D extrusion depth in px (cube/cone)
-  faceColor?: string  // side/top face color override for 3D shapes
+  /** Legacy (1.4 and earlier) single face color for 3D shapes; tints the top/base face when no override is set. */
+  faceColor?: string
+  // 3D cube / cone: rotation of the solid in degrees, and per-face fills.
+  /** Cuboid front-to-back size (width/height come from the box). Defaults to the smaller of width/height. */
+  depth3d?: number
+  rotateX?: number
+  rotateY?: number
+  rotateZ?: number
+  faces3d?: Partial<Record<Face3D, { color?: string; opacity?: number }>>
 }
+
+export type Face3D = 'front' | 'back' | 'top' | 'bottom' | 'left' | 'right' | 'slant' | 'base'
 
 export interface ArrowElement extends BaseElement {
   type: 'arrow'

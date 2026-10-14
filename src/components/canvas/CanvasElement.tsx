@@ -18,6 +18,7 @@ import LatexKonva  from './elements/LatexKonva'
 import CounterKonva from './elements/CounterKonva'
 import HandDrawKonva from './elements/HandDrawKonva'
 import PerspectiveCapture, { CAPTURE_SOURCE_PROPS } from './PerspectiveCapture'
+import { cuboidDepth } from '../../engine/shape3d'
 
 const NATIVE_PERSPECTIVE_TYPES = new Set(['shape', 'image', 'video', 'icon'])
 
@@ -126,13 +127,19 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
             }
           : undefined
 
+        // A corner drag scales a cuboid uniformly, so its depth scales too;
+        // an edge drag changes only width or height.
+        const isCuboid = element.type === 'shape' && element.shapeType === 'cube'
+        const uniformScale = Math.abs(Math.abs(scaleX) - Math.abs(scaleY)) < 1e-3
+
         updateElement(element.id, {
           x:        node.x(),
           y:        node.y(),
           width:    newWidth,
           height:   newHeight,
           rotation: node.rotation(),
-          ...(nextPerspectivePts ? { perspectivePts: nextPerspectivePts } : {})
+          ...(nextPerspectivePts ? { perspectivePts: nextPerspectivePts } : {}),
+          ...(isCuboid && uniformScale ? { depth3d: cuboidDepth(element) * Math.abs(scaleX) } : {}),
         })
 
         node.scaleX(1)

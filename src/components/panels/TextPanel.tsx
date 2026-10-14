@@ -10,6 +10,7 @@ import { ScaleSizeControl } from './AnimationParamControls'
 import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../../utils/fontWeight'
 import { TEXT_EFFECT_OPTIONS, normalizeTextEffects } from '../../utils/textEffects'
 import { isMotionAnimation } from '../../utils/moveAnimation'
+import { DEFAULT_BORDER_COLOR, isInvisibleColor } from '../../engine/borderRenderer'
 
 export const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Slide In',           value: 'slideIn'        },
@@ -236,12 +237,17 @@ export default function TextPanel() {
               </Row>
 
               <Row label="Border">
-                <ColorInput value={el.textStroke || '#ffffff'} onChange={v => upd({ textStroke: v })} />
+                <ColorInput value={isInvisibleColor(el.textStroke) ? DEFAULT_BORDER_COLOR : el.textStroke} onChange={v => upd({ textStroke: v })} />
               </Row>
 
               <Row label="Border Width">
                 <Slider value={el.textStrokeWidth ?? 0} min={0} max={10} step={0.5}
-                  onChange={v => upd({ textStrokeWidth: v })} display={`${el.textStrokeWidth ?? 0}px`} />
+                  onChange={v => upd({
+                    textStrokeWidth: v,
+                    // Commit the shown color so the border appears as soon as it has a width.
+                    ...(v > 0 && isInvisibleColor(el.textStroke) && { textStroke: DEFAULT_BORDER_COLOR }),
+                  })}
+                  display={`${el.textStrokeWidth ?? 0}px`} />
               </Row>
 
               <Row label="Shadow Color">

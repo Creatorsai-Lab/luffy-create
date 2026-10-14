@@ -57,7 +57,6 @@ group by platform, version
 order by version desc, platform;
 ```
 
-
 ### * Commit and push main:
 
 git add -A
@@ -65,14 +64,12 @@ git commit -m "Release v1.4.0"
 git push origin main
 Wait for the Validate workflow to pass (gh run watch, or the Actions tab). This is the first run with the fixed tests.
 
-
 * Merge into production and push:
 
 git checkout production
 git pull origin production
 git merge main --no-ff -m "Release v1.4.0"
 git push origin production
-
 
 3. Tag that commit and push only the tag:
 
