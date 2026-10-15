@@ -6,9 +6,9 @@
 
 **Luffy Create** is a **_free_** and **_open source_** AI _video editing, video creation, image editing_ and _graphic designing_ web **app**.
 
-[![Release](https://img.shields.io/github/v/release/Creatorsai-Lab/luffy-create?label=download&style=flat-square)](https://github.com/Creatorsai-Lab/luffy-create/releases/latest)
+[![Release](https://img.shields.io/github/v/release/Creatorsai-Lab/luffy-create?label=download&style=flat-square)](https://luffy-create.pages.dev/)
 [![License](https://img.shields.io/github/license/Creatorsai-Lab/luffy-create?style=flat-square)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/Creatorsai-Lab/luffy-create/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)]()
 
 <div align="center">
 <img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/live-website/public/assets/images/download_btns.svg" width="100%" alt="Download Luffy Created per OS" />
