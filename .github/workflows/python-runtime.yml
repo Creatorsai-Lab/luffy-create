@@ -16,7 +16,8 @@ permissions:
 jobs:
   build:
     strategy:
-      fail-fast: true
+      # Let every platform finish so one run shows all failures; publish still needs all three.
+      fail-fast: false
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
@@ -28,6 +29,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      # manimpango has no prebuilt Linux wheel; pip compiles it against Pango/Cairo.
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libcairo2-dev libpango1.0-dev cmake
 
       - name: Prepare Python runtime
         run: npm run prepare-python-sandbox
