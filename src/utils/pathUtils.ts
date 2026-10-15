@@ -20,16 +20,3 @@ export function toFileUrl(path: string): string {
   return `localasset:///${path}`
 }
 
-export function fromFileUrl(url: string): string {
-  if (!url) return ''
-  for (const prefix of ['localasset:///', 'file:///']) {
-    if (url.startsWith(prefix)) {
-      const path = url.slice(prefix.length)
-      // Windows: restore drive letter
-      if (path.match(/^[A-Za-z]:\//)) return path
-      return `/${path}`
-    }
-  }
-  if (url.startsWith('file://')) return url.slice(7)
-  return url
-}

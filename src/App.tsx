@@ -15,6 +15,8 @@ import UserGuideModal from './components/modals/UserGuideModal'
 import SubtitleModal from './subtitle/SubtitleModal'
 import { PythonSandboxModal } from './pythonSandbox'
 import ToastContainer from './components/ui/Toast'
+import { useShallow } from 'zustand/react/shallow'
+import { saveCurrentProject } from './store/projectSave'
 
 const AUTO_SAVE_DELAY = 2500
 const OPTIONS_MIN_WIDTH = 220
@@ -54,9 +56,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 
 export default function App() {
   const {
-    project, isDirty, markClean, loadProject,
+    project, isDirty, loadProject,
     codeModalOpen, previewOpen, exportOpen, userGuideOpen, subtitleOpen, pythonSandboxOpen
-  } = useEditorStore()
+  } = useEditorStore(useShallow(s => ({ project: s.project, isDirty: s.isDirty, loadProject: s.loadProject, codeModalOpen: s.codeModalOpen, previewOpen: s.previewOpen, exportOpen: s.exportOpen, userGuideOpen: s.userGuideOpen, subtitleOpen: s.subtitleOpen, pythonSandboxOpen: s.pythonSandboxOpen })))
 
   const [ready, setReady] = useState(false)
   const [optionsWidth, setOptionsWidth] = useState(280)
@@ -119,22 +121,27 @@ export default function App() {
     boot()
   }, [])
 
-  const doSave = useCallback(async () => {
-    if (!project || project.id === 'default') return
-    try {
-      await window.api.projects.save(project.id, JSON.stringify(project))
-      markClean()
-    } catch (e) {
-      console.error('Auto-save failed', e)
-    }
-  }, [project, markClean])
-
+  // Autosave a moment after the last edit.
   useEffect(() => {
     if (!isDirty || !project) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(doSave, AUTO_SAVE_DELAY)
+    saveTimer.current = setTimeout(() => {
+      saveCurrentProject().catch(e => console.error('Auto-save failed', e))
+    }, AUTO_SAVE_DELAY)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-  }, [isDirty, project, doSave])
+  }, [isDirty, project])
+
+  // Closing the window: flush any unsaved edit first. The main process waits
+  // for closeReady (with a timeout, so a failed save can't block closing).
+  useEffect(() => window.api.app.onBeforeClose(async () => {
+    try {
+      if (useEditorStore.getState().isDirty) await saveCurrentProject()
+    } catch (e) {
+      console.error('Save on close failed', e)
+    } finally {
+      window.api.app.closeReady()
+    }
+  }), [])
 
   if (!ready) {
     return (

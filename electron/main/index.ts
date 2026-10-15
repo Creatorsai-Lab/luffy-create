@@ -785,6 +785,22 @@ function validatePythonUserCode(code: string): string | null {
   return null
 }
 
+// ── Save before close ────────────────────────────────────────────────────────
+// Closing a window first asks the renderer to flush its autosave; the window
+// closes once the renderer reports back, or after a timeout.
+const CLOSE_SAVE_TIMEOUT_MS = 4000
+const closeAllowed = new WeakSet<BrowserWindow>()
+let isQuitting = false
+app.on('before-quit', () => { isQuitting = true })
+
+function allowClose(win: BrowserWindow) {
+  if (win.isDestroyed() || closeAllowed.has(win)) return
+  closeAllowed.add(win)
+  win.close()
+  // A held close cancels app.quit (Cmd+Q on macOS), so resume quitting.
+  if (isQuitting) app.quit()
+}
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1440,
@@ -801,6 +817,14 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false
     }
+  })
+
+  // Hold the close until the editor has saved unsaved edits (see app:close-ready).
+  win.on('close', e => {
+    if (closeAllowed.has(win)) return
+    e.preventDefault()
+    win.webContents.send('app:before-close')
+    setTimeout(() => allowClose(win), CLOSE_SAVE_TIMEOUT_MS)   // a stuck save must not block closing
   })
 
   win.on('ready-to-show', () => win.show())
@@ -828,6 +852,10 @@ function registerIpcHandlers() {
     if (w) w.isMaximized() ? w.unmaximize() : w.maximize()
   })
   ipcMain.handle('win:close', () => focusedWindow()?.close())
+  ipcMain.on('app:close-ready', e => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (win) allowClose(win)
+  })
 
   // Projects CRUD
   ipcMain.handle('projects:list', () => readIndex())

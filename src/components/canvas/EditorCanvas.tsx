@@ -31,6 +31,8 @@ import CanvasSafeArea from './CanvasSafeArea'
 import CanvasToolbar from './CanvasToolbar'
 import ContextMenu from '../ui/ContextMenu'
 import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
+import { sceneStartTime } from '../../utils/sceneTiming'
+import { useShallow } from 'zustand/react/shallow'
 import {
   captureStageToCanvas,
   refreshStageSnapshot,
@@ -120,7 +122,7 @@ export default function EditorCanvas() {
     removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
     undo, redo, duplicateElement,
     bringForward, sendBackward, bringToFront, sendToBack,
-  } = useEditorStore()
+  } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds, playhead: s.playhead, isPlaying: s.isPlaying, exportOpen: s.exportOpen, activeTool: s.activeTool, activePanel: s.activePanel, pendingChartType: s.pendingChartType, handDrawSettings: s.handDrawSettings, cropElementId: s.cropElementId, setCropElement: s.setCropElement, addElement: s.addElement, selectElement: s.selectElement, deselectAll: s.deselectAll, removeElement: s.removeElement, updateElement: s.updateElement, setBackground: s.setBackground, setActiveTool: s.setActiveTool, setActivePanel: s.setActivePanel, openCodeModal: s.openCodeModal, undo: s.undo, redo: s.redo, duplicateElement: s.duplicateElement, bringForward: s.bringForward, sendBackward: s.sendBackward, bringToFront: s.bringToFront, sendToBack: s.sendToBack })))
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
 
@@ -969,12 +971,8 @@ export default function EditorCanvas() {
     localTime = morphFrame.localTime
   } else if (transitionStarted && transOverlay) {
     localTime = Math.max(0, playhead - transOverlay.transitionStart)
-  } else {
-    let acc = 0
-    for (const sc of project.scenes) {
-      if (sc.id === currentSceneId) { localTime = playhead - acc; break }
-      acc += sc.duration
-    }
+  } else if (currentSceneId) {
+    localTime = playhead - sceneStartTime(project.scenes, currentSceneId)
   }
 
   const sortedEls = [...(activeScene ?? currentScene).elements].sort((a, b) => a.zIndex - b.zIndex)

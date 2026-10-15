@@ -4,9 +4,10 @@ import { useEditorStore } from '../../store/editorStore'
 import { makeImage } from '../../utils/defaults'
 import { cn } from '../../utils/cn'
 import { toFileUrl } from '../../utils/pathUtils'
+import { useShallow } from 'zustand/react/shallow'
 
 export default function ImageUploadPanel() {
-  const { project, addAsset, removeAsset, addElement } = useEditorStore()
+  const { project, addAsset, removeAsset, addElement } = useEditorStore(useShallow(s => ({ project: s.project, addAsset: s.addAsset, removeAsset: s.removeAsset, addElement: s.addElement })))
   const [loading, setLoading]   = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const dropZoneRef = useRef<HTMLDivElement>(null)

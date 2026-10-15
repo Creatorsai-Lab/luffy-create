@@ -10,6 +10,8 @@ import type { ActiveTool, ActivePanel, EditorElement } from '../../types/editor'
 import { cn } from '../../utils/cn'
 import { makeCenteredArrow, makeCenteredTable, makeCenteredText } from '../../utils/defaults'
 import { toast } from '../ui/Toast'
+import { useShallow } from 'zustand/react/shallow'
+import { saveCurrentProject } from '../../store/projectSave'
 
 type ToolModal = 'subtitle' | 'pythonSandbox' | 'userGuide'
 
@@ -61,7 +63,7 @@ export default function MenuSideBar() {
     openCodeModal,
     addElement, deselectAll,
     undo, redo
-  } = useEditorStore()
+  } = useEditorStore(useShallow(s => ({ project: s.project, activeTool: s.activeTool, activePanel: s.activePanel, setActiveTool: s.setActiveTool, setActivePanel: s.setActivePanel, setProjectName: s.setProjectName, setCanvasSize: s.setCanvasSize, setPreviewOpen: s.setPreviewOpen, setExportOpen: s.setExportOpen, setUserGuideOpen: s.setUserGuideOpen, setSubtitleOpen: s.setSubtitleOpen, setPythonSandboxOpen: s.setPythonSandboxOpen, openCodeModal: s.openCodeModal, addElement: s.addElement, deselectAll: s.deselectAll, undo: s.undo, redo: s.redo })))
 
   const openModal: Record<ToolModal, (open: boolean) => void> = {
     subtitle: setSubtitleOpen,
@@ -86,12 +88,8 @@ export default function MenuSideBar() {
     if (project.id === 'default') return
     try {
       await window.api.projects.rename(project.id, name)
-      const latest = useEditorStore.getState().project
-      if (latest) {
-        await window.api.projects.save(latest.id, JSON.stringify(latest))
-        useEditorStore.getState().markClean()
-        toast.success('Project renamed successfully')
-      }
+      await saveCurrentProject()
+      toast.success('Project renamed successfully')
     } catch (e) {
       console.error('Failed to rename project', e)
       toast.error('Failed to rename project')

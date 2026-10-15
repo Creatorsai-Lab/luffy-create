@@ -7,6 +7,7 @@ import { toFileUrl } from '../utils/pathUtils'
 import type { PythonOutputFile, PythonRunResult, PythonStatus } from '../types/global'
 import { PYTHON_SANDBOX_IMAGE_EXTS, PYTHON_SANDBOX_VIDEO_EXTS } from './constants'
 import { readPythonSandboxImageSize, readPythonSandboxVideoMeta } from './media'
+import { useShallow } from 'zustand/react/shallow'
 import {
   getPythonSandboxPrelude,
   PYTHON_SANDBOX_DEFAULT_CODE,
@@ -22,7 +23,7 @@ export default function PythonSandboxModal() {
     setPythonSandboxOpen,
     addAsset,
     addElement,
-  } = useEditorStore()
+  } = useEditorStore(useShallow(s => ({ project: s.project, setPythonSandboxOpen: s.setPythonSandboxOpen, addAsset: s.addAsset, addElement: s.addElement })))
 
   const [status, setStatus] = useState<PythonStatus | null>(null)
   const [checking, setChecking] = useState(true)

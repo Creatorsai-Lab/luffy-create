@@ -4,11 +4,12 @@ import { useEditorStore } from '../../store/editorStore'
 import { ICON_MAP, ICON_CATEGORIES, ALL_CATEGORY } from '../../engine/iconData'
 import { makeIcon } from '../../utils/defaults'
 import { PanelHeader } from './TextPanel'
+import { useShallow } from 'zustand/react/shallow'
 
 const CATEGORIES = [ALL_CATEGORY, ...Object.keys(ICON_CATEGORIES)]
 
 export default function IconCollectionPanel() {
-  const { addElement } = useEditorStore()
+  const { addElement } = useEditorStore(useShallow(s => ({ addElement: s.addElement })))
   const [query,    setQuery]    = useState('')
   const [category, setCategory] = useState(ALL_CATEGORY)
 

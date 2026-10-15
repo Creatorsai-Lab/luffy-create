@@ -8,6 +8,7 @@
 // override derive their color from the shape's fill.
 
 import type { Face3D, ShapeElement } from '../types/editor'
+import { adjustHex } from '../utils/color'
 
 export const CUBE_FACES = ['front', 'back', 'top', 'bottom', 'left', 'right'] as const
 export const CONE_FACES = ['slant', 'base'] as const
@@ -35,17 +36,6 @@ export function get3DRotation(el: ShapeElement) {
 }
 
 // ── Face colors ──────────────────────────────────────────────────────────────
-
-function adjustHex(color: string, pct: number): string {
-  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color)
-  if (!m) return color
-  const s = m[1].length === 3 ? m[1].split('').map(c => c + c).join('') : m[1]
-  return '#' + [0, 2, 4].map(i => {
-    const v = parseInt(s.slice(i, i + 2), 16)
-    const out = pct > 0 ? v + (255 - v) * pct : v * (1 + pct)
-    return Math.round(Math.max(0, Math.min(255, out))).toString(16).padStart(2, '0')
-  }).join('')
-}
 
 /** Shade applied to each face's default color, so an untouched solid reads as 3D. */
 const DEFAULT_SHADE: Record<Face3D, number> = {

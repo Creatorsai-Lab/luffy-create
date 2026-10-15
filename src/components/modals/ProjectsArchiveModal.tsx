@@ -4,6 +4,8 @@ import { useEditorStore } from '../../store/editorStore'
 import { makeProject } from '../../utils/defaults'
 import type { ProjectRecord } from '../../types/global'
 import { cn } from '../../utils/cn'
+import { useShallow } from 'zustand/react/shallow'
+import { saveCurrentProject } from '../../store/projectSave'
 
 interface Props {
   onClose: () => void
@@ -17,7 +19,7 @@ function fmtDate(ts: number) {
 }
 
 export default function ProjectsArchiveModal({ onClose }: Props) {
-  const { project, isDirty, loadProject, closeProject } = useEditorStore()
+  const { project, isDirty, loadProject, closeProject } = useEditorStore(useShallow(s => ({ project: s.project, isDirty: s.isDirty, loadProject: s.loadProject, closeProject: s.closeProject })))
   const [projects, setProjects] = useState<ProjectRecord[]>([])
   const [creating, setCreating] = useState(false)
   const [loadingId, setLoadingId] = useState<string | null>(null)
@@ -31,11 +33,9 @@ export default function ProjectsArchiveModal({ onClose }: Props) {
   }
 
   async function saveCurrentIfNeeded() {
-    const state = useEditorStore.getState()
-    if (!state.project || !state.isDirty || state.project.id === 'default') return
+    if (!useEditorStore.getState().isDirty) return
     try {
-      await window.api.projects.save(state.project.id, JSON.stringify(state.project))
-      state.markClean()
+      await saveCurrentProject()
     } catch (e) {
       console.error('Failed to save before switch', e)
     }

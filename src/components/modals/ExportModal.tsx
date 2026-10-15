@@ -8,6 +8,8 @@ import { decodeGif } from '../../engine/gifDecoder'
 import type { ImageElement, Scene, VideoElement } from '../../types/editor'
 import { getVideoClipState } from '../../utils/videoClip'
 import { toast } from '../ui/Toast'
+import { sceneAtTime, sceneStartTime, sceneStartTimes } from '../../utils/sceneTiming'
+import { useShallow } from 'zustand/react/shallow'
 
 type Phase = 'idle' | 'exporting' | 'done' | 'error'
 type Quality = '720p' | '1080p'
@@ -32,7 +34,7 @@ function computeSnapshotLocalTime(scene: Scene): number {
 }
 
 export default function ExportModal() {
-  const { project, setExportOpen, setPlayhead } = useEditorStore()
+  const { project, setExportOpen, setPlayhead } = useEditorStore(useShallow(s => ({ project: s.project, setExportOpen: s.setExportOpen, setPlayhead: s.setPlayhead })))
 
   // ── Video state ──────────────────────────────────────────────────────────────
   const [phase, setPhase] = useState<Phase>('idle')
@@ -103,7 +105,7 @@ export default function ExportModal() {
     const scene = project?.scenes.find(sc => sc.id === sceneId)
     if (!scene) return
 
-    const sceneStart = sceneGlobalStart(project.scenes.findIndex(sc => sc.id === sceneId))
+    const sceneStart = sceneStartTime(project.scenes, sceneId)
     const localTime = Math.max(0, globalTime - sceneStart)
     const visibleVideos = scene.elements.filter((el): el is VideoElement => {
       return el.type === 'video' && el.visible && getVideoClipState(el, localTime).visible
@@ -121,26 +123,6 @@ export default function ExportModal() {
     }
   }
 
-  function findSceneIdAtTime(t: number): string | null {
-    if (!project) return null
-    let elapsed = 0
-    for (const scene of project.scenes) {
-      if (t < elapsed + scene.duration || scene === project.scenes[project.scenes.length - 1]) {
-        return scene.id
-      }
-      elapsed += scene.duration
-    }
-    return project.scenes[project.scenes.length - 1]?.id ?? null
-  }
-
-  function sceneGlobalStart(sceneIdx: number): number {
-    const scenes = project?.scenes
-    if (!scenes) return 0
-    let t = 0
-    for (let i = 0; i < sceneIdx; i++) t += scenes[i].duration
-    return t
-  }
-
   // ── Video export ─────────────────────────────────────────────────────────────
   async function startExport() {
     if (!project) return
@@ -154,7 +136,7 @@ export default function ExportModal() {
         onProgress: (pct, msg) => { if (!cancelRef.current) { setProgress(pct); setLog(msg) } },
         onLog: (msg) => console.log('[Export]', msg),
         renderSceneFrame: async (sceneId, globalTime) => { await ensureFrameRendered(sceneId, globalTime) },
-        renderFrame: async (t) => { await ensureFrameRendered(findSceneIdAtTime(t), t) }
+        renderFrame: async (t) => { await ensureFrameRendered(sceneAtTime(project.scenes, t)?.scene.id ?? null, t) }
       })
       if (cancelRef.current) return
       blobRef.current = blob
@@ -203,7 +185,7 @@ export default function ExportModal() {
 
     try {
       const localT = computeSnapshotLocalTime(scene)
-      const globalT = sceneGlobalStart(imgScene) + localT
+      const globalT = (sceneStartTimes(project.scenes)[imgScene] ?? 0) + localT
       await ensureFrameRendered(scene.id, globalT)
 
       const stage = getStage()

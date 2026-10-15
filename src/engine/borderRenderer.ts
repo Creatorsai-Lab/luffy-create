@@ -187,6 +187,3 @@ function roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, wi
   ctx.closePath()
 }
 
-export function borderFillModeOrDefault(value: BorderFillMode | undefined): BorderFillMode {
-  return value ?? 'solid'
-}

@@ -20,18 +20,6 @@ export function textFillProps(el: TextElement, width: number) {
   }
 }
 
-export function textCanvasFill(ctx: CanvasRenderingContext2D, el: TextElement, width: number, height: number): string | CanvasGradient {
-  if ((el.fillMode ?? 'solid') !== 'linearGradient') return el.color
-  const { start, end } = linearPoints(width, Math.max(1, height), 135)
-  const gradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y)
-  gradient.addColorStop(0, withOpacity(el.gradientColor1 ?? el.color, el.gradientOpacity1 ?? 1))
-  if (el.gradientUseColor3) {
-    gradient.addColorStop(0.5, withOpacity(el.gradientColor3 ?? '#22d3ee', el.gradientOpacity3 ?? 1))
-  }
-  gradient.addColorStop(1, withOpacity(el.gradientColor2 ?? '#8b5cf6', el.gradientOpacity2 ?? 1))
-  return gradient
-}
-
 function linearPoints(width: number, height: number, angle: number) {
   const rad = (angle * Math.PI) / 180
   const dx = Math.cos(rad)

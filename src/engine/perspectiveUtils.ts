@@ -207,28 +207,6 @@ export function drawPerspectiveShapeStroke(ctx: CanvasRenderingContext2D, el: Sh
   ctx.restore()
 }
 
-export function drawShapeBorder(ctx: CanvasRenderingContext2D, el: ShapeElement, time = 0) {
-  if (!hasElementBorder(el)) return
-  const sw = getElementBorderWidth(el)
-  const outlines = localShapeStrokeOutlines(el)
-  if (outlines.length === 0) return
-
-  ctx.save()
-  ctx.strokeStyle = borderCanvasStrokeStyle(ctx, el, el.width, el.height, time)
-  ctx.lineWidth = sw
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  for (const outline of outlines) {
-    const [first, ...rest] = outline.points
-    ctx.beginPath()
-    ctx.moveTo(first[0], first[1])
-    for (const pt of rest) ctx.lineTo(pt[0], pt[1])
-    if (outline.closed) ctx.closePath()
-    ctx.stroke()
-  }
-  ctx.restore()
-}
-
 function localShapeStrokeOutlines(el: ShapeElement): PerspectiveStrokeOutline[] {
   const w = el.width
   const h = el.height

@@ -3,13 +3,14 @@ import { useCanvasStore } from '../../store/canvasStore'
 import { useEditorStore } from '../../store/editorStore'
 import Tooltip from '../ui/Tooltip'
 import { cn } from '../../utils/cn'
+import { useShallow } from 'zustand/react/shallow'
 
 export default function CanvasToolbar() {
   const {
     showGrid, setShowGrid,
     showSafeArea, setShowSafeArea,
   } = useCanvasStore()
-  const { currentSceneId, clearSceneAnimations, project } = useEditorStore()
+  const { currentSceneId, clearSceneAnimations, project } = useEditorStore(useShallow(s => ({ currentSceneId: s.currentSceneId, clearSceneAnimations: s.clearSceneAnimations, project: s.project })))
 
   const sceneHasAnim = !!project?.scenes
     .find(s => s.id === currentSceneId)

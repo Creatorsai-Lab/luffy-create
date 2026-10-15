@@ -2,8 +2,10 @@ import { AlignCenter, AlignLeft, AlignRight, Table2 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { AlignType, AnimationType, ElementAnimation, TableElement } from '../../types/editor'
 import { makeAnimation, makeCenteredTable } from '../../utils/defaults'
-import { AnimSection, isLoopAnim, PanelHeader, Row, NumberInput, Slider, ColorInput } from './TextPanel'
+import { AnimSection, PanelHeader, Row, NumberInput, Slider, ColorInput } from './TextPanel'
 import { isMotionAnimation } from '../../utils/moveAnimation'
+import { isLoopAnimation } from '../../utils/animationTypes'
+import { useShallow } from 'zustand/react/shallow'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade In',   value: 'fadeIn'   },
@@ -31,7 +33,7 @@ function nonMoveAnimations(anims: ElementAnimation[]) {
 }
 
 export default function TablePanel() {
-  const { getSelectedEls, updateElement, addAnimation, addElement, project } = useEditorStore()
+  const { getSelectedEls, updateElement, addAnimation, addElement, project } = useEditorStore(useShallow(s => ({ getSelectedEls: s.getSelectedEls, updateElement: s.updateElement, addAnimation: s.addAnimation, addElement: s.addElement, project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds })))
   const el = getSelectedEls().find(e => e.type === 'table') as TableElement | undefined
 
   function upd(patch: Partial<TableElement>) {
@@ -172,21 +174,21 @@ export default function TablePanel() {
           <div className="-mx-3 mt-2">
             <AnimSection
               label="On Enter" color="text-green-400"
-              anims={nonMoveAnimations(el.animations).filter(a => !isLoopAnim(a) && a.timing === 'onEnter')}
+              anims={nonMoveAnimations(el.animations).filter(a => !isLoopAnimation(a) && a.timing === 'onEnter')}
               types={ENTER_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeIn', timing: 'onEnter' })}
               elId={el.id} isLoop={false}
             />
             <AnimSection
               label="Loop" color="text-editor-accent"
-              anims={nonMoveAnimations(el.animations).filter(a => isLoopAnim(a))}
+              anims={nonMoveAnimations(el.animations).filter(a => isLoopAnimation(a))}
               types={LOOP_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'pulse', timing: 'loop', duration: 1 })}
               elId={el.id} isLoop={true}
             />
             <AnimSection
               label="On Exit" color="text-red-400"
-              anims={nonMoveAnimations(el.animations).filter(a => !isLoopAnim(a) && a.timing === 'onExit')}
+              anims={nonMoveAnimations(el.animations).filter(a => !isLoopAnimation(a) && a.timing === 'onExit')}
               types={EXIT_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeOut', timing: 'onExit' })}
               elId={el.id} isLoop={false}

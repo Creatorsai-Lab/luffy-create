@@ -4,9 +4,10 @@ import type { SlideDir } from '../../types/editor'
 import { PanelHeader, Row, Slider } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { TRANSITIONS, getTransitionCapabilities } from '../../utils/transitions'
+import { useShallow } from 'zustand/react/shallow'
 
 export default function TransitionPanel() {
-  const { project, currentSceneId, setTransition } = useEditorStore()
+  const { project, currentSceneId, setTransition } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, setTransition: s.setTransition })))
   const scene = project?.scenes.find(s => s.id === currentSceneId)
 
   if (!scene || !project) return null

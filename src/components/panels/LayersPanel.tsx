@@ -3,6 +3,7 @@ import { Eye, EyeOff, Lock, Unlock, ArrowUp, ArrowDown, Layers, Trash2, Type, Sh
 import { useEditorStore } from '../../store/editorStore'
 import { cn } from '../../utils/cn'
 import type { EditorElement, TextElement, ShapeElement, ArrowElement, CodeElement, ImageElement, VideoElement, AudioElement, IconElement, LatexElement, ChartElement, TableElement, CounterElement, HandDrawElement } from '../../types/editor'
+import { useShallow } from 'zustand/react/shallow'
 
 // ── Shape SVG thumbnails by shapeType ───────────────────────────────────────
 
@@ -141,7 +142,7 @@ export default function LayersPanel() {
     project, currentSceneId, selectedIds,
     selectElement, updateElement, removeElement,
     bringForward, sendBackward, reorderElementLayer
-  } = useEditorStore()
+  } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds, selectElement: s.selectElement, updateElement: s.updateElement, removeElement: s.removeElement, bringForward: s.bringForward, sendBackward: s.sendBackward, reorderElementLayer: s.reorderElementLayer })))
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const dragTargetRef = useRef<string | null>(null)

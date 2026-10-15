@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react'
 import { Sigma } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { LatexElement } from '../../types/editor'
-import { PanelHeader, Row, Slider, ColorInput, AnimSection, ENTER_ANIMS, LOOP_ANIMS, EXIT_ANIMS, isLoopAnim } from './TextPanel'
+import { PanelHeader, Row, Slider, ColorInput, AnimSection, ENTER_ANIMS, LOOP_ANIMS, EXIT_ANIMS } from './TextPanel'
 import { makeLatex, makeAnimation } from '../../utils/defaults'
 import { renderLatex } from '../../engine/latexRenderer'
 import { isMotionAnimation } from '../../utils/moveAnimation'
+import { isLoopAnimation } from '../../utils/animationTypes'
+import { useShallow } from 'zustand/react/shallow'
 
 const SAMPLE = 'E = mc^2'
 
 export default function LatexPanel() {
-  const { getSelectedEls, updateElement, addElement, addAnimation, project } = useEditorStore()
+  const { getSelectedEls, updateElement, addElement, addAnimation, project } = useEditorStore(useShallow(s => ({ getSelectedEls: s.getSelectedEls, updateElement: s.updateElement, addElement: s.addElement, addAnimation: s.addAnimation, project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds })))
   const el = getSelectedEls().find(e => e.type === 'latex') as LatexElement | undefined
 
   const [src, setSrc] = useState(el?.latex ?? SAMPLE)
@@ -114,21 +116,21 @@ export default function LatexPanel() {
         <div className="border-t border-editor-border -mx-3 mt-1">
           <AnimSection
             label="On Enter" color="text-green-400"
-            anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onEnter')}
+            anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onEnter')}
             types={ENTER_ANIMS}
             onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeIn', timing: 'onEnter' })}
             elId={el.id} isLoop={false}
           />
           <AnimSection
             label="Loop" color="text-editor-accent"
-            anims={el.animations.filter(a => !isMotionAnimation(a) && isLoopAnim(a))}
+            anims={el.animations.filter(a => !isMotionAnimation(a) && isLoopAnimation(a))}
             types={LOOP_ANIMS}
             onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'pulse', timing: 'loop', duration: 1 })}
             elId={el.id} isLoop={true}
           />
           <AnimSection
             label="On Exit" color="text-red-400"
-            anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onExit')}
+            anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onExit')}
             types={EXIT_ANIMS}
             onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeOut', timing: 'onExit' })}
             elId={el.id} isLoop={false}

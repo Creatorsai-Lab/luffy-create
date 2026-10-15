@@ -8,6 +8,7 @@ import {
   MOVE_DIRECTIONS, computeCenterMoveDelta, computeMoveDelta, durationFromMove, elementCenter, isMotionAnimation,
 } from '../../utils/moveAnimation'
 import { NumberInput, PanelHeader, Row, Slider } from './TextPanel'
+import { useShallow } from 'zustand/react/shallow'
 
 type MotionType = 'move' | 'zoomIn' | 'zoomOut'
 type MotionAnimation = ElementAnimation & { type: MotionType }
@@ -26,7 +27,7 @@ const ZOOM_POSITIONS: { value: MotionZoomPosition; label: string }[] = [
 ]
 
 export default function MotionPanel() {
-  const { project, currentSceneId, getSelectedEls, addAnimation, updateAnimation, removeAnimation } = useEditorStore()
+  const { project, currentSceneId, getSelectedEls, addAnimation, updateAnimation, removeAnimation } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, getSelectedEls: s.getSelectedEls, addAnimation: s.addAnimation, updateAnimation: s.updateAnimation, removeAnimation: s.removeAnimation, selectedIds: s.selectedIds })))
   const element = getSelectedEls().find(item => item.type !== 'audio')
   const sceneDuration = project?.scenes.find(scene => scene.id === currentSceneId)?.duration ?? 10
   const motions = element?.animations.filter(isMotionAnimation) ?? []

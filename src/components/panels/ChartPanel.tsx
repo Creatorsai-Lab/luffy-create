@@ -5,6 +5,7 @@ import { makeAnimation, makeChart } from '../../utils/defaults'
 import { PanelHeader, Row, ColorInput, Slider } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { FONT_FAMILIES } from '../../types/editor'
+import { useShallow } from 'zustand/react/shallow'
 
 const CHART_TYPES: { icon: React.ReactNode; type: ChartElement['chartType']; label: string }[] = [
   { icon: <BarChart3 size={14} />,   type: 'bar',      label: 'Bar' },
@@ -37,7 +38,7 @@ export default function ChartPanel() {
   const {
     project, currentSceneId, getSelectedEls, updateElement, addElement, addAnimation, updateAnimation, removeAnimation,
     setActiveTool, setActivePanel, pendingChartType, setPendingChartType
-  } = useEditorStore()
+  } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, getSelectedEls: s.getSelectedEls, updateElement: s.updateElement, addElement: s.addElement, addAnimation: s.addAnimation, updateAnimation: s.updateAnimation, removeAnimation: s.removeAnimation, setActiveTool: s.setActiveTool, setActivePanel: s.setActivePanel, pendingChartType: s.pendingChartType, setPendingChartType: s.setPendingChartType, selectedIds: s.selectedIds })))
   const el = getSelectedEls().find(e => e.type === 'chart') as ChartElement | undefined
   const firstDataset = el?.data.datasets[0]
   const pointData = firstDataset?.points ?? [

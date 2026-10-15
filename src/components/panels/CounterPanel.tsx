@@ -5,15 +5,17 @@ import { FONT_FAMILIES } from '../../types/editor'
 import type { CounterElement, FontWeight } from '../../types/editor'
 import { cn } from '../../utils/cn'
 import { makeAnimation, makeCounter } from '../../utils/defaults'
-import { PanelHeader, Row, ColorInput, Slider, NumberInput, AnimSection, isLoopAnim } from './TextPanel'
+import { PanelHeader, Row, ColorInput, Slider, NumberInput, AnimSection } from './TextPanel'
 import { ENTER_ANIMS, LOOP_ANIMS, EXIT_ANIMS } from './TextPanel'
 import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../../utils/fontWeight'
 import { isMotionAnimation } from '../../utils/moveAnimation'
+import { isLoopAnimation } from '../../utils/animationTypes'
+import { useShallow } from 'zustand/react/shallow'
 
 type CounterMode = 'number' | 'english' | 'hindi'
 
 export default function CounterPanel() {
-  const { getSelectedEls, updateElement, addAnimation, addElement, project } = useEditorStore()
+  const { getSelectedEls, updateElement, addAnimation, addElement, project } = useEditorStore(useShallow(s => ({ getSelectedEls: s.getSelectedEls, updateElement: s.updateElement, addAnimation: s.addAnimation, addElement: s.addElement, project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds })))
   const selected = getSelectedEls()
   const el = selected.find(e => e.type === 'counter') as CounterElement | undefined
 
@@ -273,21 +275,21 @@ export default function CounterPanel() {
             {/* Animations */}
             <AnimSection
               label="On Enter" color="text-green-400"
-              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onEnter')}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onEnter')}
               types={ENTER_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeIn', timing: 'onEnter' })}
               elId={el.id} isLoop={false}
             />
             <AnimSection
               label="Loop" color="text-editor-accent"
-              anims={el.animations.filter(a => !isMotionAnimation(a) && isLoopAnim(a))}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && isLoopAnimation(a))}
               types={LOOP_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'pulse', timing: 'loop', duration: 1 })}
               elId={el.id} isLoop={true}
             />
             <AnimSection
               label="On Exit" color="text-red-400"
-              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onExit')}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onExit')}
               types={EXIT_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeOut', timing: 'onExit' })}
               elId={el.id} isLoop={false}

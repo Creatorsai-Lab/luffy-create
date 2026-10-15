@@ -5,13 +5,14 @@ import { useEditorStore } from '../../store/editorStore'
 import { LANGUAGES } from '../../types/editor'
 import type { CodeElement } from '../../types/editor'
 import { makeCode } from '../../utils/defaults'
+import { useShallow } from 'zustand/react/shallow'
 
 // Lazy-load Monaco to avoid blocking app boot
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
 export default function CodeEditorModal() {
   const { project, currentSceneId, codeModalElemId, getSelectedEls,
-    addElement, updateElement, closeCodeModal } = useEditorStore()
+    addElement, updateElement, closeCodeModal } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, codeModalElemId: s.codeModalElemId, getSelectedEls: s.getSelectedEls, addElement: s.addElement, updateElement: s.updateElement, closeCodeModal: s.closeCodeModal, selectedIds: s.selectedIds })))
 
   const scene = project?.scenes.find(s => s.id === currentSceneId)
   const existingEl = codeModalElemId

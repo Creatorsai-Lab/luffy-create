@@ -19,6 +19,7 @@ import CounterKonva from './elements/CounterKonva'
 import HandDrawKonva from './elements/HandDrawKonva'
 import PerspectiveCapture, { CAPTURE_SOURCE_PROPS } from './PerspectiveCapture'
 import { cuboidDepth } from '../../engine/shape3d'
+import { useShallow } from 'zustand/react/shallow'
 
 const NATIVE_PERSPECTIVE_TYPES = new Set(['shape', 'image', 'video', 'icon'])
 
@@ -36,7 +37,7 @@ interface Props {
 }
 
 export default function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, sceneWidth, syncVideoToTime = true, videoPlaybackActive = false }: Props) {
-  const { activeTool, updateElement } = useEditorStore()
+  const { activeTool, updateElement } = useEditorStore(useShallow(s => ({ activeTool: s.activeTool, updateElement: s.updateElement })))
   const interaction = getCanvasElementInteraction(activeTool, element.locked, element.type)
   const setCursor = (target: Konva.Node, state: 'canvas' | 'selected' | 'dragging', movable = interaction.draggable) => {
     const container = target.getStage()?.container()

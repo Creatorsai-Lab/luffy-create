@@ -14,6 +14,15 @@ const api = {
     maximize: () => ipcRenderer.invoke('win:maximize'),
     close:    () => ipcRenderer.invoke('win:close')
   },
+  app: {
+    /** Main asks the editor to flush unsaved work before the window closes. Returns an unsubscribe. */
+    onBeforeClose: (callback: () => void) => {
+      const listener = () => callback()
+      ipcRenderer.on('app:before-close', listener)
+      return () => { ipcRenderer.removeListener('app:before-close', listener) }
+    },
+    closeReady: () => ipcRenderer.send('app:close-ready'),
+  },
   projects: {
     list:   ()                         => ipcRenderer.invoke('projects:list'),
     create: (name: string)             => ipcRenderer.invoke('projects:create', name),

@@ -13,6 +13,8 @@ import { TRANS_COLOR } from '../../utils/transitions'
 import { makeAudio } from '../../utils/defaults'
 import { AUDIO_ASSET_DRAG_TYPE } from '../../utils/dragPayloads'
 import { clampAudioDuration, readAudioMetadataDuration, remainingTimelineDuration, resolveStoredAudioDuration } from '../../utils/audioMetadata'
+import { findElementScene, sceneAtTime, sceneStartTimes } from '../../utils/sceneTiming'
+import { useShallow } from 'zustand/react/shallow'
 import {
   applyAudioEffects,
   audioPreviewPlaybackRate,
@@ -61,7 +63,7 @@ export default function Timeline() {
     updateElement, removeElement, addElementToScene, updateAsset,
     addAudioMarker, removeAudioMarker,
     setActivePanel, selectElement, deselectAll,
-  } = useEditorStore()
+  } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, playhead: s.playhead, isPlaying: s.isPlaying, timelineZoom: s.timelineZoom, snapEnabled: s.snapEnabled, addScene: s.addScene, addSceneAfter: s.addSceneAfter, splitScene: s.splitScene, setCurrentScene: s.setCurrentScene, updateScene: s.updateScene, reorderScenes: s.reorderScenes, removeScene: s.removeScene, duplicateScene: s.duplicateScene, setPlayhead: s.setPlayhead, play: s.play, pause: s.pause, stop: s.stop, getTotalDuration: s.getTotalDuration, setTimelineZoom: s.setTimelineZoom, updateElement: s.updateElement, removeElement: s.removeElement, addElementToScene: s.addElementToScene, updateAsset: s.updateAsset, addAudioMarker: s.addAudioMarker, removeAudioMarker: s.removeAudioMarker, setActivePanel: s.setActivePanel, selectElement: s.selectElement, deselectAll: s.deselectAll })))
 
   const [editDurId, setEditDurId] = useState<string | null>(null)
   const [resizingScene, setResizingScene] = useState<{ id: string; edge: 'start' | 'end' } | null>(null)
@@ -188,14 +190,16 @@ export default function Timeline() {
             applyAudioEffects(graph, audio, timeWithinClip)
             syncAudioPlaybackSettings(player, audio)
 
+            // Source position for the playhead: trim start + clip time at the playback rate.
+            const trimStart = audio.startTime ?? 0
+            const expected = Math.max(trimStart, trimStart + timeWithinClip * audioPreviewPlaybackRate(audio))
             if (player.paused) {
-              // Calculate current time based on playhead position within this audio element
-              // account for trim start (startTime) and playback speed
-              const trimStart = audio.startTime ?? 0
-              const timeWithinAudio = timeWithinClip * audioPreviewPlaybackRate(audio)
-              player.currentTime = Math.max(trimStart, trimStart + timeWithinAudio)
+              player.currentTime = expected
               void graph.context.resume().catch(() => {})
               player.play().catch(() => {})
+            } else if (Math.abs(player.currentTime - expected) > 0.3) {
+              // The playhead jumped (ruler click / scrub while playing) — follow it.
+              player.currentTime = expected
             }
           }
         }
@@ -500,7 +504,6 @@ export default function Timeline() {
     const handleMouseMove = (mv: MouseEvent) => {
       if (!moved && Math.abs(mv.clientX - startMouseX) < 3) return
       moved = true
-      let elapsed = 0
       for (const sc of project!.scenes) {
         const video = sc.elements.find(el => el.id === videoId && el.type === 'video') as VideoElement | undefined
         if (video) {
@@ -510,7 +513,6 @@ export default function Timeline() {
           updateElement(videoId, { timelineX: Math.max(0, Math.min(maxX, origTimelineX + delta)) })
           return
         }
-        elapsed += sc.duration
       }
     }
 
@@ -578,12 +580,8 @@ export default function Timeline() {
   const totalDur = getTotalDuration()
   const totalPx  = totalDur * PX_PER_SEC
 
-  const sceneStarts: Record<string, number> = {}
-  let acc = 0
-  for (const sc of project.scenes) {
-    sceneStarts[sc.id] = acc
-    acc += sc.duration
-  }
+  const startTimes = sceneStartTimes(project.scenes)
+  const sceneStarts: Record<string, number> = Object.fromEntries(project.scenes.map((sc, i) => [sc.id, startTimes[i]]))
 
   const maxAudioRightPx = project.scenes.reduce((max, sc) => {
     const scStart = sceneStarts[sc.id] ?? 0
@@ -615,13 +613,10 @@ export default function Timeline() {
   }
 
   function findVideoScene(videoId: string) {
-    let elapsed = 0
-    for (const sc of project!.scenes) {
-      const video = sc.elements.find(e => e.id === videoId && e.type === 'video') as VideoElement | undefined
-      if (video) return { video, scene: sc, sceneStart: elapsed }
-      elapsed += sc.duration
-    }
-    return null
+    const found = findElementScene(project!.scenes, videoId)
+    return found && found.element.type === 'video'
+      ? { video: found.element as VideoElement, scene: found.scene, sceneStart: found.start }
+      : null
   }
 
   function trimVideoAtPlayhead() {
@@ -696,12 +691,8 @@ export default function Timeline() {
   }
 
   function findAudioScene(audioId: string) {
-    let elapsed = 0
-    for (const sc of project!.scenes) {
-      if (sc.elements.some(e => e.id === audioId)) return { scene: sc, sceneStart: elapsed }
-      elapsed += sc.duration
-    }
-    return null
+    const found = findElementScene(project!.scenes, audioId)
+    return found && { scene: found.scene, sceneStart: found.start }
   }
 
   function isAudioAssetDrag(e: React.DragEvent) {
@@ -716,16 +707,8 @@ export default function Timeline() {
   }
 
   function sceneAtTimelineTime(time: number) {
-    let elapsed = 0
-    for (const sc of project!.scenes) {
-      const start = elapsed
-      const end = start + sc.duration
-      if (time < end || sc === project!.scenes[project!.scenes.length - 1]) {
-        return { scene: sc, localTime: Math.max(0, Math.min(sc.duration, time - start)), sceneStart: start }
-      }
-      elapsed = end
-    }
-    return null
+    const at = sceneAtTime(project!.scenes, time)
+    return at && { scene: at.scene, localTime: Math.max(0, Math.min(at.scene.duration, time - at.start)), sceneStart: at.start }
   }
 
   async function addAudioAssetAtTimelineTime(assetId: string, time: number) {
@@ -884,7 +867,6 @@ export default function Timeline() {
   const maxLane = laneById.size ? Math.max(...laneById.values()) : 0
   const audioLaneOf = (id: string) => laneById.get(id) ?? 0
 
-
   return (
     <div className="flex flex-col bg-[#171717] flex-none relative" style={{ height: panelHeight }}>
       {/* Resize handle — drag to change timeline height */}
@@ -1029,7 +1011,6 @@ export default function Timeline() {
           </button>
         </Tooltip>
       </div>
-
 
       {/* Scrollable track area */}
       <div

@@ -48,12 +48,6 @@ export function buildAiProjectContext(): AiProjectContext | null {
   }
 }
 
-export function findSceneByRef(project: Project, sceneId?: string, sceneIndex?: number) {
-  if (sceneId) return project.scenes.find(scene => scene.id === sceneId) ?? null
-  if (sceneIndex != null) return project.scenes[Math.max(0, sceneIndex - 1)] ?? null
-  return null
-}
-
 function summarizeElement(el: EditorElement): AiElementSummary {
   const sized = el as EditorElement & { width?: number; height?: number; content?: string }
   return {

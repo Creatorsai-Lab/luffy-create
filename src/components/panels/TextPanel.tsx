@@ -11,6 +11,8 @@ import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../../utils/
 import { TEXT_EFFECT_OPTIONS, normalizeTextEffects } from '../../utils/textEffects'
 import { isMotionAnimation } from '../../utils/moveAnimation'
 import { DEFAULT_BORDER_COLOR, isInvisibleColor } from '../../engine/borderRenderer'
+import { isLoopAnimation } from '../../utils/animationTypes'
+import { useShallow } from 'zustand/react/shallow'
 
 export const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Slide In',           value: 'slideIn'        },
@@ -66,11 +68,8 @@ const EASINGS: { label: string; value: EasingType }[] = [
   { label: 'Bounce',     value: 'bounce'   },
 ]
 
-const LOOP_TYPE_SET = new Set<string>(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop', 'colorPulse'])
-export const isLoopAnim = (a: ElementAnimation) => LOOP_TYPE_SET.has(a.type) || a.timing === 'loop'
-
 export default function TextPanel() {
-  const { getSelectedEls, updateElement, addAnimation, addElement, project } = useEditorStore()
+  const { getSelectedEls, updateElement, addAnimation, addElement, project } = useEditorStore(useShallow(s => ({ getSelectedEls: s.getSelectedEls, updateElement: s.updateElement, addAnimation: s.addAnimation, addElement: s.addElement, project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds })))
   const selected = getSelectedEls()
   const el = selected.find(e => e.type === 'text') as TextElement | undefined
 
@@ -362,21 +361,21 @@ export default function TextPanel() {
             {/* ── Animations ────────────────────────────────────────── */}
             <AnimSection
               label="On Enter" color="text-green-400"
-              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onEnter')}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onEnter')}
               types={TEXT_ENTER_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'typewriterChars', timing: 'onEnter' })}
               elId={el.id} isLoop={false}
             />
             <AnimSection
               label="Loop" color="text-editor-accent"
-              anims={el.animations.filter(a => !isMotionAnimation(a) && isLoopAnim(a))}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && isLoopAnimation(a))}
               types={TEXT_LOOP_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'pulse', timing: 'loop', duration: 1 })}
               elId={el.id} isLoop={true}
             />
             <AnimSection
               label="On Exit" color="text-red-400"
-              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onExit')}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onExit')}
               types={TEXT_EXIT_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'textFade', timing: 'onExit' })}
               elId={el.id} isLoop={false}
@@ -538,7 +537,7 @@ function AnimBlock({
   types: { label: string; value: AnimationType }[]
   isLoop: boolean
 }) {
-  const { updateAnimation, removeAnimation } = useEditorStore()
+  const { updateAnimation, removeAnimation } = useEditorStore(useShallow(s => ({ updateAnimation: s.updateAnimation, removeAnimation: s.removeAnimation })))
 
   function upd(patch: Partial<ElementAnimation>) {
     updateAnimation(elId, anim.id, patch)

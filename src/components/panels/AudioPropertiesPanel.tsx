@@ -3,6 +3,7 @@ import { useEditorStore } from '../../store/editorStore'
 import type { AudioElement } from '../../types/editor'
 import { clampAudioEffect, clampAudioVolume } from '../../utils/audioEffects'
 import { clampFadeVolume } from '../../utils/audioFade'
+import { useShallow } from 'zustand/react/shallow'
 
 const AUDIO_SPEED_OPTIONS = [
   0.25,
@@ -16,7 +17,7 @@ interface AudioPropertiesPanelProps {
 }
 
 export default function AudioPropertiesPanel({ element, onClose }: AudioPropertiesPanelProps) {
-  const { updateElement } = useEditorStore()
+  const { updateElement } = useEditorStore(useShallow(s => ({ updateElement: s.updateElement })))
 
   if (!element || element.type !== 'audio') {
     return null

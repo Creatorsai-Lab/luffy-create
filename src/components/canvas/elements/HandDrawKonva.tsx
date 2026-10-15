@@ -1,28 +1,11 @@
 import { Group, Shape } from 'react-konva'
 import type Konva from 'konva'
 import type { HandDrawElement, HandDrawStroke } from '../../../types/editor'
+import { colorWithAlpha } from '../../../utils/color'
 
 interface Props {
   el: HandDrawElement
   konvaProps: Konva.GroupConfig
-}
-
-function parseHexColor(color: string) {
-  const hex = color.trim()
-  if (!/^#[0-9a-f]{6}$/i.test(hex)) return null
-  return {
-    r: Number.parseInt(hex.slice(1, 3), 16),
-    g: Number.parseInt(hex.slice(3, 5), 16),
-    b: Number.parseInt(hex.slice(5, 7), 16),
-  }
-}
-
-function colorWithAlpha(color: string, alpha: number) {
-  const rgb = parseHexColor(color)
-  if (rgb) {
-    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.max(0, Math.min(1, alpha))})`
-  }
-  return color
 }
 
 function smoothStep(edge0: number, edge1: number, value: number) {

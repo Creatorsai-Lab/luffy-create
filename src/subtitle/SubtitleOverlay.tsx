@@ -15,6 +15,7 @@ import {
   type SubtitleRenderRow,
 } from './presentation'
 import { fontWeightToCssValue, fontWeightToKonvaStyle } from '../utils/fontWeight'
+import { colorWithAlpha } from '../utils/color'
 
 interface Props { project: Project | null; time: number }
 interface CaptionProps { width: number; height: number; text: string; start: number; end: number; time: number; style: SubtitleStyle }
@@ -122,10 +123,3 @@ function subtitleTextFillProps(style: SubtitleStyle, width: number) {
     fillLinearGradientEndPoint: { x: width, y: 0 }, fillLinearGradientColorStops: stops }
 }
 
-function colorWithAlpha(hex: string, alpha: number) {
-  const clean = hex.replace('#', '')
-  const normalized = clean.length === 3 ? clean.split('').map(ch => ch + ch).join('') : clean.slice(0, 6)
-  const n = Number.parseInt(normalized, 16)
-  if (!Number.isFinite(n)) return hex
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${Math.max(0, Math.min(1, alpha))})`
-}

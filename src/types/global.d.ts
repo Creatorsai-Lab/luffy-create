@@ -109,6 +109,10 @@ declare global {
         maximize: () => Promise<void>
         close:    () => Promise<void>
       }
+      app: {
+        onBeforeClose: (callback: () => void) => () => void
+        closeReady:    () => void
+      }
       projects: {
         list:   ()                         => Promise<ProjectRecord[]>
         create: (name: string)             => Promise<ProjectRecord>
