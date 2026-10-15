@@ -49,3 +49,6 @@ coverage/
 .worktrees/
 docs/superpowers/
 .agents/
+
+# TypeScript incremental build cache
+*.tsbuildinfo

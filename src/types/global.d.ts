@@ -37,6 +37,20 @@ export interface PythonStatus {
   stderr?: string
 }
 
+/** The one-time Python runtime download (see electron/main/pythonRuntimePack.ts). */
+export interface PythonRuntimeStatus {
+  state: 'unavailable' | 'not-installed' | 'downloading' | 'installed'
+  version: string
+  archiveBytes: number
+  expandedBytes: number
+}
+
+export interface PythonRuntimeProgress {
+  phase: 'download' | 'install' | 'finished'
+  receivedBytes: number
+  totalBytes: number
+}
+
 export interface PythonOutputFile {
   name: string
   path: string
@@ -156,6 +170,11 @@ declare global {
         }) => Promise<PythonRunResult>
         cancel: (jobId: string) => Promise<boolean>
         listOutputs: (outputDir: string) => Promise<PythonOutputFile[]>
+        runtimeStatus: () => Promise<PythonRuntimeStatus>
+        installRuntime: () => Promise<PythonRuntimeStatus>
+        cancelRuntimeInstall: () => Promise<boolean>
+        removeRuntime: () => Promise<void>
+        onRuntimeProgress: (listener: (progress: PythonRuntimeProgress) => void) => () => void
       }
       subtitle: {
         transcribeAudio: (payload: {

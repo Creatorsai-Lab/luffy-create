@@ -306,7 +306,7 @@ const SECTIONS: Section[] = [
     id: 'captions', title: 'Captions', icon: <Captions size={15} />,
     content: (
       <>
-        <P>Open <strong>Subtitle</strong> from the menu. Captions are generated on your computer — nothing is uploaded.</P>
+        <P>Open <strong>Subtitle</strong> from the menu. Captions are generated on your computer — nothing is uploaded. Word captions and translation need the Python runtime; the first time, click <strong>Download</strong> (one time, about 200 MB).</P>
         <H>Automatic captions</H>
         <ul className="list-disc pl-5">
           <LI>Choose the audio sources to transcribe and the spoken language, or Auto-detect. More than 25 languages are listed, including Hindi.</LI>
@@ -417,6 +417,7 @@ const SECTIONS: Section[] = [
         <H>Workflow</H>
         <ul className="list-disc pl-5">
           <LI>Open Menu Sidebar → Python Sandbox.</LI>
+          <LI>First time only: click <strong>Download</strong> to fetch the Python runtime (about 200 MB). It stays installed; you can remove it from the sandbox header. Local Whisper captions and translation use the same download.</LI>
           <LI>Choose Python Script for Matplotlib outputs or Manim Scene for animation.</LI>
           <LI>Write only the working code. Do not add import lines; supported libraries are already preloaded.</LI>
           <LI>Save outputs inside <Kbd>out</Kbd>, then use Save to Assets or Insert.</LI>

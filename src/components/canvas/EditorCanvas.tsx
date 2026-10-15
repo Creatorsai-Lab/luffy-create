@@ -241,6 +241,10 @@ export default function EditorCanvas() {
         .filter(id => currentScene?.elements.find(el => el.id === id)?.type !== 'handDraw')
         .map(id => stageRef.current!.findOne(`#${id}`))
         .filter((n): n is Konva.Node => !!n && !!n.getStage?.())
+      // Runs every frame during playback (an element can re-mount mid-play);
+      // only re-attach and redraw when the selected nodes actually changed.
+      const attached = trRef.current.nodes()
+      if (nodes.length === attached.length && nodes.every((n, i) => n === attached[i])) return
       trRef.current.nodes(nodes)
       trRef.current.getLayer()?.batchDraw()
     }
@@ -311,21 +315,13 @@ export default function EditorCanvas() {
         return
       }
 
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault() // Prevent browser back navigation
-        console.log('[EditorCanvas] Delete key pressed, selectedIds:', selectedIds)
-        if (selectedIds.length > 0) {
-          console.log('[EditorCanvas] Deleting selected elements:', selectedIds)
-          // Create a copy to avoid mutation issues
-          const toDelete = [...selectedIds]
-          deselectAll() // Deselect first to avoid issues
-          toDelete.forEach(id => {
-            console.log('[EditorCanvas] Removing element:', id)
-            removeElement(id)
-          })
-        } else {
-          console.log('[EditorCanvas] No elements selected to delete')
-        }
+      // Delete removes the selected elements. preventDefault marks the key as
+      // used, so the timeline's handler (delete clip / scene) skips it.
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0 && !e.defaultPrevented) {
+        e.preventDefault()
+        const toDelete = [...selectedIds]
+        deselectAll()
+        toDelete.forEach(id => removeElement(id))
       }
       
       // Arrow keys: nudge selected element(s). Shift = larger step.

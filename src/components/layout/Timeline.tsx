@@ -225,55 +225,59 @@ export default function Timeline() {
     }
   }, [])
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts. Registered once and read live state on each key press:
+  // depending on `playhead` re-registered this listener every frame during
+  // playback, which also made its order relative to the canvas listener flip.
+  const selectedClipRef = useRef({ audio: selectedAudioId, video: selectedVideoId })
+  selectedClipRef.current = { audio: selectedAudioId, video: selectedVideoId }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return
-      if (e.target instanceof HTMLTextAreaElement) return
+      if (e.defaultPrevented) return   // already handled, e.g. the canvas deleted the selected element
+      const target = e.target as HTMLElement
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable) return
 
+      const s = useEditorStore.getState()
       switch (e.key) {
         case ' ':
           e.preventDefault()
-          isPlaying ? pause() : play()
+          s.isPlaying ? s.pause() : s.play()
           break
         case 'ArrowLeft':
           // Element movement takes priority — only scrub when nothing is selected
-          if (useEditorStore.getState().selectedIds.length > 0) break
-          if (!isPlaying) { e.preventDefault(); setPlayhead(Math.max(0, playhead - 1/30)) }
+          if (s.selectedIds.length > 0 || s.isPlaying) break
+          e.preventDefault(); s.setPlayhead(Math.max(0, s.playhead - 1/30))
           break
         case 'ArrowRight':
-          if (useEditorStore.getState().selectedIds.length > 0) break
-          if (!isPlaying) { e.preventDefault(); setPlayhead(Math.min(getTotalDuration(), playhead + 1/30)) }
+          if (s.selectedIds.length > 0 || s.isPlaying) break
+          e.preventDefault(); s.setPlayhead(Math.min(s.getTotalDuration(), s.playhead + 1/30))
           break
         case 'Home':
-          e.preventDefault(); setPlayhead(0); break
+          e.preventDefault(); s.setPlayhead(0); break
         case 'End':
-          e.preventDefault(); setPlayhead(getTotalDuration()); break
+          e.preventDefault(); s.setPlayhead(s.getTotalDuration()); break
         case '+': case '=':
-          if (e.ctrlKey || e.metaKey) { e.preventDefault(); setTimelineZoom(Math.min(5, timelineZoom * 1.2)) }
+          if (e.ctrlKey || e.metaKey) { e.preventDefault(); s.setTimelineZoom(Math.min(5, s.timelineZoom * 1.2)) }
           break
         case '-': case '_':
-          if (e.ctrlKey || e.metaKey) { e.preventDefault(); setTimelineZoom(Math.max(0.1, timelineZoom / 1.2)) }
+          if (e.ctrlKey || e.metaKey) { e.preventDefault(); s.setTimelineZoom(Math.max(0.1, s.timelineZoom / 1.2)) }
           break
         case '0':
-          if (e.ctrlKey || e.metaKey) { e.preventDefault(); setTimelineZoom(1) }
+          if (e.ctrlKey || e.metaKey) { e.preventDefault(); s.setTimelineZoom(1) }
           break
         case 'Delete': case 'Backspace': {
-          if (selectedVideoId) {
+          const clip = selectedClipRef.current
+          if (clip.video) {
             e.preventDefault()
-            removeElement(selectedVideoId)
+            s.removeElement(clip.video)
             setSelectedVideoId(null)
-            break
-          }
-          if (selectedAudioId) {
+          } else if (clip.audio) {
             e.preventDefault()
-            removeElement(selectedAudioId)
+            s.removeElement(clip.audio)
             setSelectedAudioId(null)
-            break
-          }
-          const { selectedIds } = useEditorStore.getState()
-          if (selectedIds.length === 0 && currentSceneId && project && project.scenes.length > 1) {
-            e.preventDefault(); removeScene(currentSceneId)
+          } else if (s.selectedIds.length === 0 && s.currentSceneId && s.project && s.project.scenes.length > 1) {
+            e.preventDefault()
+            s.removeScene(s.currentSceneId)
           }
           break
         }
@@ -282,7 +286,7 @@ export default function Timeline() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isPlaying, playhead, timelineZoom, currentSceneId, project, pause, play, setPlayhead, getTotalDuration, setTimelineZoom, removeScene])
+  }, [])
 
   const handleRulerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return  // left click only
@@ -1602,10 +1606,13 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
 }) {
   const [stripUrl, setStripUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+  const stripUrlRef = useRef<string | null>(null)
+
+  // Release the last strip's blob URL when the clip unmounts.
+  useEffect(() => () => { if (stripUrlRef.current) URL.revokeObjectURL(stripUrlRef.current) }, [])
 
   useEffect(() => {
     let cancelled = false
-    let objectUrl: string | null = null
     const video = document.createElement('video')
     const canvas = document.createElement('canvas')
     const frameW = 68
@@ -1615,7 +1622,6 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
     const frameCount = Math.max(1, Math.min(48, Math.ceil(visibleWidth / frameW)))
     const canvasW = frameCount * frameW + Math.max(0, frameCount - 1) * gap
 
-    setStripUrl(null)
     setFailed(false)
 
     canvas.width = canvasW
@@ -1626,7 +1632,6 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
       return () => {}
     }
 
-    video.src = toFileUrl(src)
     video.crossOrigin = 'anonymous'
     video.muted = true
     video.preload = 'metadata'
@@ -1704,20 +1709,28 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
 
         const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.76))
         if (!blob || cancelled) return
-        objectUrl = URL.createObjectURL(blob)
-        setStripUrl(objectUrl)
+        // Swap in the new strip, then release the one it replaces.
+        const url = URL.createObjectURL(blob)
+        if (stripUrlRef.current) URL.revokeObjectURL(stripUrlRef.current)
+        stripUrlRef.current = url
+        setStripUrl(url)
       } catch {
         if (!cancelled) setFailed(true)
       }
     }
 
-    render()
+    // Zooming or trim-dragging changes the inputs many times a second: decode
+    // once they settle instead of re-seeking up to 48 frames on every step.
+    const start = setTimeout(() => {
+      video.src = toFileUrl(src)
+      render()
+    }, 200)
 
     return () => {
       cancelled = true
+      clearTimeout(start)
       video.pause()
-      video.src = ''
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      video.removeAttribute('src')
     }
   }, [src, startTime, clipDuration, speed, clipWidthPx, trackH, loop])
 

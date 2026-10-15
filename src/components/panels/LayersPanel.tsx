@@ -130,8 +130,10 @@ function getLayerLabel(el: EditorElement): { text: string; color?: string } {
       const h = el as HandDrawElement
       return { text: h.name || 'Drawing' }
     }
-    default:
-      return { text: el.name || el.type }
+    default: {
+      const other = el as EditorElement   // future element types
+      return { text: other.name || other.type }
+    }
   }
 }
 

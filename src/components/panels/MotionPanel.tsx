@@ -54,7 +54,7 @@ export default function MotionPanel() {
     <div className="flex h-full flex-col overflow-hidden">
       <PanelHeader icon={<Activity size={12} />} title="Motion" />
       <div className="flex-1 overflow-y-auto px-3 py-3">
-        {!element ? (
+        {!element || !project ? (
           <p className="py-4 text-center text-xs leading-relaxed text-[#d9d9d9]">
             Nothing is selected. Please select an item on the slide.
           </p>

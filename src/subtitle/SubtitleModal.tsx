@@ -12,6 +12,7 @@ import { splitLongSubtitleCues, splitScriptIntoCueTexts } from './timeline'
 import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../utils/fontWeight'
 import SubtitleStylePreview from './SubtitleStylePreview'
 import SubtitleTranslationPanel from './SubtitleTranslationPanel'
+import PythonRuntimeDownload from '../pythonSandbox/PythonRuntimeDownload'
 import { sceneStartTimes } from '../utils/sceneTiming'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -340,6 +341,7 @@ export default function SubtitleModal() {
               />
             </label>
 
+            <PythonRuntimeDownload purpose="Local captioning (Whisper + translation)" />
             <button
               onClick={autoGenerate}
               disabled={busy || selectedClips.length === 0}

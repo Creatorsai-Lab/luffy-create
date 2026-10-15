@@ -102,7 +102,8 @@ export default function ExportModal() {
   }
 
   async function waitForSceneVideos(sceneId: string, globalTime: number): Promise<void> {
-    const scene = project?.scenes.find(sc => sc.id === sceneId)
+    if (!project) return
+    const scene = project.scenes.find(sc => sc.id === sceneId)
     if (!scene) return
 
     const sceneStart = sceneStartTime(project.scenes, sceneId)

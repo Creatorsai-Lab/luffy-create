@@ -19,7 +19,7 @@ export default function CanvasToolbar() {
   return (
     <div className="absolute top-2 right-2 bg-editor-panel border border-editor-border rounded-lg shadow-lg flex items-center gap-1 p-1 z-10">
       {/* Grid toggle */}
-      <Tooltip text="Toggle Grid (Ctrl+')">
+      <Tooltip text="Toggle Grid">
         <button
           onClick={() => setShowGrid(!showGrid)}
           className={cn(

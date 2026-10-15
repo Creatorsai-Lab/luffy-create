@@ -71,8 +71,8 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
   const isGif = /\.gif(?:$|[?#])/i.test(el.src)
   const dynamicPerspective = isGif || mediaEffectRequiresAnimation(el)
 
-  // Track wall-clock start time for live GIF playback (when localTime isn't advancing)
-  const gifStartRef = useRef<number>(0)
+  // Reused for perspective sources rebuilt on every draw (GIF / animated effects).
+  const perspectiveScratchRef = useRef<HTMLCanvasElement | null>(null)
 
   // ── Load image or GIF frames ───────────────────────────────────────────────
   useEffect(() => {
@@ -103,7 +103,6 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
           if (cancelled) return
           console.log(`[ImageKonva] GIF decoded: ${data.frames.length} frames, ${data.totalDuration}ms total`, el.src)
           setGifData(data)
-          gifStartRef.current = performance.now()
           setError(false)
           setLoading(false)
         })
@@ -162,12 +161,15 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     return img ? makeImageDrawFns(img, el) : null
   }, [isGif, getGifFrame, img, el])
 
-  function buildPerspectiveSource() {
+  /** Render the image (with effects) for the perspective warp, into `target` when given. */
+  function buildPerspectiveSource(target?: HTMLCanvasElement) {
     const fns = getCurrentDrawFns()
     if (!fns) return null
-    const canvas = document.createElement('canvas')
-    canvas.width = el.width; canvas.height = el.height
+    const canvas = target ?? document.createElement('canvas')
+    if (canvas.width !== el.width) canvas.width = el.width
+    if (canvas.height !== el.height) canvas.height = el.height
     const ctx = canvas.getContext('2d')!
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.save()
     if (el.cornerRadius > 0) {
       const r = el.cornerRadius, W = el.width, H = el.height
@@ -183,24 +185,6 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
     ctx.restore()
     return canvas
   }
-
-  // Animated GIFs and media effects need continuous redraws
-  useEffect(() => {
-    const hasGif = isGif && (gifData || img) && !error
-    const hasMediaEffect = mediaEffectRequiresAnimation(el) && img && !error
-    if (!hasGif && !hasMediaEffect) return
-    let raf = 0
-    const tick = () => {
-      shapeRef.current?.getLayer()?.batchDraw()
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [
-    isGif, gifData, img, error,
-    el.mediaEffects, el.mediaEffect, el.mediaEffectIntensity, el.mediaEffectSpeed, el.mediaEffectHardness,
-    el.mediaEffectDirection, el.mediaEffectBlend, el.mediaEffectColor,
-  ])
 
   // Build offscreen canvas for perspective warp. GIFs stay dynamic and rebuild
   // from the live frame during each draw.
@@ -234,7 +218,9 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
         sceneFunc={(ctx, _shape) => {
           const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
           drawBoxShadow(raw, el.boxShadow, el.width, el.height, el.cornerRadius)
-          const source = dynamicPerspective ? buildPerspectiveSource() : offscreen
+          const source = dynamicPerspective
+            ? buildPerspectiveSource(perspectiveScratchRef.current ??= document.createElement('canvas'))
+            : offscreen
           if (source) drawPerspectiveWarp(raw, source, el.perspectivePts!, el.width, el.height)
           drawPerspectiveQuadBorder(raw, el, localTime)
         }}
