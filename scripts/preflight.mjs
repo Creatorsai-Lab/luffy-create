@@ -13,7 +13,11 @@ import { checkCatalog } from './python-runtime.mjs'
 const results = []
 
 function run(cmd, args, { quiet = false } = {}) {
-  const r = spawnSync(cmd, args, { encoding: 'utf8', shell: process.platform === 'win32', stdio: quiet ? 'pipe' : 'inherit' })
+  const opts = { encoding: 'utf8', stdio: quiet ? 'pipe' : 'inherit' }
+  // npm is npm.cmd on Windows, which needs a shell; pass one command string so Node doesn't warn (DEP0190).
+  const r = cmd === 'npm' && process.platform === 'win32'
+    ? spawnSync(`npm ${args.join(' ')}`, { ...opts, shell: true })
+    : spawnSync(cmd, args, opts)
   return { ok: r.status === 0, out: (r.stdout ?? '').trim(), err: (r.stderr ?? '').trim() }
 }
 
