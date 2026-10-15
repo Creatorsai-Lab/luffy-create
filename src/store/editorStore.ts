@@ -11,6 +11,8 @@ import { makeScene, makeProject, DEFAULT_TRANSITION } from '../utils/defaults'
 import { isMotionAnimation } from '../utils/moveAnimation'
 import { useHistoryStore } from './historyStore'
 import { toast } from '../components/ui/Toast'
+import { LOOP_ANIMATION_TYPES } from '../utils/animationTypes'
+import { sceneAtTime, sceneStartTimes } from '../utils/sceneTiming'
 
 interface EditorState {
   project:           Project | null
@@ -154,16 +156,7 @@ function reconcileUiAfterProjectRestore(s: EditorState, project: Project) {
 
   const sceneStillExists = project.scenes.some(sc => sc.id === s.currentSceneId)
   if (!sceneStillExists) {
-    let elapsed = 0
-    let resolvedId: string | null = null
-    for (const sc of project.scenes) {
-      if (s.playhead < elapsed + sc.duration) {
-        resolvedId = sc.id
-        break
-      }
-      elapsed += sc.duration
-    }
-    s.currentSceneId = resolvedId ?? project.scenes[0]?.id ?? null
+    s.currentSceneId = sceneAtTime(project.scenes, s.playhead)?.scene.id ?? null
   }
 
   if (s.currentSceneId) {
@@ -211,22 +204,19 @@ function normalizeZ(elements: EditorElement[]) {
 
 function audioAbsoluteStarts(scenes: Scene[]): Map<string, number> {
   const starts = new Map<string, number>()
-  let elapsed = 0
-  for (const sc of scenes) {
+  const sceneStarts = sceneStartTimes(scenes)
+  scenes.forEach((sc, i) => {
     for (const el of sc.elements) {
-      if (el.type === 'audio') starts.set(el.id, elapsed + ((el as AudioElement).x ?? 0))
+      if (el.type === 'audio') starts.set(el.id, sceneStarts[i] + ((el as AudioElement).x ?? 0))
     }
-    elapsed += sc.duration
-  }
+  })
   return starts
 }
 
 function rehomeAudio(scenes: Scene[], absStarts: Map<string, number>) {
   if (absStarts.size === 0 || scenes.length === 0) return
 
-  const sceneStarts: number[] = []
-  let elapsed = 0
-  for (const sc of scenes) { sceneStarts.push(elapsed); elapsed += sc.duration }
+  const sceneStarts = sceneStartTimes(scenes)
   const sceneIndexAt = (t: number) => {
     for (let i = 0; i < scenes.length; i++) {
       if (t < sceneStarts[i] + scenes[i].duration) return i
@@ -260,8 +250,6 @@ function rehomeAudio(scenes: Scene[], absStarts: Map<string, number>) {
 // The second half of a split continues the original scene, so its scene-local
 // timings move back by `splitAt` — otherwise enter animations, move offsets
 // and media effects would restart at the cut.
-const LOOP_ANIMATION_TYPES = new Set(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop', 'colorPulse'])
-
 function shiftElementTiming(el: EditorElement, splitAt: number) {
   el.animations = el.animations
     // An enter animation that already finished ends at the element's resting
@@ -365,25 +353,31 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       },
 
       // ── Project ────────────────────────────────────────────────────────────
-      loadProject: (project) => set(s => {
-        s.project          = project
-        s.currentProjectId = project.id
-        s.currentSceneId   = project.scenes[0]?.id ?? null
-        s.selectedIds      = []
-        s.playhead         = 0
-        s.isPlaying        = false
-        s.isDirty          = false
-      }),
+      // Opening or closing a project starts a fresh undo history: the previous
+      // project must never become an undo step of the next one.
+      loadProject: (project) => {
+        replaceProjectWithoutHistory(() => set(s => {
+          s.project          = project
+          s.currentProjectId = project.id
+          s.currentSceneId   = project.scenes[0]?.id ?? null
+          s.selectedIds      = []
+          s.playhead         = 0
+          s.isPlaying        = false
+          s.isDirty          = false
+        }))
+      },
 
-      closeProject: () => set(s => {
-        s.project          = null
-        s.currentProjectId = null
-        s.currentSceneId   = null
-        s.selectedIds      = []
-        s.playhead         = 0
-        s.isPlaying        = false
-        s.isDirty          = false
-      }),
+      closeProject: () => {
+        replaceProjectWithoutHistory(() => set(s => {
+          s.project          = null
+          s.currentProjectId = null
+          s.currentSceneId   = null
+          s.selectedIds      = []
+          s.playhead         = 0
+          s.isPlaying        = false
+          s.isDirty          = false
+        }))
+      },
 
       setProjectName: (name) => set(s => {
         if (s.project) { s.project.name = name; s.isDirty = true }
@@ -790,9 +784,9 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         const current = get().project
         const previousState = useHistoryStore.getState().undo(current)
         if (previousState) {
-          isUndoRedo = true
+          suppressHistory = true
           set(s => reconcileUiAfterProjectRestore(s, previousState))
-          isUndoRedo = false
+          suppressHistory = false
         }
       },
 
@@ -800,9 +794,9 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         const current = get().project
         const nextState = useHistoryStore.getState().redo(current)
         if (nextState) {
-          isUndoRedo = true
+          suppressHistory = true
           set(s => reconcileUiAfterProjectRestore(s, nextState))
-          isUndoRedo = false
+          suppressHistory = false
         }
       },
 
@@ -904,34 +898,28 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       getSceneAtTime: (t) => {
         const { project } = get()
         if (!project || project.scenes.length === 0) return null
-        let elapsed = 0
-        for (const scene of project.scenes) {
-          if (t < elapsed + scene.duration) {
-            return { scene, localTime: t - elapsed }
-          }
-          elapsed += scene.duration
-        }
-        // Clamp to last scene's final frame (handles t === totalDuration exactly)
-        const last = project.scenes[project.scenes.length - 1]
-        return { scene: last, localTime: last.duration }
+        const at = sceneAtTime(project.scenes, t)!
+        // Past the end clamps to the last scene's final frame (handles t === totalDuration exactly).
+        return { scene: at.scene, localTime: Math.min(t - at.start, at.scene.duration) }
       }
     }))
   )
 )
 
 // ── Single history-save mechanism (debounced project subscriber) ──────────────
-// isUndoRedo is set synchronously around undo()/redo() set() calls so the
-// subscriber can skip pushing a new history entry for those changes.
+// suppressHistory is set synchronously around undo/redo/load/close so the
+// subscriber resets its baseline instead of pushing a history entry.
 let lastProject: Project | null = null
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
-let isUndoRedo = false
+let suppressHistory = false   // set while undo/redo/load/close replace the whole project
 let pendingBaseline: Project | null = null
 
 useEditorStore.subscribe(
   (state) => state.project,
   (project) => {
-    if (isUndoRedo) {
-      // Undo/redo change — cancel any pending save and update baseline
+    if (suppressHistory) {
+      // Whole project replaced (undo/redo/load/close): cancel any pending
+      // snapshot and start the baseline from the new project.
       if (saveTimeout) clearTimeout(saveTimeout)
       saveTimeout = null
       lastProject = project
@@ -977,3 +965,10 @@ useEditorStore.subscribe(
     }, 500)
   }
 )
+
+/** Replace the whole project (load/close) without recording an undo step, and start a fresh history. */
+function replaceProjectWithoutHistory(apply: () => void) {
+  suppressHistory = true
+  try { apply() } finally { suppressHistory = false }
+  useHistoryStore.getState().clearHistory()
+}

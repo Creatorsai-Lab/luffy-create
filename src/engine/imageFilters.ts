@@ -1,3 +1,4 @@
+import { parseHex } from '../utils/color'
 export interface AdjustableElement {
   width: number
   height: number
@@ -110,7 +111,7 @@ export function drawVignette(ctx: CanvasRenderingContext2D, el: AdjustableElemen
   const amount = clamp01(el.vignetteAmount ?? 0.5)
   if (!el.vignetteEnabled || amount <= 0) return
 
-  const [r, g, b] = hexToRgb(el.vignetteColor ?? '#000000')
+  const [r, g, b] = parseHex(el.vignetteColor ?? '#000000') ?? [0, 0, 0]
   const { inner, fadeStart } = getVignetteStops(el.vignetteSize ?? 0.5, el.vignetteFade ?? 0.65)
   const cx = el.width / 2
   const cy = el.height / 2
@@ -193,14 +194,3 @@ function clamp01(value: number) {
   return Math.max(0, Math.min(1, value))
 }
 
-function hexToRgb(color: string): [number, number, number] {
-  if (color.toLowerCase() === 'white') return [255, 255, 255]
-  const hex = color.replace('#', '')
-  const value = hex.length === 3
-    ? hex.split('').map(char => char + char).join('')
-    : hex.padEnd(6, '0').slice(0, 6)
-  const parsed = Number.parseInt(value, 16)
-  return Number.isFinite(parsed)
-    ? [(parsed >> 16) & 255, (parsed >> 8) & 255, parsed & 255]
-    : [0, 0, 0]
-}

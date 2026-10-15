@@ -7,6 +7,7 @@ import { AnimSection, PanelHeader, Row, NumberInput, ColorInput } from './TextPa
 import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
 import { isMotionAnimation } from '../../utils/moveAnimation'
+import { useShallow } from 'zustand/react/shallow'
 
 const CODE_ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade In', value: 'fadeIn' },
@@ -24,7 +25,7 @@ const CODE_REVEALS = [
 ] as const
 
 export default function CodePanel() {
-  const { project, getSelectedEls, updateElement, openCodeModal, addAnimation } = useEditorStore()
+  const { project, getSelectedEls, updateElement, openCodeModal, addAnimation } = useEditorStore(useShallow(s => ({ project: s.project, getSelectedEls: s.getSelectedEls, updateElement: s.updateElement, openCodeModal: s.openCodeModal, addAnimation: s.addAnimation, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds })))
   const el = getSelectedEls().find(e => e.type === 'code') as CodeElement | undefined
 
   function upd(patch: Partial<CodeElement>) {

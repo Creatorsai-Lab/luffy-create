@@ -3,12 +3,13 @@ import { useEditorStore } from '../../store/editorStore'
 import type { EditorElement, PerspectiveControls } from '../../types/editor'
 import { makePerspectiveControls, makePerspectivePts, makePerspectivePtsFromControls } from '../../engine/perspectiveUtils'
 import { PanelHeader, Row, Slider } from './TextPanel'
+import { useShallow } from 'zustand/react/shallow'
 
 type CornerKey = 'tl' | 'tr' | 'br' | 'bl'
 type Axis = 0 | 1
 
 export default function PerspectivePanel() {
-  const { getSelectedEls, updateElement } = useEditorStore()
+  const { getSelectedEls, updateElement } = useEditorStore(useShallow(s => ({ getSelectedEls: s.getSelectedEls, updateElement: s.updateElement, project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds })))
   const selected = getSelectedEls()
   const selectedEl = selected[0]
   const el = selected.find(e => e.type !== 'arrow' && e.type !== 'audio')

@@ -10,15 +10,14 @@
 [![License](https://img.shields.io/github/license/Creatorsai-Lab/luffy-create?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/Creatorsai-Lab/luffy-create/releases/latest)
 
+<div align="center">
+<img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/live-website/public/assets/images/download_btns.svg" width="100%" alt="Download Luffy Created per OS" />
+
+</div>
 
 <table style="width: 100%; border-collapse: collapse; border: 1px solid #cccccc;">
     <tr>
-      <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
-        <a href="https://creatorsai-lab.github.io/luffy-create/" style="text-decoration: none;">🌏︎ Website</a>
-      </td>
-      <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
-        <a href="https://github.com/Creatorsai-Lab/luffy-create/releases/latest" style="text-decoration: none;">[↧] Download</a>
-      </td>
+     
       <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
         <a href="https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html"style="text-decoration: none;">✉ Blogs </a>
       </td>

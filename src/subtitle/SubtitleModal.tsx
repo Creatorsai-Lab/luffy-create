@@ -8,10 +8,13 @@ import { makeCue, makeSubtitleTrack, normalizeSubtitleStyle, normalizeSubtitleTr
 import { mergeCueTranslation, updateCueSource } from './translation'
 import { cuesToSrt, fmt, type SubtitleSrtMode } from './srt'
 import { transcriber } from './transcriber'
-import { getSceneGlobalStart, splitLongSubtitleCues, splitScriptIntoCueTexts } from './timeline'
+import { splitLongSubtitleCues, splitScriptIntoCueTexts } from './timeline'
 import { FONT_WEIGHT_OPTIONS, normalizeFontWeightForControl } from '../utils/fontWeight'
 import SubtitleStylePreview from './SubtitleStylePreview'
 import SubtitleTranslationPanel from './SubtitleTranslationPanel'
+import PythonRuntimeDownload from '../pythonSandbox/PythonRuntimeDownload'
+import { sceneStartTimes } from '../utils/sceneTiming'
+import { useShallow } from 'zustand/react/shallow'
 
 interface TimelineAudioClip {
   id: string
@@ -60,7 +63,7 @@ const CAPTION_ANIMATIONS: { label: string; value: NonNullable<SubtitleStyle['ani
 ]
 
 export default function SubtitleModal() {
-  const { project, setSubtitleOpen, upsertSubtitleTrack, removeSubtitleTrack } = useEditorStore()
+  const { project, setSubtitleOpen, upsertSubtitleTrack, removeSubtitleTrack } = useEditorStore(useShallow(s => ({ project: s.project, setSubtitleOpen: s.setSubtitleOpen, upsertSubtitleTrack: s.upsertSubtitleTrack, removeSubtitleTrack: s.removeSubtitleTrack })))
 
   const audioClips = useMemo(() => collectTimelineAudioClips(project), [project])
   const existingTrack = project?.subtitleTracks?.[0] ?? null
@@ -338,6 +341,7 @@ export default function SubtitleModal() {
               />
             </label>
 
+            <PythonRuntimeDownload purpose="Local captioning (Whisper + translation)" />
             <button
               onClick={autoGenerate}
               disabled={busy || selectedClips.length === 0}
@@ -618,8 +622,9 @@ export default function SubtitleModal() {
 function collectTimelineAudioClips(project: Project | null): TimelineAudioClip[] {
   if (!project) return []
   const clips: TimelineAudioClip[] = []
-  for (const scene of project.scenes) {
-    const sceneStart = getSceneGlobalStart(project, scene.id)
+  const starts = sceneStartTimes(project.scenes)
+  project.scenes.forEach((scene, sceneIndex) => {
+    const sceneStart = starts[sceneIndex]
     for (const el of scene.elements) {
       if (el.type !== 'audio') continue
       const audio = el as AudioElement
@@ -633,7 +638,7 @@ function collectTimelineAudioClips(project: Project | null): TimelineAudioClip[]
         label: `${audio.name || trackLabel} - ${scene.name} @ ${fmt(absStart)} (${trackLabel})`,
       })
     }
-  }
+  })
   return clips.sort((a, b) => a.absStart - b.absStart)
 }
 

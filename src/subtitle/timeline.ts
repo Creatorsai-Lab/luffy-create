@@ -11,15 +11,6 @@ export function getActiveSubtitleCue(project: Project | null, time: number): { t
   return null
 }
 
-export function getSceneGlobalStart(project: Project, sceneId: string): number {
-  let elapsed = 0
-  for (const scene of project.scenes) {
-    if (scene.id === sceneId) return elapsed
-    elapsed += scene.duration
-  }
-  return 0
-}
-
 function addWordOverlap(groups: string[]): string[] {
   return groups.map((group, index) => {
     if (index === 0 || !group) return group

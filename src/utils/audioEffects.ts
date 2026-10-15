@@ -12,6 +12,8 @@ export interface AudioEffectGraph {
   voicePresence: BiquadFilterNode
   saturationTone: BiquadFilterNode
   saturation: WaveShaperNode
+  /** Amount the current saturation curve was built for (rebuilt only on change). */
+  saturationAmount: number
   gain: GainNode
 }
 
@@ -87,7 +89,9 @@ export function ensureAudioEffectGraph(
   saturation.connect(gain)
   gain.connect(context.destination)
 
-  graph = { context, source, pitch, bass, voiceLow, voicePresence, saturationTone, saturation, gain }
+  saturation.oversample = '4x'
+
+  graph = { context, source, pitch, bass, voiceLow, voicePresence, saturationTone, saturation, saturationAmount: NaN, gain }
   graphs.set(id, graph)
   return graph
 }
@@ -118,8 +122,11 @@ export function applyAudioEffects(graph: AudioEffectGraph, audio: AudioElement, 
   graph.saturationTone.frequency.value = saturation < 0
     ? 20000 - Math.abs(saturation) * 150
     : 20000
-  graph.saturation.curve = makeSaturationCurve(saturation)
-  graph.saturation.oversample = '4x'
+  // Called every frame during playback: rebuild the 1024-point curve only when the amount changes.
+  if (graph.saturationAmount !== saturation) {
+    graph.saturation.curve = makeSaturationCurve(saturation)
+    graph.saturationAmount = saturation
+  }
 }
 
 export function disposeAudioEffectGraphs(graphs: AudioEffectGraphMap) {

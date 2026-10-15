@@ -1,17 +1,18 @@
 import { useRef, useEffect } from 'react'
-import { Film, Lock, Unlock, Plus, Trash2, Scissors, X } from 'lucide-react'
+import { Film, Lock, Unlock, Scissors, X } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
-import type { VideoElement, AnimationType, EasingType, SlideDir, ElementAnimation } from '../../types/editor'
-import { PanelHeader, Row, Slider, NumberInput } from './TextPanel'
+import type { VideoElement, AnimationType } from '../../types/editor'
+import { PanelHeader, Row, Slider, NumberInput, AnimSection } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
 import { sourceVideoClipDuration } from '../../utils/videoClip'
 import BoxShadowControls, { InnerShadowControls } from './BoxShadowControls'
-import { ScaleSizeControl } from './AnimationParamControls'
 import BorderControls from './BorderControls'
 import MediaVignetteControls from './MediaVignetteControls'
 import { isMotionAnimation } from '../../utils/moveAnimation'
 import MediaGrainControls from './MediaGrainControls'
+import { isLoopAnimation } from '../../utils/animationTypes'
+import { useShallow } from 'zustand/react/shallow'
 
 const ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade In',   value: 'fadeIn'   },
@@ -34,28 +35,10 @@ const EXIT_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Wipe Out',  value: 'wipeOut'  },
 ]
 
-const EASINGS: { label: string; value: EasingType }[] = [
-  { label: 'Linear',     value: 'linear'   },
-  { label: 'Ease In',    value: 'easeIn'   },
-  { label: 'Ease Out',   value: 'easeOut'  },
-  { label: 'Ease InOut', value: 'easeInOut'},
-  { label: 'Bounce',     value: 'bounce'   },
-]
-
-const DIRECTIONS: { label: string; value: SlideDir }[] = [
-  { label: '← Left',  value: 'left'  },
-  { label: '→ Right', value: 'right' },
-  { label: '↑ Up',    value: 'up'    },
-  { label: '↓ Down',  value: 'down'  },
-]
-
-const LOOP_TYPE_SET = new Set<string>(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop'])
-const isLoopAnim = (a: ElementAnimation) => LOOP_TYPE_SET.has(a.type) || a.timing === 'loop'
-
 const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2]
 
 export default function VideoPanel() {
-  const { project, currentSceneId, getSelectedEls, updateElement, addAnimation, setCropElement } = useEditorStore()
+  const { project, currentSceneId, getSelectedEls, updateElement, addAnimation, setCropElement } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, getSelectedEls: s.getSelectedEls, updateElement: s.updateElement, addAnimation: s.addAnimation, setCropElement: s.setCropElement, selectedIds: s.selectedIds })))
   const el = getSelectedEls().find(e => e.type === 'video') as VideoElement | undefined
   const scene = project?.scenes.find(sc => sc.elements.some(item => item.id === el?.id))
     ?? project?.scenes.find(sc => sc.id === currentSceneId)
@@ -370,21 +353,21 @@ export default function VideoPanel() {
             {/* ── Animations ──────────────────────────────────────────── */}
             <AnimSection
               label="On Enter" color="text-green-400"
-              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onEnter')}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onEnter')}
               types={ENTER_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeIn', timing: 'onEnter' })}
               elId={el.id} isLoop={false}
             />
             <AnimSection
               label="Loop" color="text-editor-accent"
-              anims={el.animations.filter(a => !isMotionAnimation(a) && isLoopAnim(a))}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && isLoopAnimation(a))}
               types={LOOP_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'pulse', timing: 'loop', duration: 1 })}
               elId={el.id} isLoop={true}
             />
             <AnimSection
               label="On Exit" color="text-red-400"
-              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnim(a) && a.timing === 'onExit')}
+              anims={el.animations.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onExit')}
               types={EXIT_ANIMS}
               onAdd={() => addAnimation(el.id, { ...makeAnimation(), type: 'fadeOut', timing: 'onExit' })}
               elId={el.id} isLoop={false}
@@ -396,117 +379,3 @@ export default function VideoPanel() {
   )
 }
 
-function AnimSection({ label, color, anims, types, onAdd, elId, isLoop }: {
-  label: string; color: string
-  anims: ElementAnimation[]
-  types: { label: string; value: AnimationType }[]
-  onAdd: () => void
-  elId: string; isLoop: boolean
-}) {
-  return (
-    <div className="border-t border-editor-border">
-      <div className="px-3 py-1.5 flex items-center justify-between">
-        <span className={cn('text-[10px] font-semibold uppercase tracking-wider', color)}>{label}</span>
-        <button
-          onClick={onAdd}
-          className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-editor-elevated-highlight text-[#f2f2f2] border border-editor-border rounded hover:text-editor-text transition-colors"
-        >
-          <Plus size={8} /> Add
-        </button>
-      </div>
-      {anims.length === 0 && (
-        <p className="text-[10px] text-[#d9d9d9] px-3 pb-2">None — click Add to create one.</p>
-      )}
-      {anims.map((anim, i) => (
-        <AnimBlock key={anim.id} anim={anim} index={i} elId={elId} types={types} isLoop={isLoop} />
-      ))}
-    </div>
-  )
-}
-
-function AnimBlock({ anim, index, elId, types, isLoop }: {
-  anim: ElementAnimation; index: number; elId: string
-  types: { label: string; value: AnimationType }[]
-  isLoop: boolean
-}) {
-  const { updateAnimation, removeAnimation } = useEditorStore()
-
-  function upd(patch: Partial<ElementAnimation>) { updateAnimation(elId, anim.id, patch) }
-
-  const hasDir  = ['slideIn', 'slideOut', 'wipeIn', 'wipeOut'].includes(anim.type)
-  const hasDist = anim.type === 'bounceLoop'
-
-  return (
-    <div className="border-t border-editor-border px-3 py-2 flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-editor-text-secondary font-medium">#{index + 1}</span>
-        <button onClick={() => removeAnimation(elId, anim.id)} className="text-[#d9d9d9] hover:text-red-400 transition-colors">
-          <Trash2 size={10} />
-        </button>
-      </div>
-
-      <Row label="Type">
-        <select value={anim.type} onChange={e => upd({ type: e.target.value as AnimationType })}
-          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1">
-          {types.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
-      </Row>
-
-      {isLoop && (
-        <div className="text-[10px] text-editor-accent bg-editor-accent-dim rounded px-2 py-0.5 w-fit">∞ Loops continuously</div>
-      )}
-
-      {hasDir && (
-        <Row label="Direction">
-          <select value={anim.params?.direction ?? 'left'}
-            onChange={e => upd({ params: { ...anim.params, direction: e.target.value as SlideDir } })}
-            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1">
-            {DIRECTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-          </select>
-        </Row>
-      )}
-
-      {hasDist && (
-        <Row label="Distance (px)">
-          <input type="number" min={4} max={200} step={2}
-            value={anim.params?.distance ?? 24}
-            onChange={e => upd({ params: { ...anim.params, distance: Number(e.target.value) } })}
-            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
-          />
-        </Row>
-      )}
-
-      <ScaleSizeControl anim={anim} onChange={upd} />
-
-      <Row label="Start (s)">
-        <input type="number" min={0} max={60} step={0.1} value={anim.startTime}
-          onChange={e => upd({ startTime: Number(e.target.value) })}
-          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
-        />
-      </Row>
-
-      <Row label={isLoop ? 'Period (s)' : 'Duration (s)'}>
-        <input type="number" min={0.1} max={30} step={0.1} value={anim.duration}
-          onChange={e => upd({ duration: Number(e.target.value) })}
-          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
-        />
-      </Row>
-
-      <Row label="Delay (s)">
-        <input type="number" min={0} max={60} step={0.1} value={anim.delay}
-          onChange={e => upd({ delay: Number(e.target.value) })}
-          className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
-        />
-      </Row>
-
-      {!isLoop && (
-        <Row label="Easing">
-          <select value={anim.easing} onChange={e => upd({ easing: e.target.value as EasingType })}
-            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1">
-            {EASINGS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-          </select>
-        </Row>
-      )}
-    </div>
-  )
-}

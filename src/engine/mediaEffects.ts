@@ -1,3 +1,4 @@
+import { parseHex } from '../utils/color'
 import {
   MEDIA_EFFECT_TYPES,
   type ImageElement,
@@ -424,7 +425,7 @@ function drawLightSweep(
   const travel = width + height + span * 2
   const pos = progress * travel - height - span
   const alpha = effect.intensity * effect.blend * effect.colorOpacity
-  const rgb = hexToRgb(effect.color)
+  const rgb = (parseHex(effect.color) ?? [255, 242, 184]).join(',')
 
   ctx.save()
   ctx.filter = 'none'
@@ -488,7 +489,7 @@ function drawGodRays(
   localTime: number,
 ) {
   const focus = focusPoint(effect, width, height)
-  const rgb = hexToRgb(effect.color)
+  const rgb = (parseHex(effect.color) ?? [255, 242, 184]).join(',')
   const alpha = effect.intensity * effect.blend * effect.colorOpacity * 0.22
   const rays = Math.max(6, Math.round(8 + effect.hardness * 10))
   const base = localTime * effect.speed * 0.18 + directionAngle(effect.direction)
@@ -525,7 +526,7 @@ function drawRain(
   height: number,
   localTime: number,
 ) {
-  const rgb = hexToRgb(effect.color)
+  const rgb = (parseHex(effect.color) ?? [255, 242, 184]).join(',')
   const drops = Math.max(28, Math.round(45 + effect.hardness * 90))
   const [dx, dy] = directionVector(effect.direction === 'diagonal' ? 'diagonal' : effect.direction)
   const length = Math.max(width, height) * (0.025 + effect.size * 0.08)
@@ -559,7 +560,7 @@ function drawSnow(
   height: number,
   localTime: number,
 ) {
-  const rgb = hexToRgb(effect.color)
+  const rgb = (parseHex(effect.color) ?? [255, 242, 184]).join(',')
   const flakes = Math.max(22, Math.round(34 + effect.hardness * 72))
   const speed = localTime * effect.speed * (0.045 + effect.hardness * 0.12)
   const alphaBase = effect.intensity * effect.blend * effect.colorOpacity
@@ -613,16 +614,6 @@ function directionAngle(direction: MediaEffectDirection) {
   if (direction === 'up') return -Math.PI / 2
   if (direction === 'down') return Math.PI / 2
   return -Math.PI / 4
-}
-
-function hexToRgb(color: string) {
-  const hex = color.startsWith('#') ? color.slice(1) : color
-  const full = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex
-  const r = parseInt(full.slice(0, 2), 16)
-  const g = parseInt(full.slice(2, 4), 16)
-  const b = parseInt(full.slice(4, 6), 16)
-  if ([r, g, b].some(v => Number.isNaN(v))) return '255,242,184'
-  return `${r},${g},${b}`
 }
 
 function clamp01(value: number) {

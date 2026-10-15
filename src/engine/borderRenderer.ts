@@ -12,6 +12,12 @@ export function getElementBorderWidth(el: BorderElement): number {
   return el.type === 'shape' ? el.strokeWidth || 0 : el.borderWidth || 0
 }
 
+/** Color the border pickers show while no color is set — and the one applied once a width is chosen. */
+export const DEFAULT_BORDER_COLOR = '#ffffff'
+
+/** New elements store an invisible border color until the user picks one. */
+export const isInvisibleColor = (color: string | undefined) => !color || color === 'transparent'
+
 export function getElementBorderColor(el: BorderElement): string {
   return el.type === 'shape' ? (el.stroke || 'transparent') : (el.borderColor || 'transparent')
 }
@@ -181,6 +187,3 @@ function roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, wi
   ctx.closePath()
 }
 
-export function borderFillModeOrDefault(value: BorderFillMode | undefined): BorderFillMode {
-  return value ?? 'solid'
-}

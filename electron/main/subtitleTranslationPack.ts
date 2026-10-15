@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, open, readFile, rm } from 'node:fs/promises'
+import { mkdir, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
+import { downloadVerified } from './verifiedDownload'
 
 export type TranslationDirection = 'en-hi' | 'hi-en'
 
@@ -83,33 +83,19 @@ export function createTranslationPackManager(deps: TranslationPackDependencies) 
     await mkdir(deps.root, { recursive: true })
     await rm(downloadPath, { force: true })
     try {
-      const response = await fetchFile(model.url, { signal: controller.signal })
-      if (!response.ok) throw new Error(`Translation model download failed (${response.status})`)
-      const declaredBytes = Number(response.headers.get('content-length') || model.archiveBytes)
-      if (declaredBytes > MAX_BYTES) throw new Error('Translation model exceeds the 500 MB limit')
-      if (!response.body) throw new Error(`Translation model download failed (${response.status})`)
+      const totalBytes = await downloadVerified({
+        url: model.url,
+        destination: downloadPath,
+        sha256: model.sha256,
+        bytes: model.archiveBytes,
+        maxBytes: MAX_BYTES,
+        label: 'Translation model',
+        signal: controller.signal,
+        fetch: fetchFile,
+        onProgress: (receivedBytes, totalBytes) => onProgress({ direction, phase: 'download', receivedBytes, totalBytes }),
+      })
 
-      const file = await open(downloadPath, 'w')
-      const reader = response.body.getReader()
-      const hash = createHash('sha256')
-      let receivedBytes = 0
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          receivedBytes += value.byteLength
-          if (receivedBytes > MAX_BYTES) throw new Error('Translation model exceeds the 500 MB limit')
-          hash.update(value)
-          await file.write(value)
-          onProgress({ direction, phase: 'download', receivedBytes, totalBytes: declaredBytes })
-        }
-      } finally {
-        await file.close()
-      }
-      if (receivedBytes !== model.archiveBytes) throw new Error('Translation model download size does not match the catalog')
-      if (hash.digest('hex') !== model.sha256) throw new Error('Translation model checksum verification failed')
-
-      onProgress({ direction, phase: 'install', receivedBytes, totalBytes: declaredBytes })
+      onProgress({ direction, phase: 'install', receivedBytes: model.archiveBytes, totalBytes })
       await mkdir(join(deps.root, direction), { recursive: true })
       await rm(destination, { recursive: true, force: true })
       await deps.extract(downloadPath, destination, MAX_BYTES)

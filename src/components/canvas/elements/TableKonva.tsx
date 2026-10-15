@@ -1,5 +1,6 @@
 import { Group, Rect, Text } from 'react-konva'
 import type { SlideDir, TableElement } from '../../../types/editor'
+import type Konva from 'konva'
 
 interface Props {
   el: TableElement
@@ -87,7 +88,7 @@ export default function TableKonva({ el, konvaProps, wipeProgress = 1, wipeDir }
   )
 }
 
-function clipRoundedRect(ctx: CanvasRenderingContext2D, width: number, height: number, radius: number) {
+function clipRoundedRect(ctx: Konva.Context, width: number, height: number, radius: number) {
   if (radius <= 0) {
     ctx.rect(0, 0, width, height)
     return

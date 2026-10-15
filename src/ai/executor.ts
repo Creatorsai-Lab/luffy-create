@@ -18,7 +18,7 @@ const BASE_PATCH_KEYS = new Set([
 
 const TYPE_PATCH_KEYS: Record<string, Set<string>> = {
   text: new Set(['content', 'fontSize', 'fontFamily', 'fontWeight', 'italic', 'color', 'align', 'lineHeight', 'letterSpacing', 'underline']),
-  shape: new Set(['shapeType', 'fill', 'stroke', 'strokeWidth', 'cornerRadius', 'depth', 'faceColor']),
+  shape: new Set(['shapeType', 'fill', 'stroke', 'strokeWidth', 'cornerRadius', 'rotateX', 'rotateY', 'rotateZ']),
   image: new Set(['cornerRadius', 'brightness', 'contrast', 'saturation', 'blur', 'crop']),
   video: new Set(['cornerRadius', 'volume', 'playbackRate', 'muted', 'loop', 'startTime', 'duration', 'timelineX', 'crop']),
   icon: new Set(['iconName', 'color', 'strokeWidth']),

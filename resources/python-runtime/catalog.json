@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "version": "1",
+  "targets": {
+    "darwin-arm64": {
+      "url": "https://github.com/Creatorsai-Lab/luffy-create/releases/download/python-runtime-v1/python-runtime-darwin-arm64.tar.gz",
+      "sha256": "3a7534fa73face09a9d5d712c2bf1f17801e4dedd5c47cb71319c13b7ee8aa2f",
+      "archiveBytes": 153604384,
+      "expandedBytes": 449359861
+    },
+    "linux-x64": {
+      "url": "https://github.com/Creatorsai-Lab/luffy-create/releases/download/python-runtime-v1/python-runtime-linux-x64.tar.gz",
+      "sha256": "d594a43fb0d48ba8dbae1d648f8fe3b821e8c36f6145e859c47b7811d27fbd79",
+      "archiveBytes": 243983393,
+      "expandedBytes": 791878978
+    },
+    "win32-x64": {
+      "url": "https://github.com/Creatorsai-Lab/luffy-create/releases/download/python-runtime-v1/python-runtime-win32-x64.tar.gz",
+      "sha256": "ff84bb27ca202d125ab4e3a0a0383e5928d67d3b19a551d6a85df87675f277f0",
+      "archiveBytes": 205911084,
+      "expandedBytes": 599417398
+    }
+  }
+}

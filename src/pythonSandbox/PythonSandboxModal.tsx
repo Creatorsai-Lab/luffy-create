@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import type { editor as MonacoEditorNS } from 'monaco-editor'
 import { AlertCircle, CheckCircle2, Copy, FileImage, Film, FolderOpen, Play, Plus, Square, X, Check, Download } from 'lucide-react'
 import { useEditorStore } from '../store/editorStore'
@@ -7,6 +7,8 @@ import { toFileUrl } from '../utils/pathUtils'
 import type { PythonOutputFile, PythonRunResult, PythonStatus } from '../types/global'
 import { PYTHON_SANDBOX_IMAGE_EXTS, PYTHON_SANDBOX_VIDEO_EXTS } from './constants'
 import { readPythonSandboxImageSize, readPythonSandboxVideoMeta } from './media'
+import PythonRuntimeDownload from './PythonRuntimeDownload'
+import { useShallow } from 'zustand/react/shallow'
 import {
   getPythonSandboxPrelude,
   PYTHON_SANDBOX_DEFAULT_CODE,
@@ -22,7 +24,7 @@ export default function PythonSandboxModal() {
     setPythonSandboxOpen,
     addAsset,
     addElement,
-  } = useEditorStore()
+  } = useEditorStore(useShallow(s => ({ project: s.project, setPythonSandboxOpen: s.setPythonSandboxOpen, addAsset: s.addAsset, addElement: s.addElement })))
 
   const [status, setStatus] = useState<PythonStatus | null>(null)
   const [checking, setChecking] = useState(true)
@@ -54,15 +56,32 @@ export default function PythonSandboxModal() {
         : 'Python'
   const canRepairSandbox = !status?.bundledReady && Boolean(status?.basePythonAvailable)
 
-  useEffect(() => {
-    let alive = true
+  const [runtimeInstalled, setRuntimeInstalled] = useState(false)
+
+  const refreshStatus = useCallback(async () => {
     setChecking(true)
-    window.api.python.check()
-      .then(next => { if (alive) setStatus(next) })
-      .catch(err => { if (alive) setError(String(err?.message ?? err)) })
-      .finally(() => { if (alive) setChecking(false) })
-    return () => { alive = false }
+    try {
+      const [next, runtime] = await Promise.all([window.api.python.check(), window.api.python.runtimeStatus()])
+      setStatus(next)
+      setRuntimeInstalled(runtime.state === 'installed')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setChecking(false)
+    }
   }, [])
+
+  useEffect(() => { void refreshStatus() }, [refreshStatus])
+
+  async function removeRuntime() {
+    if (!window.confirm('Remove the downloaded Python runtime? Python Sandbox, local Whisper captions and translation will need it downloaded again.')) return
+    try {
+      await window.api.python.removeRuntime()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+    await refreshStatus()
+  }
 
   async function setupSandbox() {
     if (settingUp) return
@@ -75,7 +94,7 @@ export default function PythonSandboxModal() {
         setError('Sandbox setup finished, but one or more packages are still missing. Check the console output.')
       }
     } catch (err) {
-      setError(String(err?.message ?? err))
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setSettingUp(false)
       setChecking(false)
@@ -114,7 +133,7 @@ export default function PythonSandboxModal() {
         setError(runResult.timedOut ? 'Python render timed out.' : 'Python render finished with errors.')
       }
     } catch (err) {
-      setError(String(err?.message ?? err))
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setRunning(false)
       setActiveJobId(null)
@@ -141,7 +160,7 @@ export default function PythonSandboxModal() {
     if (existing) return existing
 
     const asset = await window.api.assets.upload(project.id, output.path)
-    const assetType = output.type === 'video' ? 'video' : 'image'
+    const assetType: 'image' | 'video' = output.type === 'video' ? 'video' : 'image'
     const record = { id: asset.id, path: asset.path, type: assetType, filename: asset.filename }
     addAsset({ id: asset.id, filename: asset.filename, path: asset.path, type: assetType, name: output.name })
     setImportedByPath(prev => ({ ...prev, [output.path]: record }))
@@ -218,7 +237,10 @@ export default function PythonSandboxModal() {
                   ? 'Checking Python...'
                   : status?.available
                     ? `${runtimeLabel} ${status.sandboxReady ? 'Running' : 'Not Ready'} • Matplotlib: ${status.matplotlib ? 'Ready' : 'Missing'} • Manim: ${status.manim ? 'Ready' : 'missing'}`
-                    : 'Python 3 not found'}
+                    : 'Python runtime not installed'}
+                {runtimeInstalled && !running && (
+                  <button onClick={removeRuntime} className="ml-2 underline hover:text-editor-text">Remove runtime</button>
+                )}
               </p>
             </div>
           </div>
@@ -292,10 +314,15 @@ export default function PythonSandboxModal() {
                   <span>{codeWarning}</span>
                 </div>
               )}
-              {!modeReady && status?.available && (
+              {!checking && !status?.bundledReady && (
+                <div className="mt-2">
+                  <PythonRuntimeDownload purpose="Python Sandbox" onInstalled={refreshStatus} />
+                </div>
+              )}
+              {!modeReady && status?.available && status.bundledReady && (
                 <div className="mt-2 flex items-start gap-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-200">
                   <AlertCircle size={14} className="mt-0.5 flex-none" />
-                  <span>{kind === 'manim' ? 'Manim is missing.' : 'Matplotlib is missing.'} The bundled sandbox is missing or incomplete.</span>
+                  <span>{kind === 'manim' ? 'Manim is missing.' : 'Matplotlib is missing.'} The Python runtime is incomplete; remove it and download it again.</span>
                 </div>
               )}
             </div>

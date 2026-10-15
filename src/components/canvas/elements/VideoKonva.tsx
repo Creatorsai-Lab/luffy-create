@@ -43,6 +43,8 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
   const videoRef  = useRef<HTMLVideoElement | null>(null)
   const shapeRef  = useRef<Konva.Shape | null>(null)
   const rafRef    = useRef<number>(0)
+  // Reused every frame for the perspective source (avoids a new canvas per draw).
+  const perspectiveScratchRef = useRef<HTMLCanvasElement | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   function redraw() {
@@ -228,10 +230,11 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
         const frame = el.frameType ?? 'none'
 
         if (el.perspectivePts) {
-          const source = document.createElement('canvas')
-          source.width = w
-          source.height = h
+          const source = perspectiveScratchRef.current ??= document.createElement('canvas')
+          if (source.width !== w) source.width = w
+          if (source.height !== h) source.height = h
           const sourceCtx = source.getContext('2d')!
+          sourceCtx.clearRect(0, 0, w, h)
 
           sourceCtx.save()
           if (frame === 'circle') {

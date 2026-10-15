@@ -23,6 +23,7 @@ import MotionPanel from '../panels/MotionPanel'
 import HandDrawPanel from '../panels/HandDrawPanel'
 import MediaEffectsPanel from '../panels/MediaEffectsPanel'
 import type { ActivePanel } from '../../types/editor'
+import { useShallow } from 'zustand/react/shallow'
 
 // When an element is selected and the sidebar panel matches the element's "home" panel,
 // show the element's property panel instead of the generic tool panel.
@@ -43,7 +44,7 @@ const ELEMENT_PANEL: Record<string, ActivePanel> = {
 }
 
 export default function OptionsSidebar() {
-  const { project, activePanel, getSelectedEls } = useEditorStore()
+  const { project, activePanel, getSelectedEls } = useEditorStore(useShallow(s => ({ project: s.project, activePanel: s.activePanel, getSelectedEls: s.getSelectedEls, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds })))
 
   const selected = project ? getSelectedEls() : []
   const firstEl  = selected[0]

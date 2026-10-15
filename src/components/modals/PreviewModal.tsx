@@ -17,6 +17,7 @@ import { getVideoClipState } from '../../utils/videoClip'
 import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
 import { getMorphFrame } from '../../engine/morph'
 import { fitPreviewToViewport } from '../../utils/previewLayout'
+import { useShallow } from 'zustand/react/shallow'
 import {
   applyAudioEffects,
   audioPreviewPlaybackRate,
@@ -27,7 +28,7 @@ import {
 } from '../../utils/audioEffects'
 
 export default function PreviewModal() {
-  const { project, setPreviewOpen } = useEditorStore()
+  const { project, setPreviewOpen } = useEditorStore(useShallow(s => ({ project: s.project, setPreviewOpen: s.setPreviewOpen })))
   const [playhead, setPlayhead] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
   const rafRef = useRef<number>(0)
@@ -102,7 +103,7 @@ export default function PreviewModal() {
               audioPlayersRef.current.set(audio.id, player)
             }
             const graph = ensureAudioEffectGraph(audio.id, player, audioGraphsRef.current)
-            applyAudioEffects(graph, audio)
+            applyAudioEffects(graph, audio, ph - absStart)   // clip time drives fade in/out
             syncAudioPlaybackSettings(player, audio)
 
             const expected = (audio.startTime ?? 0) + (ph - absStart) * audioPreviewPlaybackRate(audio)

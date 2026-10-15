@@ -14,6 +14,15 @@ const api = {
     maximize: () => ipcRenderer.invoke('win:maximize'),
     close:    () => ipcRenderer.invoke('win:close')
   },
+  app: {
+    /** Main asks the editor to flush unsaved work before the window closes. Returns an unsubscribe. */
+    onBeforeClose: (callback: () => void) => {
+      const listener = () => callback()
+      ipcRenderer.on('app:before-close', listener)
+      return () => { ipcRenderer.removeListener('app:before-close', listener) }
+    },
+    closeReady: () => ipcRenderer.send('app:close-ready'),
+  },
   projects: {
     list:   ()                         => ipcRenderer.invoke('projects:list'),
     create: (name: string)             => ipcRenderer.invoke('projects:create', name),
@@ -57,7 +66,16 @@ const api = {
       timeoutMs?: number
     }) => ipcRenderer.invoke('python:run', payload),
     cancel: (jobId: string) => ipcRenderer.invoke('python:cancel', jobId),
-    listOutputs: (outputDir: string) => ipcRenderer.invoke('python:list-outputs', outputDir)
+    listOutputs: (outputDir: string) => ipcRenderer.invoke('python:list-outputs', outputDir),
+    runtimeStatus: () => ipcRenderer.invoke('python:runtime-status'),
+    installRuntime: () => ipcRenderer.invoke('python:runtime-install'),
+    cancelRuntimeInstall: () => ipcRenderer.invoke('python:runtime-cancel'),
+    removeRuntime: () => ipcRenderer.invoke('python:runtime-remove'),
+    onRuntimeProgress: (listener: (progress: { phase: 'download' | 'install' | 'finished'; receivedBytes: number; totalBytes: number }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: Parameters<typeof listener>[0]) => listener(progress)
+      ipcRenderer.on('python:runtime-progress', handler)
+      return () => ipcRenderer.removeListener('python:runtime-progress', handler)
+    }
   },
   subtitle: {
     transcribeAudio: (payload: { sourcePath: string; language?: string }) => ipcRenderer.invoke('subtitle:transcribe-audio', payload),

@@ -1,5 +1,7 @@
 import type { EditorElement, ElementAnimation, EasingType, MotionZoomPosition, SlideDir } from '../types/editor'
 import { isMotionAnimation } from '../utils/moveAnimation'
+import { parseHex } from '../utils/color'
+import { isLoopAnimation } from '../utils/animationTypes'
 export { getOutlineRevealClips } from './textOutlineReveal'
 
 // ─── Easing ───────────────────────────────────────────────────────────────────
@@ -72,18 +74,13 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
   const anims = el.animations
   if (anims.length === 0) return props
 
-  // Loop animations are identified by type (canonical) OR by timing field.
-  // This guards against old saved projects where loop-type animations were
-  // incorrectly stored with timing='onEnter'.
-  const LOOP_TYPES = new Set(['pulse', 'bounceLoop', 'rotateLoop', 'flowLoop', 'fadeLoop', 'colorPulse'])
-  const isLoop = (a: ElementAnimation) => LOOP_TYPES.has(a.type) || a.timing === 'loop'
   const textRevealTypes = new Set(['typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'outlineRevealIn'])
 
   const motions = anims.filter(isMotionAnimation).sort((a, b) =>
     safeTime(a.startTime) + safeTime(a.delay) - safeTime(b.startTime) - safeTime(b.delay))
-  const enters = anims.filter(a => !isMotionAnimation(a) && !isLoop(a) && a.timing === 'onEnter')
-  const exits  = anims.filter(a => !isMotionAnimation(a) && !isLoop(a) && a.timing === 'onExit')
-  const loops  = anims.filter(a => isLoop(a))
+  const enters = anims.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onEnter')
+  const exits  = anims.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onExit')
+  const loops  = anims.filter(a => isLoopAnimation(a))
 
   // Guard against NaN from undefined/missing fields on older saved animations
   const safe = (v: number | undefined) => (v != null && isFinite(v) ? v : 0)
@@ -537,21 +534,9 @@ function zoomOrigin(position: MotionZoomPosition | undefined): [number, number] 
   }
 }
 
-function parseHexColor(color: string): [number, number, number] | null {
-  const match = color.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i)
-  if (!match) return null
-  let hex = match[1]
-  if (hex.length === 3) hex = hex.split('').map(ch => ch + ch).join('')
-  return [
-    parseInt(hex.slice(0, 2), 16),
-    parseInt(hex.slice(2, 4), 16),
-    parseInt(hex.slice(4, 6), 16),
-  ]
-}
-
 function mixHexColor(from: string, to: string, t: number): string {
-  const a = parseHexColor(from)
-  const b = parseHexColor(to)
+  const a = parseHex(from)
+  const b = parseHex(to)
   if (!a || !b) return t > 0.5 ? to : from
   const clamped = Math.max(0, Math.min(1, t))
   const parts = a.map((value, index) => Math.round(lerp(value, b[index], clamped)))

@@ -7,11 +7,13 @@
 
 import type { ArrowElement, Background, EditorElement, Project, Scene } from '../types/editor'
 import { getAnimatedProps } from './animator'
+import { get3DRotation, is3DShape } from './shape3d'
 import { easeInOutCubic } from './transitionRenderer'
 import { buildTransitionTimeline, getEffectiveTransitionDuration, getTransitionFrameState } from '../utils/transitionTiming'
+import { parseHex } from '../utils/color'
 
 const NUMERIC_KEYS = [
-  'x', 'y', 'width', 'height', 'opacity',
+  'x', 'y', 'width', 'height', 'opacity', 'rotateX', 'rotateY', 'rotateZ', 'depth3d',
   'x1', 'y1', 'x2', 'y2', 'curve',
   'fontSize', 'letterSpacing', 'lineHeight', 'stretchX', 'stretchY',
   'cornerRadius', 'strokeWidth', 'borderWidth', 'textStrokeWidth',
@@ -74,6 +76,11 @@ function bake(el: EditorElement, time: number): EditorElement {
     const src = el as ArrowElement
     Object.assign(baked, { x1: src.x1 + dx, y1: src.y1 + dy, x2: src.x2 + dx, y2: src.y2 + dy })
   }
+  if (baked.type === 'shape' && is3DShape(baked)) {
+    // Fill in default rotations so an untouched solid still turns into a rotated copy.
+    const r = get3DRotation(baked)
+    Object.assign(baked, { rotateX: r.x, rotateY: r.y, rotateZ: r.z })
+  }
   return baked
 }
 
@@ -82,13 +89,6 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 function lerpAngle(a: number, b: number, t: number) {
   const delta = ((((b - a) % 360) + 540) % 360) - 180   // shortest way round
   return a + delta * t
-}
-
-function parseHex(c: string): [number, number, number] | null {
-  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c.trim())
-  if (!m) return null
-  const h = m[1].length === 3 ? m[1].split('').map(ch => ch + ch).join('') : m[1]
-  return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)) as [number, number, number]
 }
 
 function lerpColor(a: string, b: string, t: number): string {

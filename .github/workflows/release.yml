@@ -27,6 +27,10 @@ jobs:
       - name: Verify version tag
         run: node scripts/verify-release.mjs "${{ github.ref_name }}"
 
+      # The installer no longer contains Python; the app downloads it on first use.
+      - name: Verify Python runtime is published
+        run: node scripts/python-runtime.mjs check
+
       - name: Verify commit is on production
         run: |
           git fetch origin production --no-tags
@@ -69,11 +73,6 @@ jobs:
 
       - name: Build renderer + main (electron-vite)
         run: npm run build
-
-      - name: Prepare bundled Python Sandbox
-        run: npm run prepare-python-sandbox
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare local Whisper captions engine
         run: npm run prepare-local-whisper

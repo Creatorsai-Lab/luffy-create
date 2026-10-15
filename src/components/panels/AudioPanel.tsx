@@ -6,9 +6,10 @@ import { makeAudio } from '../../utils/defaults'
 import { AUDIO_ASSET_DRAG_TYPE } from '../../utils/dragPayloads'
 import { clampAudioDuration, readAudioMetadataDuration, remainingTimelineDuration, resolveStoredAudioDuration } from '../../utils/audioMetadata'
 import type { AssetMeta } from '../../types/editor'
+import { useShallow } from 'zustand/react/shallow'
 
 export default function AudioPanel() {
-  const { project, addAsset, updateAsset, removeAsset, addElementToScene, getTotalDuration } = useEditorStore()
+  const { project, addAsset, updateAsset, removeAsset, addElementToScene, getTotalDuration } = useEditorStore(useShallow(s => ({ project: s.project, addAsset: s.addAsset, updateAsset: s.updateAsset, removeAsset: s.removeAsset, addElementToScene: s.addElementToScene, getTotalDuration: s.getTotalDuration })))
   const [uploading, setUploading] = useState(false)
   const [playingId, setPlayingId] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)

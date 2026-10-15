@@ -4,6 +4,7 @@ import type Konva from 'konva'
 import type { EditorElement } from '../../types/editor'
 import { makePerspectivePts } from '../../engine/perspectiveUtils'
 import { useEditorStore } from '../../store/editorStore'
+import { useShallow } from 'zustand/react/shallow'
 
 type Pt = [number, number]
 type CornerKey = 'tl' | 'tr' | 'br' | 'bl'
@@ -12,7 +13,7 @@ type EdgeKey   = 'tc' | 'rc' | 'bc' | 'lc'
 interface Props { el: EditorElement }
 
 export default function PerspectiveHandles({ el }: Props) {
-  const { updateElement } = useEditorStore()
+  const { updateElement } = useEditorStore(useShallow(s => ({ updateElement: s.updateElement })))
 
   if (el.type === 'arrow' || el.type === 'audio') return null
 

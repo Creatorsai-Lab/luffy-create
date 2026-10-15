@@ -10,6 +10,7 @@ if (typeof window !== 'undefined' && !window.api) {
   const noopNull = async () => null
   ;(window as unknown as { api: unknown }).api = {
     win:     { minimize: noop, maximize: noop, close: noop },
+    app:     { onBeforeClose: () => () => {}, closeReady: () => {} },
     projects: {
       list:   async () => [],
       create: async (name: string) => ({ id: `mem_${Date.now()}`, name, folder: '', createdAt: Date.now(), updatedAt: Date.now() }),

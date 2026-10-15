@@ -121,7 +121,6 @@ export function makeLatex(x: number, y: number, latex: string, width: number, he
 }
 
 export function makeShape(type: ShapeType, x: number, y: number): ShapeElement {
-  const is3D = type === 'cube' || type === 'cone'
   const size = type === 'cube' ? 300 : 280
   // Hand-drawn whiteboard box: transparent fill + visible dark stroke
   const isSketch = type === 'rect-sketch'
@@ -152,7 +151,7 @@ export function makeShape(type: ShapeType, x: number, y: number): ShapeElement {
     borderAnimate: false,
     borderAnimationSpeed: 1,
     cornerRadius: 8,
-    ...(is3D ? { depth: 55, faceColor: '' } : {}),
+    ...(type === 'cube' ? { depth3d: size } : {}),   // starts as a true cube
   }
 }
 

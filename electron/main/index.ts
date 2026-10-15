@@ -33,6 +33,7 @@ import {
   type TranslationPackStatus,
 } from './subtitleTranslationPack'
 import { createSubtitleTranslationService, type SubtitleTranslateRequest } from './subtitleTranslationService'
+import { createPythonRuntimeManager, readRuntimeManifest, type PythonRuntimeCatalog, type PythonRuntimeProgress } from './pythonRuntimePack'
 
 const USER_DATA   = app.getPath('userData')
 const PROJECTS_DIR = join(USER_DATA, 'projects')
@@ -204,12 +205,6 @@ interface PythonCommand {
   source?: 'bundled' | 'user' | 'system'
 }
 
-interface PythonSandboxManifest {
-  pythonRelativePath?: string
-  packages?: string[]
-  createdAt?: string
-}
-
 interface PythonOutputFile {
   name: string
   path: string
@@ -250,9 +245,9 @@ function resolveDevBuildAsset(name: string) {
 }
 const PYTHON_SANDBOX_DIR = join(USER_DATA, 'python-sandbox')
 const PYTHON_SANDBOX_VENV_DIR = join(PYTHON_SANDBOX_DIR, 'venv')
-const BUNDLED_PYTHON_SANDBOX_DIR = is.dev
-  ? resolveDevBuildAsset('python-sandbox')
-  : join(process.resourcesPath, 'python-sandbox')
+// Dev can use a locally prepared runtime (npm run prepare-python-sandbox)
+// instead of downloading it.
+const DEV_PYTHON_SANDBOX_DIR = is.dev ? resolveDevBuildAsset('python-sandbox') : null
 const PYTHON_SANDBOX_PACKAGES = [
   'numpy',
   'matplotlib',
@@ -316,20 +311,16 @@ function userSandboxPythonCommand(): PythonCommand | null {
   return existsSync(command) ? { command, args: [], source: 'user' } : null
 }
 
-function readBundledPythonManifest(): PythonSandboxManifest | null {
-  const manifestPath = join(BUNDLED_PYTHON_SANDBOX_DIR, 'manifest.json')
-  if (!existsSync(manifestPath)) return null
-  try {
-    return JSON.parse(readFileSync(manifestPath, 'utf-8')) as PythonSandboxManifest
-  } catch {
-    return null
-  }
+function bundledPythonSandboxDir() {
+  if (DEV_PYTHON_SANDBOX_DIR && existsSync(join(DEV_PYTHON_SANDBOX_DIR, 'manifest.json'))) return DEV_PYTHON_SANDBOX_DIR
+  return pythonRuntime.installedPath()
 }
 
 function bundledPythonCommand(): PythonCommand | null {
-  const manifest = readBundledPythonManifest()
-  if (!manifest?.pythonRelativePath) return null
-  const command = join(BUNDLED_PYTHON_SANDBOX_DIR, manifest.pythonRelativePath)
+  const dir = bundledPythonSandboxDir()
+  const manifest = dir ? readRuntimeManifest(dir) : null
+  if (!dir || !manifest?.pythonRelativePath) return null
+  const command = join(dir, manifest.pythonRelativePath)
   return existsSync(command) ? { command, args: [], source: 'bundled' } : null
 }
 
@@ -420,24 +411,43 @@ const TRANSLATION_RESOURCE_DIR = is.dev
 const translationCatalog = JSON.parse(
   readFileSync(join(TRANSLATION_RESOURCE_DIR, 'model-catalog.json'), 'utf8')
 ) as TranslationPackCatalog
-const fetchTranslationPack: typeof fetch = async (input, init) => {
-  if (!is.dev) return fetch(input, init)
-  const url = input instanceof Request ? input.url : input.toString()
-  const local = join(process.cwd(), 'build', 'translation-packs', basename(new URL(url).pathname))
-  if (!existsSync(local)) return fetch(input, init)
-  const file = createReadStream(local)
-  init?.signal?.addEventListener('abort', () => file.destroy(new Error('cancelled')), { once: true })
-  return new Response(Readable.toWeb(file) as ReadableStream, {
-    headers: { 'content-length': String((await stat(local)).size) },
-  })
+/** In dev, serves a download from build/<folder>/<file name> when that file exists. */
+function devLocalFetch(folder: string): typeof fetch {
+  return async (input, init) => {
+    if (!is.dev) return fetch(input, init)
+    const url = input instanceof Request ? input.url : input.toString()
+    const local = join(process.cwd(), 'build', folder, basename(new URL(url).pathname))
+    if (!existsSync(local)) return fetch(input, init)
+    const file = createReadStream(local)
+    init?.signal?.addEventListener('abort', () => file.destroy(new Error('cancelled')), { once: true })
+    return new Response(Readable.toWeb(file) as ReadableStream, {
+      headers: { 'content-length': String((await stat(local)).size) },
+    })
+  }
 }
+
+const pythonRuntime = createPythonRuntimeManager({
+  root: join(USER_DATA, 'python-runtime'),
+  catalog: JSON.parse(readFileSync(join(
+    is.dev ? join(process.cwd(), 'resources') : process.resourcesPath, 'python-runtime', 'catalog.json'
+  ), 'utf8')) as PythonRuntimeCatalog,
+  fetch: devLocalFetch('python-runtime'),
+  extract: async (archive, destination) => {
+    // Windows 10+ ships bsdtar in System32; a bare "tar" may resolve to Git's GNU tar, which misreads C:\ paths.
+    const tar = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar'
+    const result = await runProcess(tar, ['-xzf', archive, '-C', destination], { timeoutMs: 600_000 })
+    if (result.code !== 0) throw new Error(`Could not unpack the Python runtime.\n${result.stderr || result.stdout}`)
+  },
+})
+const PYTHON_RUNTIME_MISSING = 'The Python runtime is not installed yet. Download it once from the Python Sandbox window.'
+
 const translationPacks = createTranslationPackManager({
   root: join(USER_DATA, 'translation-models'),
   catalog: translationCatalog,
-  fetch: fetchTranslationPack,
+  fetch: devLocalFetch('translation-packs'),
   extract: async (archive, destination, maxBytes) => {
     const python = await resolvePython()
-    if (!python) throw new Error('Python runtime is unavailable')
+    if (!python) throw new Error(PYTHON_RUNTIME_MISSING)
     const result = await runProcess(python.command, [
       ...python.args,
       join(TRANSLATION_RESOURCE_DIR, 'install_pack.py'),
@@ -452,7 +462,7 @@ const subtitleTranslation = createSubtitleTranslationService({
   packManager: translationPacks,
   worker: async packPath => {
     const python = await resolvePython()
-    if (!python) throw new Error('Python runtime is unavailable')
+    if (!python) throw new Error(PYTHON_RUNTIME_MISSING)
     return {
       command: python.command,
       args: [...python.args, join(packPath, 'runner.py'), packPath],
@@ -478,7 +488,8 @@ async function pythonModuleAvailable(moduleName: string, python?: PythonCommand 
   const result = await runProcess(
     python.command,
     [...python.args, '-c', `import ${moduleName}`],
-    { timeoutMs: 8000 }
+    // The first import after installing compiles bytecode (manim: >8 s); later ones take ~2 s.
+    { timeoutMs: 30_000 }
   )
   return result.code === 0
 }
@@ -512,7 +523,7 @@ async function pythonSandboxStatus() {
     runtimeSource: activePython?.source ?? null,
     matplotlib,
     manim,
-    bundledPath: BUNDLED_PYTHON_SANDBOX_DIR,
+    bundledPath: bundledPythonSandboxDir(),
     bundledReady: Boolean(bundledPython && matplotlib && manim),
     sandboxPath: PYTHON_SANDBOX_VENV_DIR,
     sandboxReady: Boolean((bundledPython || sandboxPython) && matplotlib && manim),
@@ -707,7 +718,7 @@ async function transcribeAudioWithLocalWhisper(req: SubtitleTranscribeRequest) {
 
   const ffmpegPath = await resolveNativeFfmpeg()
   if (!ffmpegPath) {
-    throw new Error('Native FFmpeg was not found. Prepare the bundled Python Sandbox so audio can be converted for Whisper.')
+    throw new Error(`Local Whisper needs FFmpeg from the Python runtime. ${PYTHON_RUNTIME_MISSING}`)
   }
 
   const jobId = `sub_${Date.now()}_${Math.random().toString(16).slice(2)}`
@@ -785,6 +796,22 @@ function validatePythonUserCode(code: string): string | null {
   return null
 }
 
+// ── Save before close ────────────────────────────────────────────────────────
+// Closing a window first asks the renderer to flush its autosave; the window
+// closes once the renderer reports back, or after a timeout.
+const CLOSE_SAVE_TIMEOUT_MS = 4000
+const closeAllowed = new WeakSet<BrowserWindow>()
+let isQuitting = false
+app.on('before-quit', () => { isQuitting = true })
+
+function allowClose(win: BrowserWindow) {
+  if (win.isDestroyed() || closeAllowed.has(win)) return
+  closeAllowed.add(win)
+  win.close()
+  // A held close cancels app.quit (Cmd+Q on macOS), so resume quitting.
+  if (isQuitting) app.quit()
+}
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1440,
@@ -801,6 +828,14 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false
     }
+  })
+
+  // Hold the close until the editor has saved unsaved edits (see app:close-ready).
+  win.on('close', e => {
+    if (closeAllowed.has(win)) return
+    e.preventDefault()
+    win.webContents.send('app:before-close')
+    setTimeout(() => allowClose(win), CLOSE_SAVE_TIMEOUT_MS)   // a stuck save must not block closing
   })
 
   win.on('ready-to-show', () => win.show())
@@ -828,6 +863,10 @@ function registerIpcHandlers() {
     if (w) w.isMaximized() ? w.unmaximize() : w.maximize()
   })
   ipcMain.handle('win:close', () => focusedWindow()?.close())
+  ipcMain.on('app:close-ready', e => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (win) allowClose(win)
+  })
 
   // Projects CRUD
   ipcMain.handle('projects:list', () => readIndex())
@@ -978,6 +1017,18 @@ function registerIpcHandlers() {
     return setupPythonSandboxEnv()
   })
 
+  ipcMain.handle('python:runtime-status', () => pythonRuntime.getStatus())
+  ipcMain.handle('python:runtime-install', async event => {
+    const send = (progress: PythonRuntimeProgress) => {
+      if (!event.sender.isDestroyed()) event.sender.send('python:runtime-progress', progress)
+    }
+    // 'finished' lets a prompt that was closed and reopened mid-download refresh its status.
+    try { return await pythonRuntime.install(send) }
+    finally { send({ phase: 'finished', receivedBytes: 0, totalBytes: 0 }) }
+  })
+  ipcMain.handle('python:runtime-cancel', () => pythonRuntime.cancel())
+  ipcMain.handle('python:runtime-remove', () => pythonRuntime.remove())
+
   ipcMain.handle('python:run', async (_e, req: PythonRunRequest) => {
     const idx = await readIndex()
     const record = idx.find(r => r.id === req.projectId)
@@ -987,10 +1038,10 @@ function registerIpcHandlers() {
     if (validationError) throw new Error(validationError)
 
     const python = await resolvePython()
-    if (!python) throw new Error('Python 3 was not found on this computer')
+    if (!python) throw new Error(PYTHON_RUNTIME_MISSING)
     const requiredModule = req.kind === 'manim' ? 'manim' : 'matplotlib'
     if (!await pythonModuleAvailable(requiredModule, python)) {
-      throw new Error(`${requiredModule} is not installed in the Python Sandbox environment. Click "Setup Sandbox" first.`)
+      throw new Error(`${requiredModule} is not installed in the Python Sandbox environment. Download the Python runtime first.`)
     }
 
     const jobId = req.jobId || `py_${Date.now()}_${Math.random().toString(16).slice(2)}`

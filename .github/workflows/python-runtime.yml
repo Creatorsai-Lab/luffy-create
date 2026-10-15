@@ -1,0 +1,92 @@
+name: Python Runtime
+
+# Builds the downloadable Python runtime (Python Sandbox, local Whisper FFmpeg,
+# subtitle translation) and publishes it to the release python-runtime-v<version>.
+#
+# Run it manually only when the runtime itself changes:
+#   1. Bump "version" in resources/python-runtime/catalog.json and push to main.
+#   2. Actions → Python Runtime → Run workflow (on main).
+#   3. Locally: npm run python-runtime:sync, then commit resources/python-runtime/catalog.json.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      # Let every platform finish so one run shows all failures; publish still needs all three.
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # manimpango has no prebuilt Linux wheel; pip compiles it against Pango/Cairo.
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libcairo2-dev libpango1.0-dev cmake
+
+      - name: Prepare Python runtime
+        run: npm run prepare-python-sandbox
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pack Python runtime
+        run: node scripts/python-runtime.mjs pack
+
+      - name: Upload packed runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-runtime-${{ matrix.os }}
+          path: build/python-runtime/
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Download packed runtimes
+        uses: actions/download-artifact@v4
+        with:
+          path: packed
+          merge-multiple: true
+
+      - name: Write catalog
+        run: node scripts/python-runtime.mjs catalog packed
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(node -p "require('./resources/python-runtime/catalog.json').version")
+          tag="python-runtime-v$version"
+          # Installed apps pin the sha256 of each archive, so a published version is never replaced.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::$tag already exists. Bump version in resources/python-runtime/catalog.json first."
+            exit 1
+          fi
+          gh release create "$tag" packed/*.tar.gz resources/python-runtime/catalog.json \
+            --target "$GITHUB_SHA" \
+            --title "Python runtime v$version" \
+            --notes "Downloaded once by Luffy Create for the Python Sandbox, local Whisper captions and subtitle translation. Not an app release." \
+            --latest=false
+          echo "Published $tag. Now run: npm run python-runtime:sync" >> "$GITHUB_STEP_SUMMARY"

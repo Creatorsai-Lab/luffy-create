@@ -26,19 +26,21 @@ Generated files are detected automatically when they are saved inside the provid
 
 ## Sandbox Environment
 
-Released builds include a bundled Python Sandbox runtime with the required packages already installed: NumPy, Matplotlib, Pillow, SciPy, ImageIO, ImageIO FFmpeg support, and Manim. Users should not need to install these packages on their computer.
+The Python runtime (Python 3.12 with NumPy, Matplotlib, Pillow, SciPy, ImageIO, ImageIO FFmpeg support and Manim) is not part of the installer. The first time it is needed, the Python Sandbox window (and the Subtitle window) offers a one-time **Download** of about 200 MB. It is verified against a pinned SHA-256, unpacked into the app data folder (`python-runtime/<version>`), and reused from then on. **Remove runtime** in the sandbox header deletes it. Local Whisper captions and subtitle translation use the same runtime.
 
-For local development or recovery, the app can still create a local repair sandbox in the app data folder when a bundled runtime is not available. Release builds should prepare the bundled runtime before packaging:
+If the download is not possible, the app can still create a local repair sandbox from a Python 3 already installed on the computer (Repair Sandbox).
 
-```bash
-npm run prepare-python-sandbox
-```
+### Publishing the runtime (maintainers)
 
-Then package the app normally:
+Archives are hosted on the GitHub release `python-runtime-v<version>`, separate from app releases, so app updates do not re-download it.
 
-```bash
-npm run package
-```
+1. Only when the runtime itself changes: bump `version` in `resources/python-runtime/catalog.json` and push to main.
+2. GitHub → Actions → **Python Runtime** → Run workflow. It builds Windows x64, macOS arm64 and Linux x64 archives and publishes the release.
+3. `npm run python-runtime:sync` copies the published `catalog.json` (URLs, sizes, SHA-256) into `resources/`; commit it.
+
+`npm run preflight` and the release workflow both fail if any platform's runtime is not published.
+
+For development, `npm run prepare-python-sandbox` builds the runtime into `build/python-sandbox`, which dev mode uses directly instead of downloading.
 
 ## Preloaded Libraries
 

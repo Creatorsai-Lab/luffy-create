@@ -5,11 +5,12 @@ import { makeVideo } from '../../utils/defaults'
 import { cn } from '../../utils/cn'
 import { toFileUrl } from '../../utils/pathUtils'
 import type { AssetMeta } from '../../types/editor'
+import { useShallow } from 'zustand/react/shallow'
 
 const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'avi', 'mkv']
 
 export default function VideoUploadPanel() {
-  const { project, addAsset, removeAsset, addElement } = useEditorStore()
+  const { project, addAsset, removeAsset, addElement } = useEditorStore(useShallow(s => ({ project: s.project, addAsset: s.addAsset, removeAsset: s.removeAsset, addElement: s.addElement })))
   const [loading,  setLoading]  = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const dropZoneRef = useRef<HTMLDivElement>(null)

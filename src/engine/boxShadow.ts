@@ -1,4 +1,5 @@
 import type { BoxShadow, InnerShadow } from '../types/editor'
+import { parseHex } from '../utils/color'
 
 export function boxShadowOrDefault(shadow?: BoxShadow): BoxShadow {
   return {
@@ -154,18 +155,6 @@ function toRgba(color: string, alpha: number) {
   const a = Math.max(0, Math.min(1, alpha))
   const parsed = parseHex(color)
   if (!parsed) return `rgba(0,0,0,${a})`
-  return `rgba(${parsed.r},${parsed.g},${parsed.b},${a})`
+  return `rgba(${parsed[0]},${parsed[1]},${parsed[2]},${a})`
 }
 
-function parseHex(color: string) {
-  const match = color.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i)
-  if (!match) return null
-  const hex = match[1].length === 3
-    ? match[1].split('').map(ch => ch + ch).join('')
-    : match[1]
-  return {
-    r: parseInt(hex.slice(0, 2), 16),
-    g: parseInt(hex.slice(2, 4), 16),
-    b: parseInt(hex.slice(4, 6), 16),
-  }
-}

@@ -5,6 +5,7 @@ import { getMediaEffectClips } from '../../engine/mediaEffects'
 import { makeMediaEffectClip } from '../../utils/defaults'
 import MediaEffectCard from './MediaEffectCard'
 import { PanelHeader, Row } from './TextPanel'
+import { useShallow } from 'zustand/react/shallow'
 
 type MediaElement = ImageElement | VideoElement
 
@@ -25,7 +26,7 @@ export const MEDIA_EFFECT_OPTIONS: { label: string; value: MediaEffectClip['type
 ]
 
 export default function MediaEffectsPanel() {
-  const { getCurrentScene, getSelectedEls, updateElement } = useEditorStore()
+  const { getCurrentScene, getSelectedEls, updateElement } = useEditorStore(useShallow(s => ({ getCurrentScene: s.getCurrentScene, getSelectedEls: s.getSelectedEls, updateElement: s.updateElement, project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds })))
   const el = getSelectedEls().find(item => item.type === 'image' || item.type === 'video') as MediaElement | undefined
   const sceneDuration = Math.max(0, getCurrentScene()?.duration ?? 5)
 

@@ -6,34 +6,7 @@ import { drawPerspectiveShapeStroke, drawPerspectiveWarp, perspectiveHitFunc, dr
 import { drawBoxShadow, drawInnerShadow, hasBoxShadow, hasInnerShadow } from '../../../engine/boxShadow'
 import { borderCanvasStrokeStyle, borderKonvaStrokeProps, getElementBorderWidth } from '../../../engine/borderRenderer'
 import { shapeCanvasFill, shapeFillProps } from '../../../engine/shapeFill'
-
-// ─── Color helpers ────────────────────────────────────────────────────────────
-
-function hexChannel(hex: string, idx: number): number {
-  return parseInt(hex.slice(idx, idx + 2), 16)
-}
-
-function adjustHex(color: string, pct: number): string {
-  const m = color.match(/^#([0-9a-f]{3,6})$/i)
-  if (!m) return color
-  const s = m[1].length === 3 ? m[1].split('').map(c => c + c).join('') : m[1]
-  const adj = (i: number) => {
-    const v = hexChannel(s, i)
-    const out = pct > 0
-      ? Math.round(v + (255 - v) * pct)
-      : Math.round(v * (1 + pct))
-    return Math.max(0, Math.min(255, out)).toString(16).padStart(2, '0')
-  }
-  return `#${adj(0)}${adj(2)}${adj(4)}`
-}
-
-function topFaceColor(fill: string, faceColor?: string): string {
-  return faceColor || adjustHex(fill, 0.35)
-}
-
-function sideFaceColor(fill: string, faceColor?: string): string {
-  return faceColor ? adjustHex(faceColor, -0.25) : adjustHex(fill, -0.35)
-}
+import { draw3DShape, is3DShape } from '../../../engine/shape3d'
 
 // ─── Flow helpers ─────────────────────────────────────────────────────────────
 
@@ -72,15 +45,17 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
     if (!el.perspectivePts) return
     const canvas = document.createElement('canvas')
     canvas.width = el.width; canvas.height = el.height
-    const sourceEl = (el.strokeWidth || 0) > 0
+    // 2D outlines are re-drawn crisply after the warp; a 3D solid's edges are
+    // part of the solid, so they stay in the warped source.
+    const sourceEl = (el.strokeWidth || 0) > 0 && !is3DShape(el)
       ? ({ ...el, stroke: 'transparent', strokeWidth: 0 } as ShapeElement)
       : el
     drawShapeToCtx(sourceEl, canvas.getContext('2d')!)
     setOffscreen(canvas)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [el.width, el.height, el.fill, el.cornerRadius, el.shapeType,
+  }, [el.width, el.height, el.fill, el.fillOpacity, el.cornerRadius, el.shapeType,
       el.fillMode, el.gradientFrom, el.gradientTo, el.gradientFromOpacity, el.gradientToOpacity, el.gradientAngle,
-      (el as { depth?: number }).depth, (el as { faceColor?: string }).faceColor, !!el.perspectivePts])
+      el.stroke, el.strokeWidth, el.faceColor, el.rotateX, el.rotateY, el.rotateZ, el.faces3d, !!el.perspectivePts])
 
   if (el.perspectivePts && offscreen) {
     return (
@@ -224,80 +199,9 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
     case 'oval':
       return wipe(<Ellipse {...shared} radiusX={w / 2} radiusY={h / 2} offsetX={-w / 2} offsetY={-h / 2} />)
 
-    case 'cone': {
-      const baseRY  = Math.max(6, Math.min(h * 0.14, 28))
-      const baseY   = h - baseRY
-      const topColor  = topFaceColor(el.fill, el.faceColor)
-      const darkColor = sideFaceColor(el.fill, el.faceColor)
-      const sw = getElementBorderWidth(el)
-      return wipe(
-        <Shape
-          {...shapeKonvaProps}
-          width={w} height={h}
-          hitFunc={(ctx, shape) => {
-            ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.closePath(); ctx.fillStrokeShape(shape)
-          }}
-          sceneFunc={(ctx, shape) => {
-            const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
-            raw.save()
-
-            raw.beginPath()
-            raw.moveTo(w / 2, 0)
-            raw.lineTo(0, baseY)
-            raw.ellipse(w / 2, baseY, w / 2, baseRY, 0, Math.PI, 0, false)
-            raw.closePath()
-            raw.fillStyle = shapeCanvasFill(raw, el, w, h)
-            raw.fill()
-            if (sw > 0) { raw.strokeStyle = borderCanvasStrokeStyle(raw, el, w, h, localTime); raw.lineWidth = sw; raw.stroke() }
-
-            raw.beginPath()
-            raw.ellipse(w / 2, baseY, w / 2, baseRY, 0, 0, Math.PI * 2)
-            raw.fillStyle = topColor
-            raw.fill()
-            if (sw > 0) { raw.strokeStyle = borderCanvasStrokeStyle(raw, el, w, h, localTime); raw.lineWidth = sw; raw.stroke() }
-
-            raw.beginPath()
-            raw.ellipse(w / 2, baseY, w / 2, baseRY, 0, Math.PI, Math.PI * 2, false)
-            raw.strokeStyle = darkColor
-            raw.lineWidth = Math.max(1, sw)
-            raw.setLineDash([4, 4])
-            raw.stroke()
-            raw.setLineDash([])
-
-            if (hasFlow) {
-              const fsw = fStrokeW
-              raw.setLineDash(flowDash(fsw))
-              raw.lineDashOffset = dashOffset
-              raw.strokeStyle = fStroke
-              raw.lineWidth = fsw
-              // Outline: triangle + base ellipse
-              raw.beginPath()
-              raw.moveTo(w / 2, 0)
-              raw.lineTo(0, baseY)
-              raw.ellipse(w / 2, baseY, w / 2, baseRY, 0, Math.PI, 0, false)
-              raw.closePath()
-              raw.stroke()
-              raw.setLineDash([])
-            }
-
-            raw.restore()
-          }}
-        />
-      )
-    }
-
+    case 'cone':
     case 'cube': {
-      const depth = el.depth ?? Math.min(w, h) * 0.38
-      const ANGLE = Math.PI / 6
-      const ox    = depth * Math.cos(ANGLE)
-      const oy    = depth * Math.sin(ANGLE)
-      const fw = w - ox
-      const fh = h - oy
-      const frontFill = el.fill
-      const topFill   = topFaceColor(el.fill, el.faceColor)
-      const rightFill = sideFaceColor(el.fill, el.faceColor)
       const sw = getElementBorderWidth(el)
-
       return wipe(
         <Shape
           {...shapeKonvaProps}
@@ -305,46 +209,11 @@ export default function ShapeKonva({ el, konvaProps, wipeProgress = 1, wipeDir, 
           hitFunc={(ctx, shape) => {
             ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.closePath(); ctx.fillStrokeShape(shape)
           }}
-          sceneFunc={(ctx, shape) => {
+          sceneFunc={ctx => {
             const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
-            raw.save()
-
-            const drawFace = (pts: number[], fill: string | CanvasGradient) => {
-              raw.beginPath()
-              raw.moveTo(pts[0], pts[1])
-              for (let i = 2; i < pts.length; i += 2) raw.lineTo(pts[i], pts[i+1])
-              raw.closePath()
-              raw.fillStyle = fill
-              raw.fill()
-              if (sw > 0) { raw.strokeStyle = borderCanvasStrokeStyle(raw, el, w, h, localTime); raw.lineWidth = sw; raw.stroke() }
-            }
-
-            drawFace([0, oy, fw, oy, fw, h, 0, h], shapeCanvasFill(raw, el, w, h))
-            drawFace([ox, 0, w, 0, fw, oy, 0, oy], topFill)
-            drawFace([fw, oy, w, 0, w, fh, fw, h], rightFill)
-
-            if (hasFlow) {
-              const fsw = fStrokeW
-              raw.setLineDash(flowDash(fsw))
-              raw.lineDashOffset = dashOffset
-              raw.strokeStyle = fStroke
-              raw.lineWidth = fsw
-              // Front face outline
-              raw.beginPath()
-              raw.moveTo(0, oy); raw.lineTo(fw, oy); raw.lineTo(fw, h); raw.lineTo(0, h); raw.closePath()
-              raw.stroke()
-              // Top face outline
-              raw.beginPath()
-              raw.moveTo(ox, 0); raw.lineTo(w, 0); raw.lineTo(fw, oy); raw.lineTo(0, oy); raw.closePath()
-              raw.stroke()
-              // Right face outline
-              raw.beginPath()
-              raw.moveTo(fw, oy); raw.lineTo(w, 0); raw.lineTo(w, fh); raw.lineTo(fw, h); raw.closePath()
-              raw.stroke()
-              raw.setLineDash([])
-            }
-
-            raw.restore()
+            draw3DShape(raw, el, w, h, hasFlow
+              ? { style: fStroke, width: fStrokeW, dash: flowDash(fStrokeW), dashOffset }
+              : sw > 0 ? { style: borderCanvasStrokeStyle(raw, el, w, h, localTime), width: sw } : undefined)
           }}
         />
       )

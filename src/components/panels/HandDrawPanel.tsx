@@ -2,6 +2,7 @@ import { Pencil, Eraser, Brush, SprayCan } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { HandDrawTool } from '../../types/editor'
 import { cn } from '../../utils/cn'
+import { useShallow } from 'zustand/react/shallow'
 
 const TOOLS: Array<{ id: HandDrawTool; label: string; icon: React.ReactNode }> = [
   { id: 'pen', label: 'Pen', icon: <Pencil size={17} /> },
@@ -11,7 +12,7 @@ const TOOLS: Array<{ id: HandDrawTool; label: string; icon: React.ReactNode }> =
 ]
 
 export default function HandDrawPanel() {
-  const { handDrawSettings, setHandDrawSettings } = useEditorStore()
+  const { handDrawSettings, setHandDrawSettings } = useEditorStore(useShallow(s => ({ handDrawSettings: s.handDrawSettings, setHandDrawSettings: s.setHandDrawSettings })))
   const tool = handDrawSettings.tool
 
   return (

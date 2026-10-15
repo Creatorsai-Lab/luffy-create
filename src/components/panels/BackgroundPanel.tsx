@@ -3,6 +3,7 @@ import { useEditorStore } from '../../store/editorStore'
 import type { Background, BgType, AnimatedBg, GradientBg, GradientKind, ImageBg } from '../../types/editor'
 import { PanelHeader, Row, ColorInput, Slider } from './TextPanel'
 import { cn } from '../../utils/cn'
+import { useShallow } from 'zustand/react/shallow'
 
 const BG_TYPES: { label: string; value: BgType }[] = [
   { label: 'Solid',       value: 'solid' },
@@ -14,7 +15,7 @@ const BG_TYPES: { label: string; value: BgType }[] = [
 ]
 
 export default function BackgroundPanel() {
-  const { project, currentSceneId, setBackground } = useEditorStore()
+  const { project, currentSceneId, setBackground } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, setBackground: s.setBackground })))
   const scene = project?.scenes.find(s => s.id === currentSceneId)
 
   if (!scene) return (

@@ -136,12 +136,6 @@ export function releaseVideo(el: VideoElement, video: HTMLVideoElement) {
   putInPool(el.id, makeEntry(el.src, video, seekVideo(video, el.startTime ?? 0)))
 }
 
-/** Non-destructive check, safe to call during render. */
-export function peekWarmVideo(id: string, src: string): WarmVideo | null {
-  const entry = pool.get(id)
-  return entry && entry.src === src ? entry : null
-}
-
 /** Hand ownership of a warm video to the caller (removes it from the pool). */
 export function takeWarmVideo(id: string, src: string): WarmVideo | null {
   const entry = pool.get(id)

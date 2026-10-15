@@ -31,6 +31,8 @@ import CanvasSafeArea from './CanvasSafeArea'
 import CanvasToolbar from './CanvasToolbar'
 import ContextMenu from '../ui/ContextMenu'
 import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
+import { sceneStartTime } from '../../utils/sceneTiming'
+import { useShallow } from 'zustand/react/shallow'
 import {
   captureStageToCanvas,
   refreshStageSnapshot,
@@ -120,7 +122,7 @@ export default function EditorCanvas() {
     removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
     undo, redo, duplicateElement,
     bringForward, sendBackward, bringToFront, sendToBack,
-  } = useEditorStore()
+  } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds, playhead: s.playhead, isPlaying: s.isPlaying, exportOpen: s.exportOpen, activeTool: s.activeTool, activePanel: s.activePanel, pendingChartType: s.pendingChartType, handDrawSettings: s.handDrawSettings, cropElementId: s.cropElementId, setCropElement: s.setCropElement, addElement: s.addElement, selectElement: s.selectElement, deselectAll: s.deselectAll, removeElement: s.removeElement, updateElement: s.updateElement, setBackground: s.setBackground, setActiveTool: s.setActiveTool, setActivePanel: s.setActivePanel, openCodeModal: s.openCodeModal, undo: s.undo, redo: s.redo, duplicateElement: s.duplicateElement, bringForward: s.bringForward, sendBackward: s.sendBackward, bringToFront: s.bringToFront, sendToBack: s.sendToBack })))
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
 
@@ -239,6 +241,10 @@ export default function EditorCanvas() {
         .filter(id => currentScene?.elements.find(el => el.id === id)?.type !== 'handDraw')
         .map(id => stageRef.current!.findOne(`#${id}`))
         .filter((n): n is Konva.Node => !!n && !!n.getStage?.())
+      // Runs every frame during playback (an element can re-mount mid-play);
+      // only re-attach and redraw when the selected nodes actually changed.
+      const attached = trRef.current.nodes()
+      if (nodes.length === attached.length && nodes.every((n, i) => n === attached[i])) return
       trRef.current.nodes(nodes)
       trRef.current.getLayer()?.batchDraw()
     }
@@ -309,21 +315,13 @@ export default function EditorCanvas() {
         return
       }
 
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault() // Prevent browser back navigation
-        console.log('[EditorCanvas] Delete key pressed, selectedIds:', selectedIds)
-        if (selectedIds.length > 0) {
-          console.log('[EditorCanvas] Deleting selected elements:', selectedIds)
-          // Create a copy to avoid mutation issues
-          const toDelete = [...selectedIds]
-          deselectAll() // Deselect first to avoid issues
-          toDelete.forEach(id => {
-            console.log('[EditorCanvas] Removing element:', id)
-            removeElement(id)
-          })
-        } else {
-          console.log('[EditorCanvas] No elements selected to delete')
-        }
+      // Delete removes the selected elements. preventDefault marks the key as
+      // used, so the timeline's handler (delete clip / scene) skips it.
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0 && !e.defaultPrevented) {
+        e.preventDefault()
+        const toDelete = [...selectedIds]
+        deselectAll()
+        toDelete.forEach(id => removeElement(id))
       }
       
       // Arrow keys: nudge selected element(s). Shift = larger step.
@@ -969,12 +967,8 @@ export default function EditorCanvas() {
     localTime = morphFrame.localTime
   } else if (transitionStarted && transOverlay) {
     localTime = Math.max(0, playhead - transOverlay.transitionStart)
-  } else {
-    let acc = 0
-    for (const sc of project.scenes) {
-      if (sc.id === currentSceneId) { localTime = playhead - acc; break }
-      acc += sc.duration
-    }
+  } else if (currentSceneId) {
+    localTime = playhead - sceneStartTime(project.scenes, currentSceneId)
   }
 
   const sortedEls = [...(activeScene ?? currentScene).elements].sort((a, b) => a.zIndex - b.zIndex)
@@ -984,6 +978,8 @@ export default function EditorCanvas() {
     if (selectedIds.length !== 1) return false
     const sel = currentScene.elements.find(e => e.id === selectedIds[0])
     if (!sel) return false
+    // Cuboid: edge handles change width or height only; corners scale the whole solid.
+    if (sel.type === 'shape' && sel.shapeType === 'cube') return true
     return (sel.type === 'image' || sel.type === 'video') &&
       ((sel as ImageElement | VideoElement).lockRatio ?? true)
   })()

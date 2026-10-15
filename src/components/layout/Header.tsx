@@ -4,9 +4,10 @@ import luffyLogo from '/images/luffy_create_logo.webp'
 import { useEditorStore } from '../../store/editorStore'
 import { cn } from '../../utils/cn'
 import ProjectsArchiveModal from '../modals/ProjectsArchiveModal'
+import { useShallow } from 'zustand/react/shallow'
 
 export default function Header() {
-  const { project, isDirty } = useEditorStore()
+  const { project, isDirty } = useEditorStore(useShallow(s => ({ project: s.project, isDirty: s.isDirty })))
   const [archiveOpen, setArchiveOpen] = useState(false)
 
   const minimize = () => window.api.win.minimize()

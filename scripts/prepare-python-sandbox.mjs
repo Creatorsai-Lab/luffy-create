@@ -169,6 +169,9 @@ async function main() {
   await run(python, ['-m', 'ensurepip', '--upgrade'], { env: pythonEnv })
   await run(python, ['-m', 'pip', 'install', '--upgrade', '--no-warn-script-location', 'pip', 'setuptools', 'wheel'], { env: pythonEnv })
   await run(python, ['-m', 'pip', 'install', '--upgrade', '--no-warn-script-location', ...packages], { env: pythonEnv })
+  const removed = await removePackageTestSuites(outputDir)
+  console.log(`Removed ${removed} package test-suite folders`)
+  // Runs after the cleanup so a package that needed its tests folder fails the build here.
   await run(python, ['-c', 'import numpy, matplotlib, PIL, scipy, imageio, imageio_ffmpeg, manim; print(imageio_ffmpeg.get_ffmpeg_exe()); print("Python Sandbox packages ready")'], { env: pythonEnv })
 
   const manifest = {
@@ -188,6 +191,26 @@ async function main() {
     throw new Error('Bundled Python Sandbox manifest was not written')
   }
   console.log('Bundled Python Sandbox is ready')
+}
+
+/**
+ * Third-party packages ship their own unit tests (`.../site-packages/<pkg>/tests`),
+ * about 60 MB that is never imported at runtime. Only folders named exactly
+ * `tests` inside site-packages are removed (`numpy.testing` etc. are kept).
+ */
+async function removePackageTestSuites(dir) {
+  let removed = 0
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const path = join(dir, entry.name)
+    if (entry.name === 'tests' && path.includes('site-packages')) {
+      await rm(path, { recursive: true, force: true })
+      removed++
+    } else {
+      removed += await removePackageTestSuites(path)
+    }
+  }
+  return removed
 }
 
 main().catch(err => {

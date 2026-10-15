@@ -16,10 +16,6 @@ export interface FittedSubtitleRow {
   lines: 1
 }
 
-export interface SubtitleLine {
-  text: string
-}
-
 export interface MeasuredSubtitleWord {
   text: string
   x: number
@@ -74,27 +70,6 @@ export function layoutSubtitleStack(rows: Array<{ width: number; height: number 
     return result
   })
   return { width: Math.max(0, ...rows.map(row => row.width)), height: y, rows: positioned }
-}
-
-function compactLines(words: string[], maxChars: number) {
-  const text = words.join(' ')
-  if (text.length <= maxChars || words.length < 2) return [text]
-  let split = 1
-  let smallestDifference = Infinity
-  for (let index = 1; index < words.length; index++) {
-    const difference = Math.abs(words.slice(0, index).join(' ').length - words.slice(index).join(' ').length)
-    if (difference < smallestDifference) {
-      split = index
-      smallestDifference = difference
-    }
-  }
-  return [words.slice(0, split).join(' '), words.slice(split).join(' ')]
-}
-
-export function layoutSubtitleLines(text: string, maxChars: number): SubtitleLine[] {
-  const words = text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean)
-  if (!words.length) return []
-  return compactLines(words, Math.max(1, maxChars)).map(line => ({ text: line }))
 }
 
 export function layoutMeasuredSubtitleWords(text: string, measure: (text: string) => number) {
