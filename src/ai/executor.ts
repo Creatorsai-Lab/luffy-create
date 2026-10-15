@@ -1,9 +1,10 @@
 import { v4 as uuid } from 'uuid'
 import type { AssetMeta, EditorElement, MoveDirection, Scene, ShapeType } from '../types/editor'
-import { makeAudio, makeImage, makeScene, makeShape, makeText, makeVideo } from '../utils/defaults'
+import { makeAnimation, makeAudio, makeImage, makeScene, makeShape, makeText, makeVideo } from '../utils/defaults'
 import { clampAudioDuration, finitePositiveDuration, remainingTimelineDuration } from '../utils/audioMetadata'
 import { computeMoveDelta, durationFromMove } from '../utils/moveAnimation'
 import { useEditorStore } from '../store/editorStore'
+import { clampAudioVolume } from '../utils/audioEffects'
 import type { AiCommandResult, AiEditorCommand, AiElementRef, AiPlan, AiSceneRef } from './types'
 
 const SHAPE_TYPES: Set<ShapeType> = new Set([
@@ -19,8 +20,9 @@ const BASE_PATCH_KEYS = new Set([
 const TYPE_PATCH_KEYS: Record<string, Set<string>> = {
   text: new Set(['content', 'fontSize', 'fontFamily', 'fontWeight', 'italic', 'color', 'align', 'lineHeight', 'letterSpacing', 'underline']),
   shape: new Set(['shapeType', 'fill', 'stroke', 'strokeWidth', 'cornerRadius', 'rotateX', 'rotateY', 'rotateZ']),
-  image: new Set(['cornerRadius', 'brightness', 'contrast', 'saturation', 'blur', 'crop']),
-  video: new Set(['cornerRadius', 'volume', 'playbackRate', 'muted', 'loop', 'startTime', 'duration', 'timelineX', 'crop']),
+  image: new Set(['cornerRadius', 'brightness', 'contrast', 'saturation', 'blur', 'crop', 'borderColor', 'borderWidth']),
+  video: new Set(['cornerRadius', 'volume', 'playbackRate', 'muted', 'loop', 'startTime', 'duration', 'timelineX', 'crop', 'borderColor', 'borderWidth']),
+  audio: new Set(['volume', 'speed', 'fadeIn', 'fadeOut', 'startTime', 'duration', 'loop']),
   icon: new Set(['iconName', 'color', 'strokeWidth']),
 }
 
@@ -32,14 +34,18 @@ export function executeAiPlan(plan: AiPlan): AiCommandResult[] {
 
   const results: AiCommandResult[] = []
   const sceneAliases: Record<string, string> = {}
+  const elementAliases: Record<string, string> = {}
   for (const command of plan.commands) {
     try {
-      const resolvedCommand = resolveSceneAlias(command, sceneAliases)
+      const resolvedCommand = resolveElementAlias(resolveSceneAlias(command, sceneAliases), elementAliases)
       const result = executeAiCommand(resolvedCommand)
-      if (command.type === 'addScene' && result.sceneIds?.[0]) {
-        const createdSceneId = result.sceneIds[0]
+      if ((command.type === 'addScene' || command.type === 'duplicateScene' || (command.type === 'splitScene' && command.alias)) && result.sceneIds?.[0]) {
+        // duplicateScene and splitScene report [original, new part]; the alias names the new part.
+        const createdSceneId = result.sceneIds[command.type === 'addScene' ? 0 : 1] ?? result.sceneIds[0]
         sceneAliases[command.alias ?? 'newScene'] = createdSceneId
         sceneAliases.newScene ??= createdSceneId
+      } else if ('alias' in command && command.alias && result.elementIds?.[0]) {
+        elementAliases[command.alias] = result.elementIds[result.elementIds.length - 1]
       }
       results.push(result)
     } catch (error) {
@@ -74,6 +80,28 @@ function executeAiCommand(command: AiEditorCommand): AiCommandResult {
       return setTransition(command)
     case 'generateStoryboard':
       return generateStoryboard(command)
+    case 'removeScene':
+      return removeScene(command)
+    case 'duplicateScene':
+      return duplicateScene(command)
+    case 'splitScene':
+      return splitScene(command)
+    case 'moveScene':
+      return moveScene(command)
+    case 'setSceneDuration':
+      return setSceneDuration(command)
+    case 'removeElement':
+      return removeElement(command)
+    case 'duplicateElement':
+      return duplicateElement(command)
+    case 'arrangeElement':
+      return arrangeElement(command)
+    case 'alignElement':
+      return alignElement(command)
+    case 'addAnimation':
+      return addAnimation(command)
+    case 'removeAnimations':
+      return removeAnimations(command)
   }
 }
 
@@ -91,6 +119,7 @@ function addText(command: Extract<AiEditorCommand, { type: 'addText' }>): AiComm
     y: command.y ?? centerY(scene, height),
     fontSize: command.fontSize ?? el.fontSize,
     fontFamily: command.fontFamily ?? el.fontFamily,
+    fontWeight: command.fontWeight ?? el.fontWeight,
     color: command.color ?? el.color,
     align: command.align ?? el.align,
   })
@@ -197,6 +226,20 @@ function patchElement(command: Extract<AiEditorCommand, { type: 'updateElement' 
   const { updateElement, selectElement, setActivePanel } = useEditorStore.getState()
   const el = requireElement(command)
   const patch = sanitizePatch(el, command.patch)
+  // Changing speed keeps the same stretch of source media, like the Video/Audio panels do.
+  if (el.type === 'video' && typeof patch.playbackRate === 'number' && patch.duration == null) {
+    const rate = Math.max(0.25, Math.min(4, patch.playbackRate))
+    patch.playbackRate = rate
+    patch.duration = Math.max(0.1, ((el.duration ?? el.sourceDuration ?? 10) * (el.playbackRate || 1)) / rate)
+  }
+  if (el.type === 'audio' && typeof patch.speed === 'number' && patch.duration == null) {
+    const speed = Math.max(0.25, Math.min(2, patch.speed))
+    patch.speed = speed
+    patch.duration = Math.max(0.1, (el.duration * (el.speed ?? 1)) / speed)
+  }
+  if (el.type === 'audio' && typeof patch.volume === 'number') patch.volume = clampAudioVolume(patch.volume)
+  if (el.type === 'video' && typeof patch.volume === 'number') patch.volume = Math.max(0, Math.min(1, patch.volume))
+  if ((el.type === 'video' || el.type === 'audio') && typeof patch.startTime === 'number') patch.startTime = Math.max(0, patch.startTime)
   if (Object.keys(patch).length === 0) throw new Error('No supported properties were provided.')
   updateElement(el.id, patch as Partial<EditorElement>)
   selectElement(el.id, false)
@@ -237,7 +280,8 @@ function applyMove(command: Extract<AiEditorCommand, { type: 'applyMove' }>): Ai
 function addScene(command: Extract<AiEditorCommand, { type: 'addScene' }>): AiCommandResult {
   const store = useEditorStore.getState()
   const before = store.project?.scenes.map(scene => scene.id) ?? []
-  store.addScene()
+  if (command.afterSceneId && before.includes(command.afterSceneId)) store.addSceneAfter(command.afterSceneId)
+  else store.addScene()
   const next = useEditorStore.getState()
   const scene = next.project?.scenes.find(item => !before.includes(item.id))
   if (!scene) throw new Error('Could not create scene.')
@@ -285,6 +329,132 @@ function generateStoryboard(command: Extract<AiEditorCommand, { type: 'generateS
     }
   }
   return { ok: true, message: `Created ${created.length} storyboard scenes.`, sceneIds: created }
+}
+
+function removeScene(command: Extract<AiEditorCommand, { type: 'removeScene' }>): AiCommandResult {
+  const { project, removeScene } = useEditorStore.getState()
+  const scene = requireScene(command)
+  if ((project?.scenes.length ?? 0) <= 1) throw new Error('Cannot delete the last scene.')
+  removeScene(scene.id)
+  return { ok: true, message: `Deleted ${scene.name}.`, sceneIds: [scene.id] }
+}
+
+function duplicateScene(command: Extract<AiEditorCommand, { type: 'duplicateScene' }>): AiCommandResult {
+  const scene = requireScene(command)
+  const before = useEditorStore.getState().project?.scenes.map(s => s.id) ?? []
+  useEditorStore.getState().duplicateScene(scene.id)
+  const copy = useEditorStore.getState().project?.scenes.find(s => !before.includes(s.id))
+  if (!copy) throw new Error(`Could not duplicate ${scene.name}.`)
+  return { ok: true, message: `Duplicated ${scene.name}.`, sceneIds: [scene.id, copy.id] }
+}
+
+function splitScene(command: Extract<AiEditorCommand, { type: 'splitScene' }>): AiCommandResult {
+  const scene = requireScene(command)
+  if (command.at <= 0.1 || command.at >= scene.duration - 0.1) {
+    throw new Error(`Cannot split ${scene.name} at ${command.at}s (it is ${scene.duration}s long).`)
+  }
+  const before = useEditorStore.getState().project?.scenes.map(s => s.id) ?? []
+  useEditorStore.getState().splitScene(scene.id, command.at)
+  const second = useEditorStore.getState().project?.scenes.find(s => !before.includes(s.id))
+  if (!second) throw new Error(`Could not split ${scene.name}.`)
+  return { ok: true, message: `Split ${scene.name} at ${command.at}s.`, sceneIds: [scene.id, second.id] }
+}
+
+function moveScene(command: Extract<AiEditorCommand, { type: 'moveScene' }>): AiCommandResult {
+  const { project, reorderScenes } = useEditorStore.getState()
+  if (!project) throw new Error('No project is open.')
+  const scene = requireScene(command)
+  const from = project.scenes.findIndex(s => s.id === scene.id)
+  const to = Math.max(0, Math.min(project.scenes.length - 1, command.toIndex - 1))
+  if (from !== to) reorderScenes(from, to)
+  return { ok: true, message: `Moved ${scene.name} to position ${to + 1}.`, sceneIds: [scene.id] }
+}
+
+function setSceneDuration(command: Extract<AiEditorCommand, { type: 'setSceneDuration' }>): AiCommandResult {
+  const scene = requireScene(command)
+  useEditorStore.getState().updateScene(scene.id, { duration: Math.max(0.5, command.duration) })
+  return { ok: true, message: `${scene.name} is now ${command.duration}s long.`, sceneIds: [scene.id] }
+}
+
+function removeElement(command: Extract<AiEditorCommand, { type: 'removeElement' }>): AiCommandResult {
+  const el = requireElement(command)
+  const store = useEditorStore.getState()
+  store.deselectAll()
+  store.removeElement(el.id)
+  return { ok: true, message: `Deleted ${el.name}.`, elementIds: [el.id] }
+}
+
+function duplicateElement(command: Extract<AiEditorCommand, { type: 'duplicateElement' }>): AiCommandResult {
+  const el = requireElement(command)
+  const before = new Set(allElementIds())
+  useEditorStore.getState().duplicateElement(el.id)
+  const copy = allElementIds().find(id => !before.has(id))
+  if (!copy) throw new Error(`Could not duplicate ${el.name}.`)
+  return { ok: true, message: `Duplicated ${el.name}.`, elementIds: [el.id, copy] }
+}
+
+function arrangeElement(command: Extract<AiEditorCommand, { type: 'arrangeElement' }>): AiCommandResult {
+  const el = requireElement(command)
+  const store = useEditorStore.getState()
+  const action = { front: store.bringToFront, back: store.sendToBack, forward: store.bringForward, backward: store.sendBackward }[command.order]
+  action(el.id)
+  return { ok: true, message: `Moved ${el.name} ${command.order === 'front' || command.order === 'back' ? `to the ${command.order}` : command.order}.`, elementIds: [el.id] }
+}
+
+function alignElement(command: Extract<AiEditorCommand, { type: 'alignElement' }>): AiCommandResult {
+  const { project, updateElement } = useEditorStore.getState()
+  if (!project) throw new Error('No project is open.')
+  const el = requireElement(command)
+  if (el.type === 'audio') throw new Error(`${el.name} is audio and has no position.`)
+  const margin = command.margin ?? 80
+  const patch: { x?: number; y?: number } = {}
+  if (command.horizontal === 'left') patch.x = margin
+  else if (command.horizontal === 'center') patch.x = Math.round((project.width - el.width) / 2)
+  else if (command.horizontal === 'right') patch.x = Math.round(project.width - el.width - margin)
+  if (command.vertical === 'top') patch.y = margin
+  else if (command.vertical === 'middle') patch.y = Math.round((project.height - el.height) / 2)
+  else if (command.vertical === 'bottom') patch.y = Math.round(project.height - el.height - margin)
+  updateElement(el.id, patch as Partial<EditorElement>)
+  return { ok: true, message: `Placed ${el.name} at the ${[command.vertical, command.horizontal].filter(Boolean).join(' ')}.`, elementIds: [el.id] }
+}
+
+function addAnimation(command: Extract<AiEditorCommand, { type: 'addAnimation' }>): AiCommandResult {
+  const store = useEditorStore.getState()
+  const el = requireElement(command)
+  const spec = command.animation
+  const timing = spec.timing ?? 'onEnter'
+  const isZoom = spec.type === 'zoomIn' || spec.type === 'zoomOut'
+  store.addAnimation(el.id, {
+    ...makeAnimation(),
+    type: spec.type,
+    timing,
+    duration: Math.max(0.05, spec.duration ?? (timing === 'loop' ? 1 : isZoom ? 0.7 : 0.6)),
+    delay: Math.max(0, spec.delay ?? 0),
+    easing: spec.easing ?? (isZoom ? 'easeInOut' : 'easeOut'),
+    params: isZoom
+      ? { zoomPosition: 'center', zoomScale: spec.type === 'zoomIn' ? 1.5 : 1 }
+      : spec.direction ? { direction: spec.direction } : undefined,
+  })
+  store.selectElement(el.id, false)
+  store.setActivePanel(isZoom ? 'motion' : panelForElement(el.type))
+  return { ok: true, message: `Added ${spec.type} to ${el.name}.`, elementIds: [el.id] }
+}
+
+function removeAnimations(command: Extract<AiEditorCommand, { type: 'removeAnimations' }>): AiCommandResult {
+  const el = requireElement(command)
+  useEditorStore.getState().updateElement(el.id, { animations: [] } as Partial<EditorElement>)
+  return { ok: true, message: `Removed animations from ${el.name}.`, elementIds: [el.id] }
+}
+
+function allElementIds() {
+  return useEditorStore.getState().project?.scenes.flatMap(scene => scene.elements.map(el => el.id)) ?? []
+}
+
+function resolveElementAlias(command: AiEditorCommand, aliases: Record<string, string>): AiEditorCommand {
+  if (!('elementAlias' in command) || !command.elementAlias) return command
+  const elementId = aliases[command.elementAlias]
+  if (!elementId) throw new Error('Could not find the item created earlier in this plan.')
+  return { ...command, elementId, elementAlias: undefined }
 }
 
 function requireScene(ref: AiSceneRef): Scene {
@@ -345,6 +515,8 @@ function sanitizePatch(el: EditorElement, patch: Record<string, unknown>) {
   const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(patch)) {
     if (!allowed.has(key)) continue
+    if (key === 'fontWeight' && value !== 'normal' && value !== 'bold' && value !== 'thin' && value !== 'semibold') continue
+    if (key === 'align' && value !== 'left' && value !== 'center' && value !== 'right') continue
     if (typeof value === 'number') out[key] = Number.isFinite(value) ? value : undefined
     else if (typeof value === 'string' || typeof value === 'boolean') out[key] = value
     else if (key === 'crop' && value && typeof value === 'object') out[key] = value

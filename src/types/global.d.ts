@@ -180,6 +180,8 @@ declare global {
         transcribeAudio: (payload: {
           sourcePath: string
           language?: string
+          /** Word-level cues that keep filler words ("um", "uh"). */
+          words?: boolean
         }) => Promise<SubtitleTranscriptionResult>
         translationStatus: (direction: SubtitleTranslationDirection) => Promise<SubtitleTranslationPackStatus>
         installTranslation: (direction: SubtitleTranslationDirection) => Promise<SubtitleTranslationPackStatus>

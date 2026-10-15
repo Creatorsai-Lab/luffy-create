@@ -1,6 +1,7 @@
 import { FONT_FAMILIES } from '../types/editor'
 import type { AnimationType, Background, EasingType, ShapeType, TransitionType } from '../types/editor'
-import type { AiAnimationSpec, AiEditorCommand, AiPlan, AiPlanIssue, AiPreparedPlan, AiProjectContext } from './types'
+import type { AiAnimationSpec, AiEditorCommand, AiElementRef, AiPlan, AiPlanIssue, AiPreparedPlan, AiProjectContext, AiSceneRef } from './types'
+import { normalizeColorValue as normalizeColor } from './parser/colors'
 
 const SHAPE_TYPES = new Set<ShapeType>([
   'rect', 'circle', 'triangle', 'star', 'pentagon', 'hexagon', 'octagon', 'diamond',
@@ -11,27 +12,33 @@ const SHAPE_TYPES = new Set<ShapeType>([
 const TRANSITION_TYPES = new Set<TransitionType>([
   'none', 'fade', 'slide', 'zoom', 'wipe', 'push', 'morph', 'flashBlur', 'flickerShake',
 ])
-const ANIMATION_TYPES = new Set<AnimationType>(['fadeIn', 'fadeOut', 'slideIn', 'slideOut', 'scaleIn', 'scaleOut', 'wipeIn', 'wipeOut', 'typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'textFade'])
+const ANIMATION_TYPES = new Set<AnimationType>([
+  'fadeIn', 'fadeOut', 'slideIn', 'slideOut', 'scaleIn', 'scaleOut', 'wipeIn', 'wipeOut', 'zoomIn', 'zoomOut',
+  'typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'textFade',
+  'pulse', 'bounceLoop', 'rotateLoop', 'fadeLoop',
+])
 const MOVE_DIRECTIONS = new Set(['left', 'right', 'top', 'bottom', 'topLeft', 'topRight', 'bottomRight', 'bottomLeft'])
-const COLOR_NAMES: Record<string, string> = {
-  black: '#111111',
-  white: '#ffffff',
-  red: '#ef4444',
-  green: '#22c55e',
-  blue: '#3b82f6',
-  yellow: '#f59e0b',
-  purple: '#8b5cf6',
-  pink: '#ec4899',
-  orange: '#f97316',
+
+/** Aliases defined by earlier commands in the plan ("it" = the element a previous command added). */
+interface Aliases {
+  scenes: Set<string>
+  elements: Set<string>
 }
 
 export function prepareAiPlan(plan: AiPlan, context: AiProjectContext): AiPreparedPlan {
   const issues: AiPlanIssue[] = []
   const commands: AiEditorCommand[] = []
+  const aliases: Aliases = { scenes: new Set(), elements: new Set() }
 
   plan.commands.forEach((command, index) => {
-    const prepared = prepareCommand(command, context, index, issues)
-    if (prepared) commands.push(prepared)
+    const prepared = prepareCommand(command, context, index, issues, aliases)
+    if (!prepared) return
+    commands.push(prepared)
+    if ('alias' in prepared && prepared.alias) {
+      const isScene = prepared.type === 'addScene' || prepared.type === 'duplicateScene' || prepared.type === 'splitScene'
+      if (isScene) aliases.scenes.add(prepared.alias)
+      else aliases.elements.add(prepared.alias)
+    }
   })
 
   return {
@@ -48,8 +55,12 @@ function prepareCommand(
   command: AiEditorCommand,
   context: AiProjectContext,
   index: number,
-  issues: AiPlanIssue[]
+  issues: AiPlanIssue[],
+  aliases: Aliases
 ): AiEditorCommand | null {
+  if (!sceneResolvable(command as AiSceneRef, context, aliases)) {
+    return drop(issues, index, `${command.type} removed because its scene could not be found.`)
+  }
   switch (command.type) {
     case 'addText':
       return {
@@ -147,7 +158,7 @@ function prepareCommand(
 
     case 'updateElement':
     case 'styleElement':
-      if (!canResolveElement(command, context)) {
+      if (!canResolveElement(command, context, aliases)) {
         issues.push({ level: 'error', commandIndex: index, message: `${command.type} removed because no target element could be resolved.` })
         return null
       }
@@ -158,7 +169,7 @@ function prepareCommand(
       }
 
     case 'applyMove':
-      if (!canResolveElement(command, context)) {
+      if (!canResolveElement(command, context, aliases)) {
         issues.push({ level: 'error', commandIndex: index, message: 'Move command removed because no target element could be resolved.' })
         return null
       }
@@ -176,6 +187,7 @@ function prepareCommand(
         ...command,
         name: command.name?.slice(0, 80),
         duration: clampOptional(command.duration, 0.5, 120),
+        afterSceneId: command.afterSceneId && context.scenes.some(s => s.id === command.afterSceneId) ? command.afterSceneId : undefined,
       }
 
     case 'setTransition': {
@@ -191,6 +203,40 @@ function prepareCommand(
           hardness: clampOptional(command.transition.hardness, 0, 100),
         },
       }
+    }
+
+    case 'removeScene':
+    case 'duplicateScene':
+      return command
+
+    case 'splitScene':
+      return Number.isFinite(command.at) && command.at > 0
+        ? { ...command, at: clamp(command.at, 0.1, 3600) }
+        : drop(issues, index, 'Split removed because the time is invalid.')
+
+    case 'moveScene':
+      return Number.isFinite(command.toIndex)
+        ? { ...command, toIndex: clamp(Math.round(command.toIndex), 1, context.project.sceneCount + 20) }
+        : drop(issues, index, 'Move removed because the position is invalid.')
+
+    case 'setSceneDuration':
+      return Number.isFinite(command.duration)
+        ? { ...command, duration: clamp(command.duration, 0.5, 600) }
+        : drop(issues, index, 'Duration change removed because the value is invalid.')
+
+    case 'removeElement':
+    case 'duplicateElement':
+    case 'arrangeElement':
+    case 'alignElement':
+    case 'removeAnimations':
+      return canResolveElement(command, context, aliases)
+        ? command
+        : drop(issues, index, `${command.type} removed because no target element could be resolved.`)
+
+    case 'addAnimation': {
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'Animation removed because no target element could be resolved.')
+      const animation = normalizeAnimation(command.animation)
+      return animation ? { ...command, animation } : drop(issues, index, `Animation "${command.animation.type}" is not supported.`)
     }
 
     case 'generateStoryboard':
@@ -239,7 +285,19 @@ function cleanAssetName(value?: string) {
   return value?.trim().replace(/^[`'"]?@?/, '').replace(/[`'"]$/, '').toLowerCase()
 }
 
-function canResolveElement(command: { elementId?: string; elementName?: string; selected?: boolean; sceneIndex?: number; sceneId?: string }, context: AiProjectContext) {
+function drop(issues: AiPlanIssue[], commandIndex: number, message: string): null {
+  issues.push({ level: 'error', commandIndex, message })
+  return null
+}
+
+function sceneResolvable(ref: AiSceneRef, context: AiProjectContext, aliases: Aliases) {
+  if (ref.sceneAlias) return aliases.scenes.has(ref.sceneAlias) || ref.sceneAlias === 'newScene'
+  if (ref.sceneId) return context.scenes.some(scene => scene.id === ref.sceneId)
+  return true
+}
+
+function canResolveElement(command: AiElementRef, context: AiProjectContext, aliases: Aliases) {
+  if (command.elementAlias) return aliases.elements.has(command.elementAlias)
   if (command.selected && context.selectedIds.length > 0) return true
   if (command.elementId && context.scenes.some(scene => scene.elements.some(el => el.id === command.elementId))) return true
   if (!command.elementName) return false
@@ -296,20 +354,13 @@ function normalizeBackground(background: Background): Background {
   return background
 }
 
-function normalizeColor(value?: string) {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (/^#[0-9a-f]{3}([0-9a-f]{3})?([0-9a-f]{2})?$/i.test(trimmed)) return trimmed
-  return COLOR_NAMES[trimmed.toLowerCase()]
-}
-
 function normalizeFontFamily(value?: string) {
   if (!value) return undefined
   const normalized = value.trim().toLowerCase()
   return FONT_FAMILIES.find(font => font.toLowerCase() === normalized)
 }
 
-function normalizeAnimation(animation?: AiAnimationSpec) {
+function normalizeAnimation(animation?: AiAnimationSpec): AiAnimationSpec | undefined {
   if (!animation || !ANIMATION_TYPES.has(animation.type)) return undefined
   const easing: EasingType = animation.easing === 'linear' || animation.easing === 'easeIn' || animation.easing === 'easeInOut' || animation.easing === 'bounce'
     ? animation.easing
@@ -319,6 +370,8 @@ function normalizeAnimation(animation?: AiAnimationSpec) {
     duration: clampOptional(animation.duration, 0.05, 60),
     delay: clampOptional(animation.delay, 0, 60),
     easing,
+    timing: animation.timing === 'onExit' || animation.timing === 'loop' ? animation.timing : 'onEnter',
+    direction: animation.direction,
   }
 }
 

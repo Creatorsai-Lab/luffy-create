@@ -11,6 +11,7 @@ import {
   type AiPlanIssue,
 } from '../../ai'
 import { filterMentionAssets, getActiveAssetMention } from '../../ai/assetMentions'
+import { describeCommand } from '../../ai/describe'
 
 type ChatItem = {
   id: string
@@ -66,11 +67,11 @@ export default function AISidebar() {
     setInput('')
 
     try {
-      const planned = await planAiEdit(prompt, context)
+      const planned = await planAiEdit(prompt, context, { onProgress: setWarning })
       const prepared = prepareAiPlan(planned.plan, context)
       setPendingPlan(prepared.plan)
-      setPlanIssues(prepared.issues)
-      setWarning(planned.warning ?? (planned.source === 'local' ? 'Local planner used. Configure the model planner for richer edits.' : null))
+      setPlanIssues([...(planned.issues ?? []), ...prepared.issues])
+      setWarning(planned.warning ?? null)
       setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', text: prepared.plan.summary }])
     } catch (error) {
       setWarning(error instanceof Error ? error.message : 'Could not plan the edit.')
@@ -304,29 +305,6 @@ export default function AISidebar() {
       </div>
     </aside>
   )
-}
-
-function describeCommand(command: AiPlan['commands'][number]) {
-  if (command.type === 'addText') return `Add text "${command.text}"${sceneSuffix(command.sceneIndex)}`
-  if (command.type === 'addShape') return `Add ${command.shapeType}${sizeSuffix(command.width, command.height)}${sceneSuffix(command.sceneIndex)}`
-  if (command.type === 'addImageFromAsset') return `Add image asset ${command.assetName ?? command.assetId ?? ''}${sceneSuffix(command.sceneIndex)}`
-  if (command.type === 'addVideoFromAsset') return `Add video asset ${command.assetName ?? command.assetId ?? ''}${sizeSuffix(command.width, command.height)}${sceneSuffix(command.sceneIndex)}`
-  if (command.type === 'addAudioFromAsset') return `Add audio asset ${command.assetName ?? command.assetId ?? ''}${sceneSuffix(command.sceneIndex)}`
-  if (command.type === 'setBackground') return `Set background${sceneSuffix(command.sceneIndex)}`
-  if (command.type === 'updateElement') return `Update element ${command.elementName ?? command.elementId ?? 'selection'}`
-  if (command.type === 'styleElement') return `Style element ${command.elementName ?? command.elementId ?? 'selection'}`
-  if (command.type === 'applyMove') return `Apply move ${command.direction} to ${command.elementName ?? command.elementId ?? 'selection'}`
-  if (command.type === 'addScene') return `Add scene${command.name ? ` "${command.name}"` : ''}`
-  if (command.type === 'setTransition') return `Set ${command.transition.type} transition${sceneSuffix(command.sceneIndex)}`
-  return `Generate ${command.scenes.length} storyboard scenes`
-}
-
-function sceneSuffix(sceneIndex?: number) {
-  return sceneIndex ? ` on Scene ${sceneIndex}` : ''
-}
-
-function sizeSuffix(width?: number, height?: number) {
-  return width && height ? ` ${width}x${height}` : ''
 }
 
 function readDemoApiKey() {

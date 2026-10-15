@@ -228,6 +228,8 @@ interface PythonRunRequest {
 interface SubtitleTranscribeRequest {
   sourcePath: string
   language?: string
+  /** Word-level cues that keep filler words. */
+  words?: boolean
 }
 
 interface SubtitleTranscribeCue {
@@ -758,6 +760,9 @@ async function transcribeAudioWithLocalWhisper(req: SubtitleTranscribeRequest) {
     ]
     const language = req.language?.trim()
     if (language) whisperArgs.push('-l', language)
+    // One segment per word. Whisper normally drops "um"/"uh"; a prompt written
+    // in that style makes it keep them (used by the AI "remove filler words").
+    if (req.words) whisperArgs.push('-ml', '1', '-sow', '--prompt', 'Umm, let me think like, hmm... Okay, here is what I am, like, thinking. Uh, so, erm.')
 
     const result = await runProcess(cli, whisperArgs, { cwd: jobDir, timeoutMs: 900_000 })
     if (result.code !== 0) {

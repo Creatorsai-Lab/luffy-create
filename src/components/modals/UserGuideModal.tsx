@@ -388,8 +388,8 @@ const SECTIONS: Section[] = [
     id: 'ai-agent', title: 'AI Agent', icon: <BrainCircuit size={15} />,
     content: (
       <>
-        <P>The AI Agent prepares scene edits as structured commands. It is best for focused changes such as adding elements, styling selected items, changing backgrounds, applying move animations, and setting transitions.</P>
-        <P>The local planner handles common edits instantly, while a configured model planner can understand richer creative instructions. Use the agent for repetitive setup, fast scene building, and precise edits where you can describe the target scene, element, size, color, and timing.</P>
+        <P>The AI Agent turns plain-English requests into editor commands. It runs entirely on your computer — no account or internet needed — and always shows the plan before anything changes.</P>
+        <P>One request can hold several steps ("add a title 'Intro' at the top and make it fade in, then split scene 2 at 3s"). Refer to items by kind ("the title", "the red circle", "the music"), by name, by their text in quotes, or as "it" for what the previous step created.</P>
         <H>Better prompts</H>
         <ul className="list-disc pl-5">
           <LI>Mention the scene number when the edit belongs to a specific scene.</LI>
@@ -399,10 +399,21 @@ const SECTIONS: Section[] = [
         </ul>
         <H>Examples</H>
         <Table head={['Request', 'What it should do']} rows={[
-          ['Add a 500x500 purple square on scene 2', 'Create a square on Scene 2 and clamp values if needed.'],
-          ['Set scene 3 background to black', 'Apply a solid black background to Scene 3.'],
-          ['Move the selected item to the right with speed 400 and delay 1.2 seconds', 'Add a move animation to the selected element.'],
-          ['Set a fade transition on scene 4 with duration 0.8 seconds', 'Update Scene 4 transition settings.'],
+          ['Split scene 2 at 3s / split here / split scene 3 into 3 parts', 'Cut scenes at a time, at the playhead, or into equal parts.'],
+          ['Delete scenes 2-4 / duplicate scene 1 / swap scene 1 and 3', 'Remove, copy and reorder scenes.'],
+          ['Make all scenes 3s long / extend scene 1 by 2s', 'Change scene durations.'],
+          ['Use wipe transitions between all scenes', 'Set the transition on every scene after the first.'],
+          ['Make the background dark blue', 'Solid, gradient ("from purple to pink") or transparent backgrounds.'],
+          ["Add a title 'Intro' at the top and make it fade in", 'Add text, place it, then animate it.'],
+          ['Add a red circle with a white border in the bottom right', 'Add shapes with fill, border and position.'],
+          ['Make the title bigger / make the red circle blue / center it', 'Resize, recolor and place existing items.'],
+          ['Mute the video / set the music volume to 30% / speed up the video 2x', 'Change clip sound and speed.'],
+          ['Trim the first 2 seconds of the video / fade in the music over 2s', 'Trim clips and fade audio.'],
+          ['Move the selected item to the right with speed 400', 'Add a move animation.'],
+          ['Remove silences / tighten the pauses', 'Listen to each video clip and cut out the quiet parts.'],
+          ['Remove filler words', 'Cut "um", "uh" and "hmm" found by local Whisper. Play it back — word timings are approximate.'],
+          ['Cut to the beat', 'Move scene ends onto the beat of the background music.'],
+          ['Split the video into shots', 'Make a new scene at every camera cut.'],
         ]} />
         <P>Full guide: <DocLink path="docs/ai_agent.md">docs/ai_agent.md</DocLink></P>
       </>

@@ -78,7 +78,7 @@ const api = {
     }
   },
   subtitle: {
-    transcribeAudio: (payload: { sourcePath: string; language?: string }) => ipcRenderer.invoke('subtitle:transcribe-audio', payload),
+    transcribeAudio: (payload: { sourcePath: string; language?: string; words?: boolean }) => ipcRenderer.invoke('subtitle:transcribe-audio', payload),
     translationStatus: (direction: SubtitleTranslationDirection) =>
       ipcRenderer.invoke('subtitle:translation-status', direction) as Promise<SubtitleTranslationPackStatus>,
     installTranslation: (direction: SubtitleTranslationDirection) =>

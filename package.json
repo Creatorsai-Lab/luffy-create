@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
     "preflight": "node scripts/preflight.mjs",
     "build:translation-pack": "node scripts/build-translation-pack.mjs",
-    "test": "node scripts/releaseVersion.test.mjs && tsx scripts/previewLayout.test.ts && tsx scripts/sceneEdits.test.ts && tsx scripts/perspective.test.ts && tsx scripts/projectSave.test.ts && tsx scripts/pythonRuntimePack.test.ts",
+    "test": "node scripts/releaseVersion.test.mjs && tsx scripts/previewLayout.test.ts && tsx scripts/sceneEdits.test.ts && tsx scripts/perspective.test.ts && tsx scripts/projectSave.test.ts && tsx scripts/pythonRuntimePack.test.ts && tsx src/ai/tests/parser.test.ts && tsx src/ai/tests/executor.test.ts && tsx src/ai/tests/smart.test.ts",
     "verify:translation-pack": "node scripts/verify-translation-pack.mjs",
     "preview": "electron-vite preview",
     "prepare-python-sandbox": "node scripts/prepare-python-sandbox.mjs",
