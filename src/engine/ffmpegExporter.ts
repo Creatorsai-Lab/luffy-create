@@ -6,6 +6,7 @@ import { renderTransition } from './transitionRenderer'
 import { toFileUrl } from '../utils/pathUtils'
 import { buildFfmpegFadeVolumeExpression } from '../utils/audioFade'
 import { buildTransitionTimeline, getTransitionFrameState } from '../utils/transitionTiming'
+import { nextFrame } from '../utils/nextFrame'
 
 export interface FFmpegExportOptions {
   project: Project
@@ -141,7 +142,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     const stage = getStage()
     if (!stage) throw new Error('Stage not available during export')
     stage.batchDraw()
-    await new Promise(r => requestAnimationFrame(r))
+    await nextFrame()
     // pixelRatio = 1/scaleX captures at the project's native resolution (e.g. 1920×1080)
     // regardless of how the stage is scaled to fit the screen
     const c = stage.toCanvas({ pixelRatio: 1 / stage.scaleX() })
@@ -149,11 +150,14 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     ctx.drawImage(c, 0, 0, w, h)
   }
 
-  async function canvasToJpegBytes(canvas: HTMLCanvasElement, q: number): Promise<Uint8Array> {
-    const blob = await new Promise<Blob>((resolve) => {
-      canvas.toBlob(b => resolve(b!), 'image/jpeg', q)
-    })
-    return new Uint8Array(await blob.arrayBuffer())
+  // toDataURL encodes right away. toBlob encodes during idle time, which barely
+  // comes while the window is minimised, and made background exports ~4× slower.
+  function canvasToJpegBytes(canvas: HTMLCanvasElement, q: number): Uint8Array {
+    const base64 = canvas.toDataURL('image/jpeg', q)
+    const binary = atob(base64.slice(base64.indexOf(',') + 1))
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    return bytes
   }
 
   const jpegQuality = quality === '1080p' ? 0.95 : 0.92
@@ -204,7 +208,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     }
 
     const filename = `frame${String(i).padStart(6, '0')}.jpg`
-    const bytes = await canvasToJpegBytes(composite, jpegQuality)
+    const bytes = canvasToJpegBytes(composite, jpegQuality)
     await ffmpeg.writeFile(filename, bytes)
 
     const frameProgress = Math.round((i / totalFrames) * 70)

@@ -144,6 +144,11 @@ declare global {
         saveVideo: (defaultName: string)                                => Promise<string | null>
         saveImage: (defaultName: string)                                => Promise<string | null>
       }
+      exportTask?: {
+        setBackground: (active: boolean) => Promise<void>
+        progress: (fraction: number) => void
+        finished: () => void
+      }
       fs: {
         writeFile: (path: string, data: Uint8Array) => Promise<void>
         getPathForFile: (file: File) => string

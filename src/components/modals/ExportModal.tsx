@@ -9,6 +9,7 @@ import type { ImageElement, Scene, VideoElement } from '../../types/editor'
 import { getVideoClipState } from '../../utils/videoClip'
 import { toast } from '../ui/Toast'
 import { sceneAtTime, sceneStartTime, sceneStartTimes } from '../../utils/sceneTiming'
+import { nextFrame } from '../../utils/nextFrame'
 import { useShallow } from 'zustand/react/shallow'
 
 type Phase = 'idle' | 'exporting' | 'done' | 'error'
@@ -68,9 +69,9 @@ export default function ExportModal() {
     setPlayhead(globalTime)
     // Let React commit + the video-seek effect run.
     await new Promise(r => setTimeout(r, 0))
-    await new Promise(r => requestAnimationFrame(r))
+    await nextFrame()
     await waitForSceneGifs(sceneId)
-    await new Promise(r => requestAnimationFrame(r))
+    await nextFrame()
     if (sceneId) await waitForSceneVideos(sceneId, globalTime)
     // Wait for any video elements to finish seeking to this frame, so the
     // captured stage shows the correct video frame (not a stale one).
@@ -120,7 +121,7 @@ export default function ExportModal() {
         return !video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.seeking
       })
       if (!pending) return
-      await new Promise(r => requestAnimationFrame(r))
+      await nextFrame()
     }
   }
 
@@ -131,10 +132,17 @@ export default function ExportModal() {
     setPhase('exporting')
     setProgress(0)
     setLog('Initializing export...')
+    // Keeps rendering while the window is minimised or covered; progress shows on the taskbar.
+    await window.api.exportTask?.setBackground(true)
     try {
       const blob = await exportToMP4WithFFmpeg({
         project, getStage, quality,
-        onProgress: (pct, msg) => { if (!cancelRef.current) { setProgress(pct); setLog(msg) } },
+        onProgress: (pct, msg) => {
+          if (cancelRef.current) return
+          setProgress(pct)
+          setLog(msg)
+          window.api.exportTask?.progress(pct / 100)
+        },
         onLog: (msg) => console.log('[Export]', msg),
         renderSceneFrame: async (sceneId, globalTime) => { await ensureFrameRendered(sceneId, globalTime) },
         renderFrame: async (t) => { await ensureFrameRendered(sceneAtTime(project.scenes, t)?.scene.id ?? null, t) }
@@ -143,10 +151,13 @@ export default function ExportModal() {
       blobRef.current = blob
       setPhase('done')
       setLog('Export complete!')
+      window.api.exportTask?.finished()
     } catch (err) {
       if (cancelRef.current) return
       setPhase('error')
       setLog(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      void window.api.exportTask?.setBackground(false)
     }
   }
 
@@ -195,7 +206,7 @@ export default function ExportModal() {
       // For a transparent background, hide the checkerboard so PNG/WebP keep real alpha.
       const transparent = scene.background.type === 'transparent'
       const bgNode = transparent ? stage.findOne('.bg') : null
-      if (bgNode) { bgNode.visible(false); stage.batchDraw(); await new Promise(r => requestAnimationFrame(r)) }
+      if (bgNode) { bgNode.visible(false); stage.batchDraw(); await nextFrame() }
 
       const mimeType = imgFormat === 'webp' ? 'image/webp' : 'image/png'
       const dataUrl = stage.toDataURL({ mimeType, quality: 0.95, pixelRatio: 1 })

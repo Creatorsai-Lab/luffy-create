@@ -40,6 +40,12 @@ const api = {
     saveVideo: (defaultName: string)                                => ipcRenderer.invoke('dialog:save-video', defaultName),
     saveImage: (defaultName: string)                                => ipcRenderer.invoke('dialog:save-image', defaultName)
   },
+  exportTask: {
+    /** Keep rendering at full speed while the window is minimised or covered. */
+    setBackground: (active: boolean) => ipcRenderer.invoke('export:background', active) as Promise<void>,
+    progress: (fraction: number) => ipcRenderer.send('export:progress', fraction),
+    finished: () => ipcRenderer.send('export:finished'),
+  },
   fs: {
     writeFile: (path: string, data: Uint8Array) => ipcRenderer.invoke('fs:write-file', path, data),
     // Electron 32 removed File.path — resolve a dropped File's absolute path here.

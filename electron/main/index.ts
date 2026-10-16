@@ -1,7 +1,17 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, protocol } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, protocol, powerSaveBlocker } from 'electron'
 
 // Suppress GPU shader-cache permission errors on Windows
 app.commandLine.appendSwitch('disable-gpu-shader-cache')
+
+// Export renders every frame in the page. Without these, Chromium lowers the
+// renderer's priority and throttles its timers and frames once the window is
+// minimised or covered, and a long export crawls (or stops) until it is back
+// in front. The editor does little work while idle, so this costs nothing then.
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-background-timer-throttling')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+// …and keep video decoders alive in the background, or every export seek restarts one.
+app.commandLine.appendSwitch('disable-background-media-suspend')
 
 // Must be called before app.whenReady().
 // - localasset: serves user media + ffmpeg core to the renderer
@@ -994,6 +1004,30 @@ function registerIpcHandlers() {
   // File system
   ipcMain.handle('fs:write-file', async (_e, path: string, data: Uint8Array) => {
     await writeFile(path, Buffer.from(data))
+  })
+
+  // Export renders frames in the page, which Chromium throttles (and stops
+  // drawing) while the window is minimised or covered. During an export: no
+  // throttling, no system sleep, and progress on the taskbar button.
+  let exportSleepBlocker: number | null = null
+  ipcMain.handle('export:background', (event, active: boolean) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    event.sender.setBackgroundThrottling(!active)
+    if (active && exportSleepBlocker == null) exportSleepBlocker = powerSaveBlocker.start('prevent-app-suspension')
+    if (!active && exportSleepBlocker != null) {
+      powerSaveBlocker.stop(exportSleepBlocker)
+      exportSleepBlocker = null
+    }
+    win?.setProgressBar(active ? 0 : -1)
+  })
+  ipcMain.on('export:progress', (event, fraction: number) => {
+    BrowserWindow.fromWebContents(event.sender)?.setProgressBar(Math.max(0, Math.min(1, fraction)))
+  })
+  ipcMain.on('export:finished', event => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win.isFocused()) return
+    win.flashFrame(true)
+    win.once('focus', () => win.flashFrame(false))
   })
 
   // FFmpeg core — return absolute file paths so renderer can fetch via localasset://
