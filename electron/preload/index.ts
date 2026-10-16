@@ -52,7 +52,9 @@ const api = {
     getPathForFile: (file: File) => webUtils.getPathForFile(file)
   },
   shell: {
-    openPath: (path: string) => ipcRenderer.invoke('shell:open-path', path)
+    openPath: (path: string) => ipcRenderer.invoke('shell:open-path', path),
+    /** Opens the containing folder with the file selected. */
+    showItem: (path: string) => ipcRenderer.invoke('shell:show-item', path) as Promise<void>
   },
   ffmpeg: {
     getPaths: () => ipcRenderer.invoke('ffmpeg:get-paths') as Promise<{ coreJs: string; coreWasm: string }>

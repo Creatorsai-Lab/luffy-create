@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, Download, CheckCircle, AlertCircle, Loader2, Settings, Image, Film } from 'lucide-react'
+import { X, Download, CheckCircle, AlertCircle, Loader2, Settings, Image, Film, FolderOpen, Play } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { exportToMP4WithFFmpeg, isFFmpegAvailable } from '../../engine/ffmpegExporter'
 import { getStage } from '../../engine/stageRegistry'
@@ -128,6 +128,11 @@ export default function ExportModal() {
   // ── Video export ─────────────────────────────────────────────────────────────
   async function startExport() {
     if (!project) return
+    // Ask where to save first, so the file is written by itself when rendering ends.
+    const path = await window.api.dialog.saveVideo(`${project.name}.mp4`)
+    if (!path) return
+    setSavePath(path)
+    blobRef.current = null
     cancelRef.current = false
     setPhase('exporting')
     setProgress(0)
@@ -149,8 +154,15 @@ export default function ExportModal() {
       })
       if (cancelRef.current) return
       blobRef.current = blob
-      setPhase('done')
-      setLog('Export complete!')
+      setLog('Saving file...')
+      if (await writeVideo(path)) {
+        blobRef.current = null // written to disk; don't keep a second copy in memory
+        setPhase('done')
+        setLog('Export complete!')
+      } else {
+        setPhase('error')
+        setLog(`Could not save to ${path}. Use Save As to pick another place.`)
+      }
       window.api.exportTask?.finished()
     } catch (err) {
       if (cancelRef.current) return
@@ -161,27 +173,31 @@ export default function ExportModal() {
     }
   }
 
-  async function handleSaveVideo() {
+  async function writeVideo(path: string) {
+    if (!blobRef.current) return false
+    try {
+      await window.api.fs.writeFile(path, new Uint8Array(await blobRef.current.arrayBuffer()))
+      toast.success('Video saved')
+      return true
+    } catch {
+      toast.error('Failed to save video file')
+      return false
+    }
+  }
+
+  // Only needed when the automatic save failed: the rendered video is still in memory.
+  async function handleSaveAs() {
     if (!blobRef.current || !project) return
     const path = await window.api.dialog.saveVideo(`${project.name}.mp4`)
     if (!path) return
     setSavePath(path)
     setLog('Saving file...')
-    const buffer = new Uint8Array(await blobRef.current.arrayBuffer())
-    try {
-      await window.api.fs.writeFile(path, buffer)
-      setLog('File saved successfully!')
-      toast.success('Video saved successfully')
-    } catch {
-      setLog('Failed to save file')
-      setPhase('error')
-      toast.error('Failed to save video file')
-    }
-  }
-
-  async function handleOpenFolder() {
-    if (savePath) {
-      await window.api.shell.openPath(savePath.replace(/[\\/][^\\/]+$/, ''))
+    if (await writeVideo(path)) {
+      blobRef.current = null
+      setPhase('done')
+      setLog('Export complete!')
+    } else {
+      setLog(`Could not save to ${path}. Use Save As to pick another place.`)
     }
   }
 
@@ -365,8 +381,16 @@ export default function ExportModal() {
 
               {phase === 'exporting' && (
                 <p className="text-ms text-[#f2f2f2] bg-editor-elevated-highlight rounded px-3 py-2">
-                  Do not interact with the canvas during export — frames are being captured in sequence.
+                  Do not edit the canvas during export. You can minimise Luffy or use other apps —
+                  the video is saved automatically when it finishes.
                 </p>
+              )}
+
+              {phase !== 'idle' && savePath && (
+                <div className="bg-editor-elevated-highlight rounded px-3 py-2 min-w-0">
+                  <div className="label mb-1">{phase === 'done' ? 'Saved to' : 'Saving to'}</div>
+                  <div className="text-ms text-editor-text break-all">{savePath}</div>
+                </div>
               )}
             </>
           )}
@@ -465,21 +489,28 @@ export default function ExportModal() {
           )}
           {tab === 'video' && phase === 'done' && (
             <>
-              {savePath && (
-                <button onClick={handleOpenFolder} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
-                  Open Folder
-                </button>
-              )}
-              <button onClick={handleSaveVideo} className="flex items-center gap-1.5 text-ms px-4 py-1.5 rounded bg-green-600 text-white hover:bg-green-500 transition-colors">
-                <Download size={12} /> Save File
-              </button>
               <button onClick={handleClose} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
                 Close
               </button>
+              {savePath && (
+                <button onClick={() => window.api.shell.openPath(savePath)} className="flex items-center gap-1.5 text-ms px-3 py-1.5 rounded text-editor-text hover:bg-editor-hover transition-colors">
+                  <Play size={12} /> Play
+                </button>
+              )}
+              {savePath && (
+                <button onClick={() => window.api.shell.showItem(savePath)} className="flex items-center gap-1.5 text-ms px-4 py-1.5 rounded bg-green-600 text-white hover:bg-green-500 transition-colors">
+                  <FolderOpen size={12} /> Show in Folder
+                </button>
+              )}
             </>
           )}
           {tab === 'video' && phase === 'error' && (
             <>
+              {blobRef.current && (
+                <button onClick={handleSaveAs} className="flex items-center gap-1.5 text-ms px-4 py-1.5 rounded bg-green-600 text-white hover:bg-green-500 transition-colors">
+                  <Download size={12} /> Save As…
+                </button>
+              )}
               <button onClick={() => setPhase('idle')} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
                 Try Again
               </button>

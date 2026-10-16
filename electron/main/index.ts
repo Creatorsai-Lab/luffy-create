@@ -1000,6 +1000,7 @@ function registerIpcHandlers() {
   })
 
   ipcMain.handle('shell:open-path', (_e, path: string) => shell.openPath(path))
+  ipcMain.handle('shell:show-item', (_e, path: string) => shell.showItemInFolder(path))
 
   // File system
   ipcMain.handle('fs:write-file', async (_e, path: string, data: Uint8Array) => {
