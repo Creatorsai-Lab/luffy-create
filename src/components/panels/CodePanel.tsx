@@ -8,6 +8,7 @@ import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
 import { isMotionAnimation } from '../../utils/moveAnimation'
 import { useShallow } from 'zustand/react/shallow'
+import { CODE_TITLE_MAX_WORDS, limitCodeTitle } from '../canvas/elements/CodeKonva'
 
 const CODE_ENTER_ANIMS: { label: string; value: AnimationType }[] = [
   { label: 'Fade In', value: 'fadeIn' },
@@ -71,6 +72,33 @@ export default function CodePanel() {
               onChange={v => upd({ bgColor: v })}
             />
           </Row>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Row label="Corner radius">
+              <NumberInput value={el.cornerRadius ?? 6} min={0} max={80} onChange={v => upd({ cornerRadius: Math.max(0, v) })} />
+            </Row>
+            <Row label="Border width">
+              <NumberInput value={el.borderWidth ?? 0} min={0} max={20} onChange={v => upd({ borderWidth: Math.max(0, v) })} />
+            </Row>
+          </div>
+          {(el.borderWidth ?? 0) > 0 && (
+            <Row label="Border color">
+              <ColorInput value={el.borderColor ?? '#30363d'} onChange={v => upd({ borderColor: v })} />
+            </Row>
+          )}
+
+          <CheckRow label="Show title" checked={!!el.showTitle}
+            onChange={checked => upd({ showTitle: checked })} />
+          {el.showTitle && (
+            <Row label={`Title (${(el.title ?? '').split(/\s+/).filter(Boolean).length}/${CODE_TITLE_MAX_WORDS} words)`}>
+              <input
+                value={el.title ?? ''}
+                onChange={e => upd({ title: limitCodeTitle(e.target.value) })}
+                placeholder="e.g. main.py"
+                className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
+              />
+            </Row>
+          )}
 
           <CheckRow label="Show line counts" checked={el.showLineNumbers}
             onChange={checked => upd({ showLineNumbers: checked })} />

@@ -268,6 +268,14 @@ export interface CodeElement extends BaseElement {
   fontSize: number
   showLineNumbers: boolean
   bgColor?: string
+  /** Default 6. */
+  cornerRadius?: number
+  /** 0 / undefined = no border. */
+  borderWidth?: number
+  borderColor?: string
+  /** Shown centred in the top bar when `showTitle` is on (max 6 words). */
+  showTitle?: boolean
+  title?: string
   fitSceneWidth?: boolean
   wrapLines?: boolean
   codeAnimation?: 'none' | 'characters' | 'lines' | 'blocks'
