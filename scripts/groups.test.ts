@@ -6,6 +6,7 @@ import { useEditorStore } from '../src/store/editorStore'
 import type { ArrowElement, EditorElement } from '../src/types/editor'
 import { makeConnector } from '../src/utils/connectors'
 import { makeProject, makeScene, makeShape } from '../src/utils/defaults'
+import { elementsBox, groupPerspectivePts, selectedWholeGroup, toGroupPerspective, warpedGroups } from '../src/utils/groups'
 
 const st = () => useEditorStore.getState()
 const scene = (i = 0) => st().project!.scenes[i]
@@ -159,6 +160,35 @@ registerBlock<{ count: number; size: number }>({
   st().detachBlock(groupId)
   assert.equal(scene().groups![groupId].smart, undefined)
   assert.equal(scene().groups![groupId].name, 'Row', 'still a group')
+}
+
+{ // a whole group in perspective: stored as box fractions, so it follows moves, growth and rebuilds
+  const project = makeProject('p', 'persp')
+  useEditorStore.getState().loadProject(project)
+  const groupId = useEditorStore.getState().insertBlock('neuralNetwork', { layers: [2, 3, 2] })!
+  const sc = () => useEditorStore.getState().project!.scenes[0]
+  const members = () => sc().elements.filter(el => el.groupId === groupId)
+  assert.equal(selectedWholeGroup(sc(), members().map(el => el.id)), groupId, 'the whole add-on is selected')
+  assert.equal(selectedWholeGroup(sc(), members().slice(1).map(el => el.id)), null, 'part of it is not')
+  const box = elementsBox(members())
+  const pts = { tl: [box.width * 0.1, 0] as [number, number], tr: [box.width, box.height * 0.1] as [number, number], br: [box.width, box.height * 0.9] as [number, number], bl: [box.width * 0.1, box.height] as [number, number] }
+  const stored = toGroupPerspective(pts, box)
+  assert.deepEqual(stored.pts.tl, [0.1, 0])
+  useEditorStore.getState().setGroupPerspective(groupId, stored)
+  assert.deepEqual([...warpedGroups(sc()).keys()], [groupId])
+  // Rebuilt bigger: the same tilt, scaled to the new box.
+  useEditorStore.getState().rebuildBlock(groupId, { layers: [2, 3, 3, 2] })
+  const kept = sc().groups![groupId].perspective!
+  assert.deepEqual(kept, stored)
+  const bigger = elementsBox(members())
+  assert.deepEqual(groupPerspectivePts(kept, bigger).tl, [bigger.width * 0.1, 0])
+  // Copies keep it; removing it flattens the group again.
+  useEditorStore.getState().insertCopies(members(), { offset: 20 })
+  const copyId = Object.keys(sc().groups!).find(id => id !== groupId)!
+  assert.deepEqual(sc().groups![copyId].perspective, stored)
+  useEditorStore.getState().setGroupPerspective(groupId, null)
+  assert.equal(sc().groups![groupId].perspective, undefined)
+  assert.ok(!warpedGroups(sc()).has(groupId))
 }
 
 console.log('group tests passed')

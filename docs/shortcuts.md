@@ -99,7 +99,8 @@ The Monaco code editor supports all standard editor shortcuts:
 
 | Action | Key |
 |---|---|
-| Open the add-on list / media list | Type `/` / `@` |
+| Open the command and add-on list / media list | Type `/` / `@` |
+| List AI edits / undo one | `/history` / `/undo #id` (after `/undo ` the list shows your edits) |
 | Move through the list | `↑` / `↓` |
 | Pick the highlighted item | `Enter` or `Tab` |
 | Close the list | `Escape` |

@@ -205,6 +205,29 @@ blocks: "add a 3-4-2 neural network with a forward pass", "add a title card
 
 ## Done so far
 
+### /history, /undo and the Planner
+- `/history` and `/undo #id` in the AI prompt (`PROMPT_COMMANDS` in
+  `src/ai/promptTokens.ts`); after "/undo " the suggestion list shows the
+  project's AI edits. Commands are amber, add-ons violet, media sky blue.
+- Planner (app-wide notes, not in projects): `electron/main/planner.ts` keeps
+  `userData/planner/planner.json` (atomic writes, last good version as
+  `planner.bak.json`, ordered save queue, input clean-up); renderer store
+  `src/planner/plannerStore.ts` (autosave 0.5 s after typing, flush on close);
+  `PlannerModal` (cards → full editor) opened from the title bar.
+
+### Add-on perspective, undo by edit number, plan preview
+- Whole groups / add-ons in perspective as one plane: `SceneGroup.perspective`
+  (corners as fractions of the group box, so it survives moves, rebuilds and
+  copies). `GroupPerspective` renders members into a hidden source and warps
+  the capture (canvas, Preview window and export); the same Perspective panel
+  and handles (`QuadHandles`) drive it when a whole group is selected.
+- AI edits numbered per project (`src/ai/editLog.ts`); `undo #N` is a selective
+  revert (`src/ai/revert.ts`): scenes/elements/settings the edit changed go back
+  only where they still match the edit's result; the rest is kept and listed.
+- Plan preview (`src/ai/preview.ts`): the plan is tried with history off, each
+  changed scene captured before/after from the live stage, then everything
+  (project, scene, playhead, selection, unsaved flag) is put back.
+
 ### Add-ons in prompts (between Phase 5 and 6)
 - "Blocks" are called **Add-ons** in the UI (menu, panel, plan preview,
   guide); code keeps the `blocks` names.

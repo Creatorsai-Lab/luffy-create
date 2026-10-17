@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react'
-import { Stage, Layer, Shape, Transformer, Circle, Path, Label, Tag, Text } from 'react-konva'
+import { Stage, Layer, Shape, Transformer, Circle, Path, Label, Tag, Text, Line } from 'react-konva'
 import type Konva from 'konva'
 import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowUpToLine, ArrowDownToLine, Group, Ungroup, BoxSelect, Lock, Unlock } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import HighlightOverlay from './HighlightOverlay'
-import { elementsBox, expandToGroups } from '../../utils/groups'
+import { elementsBox, expandToGroups, groupPerspectivePts, selectedWholeGroup, toGroupPerspective, warpedGroups } from '../../utils/groups'
+import GroupPerspective from './GroupPerspective'
 import LockedMark from './LockedMark'
 import { toast } from '../ui/Toast'
 import { useCanvasStore } from '../../store/canvasStore'
@@ -29,7 +30,7 @@ import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
 import { getCanvasCursor, shouldShowSelectionHandles } from '../../utils/canvasInteraction'
 import CanvasElement from './CanvasElement'
-import PerspectiveHandles from './PerspectiveHandles'
+import PerspectiveHandles, { QuadHandles } from './PerspectiveHandles'
 import CanvasGrid from './CanvasGrid'
 import CanvasGuides from './CanvasGuides'
 import CanvasSafeArea from './CanvasSafeArea'
@@ -373,15 +374,7 @@ export default function EditorCanvas() {
         const moving = (e.ctrlKey || e.metaKey)
           ? (only && selectedIds.includes(only) ? [only] : selectedIds)
           : expandToGroups(scene, selectedIds)
-        for (const id of moving) {
-          const el = scene.elements.find(x => x.id === id)
-          if (!el || el.locked) continue
-          if (el.type === 'arrow') {
-            updateElement(id, { x1: el.x1 + dx, y1: el.y1 + dy, x2: el.x2 + dx, y2: el.y2 + dy })
-          } else {
-            updateElement(id, { x: el.x + dx, y: el.y + dy })
-          }
-        }
+        moveElements(moving, dx, dy)
         return
       }
 
@@ -776,13 +769,26 @@ export default function EditorCanvas() {
     return ''
   }
 
+  /** Moves items by (dx, dy) — arrows by both ends; locked items stay. */
+  function moveElements(ids: string[], dx: number, dy: number) {
+    const scene = useEditorStore.getState().project?.scenes.find(sc => sc.id === useEditorStore.getState().currentSceneId)
+    for (const id of ids) {
+      const el = scene?.elements.find(x => x.id === id)
+      if (!el || el.locked) continue
+      if (el.type === 'arrow') updateElement(id, { x1: el.x1 + dx, y1: el.y1 + dy, x2: el.x2 + dx, y2: el.y2 + dy })
+      else updateElement(id, { x: el.x + dx, y: el.y + dy })
+    }
+  }
+
   /** Canvas nodes the transformer handles for these ids (locked items get an outline + lock badge instead). */
   function transformerNodes(ids: string[]) {
     const scene = useEditorStore.getState().project?.scenes.find(sc => sc.id === useEditorStore.getState().currentSceneId)
     return ids
       .filter(id => {
         const el = scene?.elements.find(x => x.id === id)
-        return el && el.type !== 'handDraw' && !el.locked
+        // Members of a group drawn in perspective are only a hidden source; the warped picture stands for them.
+        const warped = el?.groupId && scene?.groups?.[el.groupId]?.perspective
+        return el && el.type !== 'handDraw' && !el.locked && !warped
       })
       .map(id => stageRef.current?.findOne(`#${id}`))
       .filter((n): n is Konva.Node => !!n && !!n.getStage?.())
@@ -1104,7 +1110,12 @@ export default function EditorCanvas() {
 
           {/* Elements */}
           <Layer>
-            {sortedEls.filter(el => el.visible).map(el => {
+            {(() => {
+              // A group drawn in perspective renders once, as one warped picture, where its lowest member sits.
+              const scene = activeScene ?? currentScene
+              const warped = warpedGroups(scene)
+              const drawnGroups = new Set<string>()
+              const renderElement = (el: EditorElement) => {
               const animProps = getAnimatedProps(el, localTime)
               // Always apply animations: during playback OR when a playhead position is explicitly set
               // (which happens during export frame rendering)
@@ -1127,7 +1138,28 @@ export default function EditorCanvas() {
                   videoPlaybackActive={isPlaying}
                 />
               )
-            })}
+              }
+              return sortedEls.filter(el => el.visible).map(el => {
+                const members = el.groupId ? warped.get(el.groupId) : undefined
+                if (!members) return renderElement(el)
+                if (drawnGroups.has(el.groupId!)) return null
+                drawnGroups.add(el.groupId!)
+                const box = elementsBox(members)
+                return (
+                  <GroupPerspective
+                    key={`group-perspective-${el.groupId}`}
+                    box={box}
+                    pts={groupPerspectivePts(scene.groups![el.groupId!].perspective!, box)}
+                    nodeId={members[0].id}
+                    draggable={activeTool === 'select' && !members.some(m => m.locked)}
+                    onPress={shift => pressElement(members[0].id, shift, false)}
+                    onMoved={(dx, dy) => moveElements(members.map(m => m.id), dx, dy)}
+                  >
+                    {members.map(renderElement)}
+                  </GroupPerspective>
+                )
+              })
+            })()}
             <SubtitleOverlay project={project} time={playhead} />
           </Layer>
 
@@ -1207,8 +1239,30 @@ export default function EditorCanvas() {
               )
             })()}
 
-            {activePanel === 'perspective' && selectedIds.length === 1 && (() => {
-              const perspEl = currentScene?.elements.find(e => e.id === selectedIds[0])
+            {/* A selected group in perspective: its quad is the selection outline. */}
+            {!exportOpen && activePanel !== 'perspective' && currentScene && (() => {
+              const groupId = selectedWholeGroup(currentScene, selectedIds)
+              const group = groupId ? currentScene.groups?.[groupId] : undefined
+              if (!groupId || !group?.perspective) return null
+              const box = elementsBox(currentScene.elements.filter(el => el.groupId === groupId && el.type !== 'audio'))
+              const { tl, tr, br, bl } = groupPerspectivePts(group.perspective, box)
+              return <Line x={box.x} y={box.y} points={[...tl, ...tr, ...br, ...bl]} closed stroke={SELECTION_COLOR} strokeWidth={1.5 / scale} listening={false} />
+            })()}
+
+            {activePanel === 'perspective' && currentScene && (() => {
+              // A whole group (e.g. an add-on) gets one set of handles for the group as a plane.
+              const groupId = selectedWholeGroup(currentScene, selectedIds)
+              if (groupId) {
+                const group = currentScene.groups![groupId]
+                const box = elementsBox(currentScene.elements.filter(el => el.groupId === groupId && el.type !== 'audio'))
+                return (
+                  <QuadHandles x={box.x} y={box.y} width={box.width} height={box.height}
+                    pts={group.perspective ? groupPerspectivePts(group.perspective, box) : undefined}
+                    onChange={pts => useEditorStore.getState().setGroupPerspective(groupId, toGroupPerspective(pts, box))} />
+                )
+              }
+              if (selectedIds.length !== 1) return null
+              const perspEl = currentScene.elements.find(e => e.id === selectedIds[0])
               return perspEl ? <PerspectiveHandles el={perspEl} /> : null
             })()}
 

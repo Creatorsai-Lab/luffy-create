@@ -32,9 +32,9 @@ const TYPE_PATCH_KEYS: Record<string, Set<string>> = {
   icon: new Set(['iconName', 'color', 'strokeWidth']),
 }
 
-export function executeAiPlan(plan: AiPlan): AiCommandResult[] {
+export function executeAiPlan(plan: AiPlan, opts: { recordHistory?: boolean } = {}): AiCommandResult[] {
   const store = useEditorStore.getState()
-  if (plan.commands.length > 0 && store.project) {
+  if (plan.commands.length > 0 && store.project && opts.recordHistory !== false) {
     store.saveHistory(`AI: ${plan.summary.slice(0, 80)}`)
   }
 

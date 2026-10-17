@@ -9,9 +9,11 @@ import { easeInOutCubic, renderTransition } from '../../engine/transitionRendere
 import { isDirectionalTransition } from '../../engine/directionalTransitions'
 import { buildTransitionTimeline, getTransitionFrameState } from '../../utils/transitionTiming'
 import CanvasElement from '../canvas/CanvasElement'
+import GroupPerspective from '../canvas/GroupPerspective'
+import { elementsBox, groupPerspectivePts, warpedGroups } from '../../utils/groups'
 import { captureStageToCanvas } from '../canvas/captureStageToCanvas'
 import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
-import type { Background, AudioElement, VideoElement, ImageBg, Scene, Project, SlideDir, TransitionType } from '../../types/editor'
+import type { Background, AudioElement, EditorElement, VideoElement, ImageBg, Scene, Project, SlideDir, TransitionType } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
 import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
@@ -510,25 +512,40 @@ function PreviewSceneStage({
           <BgShape bg={scene.background} w={project.width} h={project.height} time={globalTime} />
         </Layer>
         <Layer>
-          {sorted.filter(e => {
-            if (!e.visible) return false
-            if (e.type === 'video') return getVideoClipState(e as VideoElement, localTime).visible
-            return true
-          }).map(el => (
-            <CanvasElement
-              key={el.id}
-              element={el}
-              animProps={getAnimatedProps(el, localTime)}
-              isSelected={false}
-              onSelect={() => { }}
-              onDblClick={() => { }}
-              stageScale={scale}
-              localTime={localTime}
-              sceneWidth={project.width}
-              syncVideoToTime
-              videoPlaybackActive={isPlaying}
-            />
-          ))}
+          {(() => {
+            const shown = (e: EditorElement) => e.visible && (e.type !== 'video' || getVideoClipState(e as VideoElement, localTime).visible)
+            const renderElement = (el: EditorElement) => (
+              <CanvasElement
+                key={el.id}
+                element={el}
+                animProps={getAnimatedProps(el, localTime)}
+                isSelected={false}
+                onSelect={() => { }}
+                onDblClick={() => { }}
+                stageScale={scale}
+                localTime={localTime}
+                sceneWidth={project.width}
+                syncVideoToTime
+                videoPlaybackActive={isPlaying}
+              />
+            )
+            // Groups in perspective play as one warped picture, like on the canvas and in export.
+            const warped = warpedGroups(scene)
+            const drawn = new Set<string>()
+            return sorted.filter(shown).map(el => {
+              const members = el.groupId ? warped.get(el.groupId) : undefined
+              if (!members) return renderElement(el)
+              if (drawn.has(el.groupId!)) return null
+              drawn.add(el.groupId!)
+              const box = elementsBox(members)
+              return (
+                <GroupPerspective key={`group-perspective-${el.groupId}`} box={box} nodeId={members[0].id} draggable={false}
+                  pts={groupPerspectivePts(scene.groups![el.groupId!].perspective!, box)} onPress={() => { }} onMoved={() => { }}>
+                  {members.filter(shown).map(renderElement)}
+                </GroupPerspective>
+              )
+            })
+          })()}
           <SubtitleOverlay project={project} time={globalTime} />
         </Layer>
       </Stage>

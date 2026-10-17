@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { Group, Circle, Line } from 'react-konva'
 import type Konva from 'konva'
 import type { EditorElement } from '../../types/editor'
-import { makePerspectivePts } from '../../engine/perspectiveUtils'
+import { makePerspectivePts, type PerspectivePts } from '../../engine/perspectiveUtils'
 import { useEditorStore } from '../../store/editorStore'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -10,17 +10,26 @@ type Pt = [number, number]
 type CornerKey = 'tl' | 'tr' | 'br' | 'bl'
 type EdgeKey   = 'tc' | 'rc' | 'bc' | 'lc'
 
-interface Props { el: EditorElement }
-
-export default function PerspectiveHandles({ el }: Props) {
+/** Perspective handles for one element. */
+export default function PerspectiveHandles({ el }: { el: EditorElement }) {
   const { updateElement } = useEditorStore(useShallow(s => ({ updateElement: s.updateElement })))
-
   if (el.type === 'arrow' || el.type === 'audio') return null
+  return (
+    <QuadHandles x={el.x} y={el.y} rotation={el.rotation} width={el.width} height={el.height} pts={el.perspectivePts}
+      onChange={pts => updateElement(el.id, { perspectivePts: pts, perspectiveControls: undefined } as Partial<EditorElement>)} />
+  )
+}
 
-  const w = (el as { width: number }).width
-  const h = (el as { height: number }).height
-
-  const pts = el.perspectivePts ?? makePerspectivePts(w, h)
+/**
+ * Orange corner handles (move one corner) and red edge handles (move a whole
+ * side) over a box at (x, y). `pts` are local to the box; unset = the plain box.
+ */
+export function QuadHandles({ x, y, rotation = 0, width, height, pts: current, onChange }: {
+  x: number; y: number; rotation?: number; width: number; height: number
+  pts?: PerspectivePts
+  onChange: (pts: PerspectivePts) => void
+}) {
+  const pts = current ?? makePerspectivePts(width, height)
   const { tl, tr, br, bl } = pts
 
   const tc: Pt = [(tl[0] + tr[0]) / 2, (tl[1] + tr[1]) / 2]
@@ -29,12 +38,7 @@ export default function PerspectiveHandles({ el }: Props) {
   const lc: Pt = [(bl[0] + tl[0]) / 2, (bl[1] + tl[1]) / 2]
 
   // Store initial state at drag start for edge handles
-  const edgeStart = useRef<Record<string, { handlePt: Pt; corners: typeof pts }>>({})
-
-  function updPts(newPts: typeof pts) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    updateElement(el.id, { perspectivePts: newPts, perspectiveControls: undefined } as any)
-  }
+  const edgeStart = useRef<Record<string, { handlePt: Pt; corners: PerspectivePts }>>({})
 
   const corners: { key: CornerKey; pt: Pt }[] = [
     { key: 'tl', pt: tl }, { key: 'tr', pt: tr },
@@ -49,7 +53,7 @@ export default function PerspectiveHandles({ el }: Props) {
   const outline = [tl[0],tl[1], tr[0],tr[1], br[0],br[1], bl[0],bl[1]]
 
   return (
-    <Group x={el.x} y={el.y} rotation={el.rotation}>
+    <Group x={x} y={y} rotation={rotation}>
       <Line points={outline} closed stroke="rgba(99,102,241,0.9)" strokeWidth={1.5} listening={false} />
 
       {corners.map(({ key, pt }) => (
@@ -60,7 +64,7 @@ export default function PerspectiveHandles({ el }: Props) {
           fill="#ff6600" stroke="#c0c0c0" strokeWidth={2}
           draggable
           onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => {
-            updPts({ ...pts, [key]: [e.target.x(), e.target.y()] as Pt })
+            onChange({ ...pts, [key]: [e.target.x(), e.target.y()] as Pt })
           }}
         />
       ))}
@@ -89,7 +93,7 @@ export default function PerspectiveHandles({ el }: Props) {
             if (key === 'rc') { np.tr = [c.tr[0]+dx, c.tr[1]+dy]; np.br = [c.br[0]+dx, c.br[1]+dy] }
             if (key === 'bc') { np.br = [c.br[0]+dx, c.br[1]+dy]; np.bl = [c.bl[0]+dx, c.bl[1]+dy] }
             if (key === 'lc') { np.bl = [c.bl[0]+dx, c.bl[1]+dy]; np.tl = [c.tl[0]+dx, c.tl[1]+dy] }
-            updPts(np)
+            onChange(np)
           }}
         />
       ))}

@@ -120,7 +120,7 @@ const SECTIONS: Section[] = [
           ['Layers', 'All elements of the scene: show/hide, lock, bring forward/back, delete, Shift+drag to reorder.'],
           ['Motion', 'Move an element along a direction or to coordinates, or Zoom In / Zoom Out toward a corner or the center.'],
           ['Group Effects', 'For several selected items: Animate them one after another (stagger, waves, repeat) or Connect them with arrows that stay attached (chain, column to column, hub).'],
-          ['Perspective', 'Tilt, skew and corner-warp any visual element except arrows.'],
+          ['Perspective', 'Tilt, skew and corner-warp any visual element except arrows — or a whole group or add-on as one plane.'],
           ['Python Sandbox', 'Generate charts and math animations with Python (Matplotlib, Manim).'],
           ['Shapes', 'Rectangle, circle, oval, polygons, star, diamond, heart, speech bubbles, 3D cube/cone, hand-drawn and sketch boxes.'],
           ['Subtitle', 'Automatic captions, caption styles and translation.'],
@@ -136,6 +136,7 @@ const SECTIONS: Section[] = [
         <P>Pasting into the same scene offsets the copy by 20 px. Pasting into a different scene keeps the exact position and links the copy to the original, so a Morph transition between those scenes moves it.</P>
         <H>Perspective</H>
         <P>Open Perspective with an element selected. Use X-Axis Tilt, Y-Axis Tilt, Skew X, Skew Y and Depth for quick results, or drag the orange corner handles and red edge handles on the canvas for full control. Corner fields set exact positions in the element's own pixels. Reset removes the warp. Perspective is true perspective: straight lines stay straight, text keeps all its styling, and the click area follows the warped shape.</P>
+        <P>Select a <strong>whole group or add-on</strong> (click one of its parts) and the same sliders and handles tilt it as <strong>one plane</strong> — a neural network or a flowchart leans back like a single panel, and its animations keep playing on the tilted plane. Drag the tilted picture to move the group; arrow keys move it too. The tilt follows the group when it is rebuilt with new settings or copied. Reset makes it flat again.</P>
         <H>Property panels are the power layer</H>
         <P>Every element has its own controls. Text can use fonts, gradient fills, text backgrounds, shadows, outlines, effects and several animations. Shapes can use solid or gradient fills, borders, shadows, inner shadows, perspective and animated borders. Images and videos can be cropped, rounded, color-adjusted, bordered, shadowed, warped and given media effects. Small property changes often make the difference between a rough slide and a polished frame.</P>
         <P>When a scene feels crowded, use the Layers panel to hide experiments, lock finished objects and reorder what appears above or below.</P>
@@ -416,12 +417,15 @@ const SECTIONS: Section[] = [
         <P>One request can hold several steps ("add a title 'Intro' at the top and make it fade in, then split scene 2 at 3s"). Refer to items by kind ("the title", "the red circle", "the music"), by name, by their text in quotes, or as "it" for what the previous step created.</P>
         <H>Add-ons and media in a prompt</H>
         <P>Type <strong>/</strong> to pick an add-on (/title-card, /lower-third, /hook, /neural-network, /flowchart, /equation, /code-walkthrough) and <strong>@</strong> to pick a media file. A short list opens as you type: <Kbd>↑</Kbd> <Kbd>↓</Kbd> move through it, <Kbd>Enter</Kbd> or <Kbd>Tab</Kbd> picks, <Kbd>Esc</Kbd> closes it. Commands and mentions show in colour so you can see they were understood — e.g. "add /neural-network in scene 4 with 4 seconds delay", "add a step 'Test' to /flowchart". Every prompt you sent has a copy button under it.</P>
+        <H>Planner</H>
+        <P>The <strong>Planner</strong> button in the title bar, next to the project name, opens your notes and ideas — video ideas, scripts, shot lists, to-dos. They belong to the app, not to a project, so every project sees the same Planner. Each plan is a card with its title and the start of its note; click a card to open it in full, or <strong>New plan</strong> to start one. Pin a plan to keep it first, give it a colour, search by any words. Everything saves as you type (on this computer, with a backup of the last version).</P>
         <H>Better prompts</H>
         <ul className="list-disc pl-5">
           <LI>Mention the scene number when the edit belongs to a specific scene.</LI>
           <LI>Select an item first when using words like "this" or "selected".</LI>
           <LI>Give exact values for size, color, speed, delay, or duration when they matter.</LI>
-          <LI>Review the pending plan before clicking Apply. Use Undo to roll back an applied AI plan.</LI>
+          <LI>Review the pending plan before clicking Apply. <strong>Preview</strong> (between Apply and Cancel) shows each scene the plan changes, before and after, without applying anything.</LI>
+          <LI>Every applied plan gets a number (<strong>#1</strong>, <strong>#2</strong>, …) with an <strong>Undo</strong> button. Type <strong>/history</strong> to list this project's AI edits (the start of each prompt, its time and its number), then <strong>/undo #2</strong> to undo one — after "/undo " the list offers your edits. "undo #2" and "undo the last AI edit" work too. Undoing an older edit keeps everything done after it — anything you changed since stays as it is, and the agent tells you. Ctrl+Z brings an undone edit back.</LI>
         </ul>
         <H>Examples</H>
         <Table head={['Request', 'What it should do']} rows={[

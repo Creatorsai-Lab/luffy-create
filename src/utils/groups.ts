@@ -2,7 +2,7 @@
  * Groups: members share `groupId`; the scene keeps each group's name and, for
  * smart groups, the block settings (Scene.groups). Pure helpers over a scene.
  */
-import type { EditorElement, Scene } from '../types/editor'
+import type { EditorElement, GroupPerspective, Scene } from '../types/editor'
 
 export interface Box { x: number; y: number; width: number; height: number }
 
@@ -68,4 +68,38 @@ export function nextGroupName(scene: Scene, base = 'Group') {
   let n = Object.keys(scene.groups ?? {}).length + 1
   while (used.has(`${base} ${n}`)) n++
   return `${base} ${n}`
+}
+
+/** A group's perspective corners in px, relative to its bounding box's top-left. */
+export function groupPerspectivePts(perspective: GroupPerspective, box: Box) {
+  const at = ([u, v]: [number, number]): [number, number] => [u * box.width, v * box.height]
+  const { tl, tr, br, bl } = perspective.pts
+  return { tl: at(tl), tr: at(tr), br: at(br), bl: at(bl) }
+}
+
+/** The fractions stored on the group for px corners over `box`. */
+export function toGroupPerspective(pts: { tl: [number, number]; tr: [number, number]; br: [number, number]; bl: [number, number] }, box: Box, controls?: GroupPerspective['controls']): GroupPerspective {
+  const frac = ([x, y]: [number, number]): [number, number] => [x / Math.max(1, box.width), y / Math.max(1, box.height)]
+  return { pts: { tl: frac(pts.tl), tr: frac(pts.tr), br: frac(pts.br), bl: frac(pts.bl) }, ...(controls ? { controls } : {}) }
+}
+
+/** Groups on a scene that are drawn in perspective, with their visible members in layer order. */
+export function warpedGroups(scene: Scene): Map<string, EditorElement[]> {
+  const out = new Map<string, EditorElement[]>()
+  for (const group of Object.values(scene.groups ?? {})) {
+    if (!group.perspective) continue
+    const members = scene.elements.filter(el => el.groupId === group.id && el.visible && el.type !== 'audio').sort((a, b) => a.zIndex - b.zIndex)
+    if (members.length) out.set(group.id, members)
+  }
+  return out
+}
+
+/** The group these ids are, when they are exactly one whole group of two or more items (else null). */
+export function selectedWholeGroup(scene: Scene, ids: string[]): string | null {
+  const first = scene.elements.find(el => el.id === ids[0])
+  const groupId = first?.groupId
+  if (!groupId || !scene.groups?.[groupId]) return null
+  const members = scene.elements.filter(el => el.groupId === groupId && el.type !== 'audio').map(el => el.id)
+  const chosen = new Set(ids)
+  return members.length >= 2 && members.length === chosen.size && members.every(id => chosen.has(id)) ? groupId : null
 }

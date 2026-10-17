@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { Minus, Square, ChevronDown, X, BriefcaseBusiness } from 'lucide-react'
+import { Minus, Square, ChevronDown, X, BriefcaseBusiness, NotebookPen } from 'lucide-react'
 import luffyLogo from '/images/luffy_create_logo.webp'
 import { useEditorStore } from '../../store/editorStore'
 import { cn } from '../../utils/cn'
 import ProjectsArchiveModal from '../modals/ProjectsArchiveModal'
+import PlannerModal from '../modals/PlannerModal'
 import { useShallow } from 'zustand/react/shallow'
 
 export default function Header() {
   const { project, isDirty } = useEditorStore(useShallow(s => ({ project: s.project, isDirty: s.isDirty })))
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [plannerOpen, setPlannerOpen] = useState(false)
 
   const minimize = () => window.api.win.minimize()
   const maximize = () => window.api.win.maximize()
@@ -35,6 +37,19 @@ export default function Header() {
             {isDirty && <span className="text-editor-accent">•</span>}
             <ChevronDown size={11} className="flex-none" />
           </button>
+
+          {/* The Planner belongs to the app, like the project switcher next to it: the same notes in every project. */}
+          <button
+            onClick={() => setPlannerOpen(true)}
+            title="Planner — your ideas and notes, in every project"
+            className={cn(
+              'flex items-center gap-1.5 text-[13px] px-2.5 py-0.5 rounded',
+              plannerOpen ? 'bg-editor-accent-dim text-editor-accent' : 'text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover',
+            )}
+          >
+            <NotebookPen size={12} className="flex-none" />
+            <span>Planner</span>
+          </button>
         </div>
 
         <div className="nodrag flex items-center">
@@ -51,6 +66,7 @@ export default function Header() {
       </header>
 
       {archiveOpen && <ProjectsArchiveModal onClose={() => setArchiveOpen(false)} />}
+      {plannerOpen && <PlannerModal onClose={() => setPlannerOpen(false)} />}
     </>
   )
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
-  Type, Square, ArrowRight, Code2, Table2, Layers, Shuffle, ImagePlus, BarChart3, Music,
-  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, SquareDashedMousePointer, SquarePlay, Sigma, BookOpen, Captions, Timer, Route, SquareTerminal, PenTool, Sparkles, Blocks, Puzzle
+  Type, ArrowRight, Code2, Table2, Layers, Shuffle, ImagePlus, BarChart3, Music,
+  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, Rotate3d, SquarePlay, Sigma, BookOpen, Captions, Timer, Route, SquareTerminal, PenTool, Clapperboard, Blocks, Unplug
 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { useHistoryStore } from '../../store/historyStore'
@@ -28,14 +28,14 @@ interface ToolItem {
 
 // Alphabetical. "Free Cursor" is rendered separately, always first.
 const TOOLS: ToolItem[] = [
-  { icon: <Puzzle size={15} />, label: 'Add-ons', panel: 'blocks' },
+  { icon: <Unplug size={15} />, label: 'Add-ons', panel: 'blocks' },
   { icon: <ArrowRight size={15} />, label: 'Arrow', panel: 'arrows', insert: makeCenteredArrow },
   { icon: <Music size={15} />, label: 'Audio', panel: 'audio' },
   { icon: <PaintBucket size={15} />, label: 'Background', panel: 'background' },
   { icon: <BarChart3 size={15} />, label: 'Charts', tool: 'chart', panel: 'charts' },
   { icon: <Code2 size={15} />, label: 'Code', tool: 'code', panel: 'code' },
   { icon: <Timer size={15} />, label: 'Counter', tool: 'counter', panel: 'counter' },
-  { icon: <Sparkles size={15} />, label: 'Effects', panel: 'effects' },
+  { icon: <Clapperboard size={15} />, label: 'Effects', panel: 'effects' },
   { icon: <Blocks size={15} />, label: 'Group Effects', panel: 'groupEffects' },
   { icon: <PenTool size={15} />, label: 'Hand Draw', tool: 'handDraw', panel: 'handDraw' },
   { icon: <Shapes size={15} />, label: 'Icons', panel: 'icons' },
@@ -43,9 +43,9 @@ const TOOLS: ToolItem[] = [
   { icon: <Sigma size={15} />, label: 'LaTeX', panel: 'latex' },
   { icon: <Layers size={15} />, label: 'Layers', panel: 'layers' },
   { icon: <Route size={15} />, label: 'Motion', panel: 'motion' },
-  { icon: <SquareDashedMousePointer size={15} />, label: 'Perspective', panel: 'perspective' },
+  { icon: <Rotate3d size={15} />, label: 'Perspective', panel: 'perspective' },
   { icon: <SquareTerminal size={15} />, label: 'Python Sandbox', panel: null, modal: 'pythonSandbox' },
-  { icon: <Square size={15} />, label: 'Shapes', tool: 'select', panel: 'shapes' },
+  { icon: <Shapes size={17} />, label: 'Shapes', tool: 'select', panel: 'shapes' },
   { icon: <Captions size={15} />, label: 'Subtitle', panel: null, modal: 'subtitle' },
   { icon: <Table2 size={15} />, label: 'Table', panel: 'table', insert: makeCenteredTable },
   { icon: <Type size={15} />, label: 'Text', panel: 'text', insert: makeCenteredText },

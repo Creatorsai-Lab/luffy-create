@@ -127,6 +127,10 @@ declare global {
         onBeforeClose: (callback: () => void) => () => void
         closeReady:    () => void
       }
+      planner: {
+        load: () => Promise<import('../planner/types').PlannerData>
+        save: (data: import('../planner/types').PlannerData) => Promise<void>
+      }
       projects: {
         list:   ()                         => Promise<ProjectRecord[]>
         create: (name: string)             => Promise<ProjectRecord>

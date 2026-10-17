@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid'
 import type {
   Project, Scene, EditorElement, ElementAnimation,
   Background, SceneTransition, AssetMeta,
-  ActiveTool, ActivePanel, TimeMarker, VideoElement, AudioElement, ImageElement, HandDrawTool, SubtitleTrack
+  ActiveTool, ActivePanel, TimeMarker, VideoElement, AudioElement, ImageElement, HandDrawTool, SubtitleTrack, GroupPerspective
 } from '../types/editor'
 import { makeScene, makeProject, DEFAULT_TRANSITION } from '../utils/defaults'
 import { isMotionAnimation } from '../utils/moveAnimation'
@@ -98,6 +98,8 @@ interface EditorActions {
   groupElements:    (ids: string[], name?: string) => string | null
   ungroupElements:  (ids: string[]) => void
   renameGroup:      (groupId: string, name: string) => void
+  /** Draws a whole group (e.g. an add-on) in perspective as one plane; null removes it. */
+  setGroupPerspective: (groupId: string, perspective: GroupPerspective | null) => void
   /** Locks/unlocks items — a group locks as a whole. Locked items can't be selected on the canvas. */
   setLocked:        (ids: string[], locked: boolean) => void
   /** Pastes/duplicates copies: connectors and groups stay wired to the copies, which get selected. */
@@ -163,6 +165,8 @@ interface EditorActions {
   undo:             () => void
   redo:             () => void
   saveHistory:      (description: string) => void
+  /** Swaps in an edited copy of the project as one normal (undoable) change — e.g. undoing an AI edit. */
+  replaceProject:   (project: Project) => void
 
   // Getters
   getCurrentScene:  () => Scene | null
@@ -833,6 +837,14 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         if (group && name.trim()) { group.name = name.trim(); s.isDirty = true }
       }),
 
+      setGroupPerspective: (groupId, perspective) => set(s => {
+        const group = currentSceneOf(s)?.groups?.[groupId]
+        if (!group) return
+        if (perspective) group.perspective = perspective
+        else delete group.perspective
+        s.isDirty = true
+      }),
+
       setLocked: (ids, locked) => set(s => {
         const scene = currentSceneOf(s)
         if (!scene) return
@@ -973,6 +985,8 @@ export const useEditorStore = create<EditorState & EditorActions>()(
           useHistoryStore.getState().pushHistory(project, description)
         }
       },
+
+      replaceProject: (project) => set(s => reconcileUiAfterProjectRestore(s, project)),
 
       undo: () => {
         const current = get().project
@@ -1163,6 +1177,15 @@ useEditorStore.subscribe(
 /** The scene being edited (works on the store state and on an immer draft of it). */
 function currentSceneOf(s: { project: Project | null; currentSceneId: string | null }): Scene | null {
   return s.project?.scenes.find(sc => sc.id === s.currentSceneId) ?? null
+}
+
+/**
+ * Runs changes that must not become undo steps (e.g. trying an AI plan out for a
+ * preview, then putting the project back). Nothing inside is recorded.
+ */
+export function withoutHistory<T>(apply: () => T): T {
+  suppressHistory = true
+  try { return apply() } finally { suppressHistory = false }
 }
 
 /** Replace the whole project (load/close) without recording an undo step, and start a fresh history. */

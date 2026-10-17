@@ -625,6 +625,17 @@ export interface SceneGroup {
   name: string
   /** Set when the group was built by a smart block and can be rebuilt from new settings. */
   smart?: SmartGroupInfo
+  /** The whole group drawn in perspective, as one plane (see GroupPerspective). */
+  perspective?: GroupPerspective
+}
+
+/**
+ * Corners as fractions of the group's bounding box (0,0 = its top-left, 1,1 = bottom-right),
+ * so the warp keeps its shape when the group moves, grows or is rebuilt.
+ */
+export interface GroupPerspective {
+  pts: { tl: [number, number]; tr: [number, number]; br: [number, number]; bl: [number, number] }
+  controls?: PerspectiveControls
 }
 
 export interface SmartGroupInfo {

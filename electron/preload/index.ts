@@ -23,6 +23,10 @@ const api = {
     },
     closeReady: () => ipcRenderer.send('app:close-ready'),
   },
+  planner: {
+    load: ()              => ipcRenderer.invoke('planner:load'),
+    save: (data: unknown) => ipcRenderer.invoke('planner:save', data),
+  },
   projects: {
     list:   ()                         => ipcRenderer.invoke('projects:list'),
     create: (name: string)             => ipcRenderer.invoke('projects:create', name),

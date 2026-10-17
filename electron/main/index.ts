@@ -36,6 +36,7 @@ import type { Dirent } from 'fs'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { Readable } from 'stream'
 import { inferUploadAssetKind, makeAssetUploadName, randomAssetHash } from './assetNaming'
+import { createPlannerStore } from './planner'
 import {
   createTranslationPackManager,
   type TranslationDirection,
@@ -884,6 +885,11 @@ function registerIpcHandlers() {
   })
 
   // Projects CRUD
+  // The Planner: the app's own notes, shared by every project.
+  const planner = createPlannerStore(join(USER_DATA, 'planner'), writeFileAtomic)
+  ipcMain.handle('planner:load', () => planner.load())
+  ipcMain.handle('planner:save', (_, data: unknown) => planner.save(data))
+
   ipcMain.handle('projects:list', () => readIndex())
 
   ipcMain.handle('projects:create', async (_, name: string) => {

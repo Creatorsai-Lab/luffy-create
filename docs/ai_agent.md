@@ -327,4 +327,13 @@ when you press send.
   assets and unresolvable items are reported and removed, values are clamped.
 - The agent only uses assets already in the project.
 - A project always keeps at least one scene.
-- Use **Undo** to roll back an applied plan in one step.
+- **Preview** (between Apply and Cancel) tries the plan without keeping it and
+  shows each changed scene before and after.
+- Every applied plan is numbered: **#1**, **#2**, … `/history` lists this
+  project's AI edits (prompt start, time, number); `/undo #2` undoes one (after
+  "/undo " the list offers your edits; `/undo` alone = the last one). The
+  **Undo** button, `undo #2` and `undo the last AI edit` work too.
+  Only what that edit changed goes back — later edits and your own changes are
+  kept (anything changed since is left as it is and listed). The undo is one
+  normal undo step, so Ctrl+Z brings the edit back. Numbers last for the session.
+- Ctrl+Z undoes the latest change, an applied plan included, in one step.

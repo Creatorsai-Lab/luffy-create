@@ -10,7 +10,7 @@ export default function PromptText({ text, inInput = false }: { text: string; in
   return (
     <>
       {promptParts(text).map((part, i) => part.kind ? (
-        <span key={i} className={cn(part.kind === 'addon' ? 'text-violet-300' : 'text-sky-300', !inInput && 'font-mono text-[0.92em]')}>
+        <span key={i} className={cn(part.kind === 'addon' ? 'text-violet-300' : part.kind === 'command' ? 'text-amber-300' : 'text-sky-300', !inInput && 'font-mono text-[0.92em]')}>
           {part.text}
         </span>
       ) : <span key={i}>{part.text}</span>)}
