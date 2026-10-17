@@ -254,9 +254,9 @@ export default function SubtitleModal() {
   const canExportTranslation = track.cues.some(cue => cue.translations?.[exportTarget]?.text.trim())
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#171717]/80 backdrop-blur-xs"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) setSubtitleOpen(false) }}>
-      <div className="bg-editor-panel border border-editor-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
+      <div className="bg-editor-panel border border-editor-border rounded-2xl flex flex-col overflow-hidden"
         style={{ width: '92vw', height: '90vh' }}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-editor-border flex-none">
           <div className="flex items-center gap-2">

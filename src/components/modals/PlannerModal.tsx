@@ -41,21 +41,21 @@ export default function PlannerModal({ onClose }: { onClose: () => void }) {
   const open = plans.find(p => p.id === openId)
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4" onMouseDown={e => { if (e.target === e.currentTarget) close() }}>
-      <div className="flex h-[min(680px,88vh)] w-[min(960px,94vw)] flex-col overflow-hidden rounded-lg border border-editor-border bg-[#171717] shadow-2xl">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm" onMouseDown={e => { if (e.target === e.currentTarget) close() }}>
+      <div className="flex flex-col overflow-hidden border border-editor-border bg-editor-panel rounded-2xl" style={{ width: '92vw', height: '90vh' }}>
         <header className="flex flex-none items-center gap-2 border-b border-editor-border px-4 py-2.5">
           <NotebookPen size={15} className="text-editor-accent" />
-          <h2 className="text-sm font-semibold text-editor-text">Planner</h2>
-          <span className="text-xs text-editor-text-secondary">{plans.length ? `${plans.length} plan${plans.length === 1 ? '' : 's'}` : ''}</span>
+          <h2 className="text-base font-semibold text-editor-text">Content Planner</h2>
+          <span className="text-base text-editor-text-secondary">{plans.length ? `${plans.length} plan${plans.length === 1 ? '' : 's'}` : ''}</span>
           <div className="ml-4 flex min-w-0 max-w-xs flex-1 items-center gap-1.5 rounded border border-editor-border bg-editor-elevated-highlight px-2 py-1">
             <Search size={12} className="flex-none text-editor-text-secondary" />
             <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search plans"
-              className="min-w-0 flex-1 bg-transparent text-xs text-editor-text outline-none placeholder:text-editor-text-secondary" />
+              className="min-w-0 flex-1 bg-transparent text-sm text-editor-text outline-none placeholder:text-editor-text-secondary" />
           </div>
           <div className="ml-auto flex items-center gap-2">
             <SaveBadge />
             <button type="button" onClick={() => setOpenId(create().id)}
-              className="flex items-center gap-1 rounded bg-editor-accent px-2.5 py-1 text-xs text-white hover:bg-editor-accent-hover">
+              className="flex items-center gap-1 rounded bg-editor-accent px-2.5 py-1 text-sm text-white hover:bg-editor-accent-hover">
               <Plus size={13} /> New plan
             </button>
             <button type="button" onClick={close} title="Close (Esc)" className="rounded p-1 text-editor-text-secondary hover:bg-white/5 hover:text-editor-text">
@@ -64,17 +64,17 @@ export default function PlannerModal({ onClose }: { onClose: () => void }) {
           </div>
         </header>
 
-        {error && <p className="flex-none border-b border-red-500/30 bg-red-500/10 px-4 py-1.5 text-xs text-red-200">{error}</p>}
+        {error && <p className="flex-none border-b border-red-500/30 bg-red-500/10 px-4 py-1.5 text-sm text-red-200">{error}</p>}
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {!loaded ? (
             <div className="flex h-full items-center justify-center text-editor-text-secondary"><Loader2 size={16} className="animate-spin" /></div>
           ) : shown.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-editor-text-secondary">
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-base text-editor-text-secondary">
               <NotebookPen size={22} className="text-editor-accent" />
               {query ? 'No plan matches your search.' : <>Keep your video ideas, scripts and to-dos here.<br />They are there in every project.</>}
               {!query && (
-                <button type="button" onClick={() => setOpenId(create().id)} className="mt-1 flex items-center gap-1 rounded bg-editor-accent px-3 py-1.5 text-xs text-white hover:bg-editor-accent-hover">
+                <button type="button" onClick={() => setOpenId(create().id)} className="mt-1 flex items-center gap-1 rounded bg-editor-accent px-3 py-1.5 text-sm text-white hover:bg-editor-accent-hover">
                   <Plus size={13} /> New plan
                 </button>
               )}
@@ -98,12 +98,12 @@ function PlanCard({ plan, onOpen }: { plan: Plan; onOpen: () => void }) {
       className="group flex h-40 flex-col rounded-lg border border-editor-border bg-editor-elevated-highlight p-3 text-left transition-colors hover:border-editor-accent/70"
       style={plan.color ? { borderTopColor: plan.color, borderTopWidth: 3 } : undefined}>
       <div className="flex w-full items-start gap-1.5">
-        <span className={cn('min-w-0 flex-1 truncate text-sm font-semibold', plan.title ? 'text-editor-text' : 'italic text-editor-text-secondary')}>
+        <span className={cn('min-w-0 flex-1 truncate text-base font-semibold', plan.title ? 'text-editor-text' : 'italic text-editor-text-secondary')}>
           {plan.title || 'Untitled'}
         </span>
         {plan.pinned && <Pin size={12} className="mt-0.5 flex-none text-editor-accent" />}
       </div>
-      <p className="mt-1.5 line-clamp-4 w-full whitespace-pre-line break-words text-xs leading-relaxed text-editor-text-secondary">
+      <p className="mt-1.5 line-clamp-4 w-full whitespace-pre-line break-words text-base leading-relaxed text-editor-text-secondary">
         {plan.body || 'No notes yet.'}
       </p>
       <span className="mt-auto pt-2 text-[10px] text-editor-text-secondary/80">Edited {timeAgo(plan.updatedAt)}</span>
@@ -121,10 +121,10 @@ function PlanEditor({ plan, onClose }: { plan: Plan; onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="flex h-[min(720px,90vh)] w-[min(820px,92vw)] flex-col overflow-hidden rounded-lg border border-editor-border bg-[#141414] shadow-2xl"
+      <div className="flex h-[min(820px,90vh)] w-[min(920px,92vw)] flex-col overflow-hidden rounded-2xl border border-editor-border bg-[#141414] shadow-2xl"
         style={plan.color ? { borderTopColor: plan.color, borderTopWidth: 3 } : undefined}>
         <header className="flex flex-none items-center gap-2 border-b border-editor-border px-3 py-2">
-          <button type="button" onClick={onClose} title="Back to all plans (Esc)" className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-editor-text-secondary hover:bg-white/5 hover:text-editor-text">
+          <button type="button" onClick={onClose} title="Back to all plans (Esc)" className="flex items-center gap-1 rounded px-1.5 py-1 text-sm text-editor-text-secondary hover:bg-white/5 hover:text-editor-text">
             <ArrowLeft size={13} /> All plans
           </button>
           <div className="ml-auto flex items-center gap-1.5">
@@ -141,7 +141,7 @@ function PlanEditor({ plan, onClose }: { plan: Plan; onClose: () => void }) {
               {plan.pinned ? <PinOff size={14} /> : <Pin size={14} />}
             </button>
             {confirmDelete ? (
-              <span className="flex items-center gap-1 text-xs text-red-200">
+              <span className="flex items-center gap-1 text-sm text-red-200">
                 Delete this plan?
                 <button type="button" onClick={() => { remove(plan.id); onClose() }} className="rounded bg-red-600 px-2 py-0.5 text-white hover:bg-red-500">Delete</button>
                 <button type="button" onClick={() => setConfirmDelete(false)} className="rounded px-2 py-0.5 text-editor-text-secondary hover:text-editor-text">Keep</button>
@@ -161,7 +161,7 @@ function PlanEditor({ plan, onClose }: { plan: Plan; onClose: () => void }) {
             maxLength={200} className="w-full bg-transparent text-xl font-semibold text-editor-text outline-none placeholder:text-editor-text-secondary/60" />
           <textarea value={plan.body} onChange={e => update(plan.id, { body: e.target.value })}
             placeholder="Write your idea, script, shot list or to-dos…"
-            className="mt-3 min-h-0 w-full flex-1 resize-none bg-transparent text-sm leading-relaxed text-editor-text outline-none placeholder:text-editor-text-secondary/60" />
+            className="mt-3 min-h-0 w-full flex-1 resize-none bg-transparent text-base leading-relaxed text-editor-text outline-none placeholder:text-editor-text-secondary/60" />
           <p className="flex-none pt-2 text-[10px] text-editor-text-secondary">
             Created {new Date(plan.createdAt).toLocaleString()} · edited {timeAgo(plan.updatedAt)}
           </p>
@@ -173,9 +173,9 @@ function PlanEditor({ plan, onClose }: { plan: Plan; onClose: () => void }) {
 
 function SaveBadge() {
   const saveState = usePlannerStore(s => s.saveState)
-  if (saveState === 'saved') return <span className="flex items-center gap-1 text-[10px] text-editor-text-secondary"><Check size={11} /> Saved</span>
+  if (saveState === 'saved') return <span className="flex items-center gap-1 text-sm text-editor-text-secondary"><Check size={11} /> Saved</span>
   if (saveState === 'error') return <span className="text-[10px] text-red-300">Not saved</span>
-  return <span className="flex items-center gap-1 text-[10px] text-editor-text-secondary"><Loader2 size={11} className="animate-spin" /> Saving</span>
+  return <span className="flex items-center gap-1 text-sm text-editor-text-secondary"><Loader2 size={11} className="animate-spin" /> Saving</span>
 }
 
 export function timeAgo(time: number, now = Date.now()) {

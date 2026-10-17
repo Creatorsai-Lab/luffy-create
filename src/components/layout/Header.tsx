@@ -41,13 +41,13 @@ export default function Header() {
           {/* The Planner belongs to the app, like the project switcher next to it: the same notes in every project. */}
           <button
             onClick={() => setPlannerOpen(true)}
-            title="Planner — your ideas and notes, in every project"
+            title="ContentPlanner - Write your ideas and notes, at a central place"
             className={cn(
               'flex items-center gap-1.5 text-[13px] px-2.5 py-0.5 rounded',
               plannerOpen ? 'bg-editor-accent-dim text-editor-accent' : 'text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover',
             )}
           >
-            <NotebookPen size={12} className="flex-none" />
+            <NotebookPen size={14} className="flex-none" />
             <span>Planner</span>
           </button>
         </div>
@@ -59,8 +59,8 @@ export default function Header() {
           <button onClick={maximize} className="flex items-center justify-center w-8 h-8 text-[#ffbb52] hover:text-editor-text hover:bg-editor-hover transition-colors">
             <Square size={11} />
           </button>
-          <button onClick={close} className="flex items-center justify-center w-8 h-8 text-[#ff483b] hover:text-white hover:bg-red-600 transition-colors">
-            <X size={12} />
+          <button onClick={close} className="flex items-center justify-center w-9 h-9 text-[#ff483b] hover:text-white hover:bg-red-600 transition-colors">
+            <X size={13} />
           </button>
         </div>
       </header>
