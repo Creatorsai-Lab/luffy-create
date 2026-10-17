@@ -3,6 +3,9 @@ import { Stage, Layer, Shape, Transformer, Circle, Path } from 'react-konva'
 import type Konva from 'konva'
 import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowUpToLine, ArrowDownToLine } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
+import { copyElements } from '../../utils/connectors'
+import HighlightOverlay from './HighlightOverlay'
+import { useCanvasStore } from '../../store/canvasStore'
 import { getAnimatedProps } from '../../engine/animator'
 import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
 import { isDirectionalTransition } from '../../engine/directionalTransitions'
@@ -119,10 +122,11 @@ export default function EditorCanvas() {
     playhead, isPlaying, exportOpen, activeTool, activePanel, pendingChartType, handDrawSettings,
     cropElementId, setCropElement,
     addElement, selectElement, deselectAll,
-    removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
+    removeElement, updateElement, setBackground, addElements, setActiveTool, setActivePanel, openCodeModal,
     undo, redo, duplicateElement,
     bringForward, sendBackward, bringToFront, sendToBack,
-  } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds, playhead: s.playhead, isPlaying: s.isPlaying, exportOpen: s.exportOpen, activeTool: s.activeTool, activePanel: s.activePanel, pendingChartType: s.pendingChartType, handDrawSettings: s.handDrawSettings, cropElementId: s.cropElementId, setCropElement: s.setCropElement, addElement: s.addElement, selectElement: s.selectElement, deselectAll: s.deselectAll, removeElement: s.removeElement, updateElement: s.updateElement, setBackground: s.setBackground, setActiveTool: s.setActiveTool, setActivePanel: s.setActivePanel, openCodeModal: s.openCodeModal, undo: s.undo, redo: s.redo, duplicateElement: s.duplicateElement, bringForward: s.bringForward, sendBackward: s.sendBackward, bringToFront: s.bringToFront, sendToBack: s.sendToBack })))
+  } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds, playhead: s.playhead, isPlaying: s.isPlaying, exportOpen: s.exportOpen, activeTool: s.activeTool, activePanel: s.activePanel, pendingChartType: s.pendingChartType, handDrawSettings: s.handDrawSettings, cropElementId: s.cropElementId, setCropElement: s.setCropElement, addElement: s.addElement, selectElement: s.selectElement, deselectAll: s.deselectAll, removeElement: s.removeElement, updateElement: s.updateElement, setBackground: s.setBackground, addElements: s.addElements, setActiveTool: s.setActiveTool, setActivePanel: s.setActivePanel, openCodeModal: s.openCodeModal, undo: s.undo, redo: s.redo, duplicateElement: s.duplicateElement, bringForward: s.bringForward, sendBackward: s.sendBackward, bringToFront: s.bringToFront, sendToBack: s.sendToBack })))
+  const showHighlights = useCanvasStore(s => s.showHighlights)
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
 
@@ -278,39 +282,59 @@ export default function EditorCanvas() {
         return // IMPORTANT: Return after redo to prevent other handlers
       }
       
-      // Copy: Ctrl+C
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        const scene = project?.scenes.find(s => s.id === currentSceneId)
+      const mod = e.ctrlKey || e.metaKey
+      const key = e.key.toLowerCase()
+      const scene = project?.scenes.find(s => s.id === currentSceneId)
+      const selectedEls = () => selectedIds
+        .map(id => scene?.elements.find(el => el.id === id))
+        .filter((el): el is EditorElement => el != null)
+      // Copies go in as one batch (connectors stay wired to the copies) and become the selection.
+      const insertCopies = (copies: EditorElement[]) => {
+        if (!copies.length) return
+        addElements(copies)
+        useEditorStore.setState({ selectedIds: copies.map(el => el.id) })
+      }
+
+      // Select all: Ctrl+A — every unlocked item on this scene
+      if (mod && key === 'a') {
+        e.preventDefault()
+        useEditorStore.setState({ selectedIds: (scene?.elements ?? []).filter(el => !el.locked && el.type !== 'audio').map(el => el.id) })
+        return
+      }
+
+      // Copy: Ctrl+C, Cut: Ctrl+X
+      if (mod && (key === 'c' || key === 'x')) {
         if (scene && selectedIds.length > 0) {
-          clipboardRef.current = selectedIds
-            .map(id => scene.elements.find(el => el.id === id))
-            .filter((el): el is EditorElement => el != null)
-            .map(el => JSON.parse(JSON.stringify(el)))
+          clipboardRef.current = selectedEls().map(el => JSON.parse(JSON.stringify(el)))
           clipboardSourceSceneRef.current = currentSceneId ?? null
+          if (key === 'x') {
+            e.preventDefault()
+            const toCut = [...selectedIds]
+            deselectAll()
+            toCut.forEach(id => removeElement(id))
+          }
         }
         return
       }
 
+      // Duplicate: Ctrl+D — copies next to the originals, without touching the clipboard
+      if (mod && key === 'd') {
+        e.preventDefault()
+        insertCopies(copyElements(selectedEls(), 20))
+        return
+      }
+
       // Paste: Ctrl+V
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+      if (mod && key === 'v') {
         if (clipboardRef.current.length > 0) {
           e.preventDefault()
           // Only offset position when pasting into the SAME scene (to avoid overlap).
           // When pasting across scenes, preserve exact original coordinates.
           const isSameScene = clipboardSourceSceneRef.current === currentSceneId
-          const offset = isSameScene ? 20 : 0
-          clipboardRef.current.forEach(el => {
-            const clone: EditorElement = { ...JSON.parse(JSON.stringify(el)), id: crypto.randomUUID() }
-            // A copy pasted into another scene is "the same object" for Morph.
-            if (!isSameScene) clone.morphKey = el.morphKey ?? el.id
-            clone.x += offset
-            clone.y += offset
-            // Arrows render from absolute endpoints — shift those too
-            if (clone.type === 'arrow') {
-              clone.x1 += offset; clone.y1 += offset; clone.x2 += offset; clone.y2 += offset
-            }
-            addElement(clone)
-          })
+          const copies = copyElements(clipboardRef.current, isSameScene ? 20 : 0)
+          // A copy pasted into another scene is "the same object" for Morph.
+          if (!isSameScene) copies.forEach((copy, i) => { copy.morphKey = clipboardRef.current[i].morphKey ?? clipboardRef.current[i].id })
+          insertCopies(copies)
         }
         return
       }
@@ -391,7 +415,7 @@ export default function EditorCanvas() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement, bringForward, sendBackward, bringToFront, sendToBack, addElement])
+  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement, bringForward, sendBackward, bringToFront, sendToBack, addElement, addElements])
 
   // Reset local video plays when preview starts (VideoKonva takes over)
   useEffect(() => {
@@ -1059,6 +1083,13 @@ export default function EditorCanvas() {
             })}
             <SubtitleOverlay project={project} time={playhead} />
           </Layer>
+
+          {/* Highlights: where every item is (editor only — never in an export) */}
+          {showHighlights && !exportOpen && (
+            <Layer listening={false}>
+              <HighlightOverlay elements={(activeScene ?? currentScene).elements} />
+            </Layer>
+          )}
 
           {/* Transformer + perspective handles + arrow preview */}
           <Layer>

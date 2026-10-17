@@ -20,10 +20,13 @@ export function parsePrompt(prompt: string, context: AiProjectContext): ParsedPr
 
   for (const clause of splitClauses(prompt)) {
     let produced: AiPlanStep[] | null = null
+    state.sequenceTouched = false
     for (const handler of HANDLERS) {
       produced = handler(clause, state)
       if (produced) break
     }
+    // Only a wave clause right after another one joins its sequence.
+    if (!state.sequenceTouched) state.lastSequence = null
     if (produced) steps.push(...produced)
     else state.issues.push({ level: 'warning', message: `Didn't understand "${clause.raw}".` })
   }

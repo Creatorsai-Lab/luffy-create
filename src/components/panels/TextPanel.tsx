@@ -630,17 +630,7 @@ function AnimBlock({
 
       <ScaleSizeControl anim={anim} onChange={upd} />
 
-      {!isColorPulse && (
-        <Row label="Start (s)">
-          <input type="number" min={0} max={60} step={0.1}
-            value={anim.startTime}
-            onChange={e => upd({ startTime: Number(e.target.value) })}
-            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
-          />
-        </Row>
-      )}
-
-      <Row label={isColorPulse ? 'Pulse Duration (s)' : isLoop ? 'Period (s)' : 'Duration (s)'}>
+      <Row label={isColorPulse ? 'Pulse Duration (s)' : isLoop ? (anim.repeatEvery ? 'Play length (s)' : 'Period (s)') : 'Duration (s)'}>
         <input type="number" min={0.1} max={30} step={0.1}
           value={anim.duration}
           onChange={e => upd({ duration: Number(e.target.value) })}
@@ -655,6 +645,19 @@ function AnimBlock({
           className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
         />
       </Row>
+
+      {isLoop && (
+        <Row label="Repeat every (s) — 0 = continuous">
+          <input type="number" min={0} max={60} step={0.1}
+            value={anim.repeatEvery ?? 0}
+            onChange={e => {
+              const value = Number(e.target.value)
+              upd({ repeatEvery: value > 0 ? value : undefined })
+            }}
+            className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1 nodrag"
+          />
+        </Row>
+      )}
 
       {!isLoop && (
         <Row label="Easing">

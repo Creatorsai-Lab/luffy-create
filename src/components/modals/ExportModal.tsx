@@ -24,7 +24,7 @@ function computeSnapshotLocalTime(scene: Scene): number {
   for (const el of scene.elements) {
     for (const anim of el.animations) {
       if (anim.timing === 'onEnter') {
-        const end = (anim.startTime ?? 0) + (anim.delay ?? 0) + (anim.duration ?? 0)
+        const end = (anim.delay ?? 0) + (anim.duration ?? 0)
         if (end > maxEnterEnd) maxEnterEnd = end
       }
     }

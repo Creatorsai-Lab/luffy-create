@@ -94,6 +94,30 @@ Make it spin                 Add typewriter to the title
 Move the selected item to the right with speed 400 and delay 1.2 seconds
 ```
 
+**Sequences (many items, one after another)**
+
+```text
+Fade in all circles one by one 0.2s apart
+Make all text appear one after another starting at 2s
+Pulse all circles left to right one by one, then flash them red right to left and repeat
+Flash all circles yellow layer by layer and repeat every 4s
+```
+
+"Layer by layer" (or "columns together") animates items lined up in a column at
+once. A wave right after another ("…, then flash them …") joins the same
+sequence, mirrors its timing, and they repeat together.
+
+**Connectors** (arrows that stay attached and follow their items)
+
+```text
+Connect the title to the logo box
+Connect the logo box to all circles
+Connect all circles in a chain
+Fully connect the circles layer by layer with thin red lines
+Connect the selected items
+Add a red circle in the bottom right and connect it to the title
+```
+
 **Audio and video**
 
 ```text

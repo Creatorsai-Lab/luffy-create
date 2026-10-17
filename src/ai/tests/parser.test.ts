@@ -171,6 +171,34 @@ const cases: Case[] = [
   }, issues: [/Which image\?/] },
   { prompt: 'add logo.png to all scenes', commands: [s1, s2, s3, s4].map(id => ({ type: 'addImageFromAsset', sceneId: id, assetId: 'asset-logo' })) },
 
+  // ── Staggered sequences ─────────────────────────────────────────────────────
+  { prompt: 'fade in all circles one by one 0.2s apart', setup: () => f.goTo(2),
+    commands: [{ type: 'animateSequence', waves: [{ animation: { type: 'fadeIn' }, step: 0.2, order: 'leftToRight' }] }],
+    check: c => assert.equal((c[0].waves as Array<{ targets: unknown[] }>)[0].targets.length, 2) },
+  { prompt: 'pulse all circles left to right one by one, then flash them red right to left and repeat', setup: () => f.goTo(2),
+    commands: [{ type: 'animateSequence', repeat: true, waves: [
+      { animation: { type: 'pulse' }, order: 'leftToRight' },
+      { animation: { type: 'colorPulse', color: '#ef4444' }, order: 'rightToLeft' },
+    ] }] },
+  { prompt: 'make all text appear one after another starting at 2s',
+    commands: [{ type: 'animateSequence', start: 2, waves: [{ animation: { type: 'fadeIn' } }] }] },
+  { prompt: 'flash all circles yellow layer by layer and repeat every 4s', setup: () => f.goTo(2),
+    commands: [{ type: 'animateSequence', repeat: 4, waves: [{ animation: { type: 'colorPulse', color: '#f59e0b' }, together: true }] }] },
+  { prompt: 'make it glow', setup: () => f.select(el.redCircle.id),
+    commands: [{ type: 'addAnimation', elementId: el.redCircle.id, animation: { type: 'colorPulse' } }] },
+
+  // ── Connectors ──────────────────────────────────────────────────────────────
+  { prompt: 'connect the title to the logo box',
+    commands: [{ type: 'connectElements', from: [{ elementId: el.title.id }], to: [{ elementId: el.logoBox.id }] }] },
+  { prompt: 'connect all circles in a chain', setup: () => f.goTo(2),
+    commands: [{ type: 'connectElements', mode: 'chain', to: undefined }],
+    check: c => assert.equal((c[0].from as unknown[]).length, 2) },
+  { prompt: 'fully connect the circles layer by layer with thin red lines', setup: () => f.goTo(2),
+    commands: [{ type: 'connectElements', mode: 'columns', width: 1, color: '#ef4444', heads: false }] },
+  { prompt: 'connect the selected items', setup: () => f.select(el.logoBox.id, el.title.id),
+    commands: [{ type: 'connectElements', mode: 'chain', keepOrder: true, from: [{ elementId: el.logoBox.id }, { elementId: el.title.id }] }] },
+  { prompt: 'connect the logo box', issues: [/at least two items/], commands: [] },
+
   // ── Smart edits (expanded later by media analysis) ──────────────────────────
   { prompt: 'remove silences', commands: [{ type: 'removeSilences', sceneIds: undefined }] },
   { prompt: 'cut out the pauses in scene 2', commands: [{ type: 'removeSilences', sceneIds: [s2] }] },
@@ -190,7 +218,10 @@ const cases: Case[] = [
 ]
 
 function matches(actual: unknown, expected: unknown, path: string): void {
-  if (expected instanceof RegExp) {
+  if (Array.isArray(expected)) {
+    assert.ok(Array.isArray(actual) && actual.length === expected.length, `${path}: expected ${expected.length} items, got ${JSON.stringify(actual)}`)
+    expected.forEach((item, i) => matches((actual as unknown[])[i], item, `${path}[${i}]`))
+  } else if (expected instanceof RegExp) {
     assert.match(String(actual), expected, path)
   } else if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
     assert.ok(actual && typeof actual === 'object', `${path}: expected an object, got ${JSON.stringify(actual)}`)

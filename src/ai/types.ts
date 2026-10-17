@@ -70,6 +70,25 @@ export type AiEditorCommand =
   | ({ type: 'alignElement'; horizontal?: 'left' | 'center' | 'right'; vertical?: 'top' | 'middle' | 'bottom'; margin?: number } & AiElementRef)
   | ({ type: 'addAnimation'; animation: AiAnimationSpec } & AiElementRef)
   | ({ type: 'removeAnimations' } & AiElementRef)
+  /**
+   * Arrows that stay attached. With `to`: every `from` item to every `to` item.
+   * Without: `chain` (each to the next, left to right), `columns` (every item to
+   * every item in the next column — a network layer) or `hub` (first to all).
+   */
+  | { type: 'connectElements'; from: AiElementRef[]; to?: AiElementRef[]; mode?: 'chain' | 'columns' | 'hub'; keepOrder?: boolean; color?: string; width?: number; heads?: boolean; behind?: boolean }
+  /** Staggered waves played one after another ("pulse left to right, then flash red right to left, repeating"). */
+  | { type: 'animateSequence'; waves: AiWave[]; start?: number | 'afterLast'; repeat?: boolean | number; repeatGap?: number }
+
+export interface AiWave {
+  targets: AiElementRef[]
+  animation: AiAnimationSpec & { color?: string }
+  order?: 'leftToRight' | 'rightToLeft' | 'topToBottom' | 'bottomToTop' | 'given'
+  /** Seconds between one item (or row/column) and the next. */
+  step?: number
+  /** Items in the same row/column (along the order) start together. */
+  together?: boolean
+  gapBefore?: number
+}
 
 export type AiCommandType = AiEditorCommand['type']
 

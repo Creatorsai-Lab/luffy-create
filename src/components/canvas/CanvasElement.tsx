@@ -1,5 +1,6 @@
 import type Konva from 'konva'
 import { useEditorStore } from '../../store/editorStore'
+import { isAttachedTo } from '../../utils/connectors'
 import type { EditorElement, VideoElement } from '../../types/editor'
 import type { AnimatedProps } from '../../engine/animator'
 import { getVideoClipState } from '../../utils/videoClip'
@@ -83,6 +84,15 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
     },
     onMouseLeave: (e: Konva.KonvaEventObject<MouseEvent>) => setCursor(e.target, 'canvas', false),
     onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => setCursor(e.target, 'dragging'),
+    // Arrows attached to this element follow it while it is dragged, not only on drop.
+    onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => {
+      if (element.type === 'arrow') return
+      const { project, currentSceneId } = useEditorStore.getState()
+      const scene = project?.scenes.find(sc => sc.id === currentSceneId)
+      if (scene?.elements.some(other => isAttachedTo(other, element.id))) {
+        updateElement(element.id, { x: e.target.x(), y: e.target.y() })
+      }
+    },
     onDblClick,
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
       if (element.type === 'arrow') {
@@ -155,8 +165,9 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
   const content = (p: Record<string, unknown>) => {
     switch (element.type) {
       case 'text':   return <TextKonva   el={element} konvaProps={p} textProgress={animProps?.textProgress ?? 1} textMode={animProps?.textMode} wipeProgress={wipeProgress} wipeDir={wipeDir} textColor={animProps?.textColor} />
-      case 'shape':  return <ShapeKonva  el={element} konvaProps={p} wipeProgress={wipeProgress} wipeDir={wipeDir} dashOffset={animProps?.dashOffset ?? 0} localTime={localTime} />
-      case 'arrow':  return <ArrowKonva  el={element} konvaProps={p} pathProgress={animProps?.textProgress ?? 1} dashOffset={animProps?.dashOffset ?? 0} />
+      // A colour pulse ("flash") recolours a shape's fill and an arrow's line.
+      case 'shape':  return <ShapeKonva  el={animProps?.textColor ? { ...element, fill: animProps.textColor } : element} konvaProps={p} wipeProgress={wipeProgress} wipeDir={wipeDir} dashOffset={animProps?.dashOffset ?? 0} localTime={localTime} />
+      case 'arrow':  return <ArrowKonva  el={animProps?.textColor ? { ...element, stroke: animProps.textColor, arrowHeadColor: animProps.textColor } : element} konvaProps={p} pathProgress={animProps?.textProgress ?? 1} dashOffset={animProps?.dashOffset ?? 0} />
       case 'code':   return <CodeKonva   el={element} konvaProps={p} localTime={localTime} sceneWidth={sceneWidth} />
       case 'image':  return <ImageKonva  el={element} konvaProps={p} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} localTime={localTime} />
       case 'table':  return <TableKonva  el={element} konvaProps={p} wipeProgress={wipeProgress} wipeDir={wipeDir} />

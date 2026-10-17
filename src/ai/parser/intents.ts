@@ -7,7 +7,7 @@
  */
 import type { AnimationTiming, AnimationType, Background, ShapeType, SlideDir, TransitionType } from '../../types/editor'
 import { FONT_FAMILIES } from '../../types/editor'
-import type { AiAnimationSpec, AiArrangeOrder, AiEditorCommand, AiElementRef, AiPlanStep, AiSceneRef } from '../types'
+import type { AiAnimationSpec, AiArrangeOrder, AiEditorCommand, AiElementRef, AiPlanStep, AiSceneRef, AiWave } from '../types'
 import { readColors, type ColorMatch } from './colors'
 import {
   NOUN_KINDS, currentScene, defaultScenes, findSceneMentions, nextAlias, readElements, readScenes, sceneTarget, warn,
@@ -99,10 +99,11 @@ function isBorderColor(text: string, color: ColorMatch) {
 
 /** Colours that are values, not adjectives of the element being referred to ("make the red circle blue" → blue). */
 function valueColors(text: string): ColorMatch[] {
-  return readColors(text).filter(color => !NOUN_KINDS.some(kind => {
+  // Generic words ("layer", "item") are never what a colour describes: "flash them yellow layer by layer".
+  return readColors(text).filter(color => !NOUN_KINDS.some(kind => kind.types.length > 0 && (() => {
     const next = text.slice(color.end).match(/^\s+(\w[\w-]*)/)?.[1]
     return next ? kind.re.test(next) : false
-  }))
+  })()))
 }
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -124,7 +125,9 @@ const ANIMATIONS: Array<{ re: RegExp; type: AnimationType; timing: AnimationTimi
   { re: /\bbounc\w*/, type: 'bounceLoop', timing: 'loop' },
   { re: /\bspin\w*|\brotat\w*\s+(?:continuously|forever|around|in a loop|nonstop)|\bkeep\s+rotating\b/, type: 'rotateLoop', timing: 'loop' },
   { re: /\bpuls\w*|\bthrob\w*|\bheartbeat\b/, type: 'pulse', timing: 'loop' },
-  { re: /\bblink\w*|\bflashing\b/, type: 'fadeLoop', timing: 'loop' },
+  { re: /\bflash(?:es|ing)?\b|\bglow\w*|\blights? up\b|\bhighlight\w*/, type: 'colorPulse', timing: 'loop' },
+  { re: /\bblink\w*/, type: 'fadeLoop', timing: 'loop' },
+  { re: /\bappear\w*|\bshow up\b|\breveal\w*/, type: 'fadeIn', timing: 'onEnter' },
 ]
 
 function readDirection(text: string): SlideDir | undefined {
@@ -563,6 +566,50 @@ const layer: Handler = (clause, state) => {
   return targets.map(t => ({ type: 'arrangeElement', ...elementRef(t), order: order! }))
 }
 
+/**
+ * Connectors: "connect the title to the circle", "connect the logo box to all
+ * circles", "connect all circles in a chain", "fully connect the circles layer
+ * by layer", "connect the selected items with red lines".
+ */
+const connect: Handler = (clause, state) => {
+  const text = clause.text
+  if (!/\b(?:connect|link|wire|join)\w*\b/.test(text)) return null
+  const scenes = readScenes(text, state)
+  const sides = text.match(/^(.*?)\bto\b(.*)$/)
+  const oneGroup = !sides || /\bto (?:each other|one another|the next|every|its)\b/.test(text)
+
+  let from: ElementTarget[]
+  let to: ElementTarget[] | undefined
+  if (oneGroup) {
+    from = elementsOrSelection(clause, state, scenes)
+  } else {
+    from = readElements({ ...clause, text: sides![1] }, state, { scenes }) ?? readElements({ ...clause, text: 'selected' }, state)!
+    to = readElements({ ...clause, text: sides![2] }, state, { scenes }) ?? []
+    if (!to.length) return []
+  }
+  if (!from.length || (!to && from.length < 2)) {
+    if (from.length === 1 && !to) warn(state, 'Connect needs at least two items — say what to connect it to.')
+    return []
+  }
+
+  const mode = /\b(?:fully|densely|layer by layer|column by column|each (?:layer|column) to the next|every \w+ to every)\b/.test(text) ? 'columns' as const
+    : /\b(?:hub|star|first to all|to all the others)\b/.test(text) ? 'hub' as const
+    : 'chain' as const
+  const thickness = numberAfter(text, '(?:width|thickness)') ?? (/\bthin\b/.test(text) ? 1 : /\bthick\b/.test(text) ? 4 : undefined)
+  const fromSelection = /\b(?:selected|selection|these|this)\b/.test(oneGroup ? text : sides![1])
+  remember(state, [...from, ...(to ?? [])])
+  return [{
+    type: 'connectElements',
+    from: from.map(elementRef),
+    to: to?.map(elementRef),
+    mode: to ? undefined : mode,
+    keepOrder: fromSelection && !to,
+    color: valueColors(text)[0]?.hex,
+    width: thickness,
+    heads: /\blines?\b|\bwithout (?:arrow ?)?heads?\b|\bno (?:arrow ?)?heads?\b/.test(text) && !/\barrows?\b/.test(text) ? false : undefined,
+  }]
+}
+
 const SHAPE_WORDS: Array<[RegExp, ShapeType]> = [
   [/\bcircles?\b/, 'circle'], [/\b(?:squares?|rectangles?|rects?|box|boxes)\b/, 'rect'], [/\btriangles?\b/, 'triangle'],
   [/\bstars?\b/, 'star'], [/\bhearts?\b/, 'heart'], [/\bhexagons?\b/, 'hexagon'], [/\bpentagons?\b/, 'pentagon'],
@@ -767,6 +814,65 @@ const moveAnimation: Handler = (clause, state) => {
   }))
 }
 
+const STAGGER_RE = /\bone (?:by|after) (?:one|another|the other)\b|\bin (?:sequence|turn)\b|\bstagger\w*|\b\d+(?:\.\d+)?\s*(?:ms|s|secs?|seconds?)\s+apart\b|\b(?:layer|column|row) by (?:layer|column|row)\b|\bwave\b|\b(?:left|right|top|bottom) to (?:left|right|top|bottom)\b/
+const ORDER_WORDS: Array<[RegExp, NonNullable<AiWave['order']>]> = [
+  [/\bright to left\b/, 'rightToLeft'], [/\bleft to right\b/, 'leftToRight'],
+  [/\btop to bottom\b/, 'topToBottom'], [/\bbottom to top\b/, 'bottomToTop'],
+]
+const REVERSE: Record<NonNullable<AiWave['order']>, NonNullable<AiWave['order']>> = {
+  leftToRight: 'rightToLeft', rightToLeft: 'leftToRight', topToBottom: 'bottomToTop', bottomToTop: 'topToBottom', given: 'given',
+}
+
+/**
+ * Staggered waves: "pulse all circles left to right one by one, then flash them
+ * red right to left, and repeat". A wave clause right after another joins the
+ * same sequence, so the waves share one repeat.
+ */
+const sequence: Handler = (clause, state) => {
+  const text = clause.text
+  if (!STAGGER_RE.test(text)) return null
+  const spec = readAnimation(text)
+  if (!spec) return null
+  const targets = elementsOrSelection(clause, state, readScenes(text, state))
+  if (!targets.length) return []
+
+  const previous = state.lastSequence?.waves.at(-1)
+  const named = ORDER_WORDS.find(([re]) => re.test(text))?.[1]
+  const order = named ?? (previous && /\b(?:back(?:ward)?s?|in reverse|reversed?)\b/.test(text) ? REVERSE[previous.order ?? 'leftToRight'] : 'leftToRight')
+  const step = text.match(/(\d+(?:\.\d+)?)\s*(ms|s|secs?|seconds?)\s+apart\b/)
+  const stepSeconds = step ? Number(step[1]) / (step[2] === 'ms' ? 1000 : 1) : timeAfter(text, ['stagger of', 'step of', 'steps of', 'gap of'])
+  const wave: AiWave = {
+    targets: targets.map(elementRef),
+    animation: {
+      type: spec.type,
+      timing: spec.timing,
+      duration: spec.duration,
+      direction: spec.direction,
+      color: spec.type === 'colorPulse' ? valueColors(text)[0]?.hex : undefined,
+    },
+    order,
+    // A following wave mirrors the previous one unless told otherwise (a backward pass).
+    step: stepSeconds ?? previous?.step,
+    together: /\b(?:layer|column|row) by (?:layer|column|row)\b|\b(?:layers?|columns?|rows?) (?:at once|together)\b|\bper (?:layer|column|row)\b/.test(text) || Boolean(previous?.together),
+  }
+  const repeatWord = /\b(?:repeat\w*|again and again|forever|keep (?:going|repeating|looping)|on (?:a )?loop|loop(?:ing|s)?)\b/.test(text)
+  const repeat = repeatWord ? timeAfter(text, ['repeat every', 'repeating every', 'every']) ?? true : false
+
+  state.sequenceTouched = true
+  remember(state, targets)
+  if (state.lastSequence) {
+    state.lastSequence.waves.push(wave)
+    if (repeat) state.lastSequence.repeat = repeat
+    return []
+  }
+  const start = /\b(?:after (?:that|the last|everything|all)|afterwards|at the end)\b/.test(text)
+    ? 'afterLast' as const
+    : timeAfter(text, ['starting at', 'start at', 'from']) ?? spec.delay
+  const command: Extract<AiEditorCommand, { type: 'animateSequence' }> = { type: 'animateSequence', waves: [wave], start, repeat }
+  state.lastSequence = command
+  return [command]
+}
+
 const animate: Handler = (clause, state) => {
   const text = clause.text
   if (/\brotat\w*\s+(?:[^\d\s]\S*\s+){0,4}(?:by\s+|to\s+)?-?\d/.test(text)) return null // static rotation
@@ -921,5 +1027,5 @@ const modify: Handler = (clause, state) => {
 /** In priority order: the first handler that claims a clause wins. */
 export const HANDLERS: Handler[] = [
   smart, addScene, remove, duplicate, split, trim, reorder, transition, background, setDuration,
-  layer, addElement, media, moveAnimation, animate, position, modify,
+  layer, connect, addElement, media, moveAnimation, sequence, animate, position, modify,
 ]

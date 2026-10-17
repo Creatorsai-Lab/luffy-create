@@ -5,6 +5,8 @@ import { clampAudioDuration, finitePositiveDuration, remainingTimelineDuration }
 import { computeMoveDelta, durationFromMove } from '../utils/moveAnimation'
 import { useEditorStore } from '../store/editorStore'
 import { clampAudioVolume } from '../utils/audioEffects'
+import { animationsEnd, buildSequence, isLoopType, rowTolerance } from '../utils/stagger'
+import { connectionPairs, makeConnector } from '../utils/connectors'
 import type { AiCommandResult, AiEditorCommand, AiElementRef, AiPlan, AiSceneRef } from './types'
 
 const SHAPE_TYPES: Set<ShapeType> = new Set([
@@ -102,6 +104,10 @@ function executeAiCommand(command: AiEditorCommand): AiCommandResult {
       return addAnimation(command)
     case 'removeAnimations':
       return removeAnimations(command)
+    case 'animateSequence':
+      return animateSequence(command)
+    case 'connectElements':
+      return connectElements(command)
   }
 }
 
@@ -128,7 +134,6 @@ function addText(command: Extract<AiEditorCommand, { type: 'addText' }>): AiComm
       id: uuid(),
       type: command.animation.type,
       timing: 'onEnter',
-      startTime: 0,
       duration: Math.max(0.05, command.animation.duration ?? 0.8),
       delay: Math.max(0, command.animation.delay ?? 0),
       easing: command.animation.easing ?? 'easeOut',
@@ -446,11 +451,102 @@ function removeAnimations(command: Extract<AiEditorCommand, { type: 'removeAnima
   return { ok: true, message: `Removed animations from ${el.name}.`, elementIds: [el.id] }
 }
 
+function connectElements(command: Extract<AiEditorCommand, { type: 'connectElements' }>): AiCommandResult {
+  const store = useEditorStore.getState()
+  const visual = (el: EditorElement) => el.type !== 'arrow' && el.type !== 'audio'
+  const from = command.from.map(requireElement).filter(visual)
+  const to = command.to?.map(requireElement).filter(visual)
+  const scene = store.project?.scenes.find(sc => sc.elements.some(el => el.id === from[0]?.id))
+  if (!scene) throw new Error('Could not find the items to connect.')
+  // Chains run left to right (then top to bottom) unless the order was given (the selection order).
+  const ordered = command.mode === 'chain' && !command.keepOrder
+    ? from.slice().sort((a, b) => a.x - b.x || a.y - b.y)
+    : from
+  const byId = new Map([...from, ...(to ?? [])].map(el => [el.id, el]))
+  const pairs = to
+    ? from.flatMap(a => to.filter(b => b.id !== a.id).map(b => [a.id, b.id] as [string, string]))
+    : connectionPairs(ordered, command.mode ?? 'chain')
+  if (!pairs.length) throw new Error('Nothing to connect.')
+
+  const color = command.color ?? '#9ca3af'
+  const width = command.width ?? 2
+  const arrows = pairs.map(([a, b]) => makeConnector(byId.get(a)!, byId.get(b)!, {
+    stroke: color, arrowHeadColor: color, strokeWidth: width, arrowHead: command.heads === false ? 'none' : 'end',
+    pointerLength: Math.max(6, width * 4), pointerWidth: Math.max(6, width * 4),
+  }))
+  if (store.currentSceneId !== scene.id) store.setCurrentScene(scene.id)
+  useEditorStore.getState().addElements(arrows, { behind: command.behind ?? true })
+  return { ok: true, message: `Added ${arrows.length} connector${arrows.length === 1 ? '' : 's'}.`, elementIds: arrows.map(a => a.id) }
+}
+
+function animateSequence(command: Extract<AiEditorCommand, { type: 'animateSequence' }>): AiCommandResult {
+  const { project, updateElement, addAnimation } = useEditorStore.getState()
+  if (!project) throw new Error('No project is open.')
+  const waves = command.waves.map(wave => ({ wave, elements: wave.targets.map(requireElement).filter(el => el.type !== 'audio') }))
+    .filter(w => w.elements.length)
+  if (!waves.length) throw new Error('None of the items to animate could be found.')
+
+  const scene = project.scenes.find(sc => sc.elements.some(el => el.id === waves[0].elements[0].id))
+  const start = command.start === 'afterLast' ? animationsEnd(scene?.elements ?? []) : command.start ?? 0
+  const result = buildSequence(waves.map(({ wave, elements }) => {
+    const items = elements.map(el => ({ id: el.id, x: el.x, y: el.y, width: el.width, height: el.height }))
+    const type = wave.animation.type
+    return {
+      items,
+      animation: {
+        type,
+        duration: wave.animation.duration ?? (isLoopType(type) ? 0.4 : 0.5),
+        timing: wave.animation.timing === 'onExit' ? 'onExit' as const : undefined,
+        easing: wave.animation.easing,
+        params: type === 'colorPulse'
+          ? { pulseColor: wave.animation.color ?? '#ffd400', pulseCount: 1 }
+          : wave.animation.direction ? { direction: wave.animation.direction } : undefined,
+      },
+      timing: { order: wave.order ?? 'leftToRight', step: wave.step ?? 0.15, together: wave.together ? rowTolerance(items) : 0 },
+      gapBefore: wave.gapBefore,
+    }
+  }), { start, repeat: command.repeat, repeatGap: command.repeatGap })
+
+  // Running it again replaces the earlier animation of the same type instead of stacking another.
+  const replaced = new Map<string, Set<string>>()
+  for (const { elementId, animation } of result.animations) {
+    if (!replaced.has(elementId)) replaced.set(elementId, new Set())
+    replaced.get(elementId)!.add(animation.type)
+  }
+  for (const [elementId, types] of replaced) {
+    const el = findElement(useEditorStore.getState().project?.scenes ?? [], elementId)
+    if (el?.animations.some(a => types.has(a.type))) {
+      updateElement(elementId, { animations: el.animations.filter(a => !types.has(a.type)) } as Partial<EditorElement>)
+    }
+  }
+  for (const { elementId, animation } of result.animations) addAnimation(elementId, animation)
+
+  const count = replaced.size
+  return {
+    ok: true,
+    message: `Animated ${count} item${count === 1 ? '' : 's'} in ${waves.length} wave${waves.length === 1 ? '' : 's'}${result.period ? `, repeating every ${result.period}s` : ''}.`,
+    elementIds: [...replaced.keys()],
+  }
+}
+
 function allElementIds() {
   return useEditorStore.getState().project?.scenes.flatMap(scene => scene.elements.map(el => el.id)) ?? []
 }
 
 function resolveElementAlias(command: AiEditorCommand, aliases: Record<string, string>): AiEditorCommand {
+  if (command.type === 'connectElements') {
+    const map = (refs: AiElementRef[]) => refs.map(t => (t.elementAlias && aliases[t.elementAlias] ? { ...t, elementId: aliases[t.elementAlias], elementAlias: undefined } : t))
+    return { ...command, from: map(command.from), to: command.to && map(command.to) }
+  }
+  if (command.type === 'animateSequence') {
+    return {
+      ...command,
+      waves: command.waves.map(wave => ({
+        ...wave,
+        targets: wave.targets.map(t => (t.elementAlias && aliases[t.elementAlias] ? { ...t, elementId: aliases[t.elementAlias], elementAlias: undefined } : t)),
+      })),
+    }
+  }
   if (!('elementAlias' in command) || !command.elementAlias) return command
   const elementId = aliases[command.elementAlias]
   if (!elementId) throw new Error('Could not find the item created earlier in this plan.')

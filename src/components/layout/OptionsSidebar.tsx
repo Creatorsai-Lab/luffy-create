@@ -20,6 +20,7 @@ import VideoPanel from '../panels/VideoPanel'
 import LatexPanel from '../panels/LatexPanel'
 import CounterPanel from '../panels/CounterPanel'
 import MotionPanel from '../panels/MotionPanel'
+import GroupEffectsPanel from '../panels/GroupEffectsPanel'
 import HandDrawPanel from '../panels/HandDrawPanel'
 import MediaEffectsPanel from '../panels/MediaEffectsPanel'
 import type { ActivePanel } from '../../types/editor'
@@ -97,6 +98,7 @@ export default function OptionsSidebar() {
       case 'transitions':  return <TransitionPanel />
       case 'perspective':  return <PerspectivePanel />
       case 'motion':       return <MotionPanel />
+      case 'groupEffects': return <GroupEffectsPanel />
       case 'effects':      return <MediaEffectsPanel />
       default:
         return <HintPanel text="Menu Options Panel (select to see)" />

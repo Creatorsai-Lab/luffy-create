@@ -1,4 +1,5 @@
-import { Grid3x3, Eye, EyeOff, Eraser } from 'lucide-react'
+import { Grid3x3, Eye, EyeOff, Eraser, Highlighter } from 'lucide-react'
+import { highlightableElements } from './HighlightOverlay'
 import { useCanvasStore } from '../../store/canvasStore'
 import { useEditorStore } from '../../store/editorStore'
 import Tooltip from '../ui/Tooltip'
@@ -9,12 +10,13 @@ export default function CanvasToolbar() {
   const {
     showGrid, setShowGrid,
     showSafeArea, setShowSafeArea,
+    showHighlights, setShowHighlights,
   } = useCanvasStore()
   const { currentSceneId, clearSceneAnimations, project } = useEditorStore(useShallow(s => ({ currentSceneId: s.currentSceneId, clearSceneAnimations: s.clearSceneAnimations, project: s.project })))
 
-  const sceneHasAnim = !!project?.scenes
-    .find(s => s.id === currentSceneId)
-    ?.elements.some(e => e.animations.length > 0)
+  const sceneElements = project?.scenes.find(s => s.id === currentSceneId)?.elements ?? []
+  const sceneHasAnim = sceneElements.some(e => e.animations.length > 0)
+  const itemCount = highlightableElements(sceneElements).length
 
   return (
     <div className="absolute top-2 right-2 bg-editor-panel border border-editor-border rounded-lg shadow-lg flex items-center gap-1 p-1 z-10">
@@ -61,6 +63,22 @@ export default function CanvasToolbar() {
           )}
         >
           <Eraser size={14} />
+        </button>
+      </Tooltip>
+
+      {/* Highlight every item on the slide, even ones hidden by an animation delay */}
+      <Tooltip text={showHighlights ? `Hide highlights (${itemCount} items)` : 'Highlight all items on this slide'}>
+        <button
+          onClick={() => setShowHighlights(!showHighlights)}
+          className={cn(
+            'flex items-center gap-1 p-1.5 rounded transition-colors',
+            showHighlights
+              ? 'bg-editor-accent text-white'
+              : 'text-[#f2f2f2] hover:text-editor-text hover:bg-editor-hover'
+          )}
+        >
+          <Highlighter size={14} />
+          {showHighlights && <span className="text-[11px] leading-none tabular-nums">{itemCount}</span>}
         </button>
       </Tooltip>
     </div>

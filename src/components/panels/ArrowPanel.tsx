@@ -8,6 +8,7 @@ import { cn } from '../../utils/cn'
 import { isMotionAnimation } from '../../utils/moveAnimation'
 import { isLoopAnimation } from '../../utils/animationTypes'
 import { useShallow } from 'zustand/react/shallow'
+import { ArrowAttachments } from './ArrowConnections'
 
 const HEADS: { label: string; value: ArrowHeadType }[] = [
   { label: 'None', value: 'none' },
@@ -120,6 +121,8 @@ export default function ArrowPanel() {
           {isDrawing ? 'Drawing… drag on canvas (Esc to cancel)' : 'Draw Arrow'}
         </button>
       </div>
+
+      {el && <ArrowAttachments arrow={el} />}
 
       {/* Properties */}
       {el && (

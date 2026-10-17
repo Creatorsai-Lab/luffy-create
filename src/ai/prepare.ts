@@ -15,7 +15,7 @@ const TRANSITION_TYPES = new Set<TransitionType>([
 const ANIMATION_TYPES = new Set<AnimationType>([
   'fadeIn', 'fadeOut', 'slideIn', 'slideOut', 'scaleIn', 'scaleOut', 'wipeIn', 'wipeOut', 'zoomIn', 'zoomOut',
   'typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'textFade',
-  'pulse', 'bounceLoop', 'rotateLoop', 'fadeLoop',
+  'pulse', 'bounceLoop', 'rotateLoop', 'fadeLoop', 'colorPulse',
 ])
 const MOVE_DIRECTIONS = new Set(['left', 'right', 'top', 'bottom', 'topLeft', 'topRight', 'bottomRight', 'bottomLeft'])
 
@@ -232,6 +232,41 @@ function prepareCommand(
       return canResolveElement(command, context, aliases)
         ? command
         : drop(issues, index, `${command.type} removed because no target element could be resolved.`)
+
+    case 'connectElements': {
+      const from = command.from.filter(t => canResolveElement(t, context, aliases))
+      const to = command.to?.filter(t => canResolveElement(t, context, aliases))
+      if (!from.length || (command.to && !to?.length) || (!command.to && from.length < 2)) {
+        return drop(issues, index, 'Connection removed because there was nothing to connect.')
+      }
+      return { ...command, from, to, color: normalizeColor(command.color), width: clampOptional(command.width, 1, 40) }
+    }
+
+    case 'animateSequence': {
+      const waves = command.waves.flatMap(wave => {
+        const targets = wave.targets.filter(t => canResolveElement(t, context, aliases))
+        const animation = normalizeAnimation(wave.animation)
+        if (!targets.length || !animation) {
+          issues.push({ level: 'warning', commandIndex: index, message: `A ${wave.animation.type} wave was skipped: ${animation ? 'none of its items could be found' : 'that animation is not supported'}.` })
+          return []
+        }
+        return [{
+          ...wave,
+          targets,
+          animation: { ...animation, color: normalizeColor(wave.animation.color) },
+          step: clampOptional(wave.step, 0, 10),
+          gapBefore: clampOptional(wave.gapBefore, 0, 30),
+        }]
+      })
+      if (!waves.length) return drop(issues, index, 'Sequence removed because none of its items could be found.')
+      return {
+        ...command,
+        waves,
+        start: command.start === 'afterLast' ? 'afterLast' : clampOptional(command.start, 0, 600),
+        repeat: typeof command.repeat === 'number' ? clamp(command.repeat, 0.1, 600) : Boolean(command.repeat),
+        repeatGap: clampOptional(command.repeatGap, 0, 30),
+      }
+    }
 
     case 'addAnimation': {
       if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'Animation removed because no target element could be resolved.')

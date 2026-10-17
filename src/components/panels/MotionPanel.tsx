@@ -27,8 +27,9 @@ const ZOOM_POSITIONS: { value: MotionZoomPosition; label: string }[] = [
 ]
 
 export default function MotionPanel() {
-  const { project, currentSceneId, getSelectedEls, addAnimation, updateAnimation, removeAnimation } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, getSelectedEls: s.getSelectedEls, addAnimation: s.addAnimation, updateAnimation: s.updateAnimation, removeAnimation: s.removeAnimation, selectedIds: s.selectedIds })))
-  const element = getSelectedEls().find(item => item.type !== 'audio')
+  const { project, currentSceneId, getSelectedEls, addAnimation, updateAnimation, removeAnimation, setActivePanel } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, getSelectedEls: s.getSelectedEls, addAnimation: s.addAnimation, updateAnimation: s.updateAnimation, removeAnimation: s.removeAnimation, setActivePanel: s.setActivePanel, selectedIds: s.selectedIds })))
+  const selected = getSelectedEls().filter(item => item.type !== 'audio')
+  const element = selected[0]
   const sceneDuration = project?.scenes.find(scene => scene.id === currentSceneId)?.duration ?? 10
   const motions = element?.animations.filter(isMotionAnimation) ?? []
 
@@ -37,13 +38,13 @@ export default function MotionPanel() {
     if (type === 'move') {
       const { deltaX, deltaY } = computeMoveDelta(project, element, 'right', false)
       addAnimation(element.id, {
-        id: uuid(), type, timing: 'onEnter', startTime: 0,
+        id: uuid(), type, timing: 'onEnter',
         duration: durationFromMove(deltaX, deltaY, 420), delay: 0, easing: 'linear',
         params: { moveMode: 'direction', moveDirection: 'right', deltaX, deltaY, speed: 420, moveOutside: false },
       })
     } else {
       addAnimation(element.id, {
-        id: uuid(), type, timing: 'onEnter', startTime: 0,
+        id: uuid(), type, timing: 'onEnter',
         duration: Math.min(0.7, sceneDuration), delay: 0, easing: 'easeInOut',
         params: { zoomPosition: 'center', zoomScale: type === 'zoomIn' ? 1.5 : 1 },
       })
@@ -60,6 +61,12 @@ export default function MotionPanel() {
           </p>
         ) : (
           <div className="flex flex-col gap-2">
+            {selected.length >= 2 && (
+              <button type="button" onClick={() => setActivePanel('groupEffects')}
+                className="rounded border border-editor-border px-2 py-1.5 text-left text-[11px] text-editor-text-secondary hover:border-editor-accent hover:text-editor-accent">
+                {selected.length} items selected — Motion edits the first one. To animate them one after another, open <strong>Group Effects</strong>.
+              </button>
+            )}
             <div className="rounded border border-editor-border bg-editor-elevated-highlight px-2 py-2">
               <div className="text-[10px] uppercase text-editor-text-secondary">Selected item</div>
               <div className="truncate text-xs text-editor-text">{element.name}</div>
@@ -114,8 +121,8 @@ function ZoomCard({ animation, sceneDuration, onChange, onRemove }: {
   onChange: (animation: ElementAnimation) => void
   onRemove: () => void
 }) {
-  const startTime = Math.max(0, animation.startTime + animation.delay)
-  const change = (patch: Partial<ElementAnimation>) => onChange({ ...animation, ...patch, delay: 0 })
+  const startTime = Math.max(0, animation.delay)
+  const change = (patch: Partial<ElementAnimation>) => onChange({ ...animation, ...patch })
   const label = animation.type === 'zoomIn' ? 'Zoom In' : 'Zoom Out'
   const remaining = Math.max(0.1, sceneDuration - startTime)
   const zoomScale = animation.params?.zoomScale ?? (animation.type === 'zoomIn' ? 1.5 : 1)
@@ -131,7 +138,7 @@ function ZoomCard({ animation, sceneDuration, onChange, onRemove }: {
             value={startTime} min={0} max={sceneDuration} step={0.1}
             onChange={value => {
               const nextStart = Math.max(0, Math.min(sceneDuration, value))
-              change({ startTime: nextStart, duration: Math.min(animation.duration, Math.max(0.1, sceneDuration - nextStart)) })
+              change({ delay: nextStart, duration: Math.min(animation.duration, Math.max(0.1, sceneDuration - nextStart)) })
             }}
           />
         </Row>
@@ -196,7 +203,7 @@ function MoveCard({ animation, element, project, sceneDuration, onChange, onRemo
   const startCenterY = params.startCenterY ?? center.y
   const endCenterX = params.endCenterX ?? center.x + edgeDelta.deltaX
   const endCenterY = params.endCenterY ?? center.y + edgeDelta.deltaY
-  const startTime = Math.max(0, animation.startTime + animation.delay)
+  const startTime = Math.max(0, animation.delay)
 
   const change = (patch: MovePatch) => {
     const nextMode = patch.moveMode ?? moveMode
@@ -213,9 +220,8 @@ function MoveCard({ animation, element, project, sceneDuration, onChange, onRemo
     const delta = coordinates ?? computeMoveDelta(project, element, nextDirection, nextOutside)
     onChange({
       ...animation,
-      startTime: patch.startTime ?? startTime,
       duration: durationFromMove(delta.deltaX, delta.deltaY, nextSpeed),
-      delay: 0,
+      delay: patch.startTime ?? startTime,
       easing: 'linear',
       params: {
         ...params,

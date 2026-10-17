@@ -98,6 +98,43 @@ const tests: Array<[string, () => Promise<void>]> = [
     assert.equal(project().scenes[1].id, f.scenes[1].id)
     assert.equal(project().scenes[4].id, f.scenes[2].id)
   }],
+  ['a forward and backward wave share one repeat', async () => {
+    const f = loadFixture()
+    f.goTo(2)
+    await run('pulse all circles left to right one by one 0.25s apart, then flash them red right to left and repeat')
+    const anims = (id: string) => project().scenes[1].elements.find(e => e.id === id)!.animations
+    const [green, red] = [anims(f.el.greenCircle.id), anims(f.el.redCircle2.id)] // green is left of red
+    const delay = (list: typeof green, type: string) => list.find(a => a.type === type)!.delay
+    // forward: green 0, red 0.25; ends 0.25 + 0.4 = 0.65. Backward (right to left): red 0.65, green 0.9.
+    assert.equal(delay(green, 'pulse'), 0)
+    assert.equal(delay(red, 'pulse'), 0.25)
+    assert.equal(delay(red, 'colorPulse'), 0.65)
+    assert.equal(delay(green, 'colorPulse'), 0.9)
+    const period = 0.9 + 0.4 + 0.5 // backward ends + default gap
+    assert.ok([...green, ...red].every(a => a.repeatEvery === period), JSON.stringify([...green, ...red].map(a => a.repeatEvery)))
+    assert.equal(green.find(a => a.type === 'colorPulse')!.params?.pulseColor, '#ef4444')
+    // Running it again replaces instead of stacking.
+    await run('pulse all circles left to right one by one 0.25s apart')
+    assert.equal(anims(f.el.greenCircle.id).filter(a => a.type === 'pulse').length, 1)
+  }],
+  ['connectors attach, sit behind, and follow', async () => {
+    const f = loadFixture()
+    await run('connect the title to the logo box')
+    const scene = () => project().scenes[0]
+    const arrow = scene().elements.find(e => e.type === 'arrow') as import('../../types/editor').ArrowElement
+    assert.equal(arrow.startAttach?.elementId, f.el.title.id)
+    assert.equal(arrow.endAttach?.elementId, f.el.logoBox.id)
+    assert.ok(scene().elements.every(e => e.id === arrow.id || e.zIndex > arrow.zIndex), 'behind everything')
+    useEditorStore.getState().updateElement(f.el.logoBox.id, { y: 900 })
+    const moved = scene().elements.find(e => e.id === arrow.id) as import('../../types/editor').ArrowElement
+    assert.notEqual(moved.y2, arrow.y2, 'end followed the box')
+  }],
+  ['a new shape can be connected in the same request', async () => {
+    loadFixture()
+    await run("add a red circle in the bottom right and connect it to the title")
+    const arrows = project().scenes[0].elements.filter(e => e.type === 'arrow')
+    assert.equal(arrows.length, 1)
+  }],
   ['a whole plan undoes in one step', async () => {
     const f = loadFixture()
     const before = JSON.stringify(project().scenes)

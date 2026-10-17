@@ -25,6 +25,8 @@ const COMMAND_TYPES = new Set<AiCommandType>([
   'alignElement',
   'addAnimation',
   'removeAnimations',
+  'animateSequence',
+  'connectElements',
 ])
 
 export const AI_PLAN_JSON_SCHEMA = {
@@ -85,6 +87,8 @@ function validateCommand(value: unknown): AiEditorCommand {
     case 'setSceneDuration': need(typeof value.duration === 'number', 'setSceneDuration requires duration.'); break
     case 'arrangeElement': need(typeof value.order === 'string', 'arrangeElement requires order.'); break
     case 'addAnimation': need(isRecord(value.animation), 'addAnimation requires animation.'); break
+    case 'connectElements': need(Array.isArray(value.from) && value.from.length > 0, 'connectElements requires from.'); break
+    case 'animateSequence': need(Array.isArray(value.waves) && value.waves.length > 0, 'animateSequence requires waves.'); break
   }
   return value as AiEditorCommand
 }

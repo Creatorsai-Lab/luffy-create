@@ -28,6 +28,12 @@ export function describeCommand(command: AiEditorCommand): string {
     case 'alignElement': return `Place ${target(command)} at ${[command.vertical, command.horizontal].filter(Boolean).join(' ') || 'center'}`
     case 'addAnimation': return `Animate ${target(command)}: ${command.animation.type}${command.animation.duration ? ` over ${command.animation.duration}s` : ''}`
     case 'removeAnimations': return `Remove animations from ${target(command)}`
+    case 'connectElements': return command.to
+      ? `Connect ${command.from.length} item${command.from.length === 1 ? '' : 's'} to ${command.to.length} item${command.to.length === 1 ? '' : 's'} with arrows`
+      : `Connect ${command.from.length} items (${command.mode ?? 'chain'}) with arrows`
+    case 'animateSequence': return command.waves.map((wave, i) =>
+      `${i ? 'then ' : 'Animate '}${wave.targets.length} item${wave.targets.length === 1 ? '' : 's'}: ${wave.animation.type}${wave.animation.color ? ` ${wave.animation.color}` : ''}, ${wave.step ?? 0.15}s apart${wave.order && wave.order !== 'given' ? `, ${wave.order.replace(/([A-Z])/g, ' $1').toLowerCase()}` : ''}`,
+    ).join(', ') + (command.repeat ? ', repeating' : '')
   }
 }
 

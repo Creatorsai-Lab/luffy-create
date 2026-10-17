@@ -9,7 +9,10 @@
 | Undo | `Ctrl + Z` | `Cmd + Z` |
 | Redo | `Ctrl + Shift + Z` or `Ctrl + Y` | `Cmd + Shift + Z` or `Cmd + Y` |
 | Copy | `Ctrl + C` | `Cmd + C` |
+| Cut | `Ctrl + X` | `Cmd + X` |
 | Paste | `Ctrl + V` | `Cmd + V` |
+| Select all on the scene | `Ctrl + A` | `Cmd + A` |
+| Duplicate selection | `Ctrl + D` | `Cmd + D` |
 | Delete selected | `Delete` or `Backspace` | `Delete` or `Backspace` |
 | Deselect all / cancel the active tool (including Draw Arrow) | `Escape` | `Escape` |
 

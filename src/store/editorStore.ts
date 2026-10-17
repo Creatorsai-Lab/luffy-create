@@ -10,6 +10,8 @@ import type {
 import { makeScene, makeProject, DEFAULT_TRANSITION } from '../utils/defaults'
 import { isMotionAnimation } from '../utils/moveAnimation'
 import { useHistoryStore } from './historyStore'
+import { migrateProject } from './migrateProject'
+import { remapConnectors, syncConnectors } from '../utils/connectors'
 import { toast } from '../components/ui/Toast'
 import { LOOP_ANIMATION_TYPES } from '../utils/animationTypes'
 import { sceneAtTime, sceneStartTimes } from '../utils/sceneTiming'
@@ -74,6 +76,8 @@ interface EditorActions {
   addElement:         (el: EditorElement) => void
   addElementToScene:  (sceneId: string, el: EditorElement) => void
   updateElement:      (id: string, patch: Partial<EditorElement>) => void
+  /** Adds several elements to the current scene in one update; `behind` puts them under everything (connectors). */
+  addElements:      (els: EditorElement[], opts?: { behind?: boolean }) => void
   removeElement:      (id: string) => void
   duplicateElement: (id: string) => void
   bringForward:     (id: string) => void
@@ -258,10 +262,10 @@ function shiftElementTiming(el: EditorElement, splitAt: number) {
     .filter(a => {
       const finishedEnter = a.timing === 'onEnter' && !isMotionAnimation(a) &&
         !LOOP_ANIMATION_TYPES.has(a.type) &&
-        a.startTime + a.delay + a.duration <= splitAt
+        a.delay + a.duration <= splitAt
       return !finishedEnter
     })
-    .map(a => ({ ...a, startTime: a.startTime - splitAt }))
+    .map(a => ({ ...a, delay: a.delay - splitAt }))
 
   if (el.type === 'image' || el.type === 'video') {
     const media = el as ImageElement | VideoElement
@@ -357,7 +361,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       // project must never become an undo step of the next one.
       loadProject: (project) => {
         replaceProjectWithoutHistory(() => set(s => {
-          s.project          = project
+          s.project          = migrateProject(project)
           s.currentProjectId = project.id
           s.currentSceneId   = project.scenes[0]?.id ?? null
           s.selectedIds      = []
@@ -418,10 +422,16 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         clone.id   = uuid()
         clone.name = clone.name + ' Copy'
         // Audio belongs to the global timeline, not the scene — don't duplicate it.
+        const copiedIds = new Map<string, string>()
         clone.elements = clone.elements
           .filter(e => e.type !== 'audio')
           // morphKey keeps the copy's lineage so a Morph transition can match it.
-          .map(e => ({ ...e, id: uuid(), morphKey: e.morphKey ?? e.id }))
+          .map(e => {
+            const id = uuid()
+            copiedIds.set(e.id, id)
+            return { ...e, id, morphKey: e.morphKey ?? e.id }
+          })
+        remapConnectors(clone.elements, copiedIds)
         const audioStarts = audioAbsoluteStarts(s.project.scenes)
         s.project.scenes.splice(idx + 1, 0, clone)
         rehomeAudio(s.project.scenes, audioStarts)
@@ -468,11 +478,16 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         const firstElements: EditorElement[] = []
         const secondElements: EditorElement[] = []
 
+        const copiedIds = new Map<string, string>()
         for (const el of originalElements) {
           const { first, second } = splitElementForScene(el, split)
           if (first) firstElements.push(first)
           if (second) secondElements.push(second)
+          if (second && second.id !== el.id) copiedIds.set(el.id, second.id)
         }
+        // Arrows in the second part attach to the second-part copies.
+        remapConnectors(secondElements, copiedIds)
+        syncConnectors(firstElements)
 
         const secondScene: Scene = JSON.parse(JSON.stringify(scene))
         secondScene.id = uuid()
@@ -543,6 +558,19 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         s.isDirty = true
       }),
 
+      addElements: (els, opts) => set(s => {
+        if (!s.project || !s.currentSceneId || !els.length) return
+        const sc = s.project.scenes.find(x => x.id === s.currentSceneId)
+        if (!sc) return
+        const ordered = [...sc.elements].sort((a, b) => a.zIndex - b.zIndex)
+        const added = els.map(el => ({ ...el }) as EditorElement)
+        const stack = opts?.behind ? [...added, ...ordered] : [...ordered, ...added]
+        sc.elements.push(...added)
+        stack.forEach((e, i) => { const el = sc.elements.find(x => x.id === e.id); if (el) el.zIndex = i })
+        syncConnectors(sc.elements, new Set(added.map(el => el.id)))
+        s.isDirty = true
+      }),
+
       addElementToScene: (sceneId, el) => set(s => {
         if (!s.project) return
         const sc = s.project.scenes.find(x => x.id === sceneId)
@@ -558,7 +586,19 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         if (!s.project) return
         for (const sc of s.project.scenes) {
           const el = sc.elements.find(e => e.id === id)
-          if (el) { Object.assign(el, patch); s.isDirty = true; return }
+          if (!el) continue
+          Object.assign(el, patch)
+          if (el.type === 'arrow') {
+            // Attached ends stay on their element when the arrow is moved or
+            // resized; only free ends take the new position. Release an end in
+            // the Arrow panel to move it freely.
+            syncConnectors(sc.elements, new Set([el.id]))
+          } else if ('x' in patch || 'y' in patch || 'width' in patch || 'height' in patch) {
+            // Arrows attached to this element follow it.
+            syncConnectors(sc.elements, new Set([el.id]))
+          }
+          s.isDirty = true
+          return
         }
       }),
 
@@ -568,6 +608,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
           const idx = sc.elements.findIndex(e => e.id === id)
           if (idx >= 0) {
             sc.elements.splice(idx, 1)
+            syncConnectors(sc.elements) // arrows attached to it keep their place, now free
             s.selectedIds = s.selectedIds.filter(x => x !== id)
             s.isDirty = true
             return

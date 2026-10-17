@@ -105,7 +105,7 @@ const SECTIONS: Section[] = [
         <H>Tools</H>
         <Table head={['Tool', 'What it does']} rows={[
           ['Free Cursor', 'Back to plain selection: clears the active tool, deselects and closes the Options panel.'],
-          ['Arrow', 'Click to add an arrow in the scene center. In its panel, “+ Add Arrow” adds another; “Draw Arrow” lets you drag one on the canvas (crosshair cursor, Esc cancels). Heads, dashes, curve, bends, colors.'],
+          ['Arrow', 'Click to add an arrow in the scene center. In its panel, “+ Add Arrow” adds another; “Draw Arrow” lets you drag one on the canvas (crosshair cursor, Esc cancels). Heads, dashes, curve, bends, colors. Under Connections, attach either end to an item so the arrow follows it.'],
           ['Audio', 'Upload music, voiceover and sound effects; add them to the timeline or drag them onto the audio track.'],
           ['Background', 'Solid, gradient, grid, dots, animated, transparent or image background for the current scene.'],
           ['Charts', 'Bar, line, area, points, pie and doughnut charts with editable data, axes and styling.'],
@@ -118,6 +118,7 @@ const SECTIONS: Section[] = [
           ['LaTeX', 'Equations rendered as crisp graphics; color, size, animations.'],
           ['Layers', 'All elements of the scene: show/hide, lock, bring forward/back, delete, Shift+drag to reorder.'],
           ['Motion', 'Move an element along a direction or to coordinates, or Zoom In / Zoom Out toward a corner or the center.'],
+          ['Group Effects', 'For several selected items: Animate them one after another (stagger, waves, repeat) or Connect them with arrows that stay attached (chain, column to column, hub).'],
           ['Perspective', 'Tilt, skew and corner-warp any visual element except arrows.'],
           ['Python Sandbox', 'Generate charts and math animations with Python (Matplotlib, Manim).'],
           ['Shapes', 'Rectangle, circle, oval, polygons, star, diamond, heart, speech bubbles, 3D cube/cone, hand-drawn and sketch boxes.'],
@@ -144,15 +145,19 @@ const SECTIONS: Section[] = [
     id: 'animations', title: 'Animations', icon: <Sparkles size={15} />,
     content: (
       <>
-        <P>Every element has three animation slots. Add as many as you like per slot and set type, start, duration, delay, easing and, where relevant, direction and distance. Click a slider's value to type an exact number.</P>
+        <P>Every element has three animation slots. Add as many as you like per slot and set type, duration, delay (when it starts), easing and, where relevant, direction and distance. Click a slider's value to type an exact number.</P>
         <H>1 · On Enter</H>
         <P>Plays once when the element appears: Fade In, Slide In, Scale In, Wipe In. Text adds Typewriter (chars / words), Bounce Words and Outline Reveal In. Shapes add Spin In. Arrows use Draw On, Direction Slide and Zoom In. Code adds Character typing, Line typing and Block reveal.</P>
         <H>2 · Loop</H>
-        <P>Repeats while the element is visible, after its enter animations finish: Pulse, Bounce, Rotate, Fade Loop. Text adds Color Pulse; shapes and arrows add Flow (marching dashes).</P>
+        <P>Repeats while the element is visible, after its enter animations finish: Pulse, Bounce, Rotate, Fade Loop, Color Pulse (a colour flash — text, shapes and arrows). Shapes and arrows add Flow (marching dashes). Set <strong>Repeat every</strong> to play a loop once every few seconds instead of non-stop (for example a 0.4 s pulse every 3 s).</P>
         <H>3 · On Exit</H>
         <P>Plays once as the element leaves: Fade Out, Slide Out, Scale Out, Wipe Out. Text adds Outline Reveal Out; arrows use Draw Off and Zoom Out.</P>
         <H>Motion</H>
         <P>The Motion tool adds movement that is not an entrance or exit: <strong>Move</strong> slides an element by direction or to exact center coordinates (it can travel outside the scene), and <strong>Zoom In / Zoom Out</strong> scale toward the center or a corner.</P>
+        <H>Stagger (many items, one after another)</H>
+        <P>Shift-click several items and open <strong>Group Effects</strong>. It applies one animation to all of them, each a step later than the last: choose the order (left → right, top → bottom, …), the step, and <strong>Rows / columns together</strong> to animate a whole column at once — like one layer of a neural network. Loop animations can <strong>repeat the wave</strong>. <strong>After last</strong> starts the new wave when the scene's other animations end, so you can chain waves (a forward pass, then a backward pass).</P>
+        <H>Connectors</H>
+        <P>In <strong>Group Effects → Connect</strong>, link the selected items with arrows whose ends stay attached: <strong>Chain</strong> (each to the next, in the order you selected them), <strong>Columns</strong> (every item to every item in the next column — a network layer in one click) or <strong>Hub</strong> (the first to all others). <strong>Select all similar</strong> picks, say, every circle on the scene at once. Attached arrows follow their items when you move or resize them; dragging an arrow itself releases it. A single arrow's ends can be attached or released in its own panel.</P>
         <H>Easing</H>
         <P>Linear, Ease In, Ease Out, Ease In-Out and Bounce control the acceleration of the motion.</P>
         <H>Combining animations</H>
@@ -333,7 +338,9 @@ const SECTIONS: Section[] = [
         <H>Editing</H>
         <Table head={['Action', 'Keys']} rows={[
           ['Undo / Redo', 'Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y)'],
-          ['Copy / Paste', 'Ctrl+C / Ctrl+V (same scene: 20 px offset; other scene: same position)'],
+          ['Copy / Cut / Paste', 'Ctrl+C / Ctrl+X / Ctrl+V (same scene: 20 px offset; other scene: same position)'],
+          ['Select all on the scene', 'Ctrl+A'],
+          ['Duplicate selection', 'Ctrl+D (connected items stay connected)'],
           ['Delete selected element', 'Delete / Backspace'],
           ['Deselect, cancel the active tool or Draw Arrow', 'Escape'],
           ['Move element', 'Arrow keys — 12 px; Shift 40 px; Ctrl 100 px'],

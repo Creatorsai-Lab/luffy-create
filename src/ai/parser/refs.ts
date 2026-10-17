@@ -4,7 +4,7 @@
  * ids from the project context. Problems (a scene that doesn't exist, "the
  * circle" when there are three) become plan issues instead of guesses.
  */
-import type { AiElementRef, AiElementSummary, AiPlanIssue, AiProjectContext } from '../types'
+import type { AiEditorCommand, AiElementRef, AiElementSummary, AiPlanIssue, AiProjectContext } from '../types'
 import { nearestColorName, readColors } from './colors'
 import type { Clause } from './text'
 import { ordinalValue } from './text'
@@ -34,6 +34,10 @@ export interface ParseState {
   /** Scenes the previous clause named; the default for clauses that don't name one. */
   lastScenes: SceneTarget[] | null
   aliasCount: number
+  /** The sequence the previous clause built; a following wave clause joins it ("…, then flash them red"). */
+  lastSequence?: Extract<AiEditorCommand, { type: 'animateSequence' }> | null
+  /** Set by the sequence handler; parsePrompt clears `lastSequence` after any other clause. */
+  sequenceTouched?: boolean
 }
 
 export function warn(state: ParseState, message: string) {

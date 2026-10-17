@@ -1,133 +1,260 @@
 # Luffy AI Editing — Plan
 
-Goal: type an edit in plain English ("split scene 2 at 3s and fade in the title")
-and get a correct, reviewable edit — **without an LLM API**. Everything runs
-locally: deterministic parsing first, media analysis second, tiny local models
-only where rules fail.
+**Goal:** describe a video in plain language and get a finished, *fully editable*
+Luffy project. The editor does the heavy lifting; an AI only decides **what to
+build and with which settings**.
 
-All AI code lives in `src/ai/`.
+All AI code lives in `src/ai/`. Editor features the AI relies on (connectors,
+sequencing, groups) live in the editor itself, because people use them by hand too.
 
-## Principles
+---
 
-1. **Commands are the contract.** The AI never touches UI or store state
-   directly. It produces `AiEditorCommand`s (`types.ts`), which are validated
-   (`prepare.ts`), shown to the user, and applied (`executor.ts`) as **one undo
-   step**. Any future planner (rules, tiny model or LLM) plugs in by producing
-   the same commands.
-2. **Deterministic and testable.** The same prompt and project always give the same
-   plan. Every supported phrasing is pinned by a golden test.
-3. **Refer to things by id, not position.** The parser resolves "scene 3" and
-   "the red circle" to ids from the project context, so a plan stays correct
-   even when an earlier command adds, removes or reorders scenes.
-4. **Say what was not understood.** Unparsed parts of a prompt are reported,
-   never silently dropped.
-5. **Lightweight.** No new runtime dependencies in Phase 1–2. Phase 3 models are
-   optional one-time downloads (same mechanism as the Python runtime).
+## 1. Why this wins
 
-## Current state (before Phase 1)
+Tools that make video with an LLM writing code (HTML, Remotion, Manim) make the
+model the renderer. Every video costs a large amount of tokens, and every change
+("make the title blue", "add one more layer") means generating it again.
 
-| Piece | File | State then |
+In Luffy the **editor is the renderer**:
+
+| | Code-generated video | Luffy |
 |---|---|---|
-| Command types | `types.ts` | 12 commands, creation-focused |
-| Validation | `prepare.ts` | Good: clamps, drops unresolvable commands |
-| Executor | `executor.ts` | Good: one undo step, allow-listed patch keys |
-| Planner | `planner.ts` | Model branch was dead (`window.api.ai` is never provided). Local planner was one regex if-chain |
+| Making a video | Model writes every frame's code | Model picks blocks + settings (a few hundred tokens) |
+| Small change | Regenerate (full cost again) | Click in the panel — **free** |
+| Bigger change | Regenerate | One targeted AI edit — small cost |
+| Result | A rendered file | An editable project |
 
-Known local-planner bugs: colour words match inside words ("centered" → red);
-the first "add" match returns early, dropping other requests in the same prompt;
-"make the selected text larger" (from the user guide) produces nothing;
-numbers attach to the wrong field; only 9 colours.
+## 2. Principles
 
-## Phase 1 — Deterministic prompt parser + video-editing commands
+1. **The quality comes from the editor, not the LLM.** Layout, timing, colour
+   and motion rules live in deterministic **smart blocks**. The LLM never places
+   neurons or computes delays one by one — that would burn the same tokens as
+   code generation and look worse.
+2. **Blocks are flexible, not fixed templates.** Every block is described by
+   parameters (counts, labels, colours, timing, style) with sensible defaults.
+   "A network with 7 layers" or "12 neurons in layer 2" just changes a value;
+   the block re-lays itself out to fit. Limits are soft (warn, adapt), never hard
+   failures.
+3. **Everything stays editable.** A block becomes a *smart group* that remembers
+   its parameters: change a value (by hand or by AI) and only that group
+   rebuilds. "Detach" turns it into plain shapes for free-hand tweaking.
+4. **Cheap path first.** The local parser handles direct edits instantly and
+   for free. The LLM is only used for open, creative requests.
+5. **Commands are the contract.** Every planner — parser or LLM — produces the
+   same validated commands, shown as a plan and applied as **one undo step**.
+6. **Tested.** Every block, every command and every supported phrasing has a test.
 
-### Parser (`src/ai/parser/`)
+## 3. Who we build for
 
-| File | Job |
+UGC and cinematic creators are the larger market, so their needs come first;
+technical explainers (our own videos) come right after and share the same
+foundations.
+
+| Priority | Creators | Typical content | What eats their time |
+|---|---|---|---|
+| 1 | Short-form talking-head (Reels, Shorts, TikTok) | Vlogs, tips, opinions, reactions | Cutting pauses/fillers, captions, reframing to 9:16, keeping the face in frame, B-roll, hooks |
+| 2 | Podcast & interview clippers | Clips from long recordings | Finding the good moments, two-speaker layouts, captions |
+| 3 | UGC ads / brand creators | Product reviews, unboxing, testimonials | Hook → product → CTA structure, product shots, text callouts, music |
+| 4 | Cinematic / montage | Travel, events, weddings, lifestyle | Beat-synced cuts, transitions, titles, speed and colour |
+| 5 | Tutorials & screen recordings | Software walkthroughs, courses | Zooms, callouts, step titles |
+| 6 | Technical explainers (ML, engineering, agents) | Research breakdowns, system design, code walkthroughs | Diagrams, neural networks, flowcharts, equations, step-by-step animation |
+
+## 4. Architecture
+
+```text
+ prompt ──► Planner ──────────────► Plan (commands + block calls) ──► review ──► Apply (1 undo)
+            │ local parser (free)                                          │
+            │ LLM, tool use (BYOK / Pro)                                   ▼
+            └──── compact project summary ◄──────────────────────  Editor
+                                                                     ├─ Smart blocks (generators)
+                                                                     ├─ Sequencing (stagger / sequence)
+                                                                     ├─ Connectors, groups, locking
+                                                                     └─ Media analysis (speech, beats, shots, faces)
+```
+
+- **Editor foundations** — features the blocks need (section 5).
+- **Smart blocks** — deterministic generators with a parameter schema (section 6).
+- **Planner** — local parser for direct edits; LLM with tool use for open
+  requests (section 7). Both emit the same plan format.
+
+## 5. Editor foundations (build first)
+
+### 5.1 Animation sequencing (replaces the "start" field)
+- The per-animation `startTime` field is redundant: the animator only ever adds
+  it to `delay`. **Remove it from the UI**; on project load, fold any existing
+  `startTime` into `delay` so old projects play exactly the same.
+- **Stagger:** apply one animation to many elements with a step
+  ("pulse each neuron, 0.1 s apart"), in a chosen order (left→right, top→bottom,
+  layer by layer, reverse, random-but-seeded).
+- **Sequence:** run groups of animations one after another ("forward pass,
+  then backward pass in red"), with optional gaps and repeats.
+- Usable from the Motion panel by hand, and as one command for the AI.
+
+### 5.2 Connectors (arrows that can attach)
+- An arrow keeps working as free points, **or** either end can attach to an
+  element (with an anchor: auto / top / right / bottom / left / centre).
+- Attached ends follow the element when it moves, resizes or is re-laid out.
+- Needed for every diagram block (networks, flowcharts, pipelines).
+
+### 5.3 Groups and locking
+- Group / ungroup, select and move as one, lock (position, or everything).
+- **Smart groups**: a group that stores `{ blockId, params, version }` so it can
+  be rebuilt from new parameters; "Detach" converts it to a plain group.
+
+### 5.4 Media building blocks for UGC
+- **Face tracking → reframe**: a tiny face detector (BlazeFace, ~200 KB,
+  optional download) gives per-shot face positions; crop/position follows the
+  face for 16:9 → 9:16.
+- **Volume automation** (keyframes), for ducking music under speech.
+- **Layouts**: split-screen (side by side / top-bottom) and picture-in-picture
+  as real element arrangements.
+
+## 6. Smart blocks
+
+### 6.1 Block contract
+
+```ts
+interface SmartBlock<P> {
+  id: string                       // 'neuralNetwork'
+  title: string                    // shown in the UI and to the LLM
+  description: string              // one paragraph for the LLM: when to use it
+  params: ParamSchema<P>           // types, defaults, soft ranges, descriptions
+  build(params: P, frame: Frame): BlockOutput   // elements + animations + connectors
+}
+```
+
+- `build` is pure and deterministic → snapshot-testable.
+- The same `params` schema drives three things: the block's settings panel, the
+  LLM tool definition, and validation (clamp + warn, never crash).
+- Layout always adapts to the parameters and the frame (16:9, 9:16, 1:1).
+
+### 6.2 Catalogue
+
+**UGC / cinematic (first)**
+
+| Block | Parameters (examples) |
 |---|---|
-| `text.ts` | Split a prompt into clauses; mask quoted text; read numbers, times (`3s`, `500ms`, `0:12`, `1m 30s`), percents, factors (`2x`, `twice`, `half`), ordinals |
-| `colors.ts` | Colour lexicon (common CSS names + `dark`/`light` variants + hex), nearest-colour naming (shared with `prepare.ts`) |
-| `refs.ts` | Resolve scene references (`scene 3`, `scenes 2-4`, `all scenes`, `last scene`, `this scene`, `the new scene`) and element references (`selected`, `it`, `the title`, `the red circle`, `the video`, `the music`, `all text`, element names, quoted text) to ids |
-| `intents.ts` | One small handler per intent; turns a clause into commands |
-| `index.ts` | `parsePrompt(prompt, context)` → plan + issues; carries state across clauses (`it` = what the previous clause created or targeted) |
+| Title card / chapter break | text, subtitle, style, duration, transition in/out |
+| Lower third / name tag | name, role, side, accent colour, animation |
+| Hook / CTA overlay | text, emphasis words, position, timing |
+| Captions style | preset (bold pop, karaoke, minimal), position, words per line |
+| Split-screen / PiP | layout, which clips, border, radius, swap at time |
+| B-roll insert | clip, at time / at spoken keyword, duration, cut or overlay |
+| Montage | clips, cut on beat every N beats, transition, speed |
 
-**Clause splitting.** Newlines, `;`, sentence ends, `then`, and `and`/`,` **only
-when followed by an action verb** — so "black and white" and "fade in and out"
-stay intact.
+**Technical explainers**
 
-**Intents (Phase 1)**
-
-| Intent | Example prompts |
+| Block | Parameters (examples) |
 |---|---|
-| Add scene | "add a new scene", "add 3 scenes", "add a 5 second scene after scene 2 with title 'Intro'" |
-| Add element | "add title 'Hello' at the top", "add a red circle 200x200 in the bottom right", "add @clip.mp4 to scene 2" |
-| Remove | "delete scene 3", "remove scenes 2-4", "delete the selected item", "remove all transitions", "remove animations from the title" |
-| Duplicate | "duplicate scene 2", "copy the logo" |
-| Split | "split scene 2 at 3s", "split at 0:12", "split here", "split scene 1 in half" |
-| Scene duration | "make scene 2 5 seconds", "make all scenes 3s long", "extend scene 1 by 2s", "shorten the last scene by 1s" |
-| Reorder | "move scene 3 to the start", "move scene 4 before scene 2", "swap scene 1 and 3" |
-| Transition | "add a fade transition to scene 3", "use wipe transitions between all scenes", "zoom transition 1s on scene 2" |
-| Background | "make the background dark blue", "set scene 2 background to #222", "transparent background" |
-| Animate | "fade in the title", "make it spin", "add typewriter to the text", "slide in the image from the left over 1s" |
-| Move animation | "move the selected item to the right with speed 400 and delay 1.2s" |
-| Position | "move the logo to the top right", "center the title", "center it horizontally" |
-| Resize | "make the title bigger", "make it 2x larger", "scale the image to 50%", "resize the video to 800x450", "make the image fill the screen", "font size 72" |
-| Style | "make the title red", "change the circle's border to white", "make the text bold", "use Poppins font", "set opacity to 50%", "rename the circle to Badge", "change the title text to 'Hi'" |
-| Layer order | "bring the logo to the front", "send it to the back" |
-| Media | "mute the video", "set the music volume to 30%", "make the voiceover louder", "speed up the video 2x", "fade in the music over 2s", "trim the first 2 seconds of the video", "trim the video to 5s", "loop the music" |
+| Neural network | layers (any count), neurons per layer, layer style (flat / perspective panels), connections (full / sparse), labels, forward/backward pass (colours, stagger, repeats) |
+| Flowchart / pipeline | nodes (labels, shapes), edges, direction (LR / TB), auto layout, step-by-step reveal |
+| Agent / sequence diagram | actors, messages (tool calls, responses), timing |
+| Transformer / attention | tokens, heads, attention weights (heat map), highlight path |
+| Matrix / tensor operation | sizes, values or random, operation (multiply, add, conv), cell-by-cell animation |
+| Equation reveal | LaTeX, steps, highlight terms |
+| Code walkthrough | code, line ranges per step, highlight / zoom (uses the code block) |
+| Chart / graph | data, type, axes, draw-on animation (uses existing charts) |
 
-**New commands** (each maps onto an existing store action):
-`removeScene`, `duplicateScene`, `splitScene`, `moveScene`, `setSceneDuration`,
-`removeElement`, `duplicateElement`, `arrangeElement`, `alignElement`,
-`addAnimation`, `removeAnimations`. `addScene` gains `afterSceneId`. Add commands
-take an `alias` so later clauses can say "it". Media properties (volume, mute,
-speed, fades, trim, loop) use the existing `updateElement`, with audio keys added
-to the executor allow-list.
+### 6.3 What "flexible" means (example)
+"Three-layer network, then make it seven layers with 12 neurons in the middle"
+→ the AI changes `layers` from `[3, 4, 2]` to `[3, 6, 8, 12, 8, 6, 2]`. The block
+recomputes spacing and neuron size to fit the frame; with very large counts it
+switches to a compact style (smaller neurons, "⋮" ellipsis node) and tells the
+user, instead of refusing.
 
-**Cleanup.** Remove the dead model branch and the "Local planner used…" warning
-shown on every request; keep `AI_PLAN_JSON_SCHEMA`/`validateAiPlan` as the
-contract for a future model. Command descriptions move to `describe.ts` (used for
-the plan summary and the sidebar).
+## 7. Planner
 
-**Tests** (`src/ai/tests/`, part of `npm test`):
-- `parser.test.ts`: golden table of prompts → expected commands, plus
-  regression cases for the known bugs.
-- `executor.test.ts`: run plans against the real store (multi-step plans,
-  aliases, removing several scenes, swap, split).
+### 7.1 Local parser (done, keeps growing)
+Direct edits, free and instant (see "Done so far"). It will also learn to call
+blocks: "add a 3-4-2 neural network with a forward pass", "add a title card
+'Chapter 2'".
 
-**Done when:** every example in the table above parses correctly, the user
-guide examples work, all tests pass, and unknown clauses are reported.
+### 7.2 LLM planner
+- **Free plan: bring your own API key** (stored locally, encrypted with the OS
+  keychain via Electron `safeStorage`).
+- **Pro plan (later):** our backend provides the model; same protocol.
+- **Tool use**: the tools are generated from the block catalogue and the command
+  list, so adding a block automatically teaches the LLM about it.
+- **Small context**: the LLM gets a compact project summary (scenes, elements,
+  smart-group params), never the raw project file.
+- **Prompt caching**: the editor manual and tool definitions are a cached
+  system prompt, so each request pays only for the user's words and the plan.
+- **Routing**: try the local parser first; use the LLM when the request is open
+  ("make an explainer of backprop") or the parser cannot understand it.
+- **Later**: render a few key frames and let the model check its own result.
 
-**Status: done.** 107 golden prompts (`tests/parser.test.ts`) and 12 end-to-end
-plans (`tests/executor.test.ts`) pass; checked in the running app.
+## 8. Roadmap
 
-## Phase 2 — Smart edits from media analysis (no models)
+| Phase | Work | Status |
+|---|---|---|
+| 1 | Deterministic prompt parser + video-editing commands | **Done** |
+| 2 | Smart edits from media analysis (silences, fillers, beats, shots) | **Done** (fillers approximate) |
+| 3 | Foundations: sequencing (stagger/sequence, remove `startTime`), connectors, groups + locking, smart groups | **Sequencing + connectors done**; groups + locking next |
+| 4 | UGC blocks v1: title card, lower third, hook/CTA, split-screen/PiP, captions styles; face reframe; volume automation + ducking | |
+| 5 | Technical blocks v1: neural network, flowchart/pipeline, equation reveal, code walkthrough | |
+| 6 | LLM planner (BYOK): tools from the block catalogue, compact context, caching, routing | |
+| 7 | More blocks (agents, attention, matrix, montage, B-roll); Pro backend; self-check on rendered frames | |
 
-The parser emits *smart steps*; the planner analyses the media and expands each
-into ordinary commands (`splitScene`, `removeScene`, `setSceneDuration`), so
-review and one-step undo work the same way. Code: `src/ai/smart/`.
+**How we measure success**
+- Time to build our 3-layer network with forward/backward pass: about an hour by
+  hand today → under 2 minutes, then fully editable.
+- A talking-head clip → captioned, reframed, pause-free 9:16 video in one request.
+- Tokens per created video in the low thousands; most edits use no tokens at all.
+
+---
+
+## Done so far
+
+### Phase 3b — Connectors
+- `src/utils/connectors.ts`: an arrow end can attach to an element (anchor auto
+  / top / right / bottom / left / centre; auto faces the other end). The store
+  re-syncs attached ends whenever an element moves or resizes, releases ends whose
+  element is deleted or that are dragged by hand, and remaps them on scene split
+  and duplicate. Live follow while dragging.
+- `connectionPairs` (chain / columns / hub) + `makeConnector`; store
+  `addElements(els, { behind })` adds many at once under everything.
+- UI: Group Effects → Connect; per-arrow Connections in the Arrow panel.
+- AI: `connectElements` ("connect A to B", "connect all circles in a chain",
+  "fully connect … layer by layer", new items in the same request).
+- Tests: `scripts/connectors.test.ts`, parser + executor cases.
+
+### Phase 3a — Sequencing
+- `src/utils/stagger.ts`: `staggerGroups` (order + rows/columns together),
+  `buildSequence` (waves one after another, shared repeat period),
+  `animationsEnd` ("after last"). Pure and tested (`scripts/stagger.test.ts`).
+- Animations: `startTime` removed (it was always added to `delay`); old projects
+  are migrated on load (`src/store/migrateProject.ts`). New `repeatEvery` on
+  loops: play once per period, rest in between — the building block of a
+  repeating forward/backward pass.
+- Colour Pulse ("flash") now works on shapes (fill) and arrows (line), not only text.
+- UI: Stagger card in the Motion panel when 2+ items are selected.
+- AI: `animateSequence` command; "one by one", "0.2s apart", "layer by layer",
+  "left to right", "…, then flash them red right to left and repeat" (consecutive
+  wave clauses merge and mirror the previous wave's timing).
+
+### Phase 1 — Deterministic prompt parser + commands
+`src/ai/parser/`: clause splitting (`text.ts`), colours (`colors.ts`), scene and
+element references by number, range, kind, colour, name, quoted text, "it"
+(`refs.ts`), one handler per intent (`intents.ts`).
+
+Supported: add/delete/duplicate/split/reorder/resize scenes, scene duration,
+transitions, backgrounds, adding text/shapes/assets, animations, move
+animations, position, resize, style, layer order, audio/video volume, speed,
+fades, trim and loop. Commands use ids, so multi-step plans stay correct; unknown
+parts of a prompt are reported. Tests: 107 golden prompts
+(`tests/parser.test.ts`), 12 end-to-end plans (`tests/executor.test.ts`).
+
+### Phase 2 — Smart edits from media analysis
+The parser emits *smart steps*; `src/ai/smart/` analyses the media and expands
+them into normal commands.
 
 | Feature | How | Status |
 |---|---|---|
-| Remove silences / tighten pauses | `speech.ts`: adaptive loudness threshold → speech regions → silent gaps (with 0.15 s padding) cut out of each scene's video | Done |
-| Remove filler words | Local Whisper, one segment per word, with a filler-style prompt (plain Whisper drops "um"/"uh"); cut edges snapped to the quietest moment within ±0.12 s | Done, approximate — tiny-model word timings can be 0.2–0.4 s off, so a filler that runs into the next word can be missed. Better: whisper.cpp DTW timestamps (not produced by the current build) or the base model |
-| Cut to the beat | `beats.ts`: onset envelope → autocorrelation tempo (70–180 BPM) → beat phase → scene ends snapped to beats under the music | Done (±20 ms on a test track) |
-| Split video into shots | `media.ts`/`shots.ts`: colour histograms every 0.25 s, adaptive threshold, cut refined to ~1/30 s | Done (within one frame on a test video) |
-| Duck music under voice | Needs volume automation in the audio engine (or many split, faded music clips) | Not started |
-| Edit video by deleting transcript text | Builds on the word-level transcript | Not started |
+| Remove silences | Adaptive loudness threshold → speech regions → gaps cut (0.15 s padding) | Done |
+| Remove filler words | Local Whisper with word segments and a filler-style prompt; cut edges snapped to quiet points | Done, approximate (tiny-model word timings can be 0.2–0.4 s off) |
+| Cut to the beat | Onset envelope → tempo → beat phase → scene ends snapped to beats | Done (±20 ms) |
+| Split into shots | Colour histograms every 0.25 s, cut refined to ~1/30 s | Done (within one frame) |
+| Duck music under voice | Needs volume automation (Phase 4) | Not started |
+| Edit by deleting transcript text | Builds on word-level transcript | Not started |
 
-Tests: `tests/smart.test.ts` (synthetic speech, click tracks, frame differences,
-and whole prompts with fake media).
-
-## Phase 3 — Tiny local models (optional downloads)
-
-| Model | Size | Use |
-|---|---|---|
-| Sentence embeddings (MiniLM, quantised) | ~23 MB | Fallback when the grammar finds no intent: match the clause to the nearest example phrase ("jazz up the intro" → animate) |
-| Face detection (BlazeFace) | ~200 KB | Auto-reframe 16:9 → 9:16 keeping the speaker in frame |
-
-Whisper is already available for speech.
-
-## Later
-
-An LLM planner can be added behind the same command contract (`schema.ts`); the
-deterministic parser stays as the offline/fast path.
+Tests: `tests/smart.test.ts`.

@@ -32,7 +32,7 @@ export type MediaEffectTarget = 'wholeMedia' | 'centerSubject' | 'manualFocus'
 export type MediaZoomPosition = 'center' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
 export type ActiveTool    = 'select' | 'shape-rect' | 'shape-circle' | 'shape-triangle' | 'shape-star' | 'shape-pentagon' | 'shape-hexagon' | 'shape-octagon' | 'shape-diamond' | 'shape-oval' | 'shape-speechBubble' | 'shape-roundedSpeech' | 'shape-cone' | 'shape-cube' | 'shape-rect-hand' | 'shape-circle-hand' | 'shape-square-hand' | 'shape-heart' | 'shape-rect-sketch' | 'arrow' | 'code' | 'image' | 'chart' | 'video' | 'latex' | 'counter'
   | 'handDraw'
-export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'motion' | 'effects' | 'latex' | 'counter' | 'handDraw' | null
+export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'motion' | 'groupEffects' | 'effects' | 'latex' | 'counter' | 'handDraw' | null
 export type HandDrawTool = 'pen' | 'paint' | 'spray' | 'eraser'
 export type ShapeFillMode = 'solid' | 'linearGradient' | 'radialGradient'
 export type TextFillMode = 'solid' | 'linearGradient'
@@ -112,10 +112,15 @@ export interface ElementAnimation {
   id: string
   type: AnimationType
   timing: AnimationTiming  // onEnter, onExit, or loop
-  startTime: number   // seconds from scene start
   duration: number    // seconds
-  delay: number       // seconds
+  /** When the animation starts, in seconds from the scene start. */
+  delay: number
   easing: EasingType
+  /**
+   * Loops only: play once every `repeatEvery` seconds instead of back to back
+   * (e.g. a 0.4 s pulse every 3 s). Unset = continuous loop.
+   */
+  repeatEvery?: number
   params?: {
     direction?: SlideDir
     distance?: number
@@ -259,6 +264,17 @@ export interface ArrowElement extends BaseElement {
   bendCount?: number
   bendDirection?: ArrowBendDirection
   bendCurve?: number
+  /** Attached ends follow their element (src/utils/connectors.ts); unset = a free point. */
+  startAttach?: ArrowAttachment
+  endAttach?: ArrowAttachment
+}
+
+/** Where an attached arrow end sits: 'auto' faces the other end. */
+export type ConnectorAnchor = 'auto' | 'top' | 'right' | 'bottom' | 'left' | 'center'
+
+export interface ArrowAttachment {
+  elementId: string
+  anchor?: ConnectorAnchor
 }
 
 export interface CodeElement extends BaseElement {

@@ -77,7 +77,7 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
   const textRevealTypes = new Set(['typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'outlineRevealIn'])
 
   const motions = anims.filter(isMotionAnimation).sort((a, b) =>
-    safeTime(a.startTime) + safeTime(a.delay) - safeTime(b.startTime) - safeTime(b.delay))
+    safeTime(a.delay) - safeTime(b.delay))
   const enters = anims.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onEnter')
   const exits  = anims.filter(a => !isMotionAnimation(a) && !isLoopAnimation(a) && a.timing === 'onExit')
   const loops  = anims.filter(a => isLoopAnimation(a))
@@ -91,19 +91,19 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
   // firstExitStart:  when the EARLIEST exit animation begins
   // lastExitEnd:     when ALL exit animations have finished
   const firstEnterStart = enters.length > 0
-    ? Math.min(...enters.map(a => safe(a.startTime) + safe(a.delay)))
+    ? Math.min(...enters.map(a => safe(a.delay)))
     : -Infinity
 
   const lastEnterEnd = enters.length > 0
-    ? Math.max(...enters.map(a => safe(a.startTime) + safe(a.delay) + safe(a.duration)))
+    ? Math.max(...enters.map(a => safe(a.delay) + safe(a.duration)))
     : 0
 
   const firstExitStart = exits.length > 0
-    ? Math.min(...exits.map(a => safe(a.startTime) + safe(a.delay)))
+    ? Math.min(...exits.map(a => safe(a.delay)))
     : Infinity
 
   const lastExitEnd = exits.length > 0
-    ? Math.max(...exits.map(a => safe(a.startTime) + safe(a.delay) + safe(a.duration)))
+    ? Math.max(...exits.map(a => safe(a.delay) + safe(a.duration)))
     : Infinity
 
   // Before first enter: element is invisible — return early, no animations run
@@ -122,7 +122,7 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
 
   // ── Enter animations ───────────────────────────────────────────────────────
   for (const anim of enters) {
-    const start  = safe(anim.startTime) + safe(anim.delay)
+    const start  = safe(anim.delay)
     const end    = start + safe(anim.duration)
     const before = localTime < start
     const after  = localTime >= end
@@ -133,7 +133,7 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
 
   // ── Exit animations ────────────────────────────────────────────────────────
   for (const anim of exits) {
-    const start  = safe(anim.startTime) + safe(anim.delay)
+    const start  = safe(anim.delay)
     const end    = start + safe(anim.duration)
     const before = localTime < start
     const after  = localTime >= end
@@ -145,7 +145,7 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
   // Motion is timeline movement, not a visibility enter/exit animation. Keep it out
   // of the enter window so loop effects such as arrow flow can run while moving.
   for (const anim of motions) {
-    const start  = safe(anim.startTime) + safe(anim.delay)
+    const start  = safe(anim.delay)
     const end    = start + safe(anim.duration)
     const before = localTime < start
     const after  = localTime >= end
@@ -166,7 +166,7 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
   const hasValidLoopWindow = loopWindowEnd > loopWindowStart
 
   for (const anim of loops) {
-    const animStart      = safe(anim.startTime) + safe(anim.delay)
+    const animStart      = safe(anim.delay)
     const effectiveStart = Math.max(animStart, loopWindowStart)
     
     // If there's a valid loop window, only run within it
@@ -176,22 +176,33 @@ export function getAnimatedProps(el: EditorElement, localTime: number): Animated
     // For loops with their own window that extends beyond valid loop window
     if (localTime < effectiveStart) continue
 
-    if (anim.type === 'colorPulse') {
-      const pulseCount = Math.max(1, Math.round(anim.params?.pulseCount ?? 2))
-      const pulseDuration = Math.max(0.05, safe(anim.duration) || 0.4)
-      const totalDuration = pulseCount * pulseDuration
-      if (localTime >= effectiveStart + totalDuration) continue
+    // A repeating loop plays once per `repeatEvery` seconds, counted from its own
+    // delay so a staggered group stays in step (a wave that repeats), and rests
+    // in between.
+    const pulseCount = Math.max(1, Math.round(anim.params?.pulseCount ?? 2))
+    const playLength = anim.type === 'colorPulse'
+      ? pulseCount * Math.max(0.05, safe(anim.duration) || 0.4)
+      : safe(anim.duration)
+    let cycleStart = effectiveStart
+    if (anim.repeatEvery != null && anim.repeatEvery > 0) {
+      cycleStart = animStart + Math.floor((localTime - animStart) / anim.repeatEvery) * anim.repeatEvery
+      if (localTime - cycleStart >= playLength) continue
+    }
 
-      const elapsed = localTime - effectiveStart
+    if (anim.type === 'colorPulse') {
+      const pulseDuration = Math.max(0.05, safe(anim.duration) || 0.4)
+      if (localTime >= cycleStart + playLength) continue
+
+      const elapsed = localTime - cycleStart
       const pulseProgress = (elapsed % pulseDuration) / pulseDuration
-      applyAnim(anim, pulseProgress, false, false, el, props, localTime, effectiveStart)
+      applyAnim(anim, pulseProgress, false, false, el, props, localTime, cycleStart)
       continue
     }
-    
+
     // Calculate proper progress within the loop ( accounting for delay )
-    const timeSinceAnimStart = localTime - animStart
+    const timeSinceAnimStart = localTime - (anim.repeatEvery ? cycleStart : animStart)
     const loopProgress = anim.duration > 0 ? ((timeSinceAnimStart % anim.duration) / anim.duration) : 0
-    applyAnim(anim, loopProgress, false, false, el, props, localTime, effectiveStart)
+    applyAnim(anim, loopProgress, false, false, el, props, localTime, anim.repeatEvery ? cycleStart : effectiveStart)
   }
 
   return props
@@ -428,7 +439,7 @@ function applyAnim(
     // loopProgress is the normalized progress (0-1) within the current loop cycle
     case 'pulse': {
       if (before) return
-      const elapsed = localTime - (loopStart ?? (anim.startTime + anim.delay))
+      const elapsed = localTime - (loopStart ?? anim.delay)
       const phase   = (elapsed % anim.duration) / anim.duration
       const v       = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2)
       out.scaleX    = 0.88 + 0.24 * v
@@ -438,7 +449,7 @@ function applyAnim(
 
     case 'bounceLoop': {
       if (before) return
-      const elapsed  = localTime - (loopStart ?? (anim.startTime + anim.delay))
+      const elapsed  = localTime - (loopStart ?? anim.delay)
       const phase    = (elapsed % anim.duration) / anim.duration
       const v        = Math.sin(phase * Math.PI * 2)
       const loopDist = anim.params?.distance ?? 24
@@ -448,7 +459,7 @@ function applyAnim(
 
     case 'rotateLoop': {
       if (before) return
-      const elapsed = localTime - (loopStart ?? (anim.startTime + anim.delay))
+      const elapsed = localTime - (loopStart ?? anim.delay)
       const turns   = elapsed / anim.duration
       out.rotation  = el.rotation + turns * 360
       out.offsetX   = el.width / 2
@@ -466,14 +477,14 @@ function applyAnim(
 
     case 'flowLoop': {
       if (before) return
-      const elapsed = localTime - (loopStart ?? (anim.startTime + anim.delay))
+      const elapsed = localTime - (loopStart ?? anim.delay)
       out.dashOffset = -(elapsed * 60) % 200
       break
     }
 
     case 'fadeLoop': {
       if (before) return
-      const elapsed = localTime - (loopStart ?? (anim.startTime + anim.delay))
+      const elapsed = localTime - (loopStart ?? anim.delay)
       const phase   = (elapsed % anim.duration) / anim.duration
       const v       = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2)
       out.opacity   = lerp(el.opacity * 0.1, el.opacity, v)
@@ -482,7 +493,10 @@ function applyAnim(
 
     case 'colorPulse': {
       if (before) return
-      const baseColor = 'color' in el ? String((el as { color: string }).color) : '#222222'
+      // Text/icons flash their colour, shapes their fill, arrows their line.
+      const baseColor = el.type === 'shape' ? el.fill
+        : el.type === 'arrow' ? el.stroke
+        : 'color' in el ? String((el as { color: string }).color) : '#222222'
       const pulseColor = anim.params?.pulseColor ?? '#ffea00'
       const strength = Math.sin(Math.max(0, Math.min(1, t)) * Math.PI)
       out.textColor = mixHexColor(baseColor, pulseColor, strength)

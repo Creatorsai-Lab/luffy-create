@@ -2,16 +2,17 @@ import type { EditorElement } from '../types/editor'
 import { useEditorStore } from '../store/editorStore'
 import type { AiElementSummary, AiProjectContext } from './types'
 
-const MAX_ELEMENTS_PER_SCENE = 40
+// Local only (the parser); a future LLM gets a compact summary instead.
+const MAX_ELEMENTS_PER_SCENE = 500
 
 export function buildAiProjectContext(): AiProjectContext | null {
   const { project, currentSceneId, selectedIds, playhead } = useEditorStore.getState()
   if (!project) return null
 
   const currentSceneIndex = Math.max(1, project.scenes.findIndex(scene => scene.id === currentSceneId) + 1)
-  const selected = project.scenes
-    .flatMap(scene => scene.elements)
-    .filter(element => selectedIds.includes(element.id))
+  // In the order they were selected (a chain of connectors follows it).
+  const all = project.scenes.flatMap(scene => scene.elements)
+  const selected = selectedIds.map(id => all.find(element => element.id === id)).filter((el): el is EditorElement => Boolean(el))
 
   return {
     project: {
