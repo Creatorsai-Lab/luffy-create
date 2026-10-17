@@ -1,6 +1,7 @@
-import { Arrow, Line } from 'react-konva'
+import { Arrow, Group, Line, Shape } from 'react-konva'
 import type { ArrowElement } from '../../../types/editor'
 import { getArrowPathPoints } from '../../../engine/arrowPath'
+import { drawArrowHead, headAngle, headInset, trimPolyline } from '../../../engine/arrowHeads'
 
 interface Props {
   el: ArrowElement
@@ -49,6 +50,28 @@ export default function ArrowKonva({ el, konvaProps, pathProgress = 1, dashOffse
 
   if (el.arrowHead === 'none') {
     return <Line key={`none-${el.id}`} {...commonProps} />
+  }
+
+  // Other head styles: the line (stopping short under each head) and the heads, as one group.
+  const style = el.headStyle ?? 'triangle'
+  if (style !== 'triangle') {
+    const length = el.pointerLength ?? 12
+    const width = el.pointerWidth ?? 10
+    const inset = headInset(style, length, width, el.strokeWidth)
+    const shaft = trimPolyline(points, pointerAtBeginning ? inset : 0, pointerAtEnd ? inset : 0)
+    // The group carries selection/drag; the line inside only draws (and gives the group its hit area).
+    return (
+      <Group key={`${style}-${el.id}`} {...konvaProps} x={animX} y={animY}>
+        <Line points={shaft} stroke={el.stroke} strokeWidth={el.strokeWidth} dash={dash} dashOffset={dashOffset} tension={0}
+          lineCap="round" lineJoin="round" hitStrokeWidth={commonProps.hitStrokeWidth} perfectDrawEnabled={false} />
+        <Shape listening={false} perfectDrawEnabled={false} sceneFunc={ctx => {
+          const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
+          const n = points.length
+          if (pointerAtEnd) drawArrowHead(raw, style, points[n - 2], points[n - 1], headAngle(points, true), length, width, el.strokeWidth, headColor)
+          if (pointerAtBeginning) drawArrowHead(raw, style, points[0], points[1], headAngle(points, false), length, width, el.strokeWidth, headColor)
+        }} />
+      </Group>
+    )
   }
 
   return (

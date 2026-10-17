@@ -106,7 +106,7 @@ const SECTIONS: Section[] = [
         <Table head={['Tool', 'What it does']} rows={[
           ['Free Cursor', 'Back to plain selection: clears the active tool, deselects and closes the Options panel.'],
           ['Add-ons', 'Ready-made smart pieces — Title card, Lower third, Hook / CTA, Neural network, Flowchart, Equation reveal, Code walkthrough. Add one, then change its settings; it rebuilds in place and fits 16:9 or 9:16. In the AI Agent, name one with a slash command such as /neural-network.'],
-          ['Arrow', 'Click to add an arrow in the scene center. In its panel, “+ Add Arrow” adds another; “Draw Arrow” lets you drag one on the canvas (crosshair cursor, Esc cancels). Heads, dashes, curve, bends, colors. Under Connections, attach either end to an item so the arrow follows it.'],
+          ['Arrow', 'Click to add an arrow in the scene center. In its panel, “+ Add Arrow” adds another; “Draw Arrow” lets you drag one on the canvas (crosshair cursor, Esc cancels). Heads (triangle, open, dot, ring, diamond, square or bar, at either or both ends), dashes, curve, bends, colors. Under Connections, attach either end to an item so the arrow follows it.'],
           ['Audio', 'Upload music, voiceover and sound effects; add them to the timeline or drag them onto the audio track.'],
           ['Background', 'Solid, gradient, grid, dots, animated, transparent or image background for the current scene.'],
           ['Charts', 'Bar, line, area, points, pie and doughnut charts with editable data, axes and styling.'],
@@ -415,7 +415,7 @@ const SECTIONS: Section[] = [
         <P>The AI Agent turns plain-English requests into editor commands. It runs entirely on your computer — no account or internet needed — and always shows the plan before anything changes.</P>
         <P>One request can hold several steps ("add a title 'Intro' at the top and make it fade in, then split scene 2 at 3s"). Refer to items by kind ("the title", "the red circle", "the music"), by name, by their text in quotes, or as "it" for what the previous step created.</P>
         <H>Add-ons and media in a prompt</H>
-        <P>Type <strong>/</strong> to pick an add-on (/title-card, /lower-third, /hook, /neural-network, /flowchart, /equation, /code-walkthrough) and <strong>@</strong> to pick a media file. A short list opens as you type: <Kbd>↑</Kbd> <Kbd>↓</Kbd> move through it, <Kbd>Enter</Kbd> or <Kbd>Tab</Kbd> picks, <Kbd>Esc</Kbd> closes it. Commands and mentions are coloured in the prompt so you can see they were understood — e.g. "add /neural-network in scene 4 with 4 seconds delay", "add a step 'Test' to /flowchart". Every prompt you sent has a copy button under it.</P>
+        <P>Type <strong>/</strong> to pick an add-on (/title-card, /lower-third, /hook, /neural-network, /flowchart, /equation, /code-walkthrough) and <strong>@</strong> to pick a media file. A short list opens as you type: <Kbd>↑</Kbd> <Kbd>↓</Kbd> move through it, <Kbd>Enter</Kbd> or <Kbd>Tab</Kbd> picks, <Kbd>Esc</Kbd> closes it. Commands and mentions show in colour so you can see they were understood — e.g. "add /neural-network in scene 4 with 4 seconds delay", "add a step 'Test' to /flowchart". Every prompt you sent has a copy button under it.</P>
         <H>Better prompts</H>
         <ul className="list-disc pl-5">
           <LI>Mention the scene number when the edit belongs to a specific scene.</LI>

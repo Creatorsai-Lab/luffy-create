@@ -212,9 +212,11 @@ blocks: "add a 3-4-2 neural network with a forward pass", "add a title card
   one-letter slip) name an add-on exactly; "to/in/of /flowchart" points at the
   one on the scene. "with N seconds delay" / "after Ns" set its start.
 - Composer: one list for `/` add-ons and `@` media (6 rows, ↑/↓, Enter/Tab,
-  Esc); commands and mentions highlighted in the prompt (a mirrored layer under
-  a transparent textarea, stroke-bold so the caret stays aligned) and in sent
-  messages; a copy button under each sent prompt. `src/ai/promptTokens.ts`.
+  Esc); commands and mentions in colour (a mirrored layer under a transparent
+  textarea, same font so the caret stays aligned; monospace in sent messages
+  and the list); a copy button under each sent prompt. `src/ai/promptTokens.ts`.
+- Arrow head styles: triangle, open, dot, ring, diamond, square, bar
+  (`ArrowElement.headStyle`, `src/engine/arrowHeads.ts`).
 
 ### Phase 5 — Technical blocks v1
 - Engine: `list` fields (numbers or texts, split on what people type; LaTeX

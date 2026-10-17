@@ -335,7 +335,7 @@ export default function AISidebar() {
           <div className="relative flex-1 min-w-0 h-[calc(4*1.5rem)]">
             <div ref={backdropRef} aria-hidden
               className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap [overflow-wrap:break-word] text-base leading-6 text-editor-text">
-              <PromptText text={input} sameWidth />{'\n'}
+              <PromptText text={input} inInput />{'\n'}
             </div>
             <textarea
               ref={inputRef}

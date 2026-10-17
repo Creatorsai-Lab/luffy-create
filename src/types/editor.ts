@@ -15,6 +15,8 @@ export type TextEffectType = 'glow' | 'hollow'
 export type EasingType    = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'bounce'
 export type AlignType     = 'left' | 'center' | 'right'
 export type ArrowHeadType = 'none' | 'end' | 'start' | 'both'
+/** The shape of an arrow's head(s); 'triangle' is the classic filled point. */
+export type ArrowHeadStyle = 'triangle' | 'open' | 'circle' | 'ring' | 'diamond' | 'square' | 'bar'
 export type ArrowBendDirection = 'horizontal' | 'vertical'
 export type SlideDir      = 'left' | 'right' | 'up' | 'down'
 export type MoveDirection = 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
@@ -258,6 +260,8 @@ export interface ArrowElement extends BaseElement {
   stroke: string
   strokeWidth: number
   arrowHead: ArrowHeadType
+  /** Default triangle. */
+  headStyle?: ArrowHeadStyle
   dashed: boolean
   dotted: boolean
   pointerLength: number
