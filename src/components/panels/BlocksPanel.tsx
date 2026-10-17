@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { LayoutTemplate, Plus, Trash2, Unlink } from 'lucide-react'
+import { Plus, Puzzle, Trash2, Unlink } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
-import { listBlocks, getBlock, type SmartBlock } from '../../blocks/registry'
+import { addonCommand, listBlocks, getBlock, type SmartBlock } from '../../blocks/registry'
 import type { BlockField } from '../../blocks/fields'
 import { useEditorStore } from '../../store/editorStore'
 import type { SceneGroup } from '../../types/editor'
@@ -23,7 +23,7 @@ export default function BlocksPanel() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <PanelHeader icon={<LayoutTemplate size={12} />} title="Blocks" />
+      <PanelHeader icon={<Puzzle size={12} />} title="Add-ons" />
       <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3">
         {group && block ? <BlockSettings group={group} block={block} /> : <Catalogue />}
       </div>
@@ -40,7 +40,7 @@ function Catalogue() {
   return (
     <>
       <p className="text-[11px] leading-relaxed text-editor-text-secondary">
-        Ready-made pieces you set up with a few settings. Select one on the canvas later to change it — it rebuilds in place.
+        Ready-made pieces you set up with a few settings. Select one on the canvas later to change it — it rebuilds in place. In the AI Agent, type / to name one.
       </p>
       {sections.map(section => (
         <section key={section.title} className="flex flex-col gap-2">
@@ -48,7 +48,7 @@ function Catalogue() {
           {section.blocks.map(block => (
             <div key={block.id} className="rounded border border-editor-border bg-editor-elevated-highlight px-2.5 py-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-editor-text">{block.title}</span>
+                <span className="min-w-0 text-xs font-medium text-editor-text">{block.title} <span className="font-mono text-[10px] text-violet-300">/{addonCommand(block)}</span></span>
                 <button type="button" onClick={() => insertBlock(block.id)}
                   className="flex items-center gap-1 rounded bg-editor-accent px-2 py-1 text-[11px] text-white hover:bg-editor-accent-hover">
                   <Plus size={11} /> Add
@@ -94,7 +94,7 @@ function BlockSettings({ group, block }: { group: SceneGroup; block: SmartBlock 
           className="flex flex-1 items-center justify-center gap-1 rounded border border-editor-border py-1.5 text-[11px] text-editor-text hover:border-editor-accent hover:text-editor-accent">
           <Unlink size={12} /> Detach
         </button>
-        <button type="button" onClick={remove} title="Delete this block"
+        <button type="button" onClick={remove} title="Delete this add-on"
           className="flex-none rounded border border-editor-border px-2.5 text-editor-text-secondary hover:border-red-400 hover:text-red-400">
           <Trash2 size={13} />
         </button>
@@ -107,7 +107,14 @@ function FieldInput({ field, value, onChange }: { field: BlockField; value: unkn
   const label = <span className="text-[10px] text-editor-text-secondary">{field.label}</span>
   switch (field.type) {
     case 'text':
-      return <label className="flex flex-col gap-1">{label}<TextField value={String(value ?? '')} multiline={field.multiline} placeholder={field.placeholder} onCommit={onChange} /></label>
+      return <label className="flex flex-col gap-1">{label}<TextField value={String(value ?? '')} multiline={field.multiline || field.keepLines} rows={field.code ? 8 : field.keepLines ? 4 : 2} mono={field.code} placeholder={field.placeholder} onCommit={onChange} /></label>
+    case 'list': {
+      // Edited as text ("3, 4, 2" / "Load → Clean" / one per line); the block splits it back into items.
+      const joiner = field.joiner ?? (field.of === 'number' ? ', ' : ' → ')
+      const shown = Array.isArray(value) ? value.join(joiner) : String(value ?? '')
+      const lines = joiner.includes('\n')
+      return <label className="flex flex-col gap-1">{label}<TextField value={shown} multiline={lines} rows={lines ? 4 : 2} mono={lines} placeholder={field.placeholder} onCommit={onChange} /></label>
+    }
     case 'number':
       return <label className="flex flex-col gap-1">{label}<NumberInput value={Number(value ?? field.min)} min={field.min} max={field.max} step={field.step ?? 1} onChange={onChange} /></label>
     case 'color':
@@ -139,7 +146,7 @@ function FieldInput({ field, value, onChange }: { field: BlockField; value: unkn
 }
 
 /** Typing edits a local copy; the block rebuilds a moment after typing stops (and on blur). */
-function TextField({ value, multiline, placeholder, onCommit }: { value: string; multiline?: boolean; placeholder?: string; onCommit: (value: string) => void }) {
+function TextField({ value, multiline, rows = 2, mono, placeholder, onCommit }: { value: string; multiline?: boolean; rows?: number; mono?: boolean; placeholder?: string; onCommit: (value: string) => void }) {
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
   useEffect(() => {
@@ -147,8 +154,8 @@ function TextField({ value, multiline, placeholder, onCommit }: { value: string;
     const timer = setTimeout(() => onCommit(draft), 350)
     return () => clearTimeout(timer)
   }, [draft]) // eslint-disable-line react-hooks/exhaustive-deps
-  const className = 'w-full rounded border border-editor-border bg-editor-elevated-highlight px-2 py-1 text-xs text-editor-text'
+  const className = cn('w-full rounded border border-editor-border bg-editor-elevated-highlight px-2 py-1 text-xs text-editor-text', mono && 'font-mono whitespace-pre')
   return multiline
-    ? <textarea rows={2} value={draft} placeholder={placeholder} onChange={e => setDraft(e.target.value)} onBlur={() => draft !== value && onCommit(draft)} className={cn(className, 'resize-none')} />
+    ? <textarea rows={rows} spellCheck={!mono} value={draft} placeholder={placeholder} onChange={e => setDraft(e.target.value)} onBlur={() => draft !== value && onCommit(draft)} className={cn(className, 'resize-none')} />
     : <input value={draft} placeholder={placeholder} onChange={e => setDraft(e.target.value)} onBlur={() => draft !== value && onCommit(draft)} className={className} />
 }

@@ -184,6 +184,25 @@ The agent works out exact pixels from the scene size: the upper half of a
 - A clip that fills the frame goes behind everything; a smaller clip on top
   of a bigger one comes to the front.
 
+**Auto reframe (follow the face)**
+
+```text
+Reframe the video for vertical        Auto reframe for TikTok
+Follow the speaker's face             (keeps the clip's size and place)
+Keep my face centred and keep the camera steady
+Track the face in video 2 closely
+Stop following the face
+```
+
+The agent finds faces in the clip on this computer (MediaPipe face
+detection, bundled with the app), then moves the crop to keep the main
+speaker in frame. "for vertical / TikTok / fill / full screen" first makes
+the clip cover the frame; otherwise it keeps its box and only the crop
+moves (a clip that already shows its whole picture has no room to move —
+the agent says so). Framing: still per shot when the speaker barely moves,
+a smooth pan when they move ("steady" / "closely" force one or the other),
+a cut when the shot cuts, a little head room above the face.
+
 **Captions**
 
 ```text
@@ -199,7 +218,7 @@ Presets: Bold, Karaoke, Boxed, Minimal, Pop. Styles apply to the project's
 caption track; without captions yet, the style is saved and used when you
 generate them.
 
-**Blocks**
+**Add-ons**
 
 ```text
 Add a title card 'Chapter 2' with subtitle 'Setup' on scene 3
@@ -212,13 +231,64 @@ Change the lower third role to 'Founder' and put it on the left
 Delete the lower third          Fade out the hook
 ```
 
-Blocks are smart groups: the agent only picks the block and its settings, and
+Add-ons are smart groups: the agent only picks the add-on and its settings, and
 the editor builds and lays it out (16:9 and 9:16). The first quote is the main
 text and the second the secondary text (subtitle, role); a quote after a
 setting's name ("subtitle 'Setup'", "highlighting 'everything'") goes to that
 setting. Naming a placed block ("the lower third", "the hook") and asking for a
 new setting rebuilds it in place; "move", "delete" or "fade" act on all of its
 parts.
+
+**Slash commands**
+
+Type `/` for the add-on list and `@` for media; ↑/↓ move, Enter or Tab picks,
+Esc closes. A slash command names an add-on exactly (a unique start such as
+`/neural`, or a one-letter slip such as `/neurall`, also works):
+
+```text
+Add /neural-network in scene 4 with 4 seconds delay
+Add /flowchart with steps load -> train -> ship after 2s
+Add /lower-third 'Adya' 'ML engineer'
+Add a step 'Test' to /flowchart        (to / in / of: the one on the scene)
+Make /flowchart vertical               Delete /flowchart
+```
+
+Commands: /title-card, /lower-third, /hook, /neural-network, /flowchart,
+/equation, /code-walkthrough. "with N seconds delay", "after Ns" and "at Ns"
+set when the add-on starts.
+
+**Technical add-ons**
+
+```text
+Add a neural network with layers 3, 5, 5, 2 and a forward and backward pass
+Add an MLP with 784 inputs, two hidden layers of 128 and 10 outputs
+Add a 3-layer neural network on scene 3
+Make the network seven layers with 12 neurons in the middle
+Add a hidden layer to the network       Remove a layer from the network
+Make the input layer of the network 10 neurons
+Make the network vertical with sparse connections
+
+Add a flowchart: collect data -> clean -> train -> deploy
+Add a pipeline 'Ingest' 'Embed' 'Index' 'Query' step by step with a pulse
+Add a step 'Test' after 'Train model' in the flowchart
+Remove the step 'Clean' from the flowchart     Rename 'Clean' to 'Preprocess'
+Connect 'Deploy' back to 'Collect data' in the flowchart labelled 'retrain'
+Make the flowchart vertical with pill steps
+
+Add an equation reveal 'x^2 - 4 = 0' 'x^2 = 4' 'x = \pm 2' one at a time
+Add a step by step derivation titled 'Solving' with 'a+b=c' 'a=c-b'
+
+Add a code walkthrough of '…code…' with lines 1-3 'Load' and lines 4-7 'Train'
+```
+
+"The network", "the flowchart" (or "the pipeline"), "the equation" and "the
+walkthrough" point at the block on the scene, so "add a step to the
+flowchart" changes it while "add a flowchart" (or "another flowchart") adds
+one. Networks: an architecture ("3-5-5-2", "[784, 128, 10]"), inputs/hidden/
+outputs, a total layer count (with an optional size in the middle), adding or
+removing a layer, or one layer's size. Large layers are drawn with "⋮" and
+their size in the label. Flowcharts: a step ending in "?" is a decision;
+loops back arc around the flow.
 
 **Audio and video**
 

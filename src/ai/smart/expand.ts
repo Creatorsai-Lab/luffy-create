@@ -10,12 +10,15 @@ import { mergeRanges, removeRanges, splitAt, type SceneInfo } from './cuts'
 import { findCuts } from './shots'
 import { detectSpeech, frameLoudness, silencesBetween, type TimeRange } from './speech'
 import { DEFAULT_DUCK_LEVEL, duckingKeys } from './duck'
+import { reframePath, type FaceSample } from './reframe'
 
 export interface SmartMedia {
   decodeMono: (path: string) => Promise<{ samples: Float32Array; sampleRate: number } | null>
   detectShotChanges: (path: string, from: number, to: number, find: typeof findCuts) => Promise<number[]>
   /** Word-level transcript of a file, in source seconds. */
   transcribeWords: (path: string) => Promise<Array<{ start: number; end: number; text: string }>>
+  /** Faces in [from, to] of a video (source seconds), and the file's width / height. */
+  detectFaces: (path: string, from: number, to: number, onProgress?: (share: number) => void) => Promise<{ aspect: number; samples: FaceSample[] }>
 }
 
 export interface Expanded {
@@ -122,6 +125,60 @@ async function expandOne(
         shots += split.length
       }
       return { commands, note: shots ? `Split at ${shots} shot change${shots === 1 ? '' : 's'}.` : 'No shot changes found.' }
+    }
+
+    case 'reframe': {
+      const W = context.project.width
+      const H = context.project.height
+      const videos = context.scenes.flatMap(scene => scene.elements
+        .filter(el => el.type === 'video' && el.src && (step.elementIds ? step.elementIds.includes(el.id) : scene.index === context.currentSceneIndex))
+        .map(el => ({ el, scene })))
+      if (!videos.length) { warn('There is no video to reframe on this scene.'); return { commands: [] } }
+      const commands: AiEditorCommand[] = []
+      const notes: string[] = []
+      for (const { el, scene } of videos) {
+        const clip = clipWindow(el)
+        onProgress?.(`Looking for faces in ${el.name}…`)
+        const result = await media.detectFaces(el.src!, clip.from, clip.to, share => onProgress?.(`Looking for faces in ${el.name}… ${Math.round(share * 100)}%`))
+          .catch(error => { warn(error instanceof Error ? error.message : String(error)); return null })
+        if (!result) continue
+
+        // The box the clip will fill, and the crop that fits it without stretching.
+        const cropFor = (box: { width: number; height: number }) => {
+          const boxAspect = box.width / box.height
+          return result.aspect > boxAspect ? { w: boxAspect / result.aspect, h: 1 } : { w: 1, h: result.aspect / boxAspect }
+        }
+        let box = step.fill ? { x: 0, y: 0, width: W, height: H } : undefined
+        let size = cropFor(box ?? { width: el.width ?? W, height: el.height ?? H })
+        if (size.w > 0.97 && size.h > 0.97) {
+          // The clip already shows its whole picture: nothing to follow unless it fills a frame of another shape.
+          const frameSize = cropFor({ width: W, height: H })
+          if (step.fill === undefined && (frameSize.w < 0.97 || frameSize.h < 0.97)) {
+            box = { x: 0, y: 0, width: W, height: H }
+            size = frameSize
+          } else {
+            warn(`${el.name} shows its whole picture, so there is no room to follow the face — put it in a narrower area first, or say "reframe it to fill the screen".`)
+            continue
+          }
+        }
+
+        const path = reframePath(result.samples, { cropW: size.w, cropH: size.h, mode: step.mode })
+        if (!path) {
+          warn(`No face found in ${el.name}, so it was centred instead.`)
+          commands.push({ type: 'setCropTrack', elementId: el.id, sceneId: scene.id, sceneIndex: scene.index, targetLabel: el.name, box,
+            crop: { x: (1 - size.w) / 2, y: (1 - size.h) / 2, ...size }, keys: [] })
+          continue
+        }
+        if (path.coverage < 0.3) warn(`A face was found in only ${Math.round(path.coverage * 100)}% of ${el.name} — check the framing where nobody is on screen.`)
+        const first = path.keys[0]
+        commands.push({
+          type: 'setCropTrack', elementId: el.id, sceneId: scene.id, sceneIndex: scene.index, targetLabel: el.name, box,
+          crop: { x: Math.max(0, Math.min(1 - size.w, first.cx - size.w / 2)), y: Math.max(0, Math.min(1 - size.h, first.cy - size.h / 2)), ...size },
+          keys: path.keys,
+        })
+        notes.push(`Reframe ${el.name}${box ? ' to fill the frame' : ''}: the face is in ${Math.round(path.coverage * 100)}% of it; the crop ${path.moving ? 'follows the speaker smoothly' : 'holds steady on the speaker'}${path.cuts ? ` and cuts with the ${path.cuts} shot change${path.cuts === 1 ? '' : 's'}` : ''}.`)
+      }
+      return { commands, note: notes.join(' ') || undefined }
     }
 
     case 'duckMusic': {

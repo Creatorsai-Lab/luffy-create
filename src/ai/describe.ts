@@ -1,3 +1,4 @@
+import { getBlock } from '../blocks/registry'
 import type { AiEditorCommand, AiElementRef, AiSceneRef } from './types'
 
 /** One line per command for the plan preview, e.g. `Fade in "Hello" on Scene 2`. */
@@ -30,13 +31,16 @@ export function describeCommand(command: AiEditorCommand): string {
     case 'removeAnimations': return `Remove animations from ${target(command)}`
     case 'groupElements': return `Group ${command.targets.length} items${command.name ? ` as "${command.name}"` : ''}`
     case 'ungroupElements': return 'Ungroup'
-    case 'insertBlock': return `Add ${command.blockId}${onScene(command)}`
+    case 'insertBlock': return `Add the ${getBlock(command.blockId)?.title ?? command.blockId} add-on${onScene(command)}`
     case 'setCaptionStyle': return [
       command.preset ? `Use the ${command.preset} caption style` : '',
       command.style ? `${command.preset ? 'with' : 'Change captions:'} ${Object.entries(command.style).map(([k, v]) => `${k} ${formatValue(v)}`).join(', ')}` : '',
       command.enabled === false ? 'Hide captions' : command.enabled ? 'Show captions' : '',
     ].filter(Boolean).join(' ')
     case 'arrangeMedia': return `Arrange ${command.targets.length} items: ${{ split: 'split screen', sideBySide: 'side by side', stacked: 'stacked', grid: 'grid' }[command.layout]}`
+    case 'setCropTrack': return command.keys.length
+      ? `Reframe ${target(command)} to follow the face${command.box ? ', filling the frame' : ''}${command.keys.length > 2 ? '' : ' (steady framing)'}`
+      : `Stop following the face in ${target(command)}`
     case 'placeMedia': {
       const r = command.region
       const where = command.regionLabel === 'full screen' ? 'full screen' : `in the ${command.regionLabel ?? 'area'}`
@@ -55,7 +59,7 @@ export function describeCommand(command: AiEditorCommand): string {
     case 'setVolumeKeys': return command.keys.length
       ? `Automate the volume of ${target(command)} (${command.keys.length} points)`
       : `Remove volume automation from ${target(command)}`
-    case 'updateBlock': return `Change ${Object.keys(command.params).join(', ')}`
+    case 'updateBlock': return `Change the add-on: ${Object.entries(command.params).map(([k, v]) => `${k} ${Array.isArray(v) ? v.join(', ') : formatValue(v)}`).join('; ')}`
     case 'connectElements': return command.to
       ? `Connect ${command.from.length} item${command.from.length === 1 ? '' : 's'} to ${command.to.length} item${command.to.length === 1 ? '' : 's'} with arrows`
       : `Connect ${command.from.length} items (${command.mode ?? 'chain'}) with arrows`

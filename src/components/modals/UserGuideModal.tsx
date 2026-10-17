@@ -105,10 +105,10 @@ const SECTIONS: Section[] = [
         <H>Tools</H>
         <Table head={['Tool', 'What it does']} rows={[
           ['Free Cursor', 'Back to plain selection: clears the active tool, deselects and closes the Options panel.'],
+          ['Add-ons', 'Ready-made smart pieces — Title card, Lower third, Hook / CTA, Neural network, Flowchart, Equation reveal, Code walkthrough. Add one, then change its settings; it rebuilds in place and fits 16:9 or 9:16. In the AI Agent, name one with a slash command such as /neural-network.'],
           ['Arrow', 'Click to add an arrow in the scene center. In its panel, “+ Add Arrow” adds another; “Draw Arrow” lets you drag one on the canvas (crosshair cursor, Esc cancels). Heads, dashes, curve, bends, colors. Under Connections, attach either end to an item so the arrow follows it.'],
           ['Audio', 'Upload music, voiceover and sound effects; add them to the timeline or drag them onto the audio track.'],
           ['Background', 'Solid, gradient, grid, dots, animated, transparent or image background for the current scene.'],
-          ['Blocks', 'Ready-made smart pieces — Title card, Lower third, Hook / CTA. Add one, then change its text, style, colours and timing; it rebuilds in place and fits 16:9 or 9:16.'],
           ['Charts', 'Bar, line, area, points, pie and doughnut charts with editable data, axes and styling.'],
           ['Code', 'Monaco code editor with syntax highlighting, line numbers and typing animations.'],
           ['Counter', 'Animated counter that counts as numbers, English words or Hindi words, with range, speed, loop and text styling.'],
@@ -159,9 +159,10 @@ const SECTIONS: Section[] = [
         <P>Shift-click several items and open <strong>Group Effects</strong>. It applies one animation to all of them, each a step later than the last: choose the order (left → right, top → bottom, …), the step, and <strong>Rows / columns together</strong> to animate a whole column at once — like one layer of a neural network. Loop animations can <strong>repeat the wave</strong>. <strong>After last</strong> starts the new wave when the scene's other animations end, so you can chain waves (a forward pass, then a backward pass).</P>
         <H>Groups and locking</H>
         <P>Select several items and press <Kbd>Ctrl+G</Kbd> (or right-click → Group). Clicking any member then selects the whole group, so it moves (drag or arrow keys), resizes and copies as one; <Kbd>Ctrl</Kbd>+click or <Kbd>Ctrl</Kbd>+drag picks a single member, and the Layers panel always selects single items (members show a coloured group tag). Right-click → Ungroup (<Kbd>Ctrl+Shift+G</Kbd>), Select whole group, or Lock — locking one member locks the group. A locked item can't be moved, resized or deleted; clicking it shows a lock badge, and right-click still works (Unlock, copy, layer order). Copies of a group become a new group, with connectors wired to the copies.</P>
-        <P>Some groups are <strong>smart groups</strong> (✦), built by a block from the <strong>Blocks</strong> menu: they remember their settings and rebuild in place when a setting changes, keeping where you moved them.</P>
-        <H>Blocks</H>
-        <P>Open <strong>Blocks</strong> and click <strong>Add</strong> on a <strong>Title card</strong> (chapter or section break), <strong>Lower third</strong> (name and role of the speaker) or <strong>Hook / CTA</strong> (bold text that pops in word by word, with highlighted words). Selecting a placed block shows its settings — text, style, colours, font, size and timing; every change rebuilds it in place and it always fits the frame, landscape or vertical. Move it anywhere: the rebuild keeps your position. <strong>Detach</strong> turns it into ordinary items you can edit one by one.</P>
+        <P>Some groups are <strong>smart groups</strong> (✦), built by an add-on from the <strong>Add-ons</strong> menu: they remember their settings and rebuild in place when a setting changes, keeping where you moved them.</P>
+        <H>Add-ons</H>
+        <P>Open <strong>Add-ons</strong> and click <strong>Add</strong> on a <strong>Title card</strong> (chapter or section break), <strong>Lower third</strong> (name and role of the speaker) or <strong>Hook / CTA</strong> (bold text that pops in word by word, with highlighted words). Selecting a placed add-on shows its settings — text, style, colours, font, size and timing; every change rebuilds it in place and it always fits the frame, landscape or vertical. Move it anywhere: the rebuild keeps your position. <strong>Detach</strong> turns it into ordinary items you can edit one by one.</P>
+        <P>For explainers: <strong>Neural network</strong> — type the neurons per layer ("3, 4, 4, 2"), any number of layers; big layers are drawn compactly with "⋮" and their size in the label; choose full or sparse connections and a forward or forward-and-backward pass that pulses through the layers. <strong>Flowchart / pipeline</strong> — type the steps ("Collect → Clean → Train"); a step ending in "?" becomes a decision; extra links such as "4&gt;2 retry" add branches and loops (drawn as arcs); steps reveal one by one and can carry a pulse. <strong>Equation reveal</strong> — one LaTeX step per line, stacked as a derivation or replacing the last, with the newest step marked. <strong>Code walkthrough</strong> — paste code, then list steps as "1-3: Load the data"; the lines are highlighted in turn with the note beside (16:9) or below (9:16) the code, optionally after the code types itself in.</P>
         <H>Connectors</H>
         <P>In <strong>Group Effects → Connect</strong>, link the selected items with arrows whose ends stay attached: <strong>Chain</strong> (each to the next, in the order you selected them), <strong>Columns</strong> (every item to every item in the next column — a network layer in one click) or <strong>Hub</strong> (the first to all others). <strong>Select all similar</strong> picks, say, every circle on the scene at once. Attached arrows follow their items when you move or resize them; dragging an arrow itself releases it. A single arrow's ends can be attached or released in its own panel.</P>
         <H>Easing</H>
@@ -311,6 +312,8 @@ const SECTIONS: Section[] = [
         ]} />
         <H>Split screen and placing clips</H>
         <P>Select two or more clips and open <strong>Group Effects → Layout</strong> for <strong>Side by side</strong>, <strong>Stacked</strong> (best for 9:16) or <strong>Grid</strong>. To put clips anywhere else, tell the AI Agent where: "make video 1 full screen and video 2 bottom right at 400x300", "put this video in the upper half and this one in the lower half", "fit the whole video in the top third". It works out the exact pixels from the scene size (the upper half of 1080×1920 is 1080×960). Clips are cropped to fill their area, centred on what they showed — never stretched unless you say "stretch"; say "fit" or "without cropping" to see the whole clip.</P>
+        <H>Auto reframe (follow the face)</H>
+        <P>Select a video and use <strong>Auto reframe</strong> at the top of its panel. <strong>Fill frame</strong> makes the clip cover the whole frame — e.g. landscape footage in a 9:16 video — and moves the crop to keep the speaker's face in shot; <strong>In place</strong> keeps the clip's size and position and only moves the crop (useful in a split screen). <strong>Steady</strong> holds one framing per shot, <strong>Auto</strong> stays still while the speaker sits still and pans smoothly when they move, <strong>Follow</strong> always follows. Shot changes cut instead of panning. Faces are found on your computer — nothing is uploaded. <strong>Stop following</strong> or a new hand-made crop turns it off.</P>
         <H>Cutting video</H>
         <P>To remove a middle section, split the scene (or the clip) at the start of the unwanted part, split again at its end, and delete the middle. Playback continues smoothly from the new trim point in the editor, Preview and export.</P>
         <H>Styling</H>
@@ -382,6 +385,7 @@ const SECTIONS: Section[] = [
           ['Type an exact slider value', 'Click the value, then Enter to apply or Escape to cancel'],
           ['Rename project', 'Click the name, then Enter to save or Escape to cancel'],
           ['Code editor', 'Standard editor keys: Ctrl+/ comment, Ctrl+F find, Shift+Alt+F format, Alt+↑/↓ move line'],
+          ['AI prompt: / or @ list', '↑ / ↓ to move, Enter or Tab to pick, Escape to close'],
         ]} />
         <P>Tip: Space, the arrow keys and Home/End make repeated review fast. Combine arrow nudging with the right-click Center commands and the layer shortcuts for clean alignment.</P>
       </>
@@ -410,6 +414,8 @@ const SECTIONS: Section[] = [
       <>
         <P>The AI Agent turns plain-English requests into editor commands. It runs entirely on your computer — no account or internet needed — and always shows the plan before anything changes.</P>
         <P>One request can hold several steps ("add a title 'Intro' at the top and make it fade in, then split scene 2 at 3s"). Refer to items by kind ("the title", "the red circle", "the music"), by name, by their text in quotes, or as "it" for what the previous step created.</P>
+        <H>Add-ons and media in a prompt</H>
+        <P>Type <strong>/</strong> to pick an add-on (/title-card, /lower-third, /hook, /neural-network, /flowchart, /equation, /code-walkthrough) and <strong>@</strong> to pick a media file. A short list opens as you type: <Kbd>↑</Kbd> <Kbd>↓</Kbd> move through it, <Kbd>Enter</Kbd> or <Kbd>Tab</Kbd> picks, <Kbd>Esc</Kbd> closes it. Commands and mentions are coloured in the prompt so you can see they were understood — e.g. "add /neural-network in scene 4 with 4 seconds delay", "add a step 'Test' to /flowchart". Every prompt you sent has a copy button under it.</P>
         <H>Better prompts</H>
         <ul className="list-disc pl-5">
           <LI>Mention the scene number when the edit belongs to a specific scene.</LI>
@@ -434,11 +440,14 @@ const SECTIONS: Section[] = [
           ['Remove filler words', 'Cut "um", "uh" and "hmm" found by local Whisper. Play it back — word timings are approximate.'],
           ['Cut to the beat', 'Move scene ends onto the beat of the background music.'],
           ['Split the video into shots', 'Make a new scene at every camera cut.'],
-          ["Add a lower third for 'Adya' 'ML engineer' on the right", 'Add a smart block; then "make the lower third red" or "change its role to \'Founder\'".'],
+          ["Add a lower third for 'Adya' 'ML engineer' on the right", 'Add an add-on; then "make the lower third red" or "change its role to \'Founder\'".'],
           ["Add a hook 'Stop scrolling, this changes everything' highlighting 'everything'", 'Word-by-word hook text with the highlighted word in colour.'],
           ['Duck the music to 20% / lower the music when I talk', 'Lower the music wherever someone talks.'],
           ['Split screen / put the videos side by side', 'Tile videos and images, cropped to fill.'],
           ['Make video 1 full screen and video 2 bottom right at 400x300', 'Put each clip in an exact area of the frame.'],
+          ['Reframe the video for vertical / follow the speaker\'s face', 'Crop the clip to keep the face in frame as it moves.'],
+          ['Add a neural network with layers 3, 5, 5, 2 and a forward and backward pass', 'Then "make the network seven layers with 12 neurons in the middle" or "add a hidden layer to the network".'],
+          ["Add a flowchart: collect data -> clean -> train -> deploy", 'Then "add a step \'Test\' after \'Train\' in the flowchart" or "make the flowchart vertical".'],
           ['Put this video in the upper half and this one in the lower half', 'Areas from the scene size: halves, thirds, quarters, corners, "top 60%", "at x 100 y 200".'],
           ['Hormozi style captions / make the captions yellow with a black outline', 'Apply a caption preset or change the caption look.'],
         ]} />

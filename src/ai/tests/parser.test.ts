@@ -311,6 +311,18 @@ const cases: Case[] = [
   { prompt: 'put the videos side by side', setup: () => f.goTo(2), commands: [], issues: [/at least two videos or images/] },
   { prompt: 'split screen', commands: [], issues: [/no video or image/] },
 
+  // ── Auto-reframe ────────────────────────────────────────────────────────────
+  { prompt: 'reframe the video for vertical', setup: () => f.goTo(2),
+    commands: [{ type: 'reframe', elementIds: [el.video.id], fill: true, mode: undefined }] },
+  { prompt: "follow the speaker's face", setup: () => f.goTo(2),
+    commands: [{ type: 'reframe', elementIds: [el.video.id], fill: undefined }] },
+  { prompt: 'keep my face centered and keep the camera steady', setup: () => f.goTo(2),
+    commands: [{ type: 'reframe', mode: 'steady' }] },
+  { prompt: 'auto reframe for tiktok', setup: () => f.goTo(2), commands: [{ type: 'reframe', fill: true }] },
+  { prompt: 'track the face closely', setup: () => f.goTo(2), commands: [{ type: 'reframe', mode: 'follow' }] },
+  { prompt: 'stop following the face', setup: () => f.goTo(2), commands: [], issues: [/No video is following a face/] },
+  { prompt: 'reframe the video', commands: [], issues: [/no video on this scene/] },
+
   // ── Ducking ─────────────────────────────────────────────────────────────────
   { prompt: 'duck the music', commands: [{ type: 'duckMusic', level: undefined, fade: undefined }] },
   { prompt: 'duck the music to 15% with a 0.5s fade', commands: [{ type: 'duckMusic', level: 0.15, fade: 0.5 }] },
@@ -342,6 +354,72 @@ const cases: Case[] = [
     check: c => {
       assert.ok(c.length > 1 && c.every(x => x.type === 'removeElement'), 'removes every part')
       // parse-only: take the block back off so later cases see the plain fixture
+      const sc = useEditorStore.getState().project!.scenes[0]
+      for (const e of sc.elements.filter(e => e.groupId)) useEditorStore.getState().removeElement(e.id)
+    } },
+
+  // ── Technical blocks ────────────────────────────────────────────────────────
+  { prompt: 'add a neural network with layers 3, 5, 5, 2 and a forward and backward pass',
+    commands: [{ type: 'insertBlock', blockId: 'neuralNetwork', params: { layers: [3, 5, 5, 2], pass: 'forwardBackward' } }] },
+  { prompt: 'add a 3-layer neural network on scene 3', commands: [{ type: 'insertBlock', blockId: 'neuralNetwork', sceneId: s3, params: { layers: [3, 4, 2] } }] },
+  { prompt: 'add an mlp with 784 inputs, two hidden layers of 128 and 10 outputs',
+    commands: [{ type: 'insertBlock', blockId: 'neuralNetwork', params: { layers: [784, 128, 128, 10] } }] },
+  { prompt: 'make the network seven layers with 12 neurons in the middle', setup: () => {
+      useEditorStore.getState().insertBlock('neuralNetwork', { layers: [3, 4, 2] })
+      f.goTo(1)
+    },
+    commands: [{ type: 'updateBlock', params: { layers: [3, 6, 9, 12, 9, 5, 2] } }] },
+  { prompt: 'add a hidden layer to the network', commands: [{ type: 'updateBlock', params: { layers: [3, 4, 4, 2] } }] },
+  { prompt: 'make the network vertical with sparse connections', commands: [{ type: 'updateBlock', params: { direction: 'topToBottom', connections: 'sparse' } }] },
+  { prompt: 'delete the network',
+    check: c => {
+      assert.ok(c.length > 5 && c.every(x => x.type === 'removeElement'), 'removes every part')
+      const sc = useEditorStore.getState().project!.scenes[0]
+      for (const e of sc.elements.filter(e => e.groupId)) useEditorStore.getState().removeElement(e.id)
+    } },
+  { prompt: 'add a flowchart: collect data -> clean -> train -> deploy',
+    commands: [{ type: 'insertBlock', blockId: 'flowchart', params: { steps: ['Collect data', 'Clean', 'Train', 'Deploy'], links: '' } }] },
+  { prompt: "add a pipeline 'Ingest' 'Embed' 'Index' 'Query' step by step with a pulse",
+    commands: [{ type: 'insertBlock', blockId: 'flowchart', params: { steps: ['Ingest', 'Embed', 'Index', 'Query'], reveal: 'stepByStep', flow: true } }] },
+  { prompt: "add a step 'Test' after 'Train model' in the flowchart", setup: () => {
+      useEditorStore.getState().insertBlock('flowchart', {})
+      f.goTo(1)
+    },
+    commands: [{ type: 'updateBlock', params: { steps: ['Collect data', 'Clean', 'Train model', 'Test', 'Good enough?', 'Deploy'] } }] },
+  { prompt: "connect 'Deploy' back to 'Collect data' in the flowchart labelled 'retrain'",
+    commands: [{ type: 'updateBlock', params: { links: '4>3 no, 4>5 yes, 5>1 retrain' } }] },
+  { prompt: 'make the flowchart vertical with pill steps', commands: [{ type: 'updateBlock', params: { direction: 'topToBottom', shape: 'pill' } }] },
+  { prompt: 'add another flowchart', commands: [{ type: 'insertBlock', blockId: 'flowchart' }],
+    check: () => {
+      const sc = useEditorStore.getState().project!.scenes[0]
+      for (const e of sc.elements.filter(e => e.groupId)) useEditorStore.getState().removeElement(e.id)
+    } },
+  { prompt: "add an equation reveal 'x^2 - 4 = 0' 'x^2 = 4' 'x = \\pm 2' one at a time",
+    commands: [{ type: 'insertBlock', blockId: 'equationReveal', params: { steps: ['x^2 - 4 = 0', 'x^2 = 4', 'x = \\pm 2'], mode: 'replace' } }] },
+  { prompt: "add a step by step derivation titled 'Solving' with 'a+b=c' 'a=c-b'",
+    commands: [{ type: 'insertBlock', blockId: 'equationReveal', params: { title: 'Solving', steps: ['a+b=c', 'a=c-b'] } }] },
+  { prompt: "add a code walkthrough of 'x = load()\ny = train(x)' with lines 1 'Load' and line 2 'Train'",
+    commands: [{ type: 'insertBlock', blockId: 'codeWalkthrough', params: { code: 'x = load()\ny = train(x)', steps: '1: Load\n2: Train' } }] },
+  { prompt: "add the equation 'E=mc^2'", check: c => assert.ok(c.length > 0 && c.every(x => x.type !== 'insertBlock'), 'still a plain equation, not a reveal block') },
+
+  // ── Add-on slash commands ───────────────────────────────────────────────────
+  { prompt: 'add /neural-network in scene 4 with 4 seconds delay',
+    commands: [{ type: 'insertBlock', blockId: 'neuralNetwork', sceneId: s4, params: { startAt: 4 } }] },
+  { prompt: 'add /neurall network in scene 4 with 4 seconds delay',
+    commands: [{ type: 'insertBlock', blockId: 'neuralNetwork', sceneId: s4, params: { startAt: 4 } }] },
+  { prompt: 'add /flowchart with steps load -> train -> ship after 2s',
+    commands: [{ type: 'insertBlock', blockId: 'flowchart', params: { steps: ['Load', 'Train', 'Ship'], startAt: 2 } }] },
+  { prompt: "add /lower-third 'Adya' 'ML engineer'", commands: [{ type: 'insertBlock', blockId: 'lowerThird', params: { name: 'Adya', role: 'ML engineer' } }] },
+  { prompt: "add a step 'Test' to /flowchart", setup: () => {
+      useEditorStore.getState().insertBlock('flowchart', {})
+      f.goTo(1)
+    },
+    commands: [{ type: 'updateBlock', params: { steps: ['Collect data', 'Clean', 'Train model', 'Good enough?', 'Deploy', 'Test'] } }] },
+  { prompt: 'make /flowchart vertical', commands: [{ type: 'updateBlock', params: { direction: 'topToBottom' } }] },
+  { prompt: 'add /flowchart', commands: [{ type: 'insertBlock', blockId: 'flowchart' }] },
+  { prompt: 'delete /flowchart',
+    check: c => {
+      assert.ok(c.length > 3 && c.every(x => x.type === 'removeElement'), 'removes every part')
       const sc = useEditorStore.getState().project!.scenes[0]
       for (const e of sc.elements.filter(e => e.groupId)) useEditorStore.getState().removeElement(e.id)
     } },

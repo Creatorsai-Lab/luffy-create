@@ -190,8 +190,8 @@ blocks: "add a 3-4-2 neural network with a forward pass", "add a title card
 | 1 | Deterministic prompt parser + video-editing commands | **Done** |
 | 2 | Smart edits from media analysis (silences, fillers, beats, shots) | **Done** (fillers approximate) |
 | 3 | Foundations: sequencing (stagger/sequence, remove `startTime`), connectors, groups + locking, smart groups | **Done** |
-| 4 | UGC blocks v1: title card, lower third, hook/CTA, split-screen/PiP, captions styles; face reframe; volume automation + ducking | **4a, 4b done** (blocks; ducking, split screen/PiP, caption presets) — face reframe next |
-| 5 | Technical blocks v1: neural network, flowchart/pipeline, equation reveal, code walkthrough | |
+| 4 | UGC blocks v1: title card, lower third, hook/CTA, split-screen/PiP, captions styles; face reframe; volume automation + ducking | **Done** (4a blocks; 4b ducking, placement, caption presets; 4c face reframe) |
+| 5 | Technical blocks v1: neural network, flowchart/pipeline, equation reveal, code walkthrough | **Done** |
 | 6 | LLM planner (BYOK): tools from the block catalogue, compact context, caching, routing | |
 | 7 | More blocks (agents, attention, matrix, montage, B-roll); Pro backend; self-check on rendered frames | |
 
@@ -204,6 +204,63 @@ blocks: "add a 3-4-2 neural network with a forward pass", "add a title card
 ---
 
 ## Done so far
+
+### Add-ons in prompts (between Phase 5 and 6)
+- "Blocks" are called **Add-ons** in the UI (menu, panel, plan preview,
+  guide); code keeps the `blocks` names.
+- Slash commands (`SmartBlock.command`, `findAddon`: exact, unique start, or a
+  one-letter slip) name an add-on exactly; "to/in/of /flowchart" points at the
+  one on the scene. "with N seconds delay" / "after Ns" set its start.
+- Composer: one list for `/` add-ons and `@` media (6 rows, ↑/↓, Enter/Tab,
+  Esc); commands and mentions highlighted in the prompt (a mirrored layer under
+  a transparent textarea, stroke-bold so the caret stays aligned) and in sent
+  messages; a copy button under each sent prompt. `src/ai/promptTokens.ts`.
+
+### Phase 5 — Technical blocks v1
+- Engine: `list` fields (numbers or texts, split on what people type; LaTeX
+  splits on new lines only), multi-line `keepLines` text (code), a per-block
+  `parse` hook for block-specific phrasing, and `refers` ("the network") so
+  "add a step to the flowchart" edits while "add a flowchart" inserts.
+  `LatexElement.fitContent` draws equations at natural size inside their box.
+  Code geometry shared in `src/utils/codeLayout.ts` (renderer + highlights).
+- `neuralNetwork`: any layers (≤12) of any size; neurons shown as fit (≤16 per
+  layer, else first/last + "⋮" and the size in the label); full/sparse/no
+  connections (attached arrows); forward / forward+backward pulse pass
+  (repeating); layer-by-layer entrance; portrait runs top → bottom.
+  Phrasing: architectures, inputs/hidden/outputs, "N layers with M in the
+  middle" (rise-and-fall shape), add/remove a layer, set one layer.
+- `flowchart`: steps + chain + extra links ("4>2 retry"); levels (branches side
+  by side), snake wrap for long chains, decisions as diamonds, loops as dashed
+  arcs with labels at the apex, step-by-step reveal, flow pulse. Keys follow
+  step names, so edits keep the other steps' ids. Phrasing: arrows lists,
+  quotes, add/remove/rename steps (links follow), connect back with a label.
+- `equationReveal`: stacked or replacing steps, newest step marked (MathJax's
+  bundled `\color` did not colour reliably in a hidden-window check, so terms
+  aren't coloured inside an equation).
+- `codeWalkthrough`: code sized to fit, highlights per line range handing
+  over step to step, notes beside (16:9) or below (9:16), optional typing.
+- Checked: every block fits 16:9 and 9:16 under stress (784-wide 8-layer
+  network, 14 long steps, 8 equation steps, 40 code lines); rebuilds keep
+  neuron ids and attachments; geometry previews rendered and inspected.
+
+### Phase 4c — Auto reframe (follow the face)
+- Moving crop: `VideoElement.cropKeys` (crop centre over source time; size from
+  `crop`) and `src/utils/cropKeys.ts`; VideoKonva reads the crop at the frame
+  on screen, so editor, preview and export match. A hand-made crop clears it.
+- Faces: `src/ai/smart/faces.ts` — MediaPipe Tasks Vision 1.0.1 (BlazeFace
+  short range, Apache-2.0), fully offline: WASM served from node_modules by a
+  small Vite plugin (`/mediapipe/`, SIMD build only, ~12 MB), model in
+  `public/models/` (230 KB). Frames are checked whole and in three square
+  tiles — in a wide frame the whole-frame pass missed a small face that the
+  tiles found (checked in a hidden Electron window).
+- Framing: `src/ai/smart/reframe.ts` — main-face tracking (biggest face,
+  followed while near), gap filling, shot cuts, steady-per-shot vs dead-zone
+  follow with smoothing, head room, key simplification.
+- Smart step `reframe` → `setCropTrack`; "fill" puts the clip over the whole
+  frame first. Video panel "Auto reframe" (Fill frame / In place; Steady /
+  Auto / Follow; Stop following).
+- Tests: synthetic face tracks (still, walking, cut, lost, crowd, head room),
+  a whole prompt on a 9:16 project, parser phrases.
 
 ### Phase 4b — Ducking, media layout, caption presets
 - Volume automation: `AudioElement.volumeKeys` (gain at source seconds, so

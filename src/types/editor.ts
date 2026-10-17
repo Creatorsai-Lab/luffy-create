@@ -412,6 +412,8 @@ export interface VideoElement extends BaseElement, MediaEffectControls, MediaVig
   borderWidth: number
   lockRatio?: boolean
   crop?: { x: number; y: number; w: number; h: number }
+  /** A moving crop (auto-reframe): the crop's centre over time; its size stays `crop.w` × `crop.h`. */
+  cropKeys?: CropKey[]
   volume: number
   playbackRate: number
   loop: boolean
@@ -459,6 +461,9 @@ export interface LatexElement extends BaseElement {
   color: string
   fontSize: number    // scale factor for the rendered equation
   fontFamily?: string // applied to \text{} runs where possible
+  /** Draw the equation at its natural size inside the box (shrunk only to fit, never stretched). Set by blocks. */
+  fitContent?: boolean
+  contentAlign?: 'left' | 'center'
 }
 
 export interface CounterElement extends BaseElement {
@@ -512,6 +517,13 @@ export interface HandDrawStroke {
 export interface HandDrawElement extends BaseElement {
   type: 'handDraw'
   strokes: HandDrawStroke[]
+}
+
+/** Where a moving crop is centred (0–1 of the source frame) at `t` seconds into the source file. */
+export interface CropKey {
+  t: number
+  cx: number
+  cy: number
 }
 
 /** A volume automation point: gain `v` (0–2) at `t` seconds into the source file. */

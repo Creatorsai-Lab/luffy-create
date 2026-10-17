@@ -5,7 +5,7 @@
  *   "add a hook 'Stop scrolling, this changes everything' highlight 'everything'"
  *   "make the lower third red", "change the title card subtitle to 'Setup'"
  */
-import { listBlocks, type SmartBlock } from '../../blocks/registry'
+import { findAddon, getBlock, listBlocks, type SmartBlock } from '../../blocks/registry'
 import type { BlockField } from '../../blocks/fields'
 import type { AiPlanStep } from '../types'
 import { readColors } from './colors'
@@ -81,42 +81,74 @@ export function readFieldValues(clause: Clause, fields: BlockField[], insert: bo
   return values
 }
 
+/**
+ * The add-on a slash command names, and whether the text points at the one already
+ * on the scene ("add a step to /flowchart") rather than asking for a new one.
+ */
+export function slashAddon(text: string): { block: SmartBlock; pointed: boolean } | null {
+  for (const m of text.matchAll(/(?:^|\s)\/([a-z][a-z0-9-]*)/g)) {
+    const block = findAddon(m[1])
+    if (!block) continue
+    const pointed = new RegExp(`\\b(?:to|in|into|of|from|on|for)\\s+(?:the\\s+)?\\/${escapeRe(m[1])}\\b`).test(text)
+    return { block, pointed }
+  }
+  return null
+}
+
 function blockMentioned(text: string): SmartBlock | undefined {
   return listBlocks().find(block => block.phrases?.test(text))
 }
 
-/** Add a block, or change the settings of one already on the scene. */
+/** Words that ask for another block even when one is already there ("add another flowchart"). */
+const ANOTHER = /\b(?:new|another|second|one more|extra)\s+(?:\w+\s+){0,2}?(?:block|chart|network|flow\s*chart|pipeline|equation|derivation|walk-?through|lower third|hook|title card|cta)\b/
+
+/**
+ * Add a block, or change the settings of one already on the scene. A block on
+ * the scene is changed when the request edits ("make the lower third red") or
+ * points at it ("add a step to the flowchart", "a hidden layer to the network");
+ * "add a flowchart" adds one.
+ */
 export function blocksHandler(clause: Clause, state: ParseState): AiPlanStep[] | null {
   const text = clause.text
-  const block = blockMentioned(text)
+  // A slash command ("/neural-network") names the add-on exactly; otherwise its words do.
+  const slash = slashAddon(text)
+  const block = slash?.block ?? blockMentioned(text)
+  const editing = EDIT.test(text) && !/^(?:add|insert|create)\b/.test(text)
 
-  // Edit: a smart group on the scene that the text names (by its block or its name).
-  if (EDIT.test(text) && !/^(?:add|insert|create)\b/.test(text)) {
-    const scenes = readScenes(text, state) ?? defaultScenes(state)
-    // "…, and make it green": the block the previous clause changed.
-    const again = !block && /\b(?:it|its)\b/.test(text) ? state.lastBlock : null
-    for (const target of scenes) {
-      const scene = state.context.scenes.find(s => s.id === target.sceneId)
-      const groups = (scene?.groups ?? []).filter(g => g.blockId && (g.id === again ||
-        (block && g.blockId === block.id) || new RegExp(`\\b${escapeRe(g.name.toLowerCase())}\\b`).test(text)))
-      const group = groups.at(-1)
-      const own = group && listBlocks().find(b => b.id === group.blockId)
-      if (!scene || !group || !own) continue
-      // "it" now means the block's parts, so "…, then fade it out" works too.
-      state.lastElements = groupTargets(scene, group.id, group.name)
-      const params = readFieldValues(clause, own.fields, false)
-      if (!Object.keys(params).length) return null // nothing to change: let "move/delete/fade the lower third" through
-      state.lastBlock = group.id
-      return [{ type: 'updateBlock', groupId: group.id, params }]
-    }
+  // "…, and make it green": the block the previous clause changed.
+  const again = !block && /\b(?:it|its)\b/.test(text) ? state.lastBlock : null
+  // Only look for scenes (which can warn) when a block on some scene could be meant.
+  const couldMean = state.context.scenes.some(sc => sc.groups?.some(g => g.blockId && (g.id === again ||
+    (block && g.blockId === block.id) || getBlock(g.blockId)?.refers?.test(text) ||
+    new RegExp(`\\b${escapeRe(g.name.toLowerCase())}\\b`).test(text))))
+  for (const target of couldMean ? readScenes(text, state) ?? defaultScenes(state) : []) {
+    const scene = state.context.scenes.find(s => s.id === target.sceneId)
+    const candidates = (scene?.groups ?? []).filter(g => g.blockId).map(g => {
+      const own = getBlock(g.blockId!)
+      const named = new RegExp(`\\b${escapeRe(g.name.toLowerCase())}\\b`).test(text)
+      const pointed = Boolean(own?.refers?.test(text)) || named || g.id === again || Boolean(slash?.pointed && g.blockId === slash.block.id)
+      const mentioned = pointed || Boolean(block && g.blockId === block.id)
+      return { g, own, pointed, mentioned }
+    }).filter(c => c.own && c.mentioned)
+    const pick = candidates.at(-1)
+    if (!scene || !pick?.own) continue
+    if (!(editing || pick.pointed) || ANOTHER.test(text)) continue
+    const { g: group, own } = pick
+    // "it" now means the block's parts, so "…, then fade it out" works too.
+    state.lastElements = groupTargets(scene, group.id, group.name)
+    const current = own.normalize(group.params ?? {})
+    const params = { ...readFieldValues(clause, own.fields, false), ...(own.parse?.({ text, quotes: clause.quotes }, current) ?? {}) }
+    if (!Object.keys(params).length) return null // nothing to change: let "move/delete/fade the lower third" through
+    state.lastBlock = group.id
+    return [{ type: 'updateBlock', groupId: group.id, params }]
   }
 
   // Add: "add a lower third …".
   if (!block || !ADD.test(text)) return null
-  const params = readFieldValues(clause, block.fields, true)
+  const params = { ...readFieldValues(clause, block.fields, true), ...(block.parse?.({ text, quotes: clause.quotes }, null) ?? {}) }
   const at = readTimes(text)[0]?.seconds
   const timeField = block.fields.find(f => f.type === 'number' && (f.key === 'showAt' || f.key === 'startAt'))
-  if (at != null && timeField && params[timeField.key] === undefined && /\b(?:at|from|starting)\b/.test(text)) params[timeField.key] = at
+  if (at != null && timeField && params[timeField.key] === undefined && /\b(?:at|from|starting|delay|delayed|after|wait)\b/.test(text)) params[timeField.key] = at
   const scenes = readScenes(text, state) ?? defaultScenes(state)
   return scenes.map(t => ({ type: 'insertBlock', blockId: block.id, params, sceneId: t.sceneId, sceneAlias: t.sceneAlias, sceneIndex: t.index }))
 }

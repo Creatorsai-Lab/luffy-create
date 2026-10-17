@@ -94,6 +94,12 @@ export type AiEditorCommand =
   | ({ type: 'placeMedia'; region: { x: number; y: number; width: number; height: number }; regionLabel?: string; width?: number; height?: number; horizontal?: 'left' | 'center' | 'right'; vertical?: 'top' | 'middle' | 'bottom'; fit?: 'cover' | 'contain' | 'stretch' } & AiElementRef)
   /** Caption look for the whole project: a preset (src/subtitle/presets.ts), then any style fields on top; `enabled` shows/hides them. */
   | { type: 'setCaptionStyle'; preset?: string; style?: Partial<SubtitleStyle>; enabled?: boolean }
+  /**
+   * A moving crop that follows the speaker's face (from the `reframe` smart step). `box` moves/resizes the clip first
+   * (e.g. to fill a vertical frame); `crop` is the crop size (and its first position); `keys` the crop centre over source time.
+   * Empty `keys` stops following (the crop stays where it is).
+   */
+  | ({ type: 'setCropTrack'; box?: { x: number; y: number; width: number; height: number }; crop?: { x: number; y: number; w: number; h: number }; keys: Array<{ t: number; cx: number; cy: number }> } & AiElementRef)
   /** Volume automation of an audio clip: gain `v` at `t` seconds into its source file; [] removes it. */
   | ({ type: 'setVolumeKeys'; keys: Array<{ t: number; v: number }> } & AiElementRef)
   /** Staggered waves played one after another ("pulse left to right, then flash red right to left, repeating"). */
@@ -122,12 +128,14 @@ export type AiSmartStep =
   | { type: 'removeFillers'; sceneIds?: string[] }
   | { type: 'cutToBeat'; beatsPerCut?: number }
   | { type: 'splitShots'; sceneIds?: string[] }
+  /** Crop video clips to follow the speaker's face. `fill`: first make each clip fill the frame (e.g. landscape → 9:16). */
+  | { type: 'reframe'; elementIds?: string[]; fill?: boolean; mode?: 'auto' | 'follow' | 'steady' }
   /** Lower the music while someone talks (video sound or voiceover). `level` is the music gain while talking. */
   | { type: 'duckMusic'; level?: number; fade?: number; musicIds?: string[] }
 
 export type AiPlanStep = AiEditorCommand | AiSmartStep
 
-export const SMART_STEP_TYPES = new Set<AiSmartStep['type']>(['removeSilences', 'removeFillers', 'cutToBeat', 'splitShots', 'duckMusic'])
+export const SMART_STEP_TYPES = new Set<AiSmartStep['type']>(['removeSilences', 'removeFillers', 'cutToBeat', 'splitShots', 'duckMusic', 'reframe'])
 
 export function isSmartStep(step: AiPlanStep): step is AiSmartStep {
   return SMART_STEP_TYPES.has(step.type as AiSmartStep['type'])
@@ -192,6 +200,9 @@ export interface AiElementSummary {
   playbackRate?: number
   muted?: boolean
   track?: 'background' | 'voiceover'
+  /** Video/image: the current crop (0–1 of the source); video: how many face-following crop keys it has. */
+  crop?: { x: number; y: number; w: number; h: number }
+  cropKeys?: number
   /** Audio: how many volume automation keys the clip has. */
   volumeKeys?: number
   groupId?: string

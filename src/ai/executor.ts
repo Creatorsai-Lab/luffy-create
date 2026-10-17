@@ -6,6 +6,7 @@ import type { AssetMeta, EditorElement, MoveDirection, Scene, ShapeType } from '
 import { makeAnimation, makeAudio, makeImage, makeScene, makeShape, makeText, makeVideo } from '../utils/defaults'
 import { clampAudioDuration, finitePositiveDuration, remainingTimelineDuration } from '../utils/audioMetadata'
 import { computeMoveDelta, durationFromMove } from '../utils/moveAnimation'
+import { getBlock } from '../blocks/registry'
 import { useEditorStore } from '../store/editorStore'
 import { clampAudioVolume } from '../utils/audioEffects'
 import { animationsEnd, buildSequence, isLoopType, rowTolerance } from '../utils/stagger'
@@ -124,6 +125,8 @@ function executeAiCommand(command: AiEditorCommand): AiCommandResult {
       return arrangeMedia(command)
     case 'placeMedia':
       return placeMedia(command)
+    case 'setCropTrack':
+      return setCropTrack(command)
     case 'setCaptionStyle':
       return setCaptionStyle(command)
   }
@@ -493,7 +496,7 @@ function insertBlock(command: Extract<AiEditorCommand, { type: 'insertBlock' }>)
   const groupId = useEditorStore.getState().insertBlock(command.blockId, command.params)
   if (!groupId) throw new Error(`Could not build "${command.blockId}".`)
   const ids = useEditorStore.getState().project?.scenes.find(sc => sc.id === scene.id)?.elements.filter(el => el.groupId === groupId).map(el => el.id) ?? []
-  return { ok: true, message: `Added ${command.blockId} (${ids.length} items) to ${scene.name}.`, elementIds: ids, groupId }
+  return { ok: true, message: `Added the ${getBlock(command.blockId)?.title ?? command.blockId} add-on (${ids.length} items) to ${scene.name}.`, elementIds: ids, groupId }
 }
 
 function updateBlock(command: Extract<AiEditorCommand, { type: 'updateBlock' }>): AiCommandResult {
@@ -528,6 +531,25 @@ function arrangeMedia(command: Extract<AiEditorCommand, { type: 'arrangeMedia' }
   const ids = applyMediaLayout(elements.map(el => el.id), command.layout, { gap: command.gap })
   if (!ids.length) throw new Error('Only unlocked videos and images can be arranged.')
   return { ok: true, message: `Arranged ${ids.length} item${ids.length === 1 ? '' : 's'}.`, elementIds: ids }
+}
+
+function setCropTrack(command: Extract<AiEditorCommand, { type: 'setCropTrack' }>): AiCommandResult {
+  const el = requireElement(command)
+  if (el.type !== 'video') throw new Error(`${el.name} is not a video.`)
+  if (el.locked) throw new Error(`${el.name} is locked — unlock it first.`)
+  const store = useEditorStore.getState()
+  const scene = store.project?.scenes.find(sc => sc.elements.some(e => e.id === el.id))
+  if (scene && store.currentSceneId !== scene.id) store.setCurrentScene(scene.id)
+  useEditorStore.getState().updateElement(el.id, {
+    ...(command.box ? { ...command.box, rotation: 0 } : {}),
+    ...(command.crop ? { crop: command.crop } : {}),
+    cropKeys: command.keys.length ? command.keys : undefined,
+  } as Partial<EditorElement>)
+  const project = useEditorStore.getState().project
+  if (command.box && project && command.box.x <= 0 && command.box.y <= 0 && command.box.width >= project.width && command.box.height >= project.height) {
+    useEditorStore.getState().sendToBack(el.id) // a clip that fills the frame is the backdrop
+  }
+  return { ok: true, message: command.keys.length ? `Reframed ${el.name} to follow the face.` : `${el.name} no longer follows the face.`, elementIds: [el.id] }
 }
 
 function placeMedia(command: Extract<AiEditorCommand, { type: 'placeMedia' }>): AiCommandResult {

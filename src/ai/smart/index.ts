@@ -1,4 +1,5 @@
 import type { SmartMedia } from './expand'
+import { detectFaces } from './faces'
 import { decodeMono, detectShotChanges } from './media'
 
 export { expandSmartSteps } from './expand'
@@ -7,6 +8,7 @@ export { expandSmartSteps } from './expand'
 export const browserMedia: SmartMedia = {
   decodeMono,
   detectShotChanges: (path, from, to, find) => detectShotChanges(path, from, to, find),
+  detectFaces,
   transcribeWords: async path => {
     if (!window.api.subtitle?.transcribeAudio) throw new Error('Local Whisper is not available.')
     const result = await window.api.subtitle.transcribeAudio({ sourcePath: path, words: true })

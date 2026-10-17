@@ -40,6 +40,7 @@ export const lowerThird: SmartBlock<Params> = {
   title: 'Lower third',
   description: 'A name tag near the bottom — the speaker\'s name and role, for interviews, podcasts and talking-head videos.',
   category: 'ugc',
+  command: 'lower-third',
   phrases: /\blower[\s-]?thirds?\b|\bname (?:tag|plate|card|label)\b|\bspeaker (?:tag|name|label)\b/,
   fields: FIELDS,
   defaults: DEFAULTS,

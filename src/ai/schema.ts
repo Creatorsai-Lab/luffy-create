@@ -35,6 +35,7 @@ const COMMAND_TYPES = new Set<AiCommandType>([
   'arrangeMedia',
   'setCaptionStyle',
   'placeMedia',
+  'setCropTrack',
 ])
 
 export const AI_PLAN_JSON_SCHEMA = {
@@ -100,6 +101,7 @@ function validateCommand(value: unknown): AiEditorCommand {
     case 'insertBlock': need(typeof value.blockId === 'string', 'insertBlock requires blockId.'); break
     case 'updateBlock': need(typeof value.groupId === 'string' && isRecord(value.params), 'updateBlock requires groupId and params.'); break
     case 'connectElements': need(Array.isArray(value.from) && value.from.length > 0, 'connectElements requires from.'); break
+    case 'setCropTrack': need(Array.isArray(value.keys), 'setCropTrack requires keys.'); break
     case 'placeMedia': need(typeof value.region === 'object' && value.region !== null, 'placeMedia requires region.'); break
     case 'arrangeMedia': need(Array.isArray(value.targets) && value.targets.length > 0 && typeof value.layout === 'string', 'arrangeMedia requires targets and layout.'); break
     case 'setVolumeKeys': need(Array.isArray(value.keys), 'setVolumeKeys requires keys.'); break

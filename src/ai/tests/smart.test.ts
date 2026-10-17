@@ -10,6 +10,8 @@ import type { SmartMedia } from '../smart/expand'
 import { findCuts } from '../smart/shots'
 import { detectSpeech, silencesBetween } from '../smart/speech'
 import { duckingKeys } from '../smart/duck'
+import { reframePath, trackMainFace, type FaceSample } from '../smart/reframe'
+import { cropAt } from '../../utils/cropKeys'
 import { buildFfmpegVolumeKeysFilter, volumeKeyGain } from '../../utils/volumeKeys'
 import type { AudioElement } from '../../types/editor'
 import { loadFixture } from './fixture'
@@ -52,6 +54,7 @@ function fakeMedia(over: Partial<SmartMedia>): SmartMedia {
     decodeMono: async () => null,
     detectShotChanges: async () => [],
     transcribeWords: async () => [],
+    detectFaces: async () => ({ aspect: 16 / 9, samples: [] }),
     ...over,
   }
 }
@@ -66,6 +69,18 @@ async function apply(prompt: string, media: SmartMedia) {
 }
 
 const project = () => useEditorStore.getState().project!
+
+/** A face (0.1 × 0.2 of the frame) centred at cx(t), cy, sampled 4× a second; `gone` returns true where nobody is on screen. */
+function faceTrack(seconds: number, cx: (t: number) => number, opts: { cy?: number; jitter?: number; gone?: (t: number) => boolean; extra?: (t: number) => FaceSample['faces'] } = {}): FaceSample[] {
+  const out: FaceSample[] = []
+  let seed = 11
+  const noise = () => { seed = (seed * 16807) % 2147483647; return (seed / 2147483647 - 0.5) * (opts.jitter ?? 0) }
+  for (let t = 0; t <= seconds + 1e-9; t += 0.25) {
+    const faces = opts.gone?.(t) ? [] : [{ x: cx(t) - 0.05 + noise(), y: (opts.cy ?? 0.4) - 0.1 + noise(), w: 0.1, h: 0.2, score: 0.9 }]
+    out.push({ t: Math.round(t * 100) / 100, faces: [...faces, ...(opts.extra?.(t) ?? [])] })
+  }
+  return out
+}
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ['speech detection finds talking and ignores gaps between words', () => {
@@ -202,6 +217,89 @@ const tests: Array<[string, () => void | Promise<void>]> = [
     useEditorStore.getState().removeElement(f.el.voice.id)
     const { issues } = await apply('lower the music when I talk', fakeMedia({}))
     assert.ok(issues.some(i => /no voice to duck under/.test(i.message)), JSON.stringify(issues))
+  }],
+  ['reframe holds still on a speaker who barely moves', () => {
+    const path = reframePath(faceTrack(10, () => 0.62, { jitter: 0.01 }), { cropW: 0.3164, cropH: 1 })!
+    assert.equal(path.moving, false)
+    assert.equal(path.keys.length, 2, JSON.stringify(path.keys))
+    near(path.keys[0].cx, 0.62, 0.01, 'centred on the face')
+    assert.equal(path.coverage, 1)
+  }],
+  ['reframe follows a speaker walking across the frame, smoothly and close', () => {
+    const cropW = 0.3164
+    const walk = (t: number) => 0.25 + (0.5 * t) / 12
+    const samples = faceTrack(12, walk, { jitter: 0.004 })
+    const path = reframePath(samples, { cropW, cropH: 1 })!
+    assert.equal(path.moving, true)
+    for (const { t } of samples) {
+      const crop = cropAt({ x: 0, y: 0, w: cropW, h: 1 }, path.keys, t)!
+      const face = walk(t)
+      assert.ok(face - 0.05 >= crop.x - 0.01 && face + 0.05 <= crop.x + crop.w + 0.01, `face stays in the crop at ${t}s`)
+    }
+    // No back-and-forth: the crop only moves one way.
+    const xs = path.keys.map(k => k.cx)
+    assert.ok(xs.every((x, i) => i === 0 || x >= xs[i - 1] - 0.003), JSON.stringify(xs))
+    assert.ok(path.keys.length < samples.length, 'keys are simplified')
+  }],
+  ['reframe cuts with the shot instead of panning across', () => {
+    const path = reframePath(faceTrack(10, t => (t < 5 ? 0.25 : 0.75)), { cropW: 0.3164, cropH: 1 })!
+    assert.equal(path.cuts, 1)
+    const before = cropAt({ x: 0, y: 0, w: 0.3164, h: 1 }, path.keys, 4.9)!
+    const after = cropAt({ x: 0, y: 0, w: 0.3164, h: 1 }, path.keys, 5.0)!
+    near(before.x + before.w / 2, 0.25, 0.01, 'first shot')
+    near(after.x + after.w / 2, 0.75, 0.01, 'second shot, right away')
+  }],
+  ['reframe keeps the last framing where the face is lost, and sticks with the main speaker', () => {
+    const lost = reframePath(faceTrack(8, () => 0.6, { gone: t => t > 3 && t < 5 }), { cropW: 0.3164, cropH: 1 })!
+    near(lost.coverage, 26 / 33, 0.01, 'coverage (7 of 33 samples lost)')
+    near(cropAt({ x: 0, y: 0, w: 0.3164, h: 1 }, lost.keys, 4)!.x + 0.1582, 0.6, 0.01, 'holds while lost')
+    // A smaller face passing by does not steal the framing.
+    const crowd = trackMainFace(faceTrack(4, () => 0.3, { extra: t => (t > 1 ? [{ x: 0.75, y: 0.35, w: 0.06, h: 0.12, score: 0.95 }] : []) }))
+    assert.ok(crowd.every(p => p && Math.abs(p.cx - 0.3) < 0.01))
+    // Vertical room: the face sits a little above the middle of the crop.
+    const tall = reframePath(faceTrack(4, () => 0.5, { cy: 0.5 }), { cropW: 1, cropH: 0.5 })!
+    near(tall.keys[0].cy, 0.55, 0.001, 'head room')
+    assert.equal(reframePath(faceTrack(4, () => 0.5, { gone: () => true }), { cropW: 0.3, cropH: 1 }), null)
+  }],
+  ['"reframe the video for vertical" fills a 9:16 frame and follows the face, then undoes', async () => {
+    const f = loadFixture()
+    useEditorStore.setState(s => ({ project: { ...s.project!, width: 1080, height: 1920 } }))
+    f.goTo(2)
+    let asked: [number, number] | null = null
+    const media = fakeMedia({
+      detectFaces: async (_path, from, to) => {
+        asked = [from, to]
+        return { aspect: 16 / 9, samples: faceTrack(4, t => 0.3 + t * 0.1) }
+      },
+    })
+    const { planned, issues } = await apply('reframe the video for vertical', media)
+    assert.deepEqual(issues.map(i => i.message), [])
+    assert.deepEqual(asked, [0, 4], 'only the part of the file the clip plays')
+    assert.match(planned.plan.summary, /Reframe clip\.mp4 to fill the frame: the face is in 100% of it/)
+    const video = () => project().scenes[1].elements.find(e => e.id === f.el.video.id) as VideoElement
+    const v = video()
+    assert.deepEqual([v.x, v.y, v.width, v.height], [0, 0, 1080, 1920])
+    near(v.crop!.w, (1080 / 1920) / (16 / 9), 0.0001, 'crop width for 9:16 out of 16:9')
+    assert.equal(v.crop!.h, 1)
+    assert.ok(v.cropKeys!.length >= 2)
+    near(cropAt(v.crop, v.cropKeys, 0)!.x + v.crop!.w / 2, 0.3, 0.02, 'starts on the face')
+    useEditorStore.getState().undo()
+    assert.deepEqual([video().width, video().cropKeys], [640, undefined])
+  }],
+  ['a clip that already shows its whole picture explains there is nothing to follow', async () => {
+    loadFixture()
+    useEditorStore.setState(s => ({ currentSceneId: s.project!.scenes[1].id }))
+    const { issues } = await apply('follow the face in the video', fakeMedia({ detectFaces: async () => ({ aspect: 16 / 9, samples: faceTrack(2, () => 0.5) }) }))
+    assert.ok(issues.some(i => /no room to follow the face/.test(i.message)), JSON.stringify(issues))
+  }],
+  ['"stop following the face" removes the moving crop', async () => {
+    const f = loadFixture()
+    useEditorStore.getState().updateElement(f.el.video.id, { crop: { x: 0.3, y: 0, w: 0.4, h: 1 }, cropKeys: [{ t: 0, cx: 0.5, cy: 0.5 }, { t: 2, cx: 0.6, cy: 0.5 }] } as Partial<VideoElement>)
+    useEditorStore.setState(s => ({ currentSceneId: s.project!.scenes[1].id }))
+    await apply('stop following the face', fakeMedia({}))
+    const v = project().scenes[1].elements.find(e => e.id === f.el.video.id) as VideoElement
+    assert.equal(v.cropKeys, undefined)
+    assert.deepEqual(v.crop, { x: 0.3, y: 0, w: 0.4, h: 1 }, 'the crop stays where it is')
   }],
   ['no speech means no cuts', async () => {
     loadFixture()

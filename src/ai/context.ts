@@ -85,6 +85,8 @@ export function summarizeElement(el: EditorElement): AiElementSummary {
         volume: el.volume,
         playbackRate: el.playbackRate,
         muted: el.muted,
+        crop: el.crop,
+        cropKeys: el.cropKeys?.length || undefined,
       }
     case 'audio':
       return {

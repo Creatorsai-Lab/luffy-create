@@ -28,6 +28,21 @@ async function run(prompt: string) {
 }
 
 const tests: Array<[string, () => Promise<void>]> = [
+  ['a network is added, reshaped by the AI, and its neurons keep their ids', async () => {
+    loadFixture()
+    await run('add a neural network with layers 3, 4, 2 and a forward pass')
+    const scene = () => project().scenes[0]
+    const group = () => Object.values(scene().groups ?? {}).find(g => g.smart?.blockId === 'neuralNetwork')!
+    const neuron = () => scene().elements.find(e => e.groupId === group().id && e.blockKey === 'n-0-0')!.id
+    const before = neuron()
+    await run('make the network five layers with 8 neurons in the middle')
+    assert.deepEqual(group().smart!.params.layers, [3, 6, 8, 5, 2])
+    assert.equal(neuron(), before, 'same neuron, same id')
+    const arrows = scene().elements.filter(e => e.groupId === group().id && e.type === 'arrow')
+    assert.equal(arrows.length, 3 * 6 + 6 * 8 + 8 * 5 + 5 * 2)
+    useEditorStore.getState().undo()
+    assert.deepEqual(group().smart!.params.layers, [3, 4, 2])
+  }],
   ['caption presets style the project captions, and tweaks go on top', async () => {
     loadFixture()
     const track = () => project().subtitleTracks?.[0]

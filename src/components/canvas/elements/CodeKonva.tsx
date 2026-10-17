@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { CODE_HEADER_H, CODE_LINE_NUM_W, CODE_PADDING, codeLineHeight } from '../../../utils/codeLayout'
 import { Shape, Group } from 'react-konva'
 import type Konva from 'konva'
 import type { CodeElement } from '../../../types/editor'
@@ -91,9 +92,9 @@ function tokenizeLine(line: string, lang: string): Token[] {
   return tokens
 }
 
-const PADDING     = 12
-const LINE_NUM_W  = 28
-const HEADER_H    = 35
+const PADDING     = CODE_PADDING
+const LINE_NUM_W  = CODE_LINE_NUM_W
+const HEADER_H    = CODE_HEADER_H
 export const CODE_TITLE_MAX_WORDS = 6
 
 /** First `CODE_TITLE_MAX_WORDS` words of a title. */
@@ -186,7 +187,7 @@ function wrapCodeLine(line: string, maxWidth: number, ctx: CanvasRenderingContex
 
 export default function CodeKonva({ el, konvaProps, localTime = 0, sceneWidth }: Props) {
   const lines = getVisibleLines(el, localTime)
-  const lineH = el.fontSize * 1.65
+  const lineH = codeLineHeight(el.fontSize)
   const numW  = el.showLineNumbers ? LINE_NUM_W : 0
   const bgColor = el.bgColor ?? '#0d1117'
   const width = el.fitSceneWidth && sceneWidth ? sceneWidth : el.width

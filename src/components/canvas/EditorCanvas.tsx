@@ -743,9 +743,11 @@ export default function EditorCanvas() {
       }
     }
 
+    // A hand-set crop replaces any face-following (auto-reframe) crop.
     updateElement(cropState.elId, {
       x: newX, y: newY, width: newW, height: newH,
       crop: finalCrop,
+      cropKeys: undefined,
     } as Partial<EditorElement>)
     setCropElement(null); setCropState(null)
   }

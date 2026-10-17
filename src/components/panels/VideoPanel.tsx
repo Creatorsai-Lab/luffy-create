@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react'
+import ReframeControl from './ReframeControl'
 import { Film, Lock, Unlock, Scissors, X } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { VideoElement, AnimationType } from '../../types/editor'
@@ -97,6 +98,8 @@ export default function VideoPanel() {
 
         {el && (
           <>
+            <ReframeControl element={el} />
+
             {/* ── Dimensions ──────────────────────────────────────── */}
             <div className="px-3 py-2 border-b border-editor-border flex flex-col gap-0.5">
               <span className="text-xs font-medium text-editor-text block mb-1">Dimensions</span>

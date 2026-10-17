@@ -171,6 +171,38 @@ const smart: Handler = (clause, state) => {
   const sceneIds = () => readScenes(text, state)?.map(t => t.sceneId).filter((id): id is string => Boolean(id))
   const cutVerb = /\b(?:remove|cut|delete|trim|skip|tighten|shorten|drop|get rid of|take out|clean up|edit out)\b/
 
+  // Auto-reframe: "reframe the video for vertical", "follow the speaker's face", "stop following the face".
+  const reframeRe = /\bauto[\s-]?re-?frame\w*|\bre-?frame\w*|\b(?:follow|track)(?:s|ing)?\s+(?:the\s+|my\s+|his\s+|her\s+|their\s+|our\s+)?(?:face|faces|speaker'?s?(?:\s+face)?|person|subject|head)\b|\bkeep\s+(?:the\s+|my\s+|his\s+|her\s+|their\s+)?(?:face|speaker|person|subject|head)\s+(?:in\s+(?:the\s+)?(?:frame|center|centre|shot|view|middle)|centered|centred)\b|\bface[\s-]?track\w*/
+  if (reframeRe.test(text)) {
+    const scene = state.context.scenes.find(sc => sc.index === state.context.currentSceneIndex)
+    const sceneVideos = (readScenes(text, state) ?? []).length
+      ? state.context.scenes.filter(sc => readScenes(text, state)!.some(t => t.sceneId === sc.id)).flatMap(sc => sc.elements.filter(el => el.type === 'video'))
+      : scene?.elements.filter(el => el.type === 'video') ?? []
+    if (!sceneVideos.length) { warn(state, 'There is no video on this scene to reframe.'); return [] }
+    // Which clips: named ("video 2", a file name), else the selected ones, else every video on the scene.
+    const numbered = text.match(/\b(?:video|clip)[_\-\s]*(?:(?:id|item|number|num)[_\-\s]*)?#?(\d+)\b/)
+    const named = sceneVideos.filter(el => el.name.length >= 3 && !/^(?:video|clip)(?:\s*\d+)?$/i.test(el.name) &&
+      (clause.quotes.some(q => q.trim().toLowerCase() === el.name.toLowerCase()) || text.includes(el.name.toLowerCase())))
+    const selected = sceneVideos.filter(el => state.context.selectedIds.includes(el.id))
+    const targets = named.length ? named
+      : numbered && sceneVideos[Number(numbered[1]) - 1] ? [sceneVideos[Number(numbered[1]) - 1]]
+      : selected.length ? selected
+      : /\b(?:it|this|that)\b/.test(text) && state.lastElements?.some(t => t.type === 'video')
+        ? sceneVideos.filter(el => state.lastElements!.some(t => t.ref.elementId === el.id))
+        : sceneVideos
+    state.lastElements = targets.map(el => ({ ref: { elementId: el.id, targetLabel: el.name }, type: el.type, summary: el, sceneId: scene?.id, label: el.name }))
+    if (/\b(?:stop|remove|turn off|disable|undo|no longer|don'?t)\b/.test(text)) {
+      const following = targets.filter(el => el.cropKeys)
+      if (!following.length) warn(state, 'No video is following a face right now.')
+      return following.map(el => ({ type: 'setCropTrack' as const, elementId: el.id, targetLabel: el.name, keys: [] }))
+    }
+    const fill = /\b(?:vertical|portrait|9\s*[:x×]\s*16|fill\w*|full[\s-]?screen|whole (?:screen|frame)|tiktok|reels?|shorts)\b/.test(text) ? true
+      : /\b(?:in place|keep (?:its|the) (?:size|place|box|position))\b/.test(text) ? false : undefined
+    const mode = /\b(?:steady|static|still|locked|no camera (?:movement|moves)|don'?t move)\b/.test(text) ? 'steady' as const
+      : /\b(?:closely|every move|always follow|tightly)\b/.test(text) ? 'follow' as const : undefined
+    return [{ type: 'reframe', elementIds: targets.map(el => el.id), fill, mode }]
+  }
+
   // Ducking: "duck the music", "lower the music when I talk", "remove the ducking".
   const music = /\b(?:music|songs?|soundtrack|bgm|background (?:music|audio|track|sound))\b/
   const voice = /\b(?:talk\w*|speak\w*|speech|voices?|voiceover|narrat\w*|dialog(?:ue)?|someone|people)\b/

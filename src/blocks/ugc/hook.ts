@@ -49,6 +49,7 @@ export const hook: SmartBlock<Params> = {
   title: 'Hook / CTA',
   description: 'Bold on-screen text that pops in word by word, with highlighted words — an opening hook or a call to action.',
   category: 'ugc',
+  command: 'hook',
   phrases: /\bhooks?\b|\bcta\b|\bcall to action\b|\bcallouts?\b|\bpunch ?line\b/,
   fields: FIELDS,
   defaults: DEFAULTS,

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Type, Square, ArrowRight, Code2, Table2, Layers, Shuffle, ImagePlus, BarChart3, Music,
-  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, SquareDashedMousePointer, SquarePlay, Sigma, BookOpen, Captions, Timer, Route, SquareTerminal, PenTool, Sparkles, Blocks, LayoutTemplate
+  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, SquareDashedMousePointer, SquarePlay, Sigma, BookOpen, Captions, Timer, Route, SquareTerminal, PenTool, Sparkles, Blocks, Puzzle
 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { useHistoryStore } from '../../store/historyStore'
@@ -28,10 +28,10 @@ interface ToolItem {
 
 // Alphabetical. "Free Cursor" is rendered separately, always first.
 const TOOLS: ToolItem[] = [
+  { icon: <Puzzle size={15} />, label: 'Add-ons', panel: 'blocks' },
   { icon: <ArrowRight size={15} />, label: 'Arrow', panel: 'arrows', insert: makeCenteredArrow },
   { icon: <Music size={15} />, label: 'Audio', panel: 'audio' },
   { icon: <PaintBucket size={15} />, label: 'Background', panel: 'background' },
-  { icon: <LayoutTemplate size={15} />, label: 'Blocks', panel: 'blocks' },
   { icon: <BarChart3 size={15} />, label: 'Charts', tool: 'chart', panel: 'charts' },
   { icon: <Code2 size={15} />, label: 'Code', tool: 'code', panel: 'code' },
   { icon: <Timer size={15} />, label: 'Counter', tool: 'counter', panel: 'counter' },

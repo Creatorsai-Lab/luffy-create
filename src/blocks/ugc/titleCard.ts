@@ -45,6 +45,7 @@ export const titleCard: SmartBlock<Params> = {
   title: 'Title card',
   description: 'A big chapter or section title with an optional subtitle — use between segments or at the start.',
   category: 'ugc',
+  command: 'title-card',
   phrases: /\b(?:title|chapter|section|intro) (?:card|screen|slide|break)\b|\bchapter break\b/,
   fields: FIELDS,
   defaults: DEFAULTS,

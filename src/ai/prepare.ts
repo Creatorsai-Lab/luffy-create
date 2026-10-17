@@ -268,6 +268,21 @@ function prepareCommand(
       return { ...command, targets, gap: clampOptional(command.gap, 0, 200) }
     }
 
+    case 'setCropTrack': {
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'Reframe removed: the video could not be found.')
+      const unit = (v: number) => clamp(Number.isFinite(v) ? v : 0.5, 0, 1)
+      const keys = command.keys
+        .filter(k => Number.isFinite(k.t))
+        .map(k => ({ t: Math.max(0, k.t), cx: unit(k.cx), cy: unit(k.cy) }))
+        .sort((a, b) => a.t - b.t)
+        .slice(0, 5000)
+      const c = command.crop
+      const crop = c && [c.x, c.y, c.w, c.h].every(Number.isFinite)
+        ? { w: clamp(c.w, 0.01, 1), h: clamp(c.h, 0.01, 1), x: clamp(c.x, 0, 1 - clamp(c.w, 0.01, 1)), y: clamp(c.y, 0, 1 - clamp(c.h, 0.01, 1)) }
+        : undefined
+      return { ...command, keys, crop }
+    }
+
     case 'placeMedia': {
       if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'Placement removed: the video or image could not be found.')
       const r = command.region
@@ -290,11 +305,11 @@ function prepareCommand(
     }
 
     case 'insertBlock':
-      return getBlock(command.blockId) ? command : drop(issues, index, `There is no "${command.blockId}" block.`)
+      return getBlock(command.blockId) ? command : drop(issues, index, `There is no "${command.blockId}" add-on.`)
 
     case 'updateBlock': {
       const known = context.scenes.some(scene => scene.groups?.some(g => g.id === command.groupId && g.blockId))
-      return known ? command : drop(issues, index, 'That group is not a smart block, so it has no settings to change.')
+      return known ? command : drop(issues, index, 'That group is not an add-on, so it has no settings to change.')
     }
 
     case 'connectElements': {

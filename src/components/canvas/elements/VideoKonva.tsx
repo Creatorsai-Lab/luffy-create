@@ -3,6 +3,7 @@ import { Group, Rect, Shape } from 'react-konva'
 import type Konva from 'konva'
 import type { VideoElement } from '../../../types/editor'
 import { getVideoClipState } from '../../../utils/videoClip'
+import { cropAt } from '../../../utils/cropKeys'
 import { videoRegistry } from '../../../engine/videoRegistry'
 import { createVideoFor, isAtFrame, loadVideoAt, releaseVideo, seekVideo, takeWarmVideo } from '../../../engine/videoPreloader'
 import { buildCssFilter, applyCanvasAdjustments, drawGrain, drawVignette } from '../../../engine/imageFilters'
@@ -14,10 +15,12 @@ import { drawMediaWithEffects, getMediaEffectClips, mediaEffectRequiresAnimation
 function makeVideoDrawFns(video: HTMLVideoElement, el: VideoElement, width: number, height: number): MediaDrawFns {
   const vw = video.videoWidth || width
   const vh = video.videoHeight || height
-  const cropX = (el.crop?.x ?? 0) * vw
-  const cropY = (el.crop?.y ?? 0) * vh
-  const cropW = (el.crop?.w ?? 1) * vw
-  const cropH = (el.crop?.h ?? 1) * vh
+  // A reframed clip's crop moves with the frame actually on screen.
+  const crop = cropAt(el.crop, el.cropKeys, video.currentTime)
+  const cropX = (crop?.x ?? 0) * vw
+  const cropY = (crop?.y ?? 0) * vh
+  const cropW = (crop?.w ?? 1) * vw
+  const cropH = (crop?.h ?? 1) * vh
 
   return {
     drawBase: (ctx, dx = 0, dy = 0, dw = width, dh = height) => {

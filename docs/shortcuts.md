@@ -95,6 +95,17 @@ The Monaco code editor supports all standard editor shortcuts:
 
 ---
 
+## AI Agent Prompt
+
+| Action | Key |
+|---|---|
+| Open the add-on list / media list | Type `/` / `@` |
+| Move through the list | `↑` / `↓` |
+| Pick the highlighted item | `Enter` or `Tab` |
+| Close the list | `Escape` |
+
+---
+
 ## Project Name Input
 
 | Action | Key |

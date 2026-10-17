@@ -5,7 +5,7 @@
  * circle" when there are three) become plan issues instead of guesses.
  */
 import type { AiEditorCommand, AiElementRef, AiElementSummary, AiPlanIssue, AiProjectContext } from '../types'
-import { getBlock } from '../../blocks/registry'
+import { addonCommand, getBlock } from '../../blocks/registry'
 import { nearestColorName, readColors } from './colors'
 import type { Clause } from './text'
 import { ordinalValue } from './text'
@@ -256,7 +256,7 @@ export function readElements(clause: Clause, state: ParseState, opts: ElementOpt
     }
     const groups = sc.groups ?? []
     if (groups.length === 1 && /\b(?:the|this|that) group\b/.test(text)) return groupTargets(sc, groups[0].id, groups[0].name)
-    const block = groups.slice().reverse().find(g => g.blockId && getBlock(g.blockId)?.phrases?.test(text))
+    const block = groups.slice().reverse().find(g => g.blockId && namesAddon(text, g.blockId))
     if (block) return groupTargets(sc, block.id, block.name)
   }
 
@@ -348,7 +348,7 @@ export function mentionsGroup(text: string, state: ParseState) {
   return (scene?.groups ?? []).some(g => {
     const name = g.name.toLowerCase()
     return (name.length >= 3 && new RegExp(`(?<![\\w])${escapeRe(name)}(?![\\w])`).test(text)) ||
-      (g.blockId && getBlock(g.blockId)?.phrases?.test(text))
+      (g.blockId && namesAddon(text, g.blockId))
   })
 }
 
@@ -390,6 +390,14 @@ function sceneOf(state: ParseState, elementId: string) {
 function isWholeMatch(re: RegExp, value: string) {
   const match = value.match(re)
   return Boolean(match && match[0] === value.replace(/\s*\d+$/, ''))
+}
+
+/** Whether the text names an add-on: its words ("the lower third"), a reference ("the network") or its slash command. */
+function namesAddon(text: string, blockId: string) {
+  const block = getBlock(blockId)
+  if (!block) return false
+  return Boolean(block.phrases?.test(text) || block.refers?.test(text) ||
+    new RegExp(`(?:^|\\s)\\/${escapeRe(addonCommand(block))}\\b`).test(text))
 }
 
 export function escapeRe(value: string) {
