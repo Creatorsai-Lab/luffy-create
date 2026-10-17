@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { highlightColor } from '../canvas/HighlightOverlay'
 import { Eye, EyeOff, Lock, Unlock, ArrowUp, ArrowDown, Layers, Trash2, Type, Shapes, Code, Image, Video, Music, Hash, Calculator, Pencil } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { cn } from '../../utils/cn'
@@ -227,7 +228,7 @@ export default function LayersPanel() {
                 suppressNextClickRef.current = false
                 return
               }
-              selectElement(el.id)
+              selectElement(el.id, false, { member: true }) // one layer, even inside a group
             }}
             onMouseDown={e => startLayerDrag(el.id, e)}
             className={cn(
@@ -258,6 +259,15 @@ export default function LayersPanel() {
             )}>
               {layerInfo.text}
             </span>
+            {el.groupId && scene?.groups?.[el.groupId] && (
+              <span
+                title={`In group "${scene.groups[el.groupId].name}" — click the item on the canvas to select the whole group`}
+                className="flex-none max-w-[80px] truncate rounded px-1 text-[10px] text-white"
+                style={{ backgroundColor: highlightColor(el.groupId) + 'aa' }}
+              >
+                {scene.groups[el.groupId].smart ? '✦ ' : ''}{scene.groups[el.groupId].name}
+              </span>
+            )}
             
             {/* Shape/Arrow thumbnail after text */}
             {el.type === 'shape' && (

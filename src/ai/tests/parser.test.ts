@@ -21,6 +21,9 @@ type Case = {
 }
 
 const ALIAS = /^el\d+$/
+const portrait = () => useEditorStore.setState(s => ({ project: { ...s.project!, width: 1080, height: 1920 } }))
+const landscape = () => useEditorStore.setState(s => ({ project: { ...s.project!, width: 1920, height: 1080 } }))
+const near = (actual: number, expected: number, tolerance: number) => assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} is not near ${expected}`)
 const SCENE_ALIAS = /^scene\d+$/
 
 const cases: Case[] = [
@@ -124,7 +127,7 @@ const cases: Case[] = [
   { prompt: 'resize the video to 800x450', setup: () => f.goTo(2),
     commands: [{ type: 'updateElement', elementId: el.video.id, patch: { width: 800, height: 450 } }] },
   { prompt: 'make the image fill the screen', setup: () => f.goTo(2),
-    commands: [{ type: 'updateElement', elementId: el.image.id, patch: { x: 0, y: 0, width: 1920, height: 1080 } }] },
+    commands: [{ type: 'placeMedia', elementId: el.image.id, region: { x: 0, y: 0, width: 1920, height: 1080 }, regionLabel: 'full screen', fit: 'cover' }] },
   { prompt: 'set the title font size to 90', commands: [{ type: 'updateElement', elementId: el.title.id, patch: { fontSize: 90 } }] },
   { prompt: 'make all text bold',
     commands: [{ type: 'updateElement', elementId: el.title.id, patch: { fontWeight: 'bold' } }, { type: 'updateElement', elementId: el.subtitle.id, patch: { fontWeight: 'bold' } }] },
@@ -198,6 +201,150 @@ const cases: Case[] = [
   { prompt: 'connect the selected items', setup: () => f.select(el.logoBox.id, el.title.id),
     commands: [{ type: 'connectElements', mode: 'chain', keepOrder: true, from: [{ elementId: el.logoBox.id }, { elementId: el.title.id }] }] },
   { prompt: 'connect the logo box', issues: [/at least two items/], commands: [] },
+
+  // ── Groups ──────────────────────────────────────────────────────────────────
+  { prompt: "group all circles as 'Layer 1'", setup: () => f.goTo(2),
+    commands: [{ type: 'groupElements', name: 'Layer 1' }],
+    check: c => assert.equal((c[0].targets as unknown[]).length, 2) },
+  { prompt: 'group the selected items', setup: () => f.select(el.title.id, el.logoBox.id),
+    commands: [{ type: 'groupElements', targets: [{ elementId: el.title.id }, { elementId: el.logoBox.id }] }] },
+  { prompt: 'group the title', issues: [/at least two items/], commands: [] },
+  { prompt: 'make the intro group red', setup: () => {
+      useEditorStore.getState().groupElements([el.redCircle.id, el.logoBox.id], 'Intro')
+      f.goTo(1)
+    },
+    commands: [
+      { type: 'updateElement', elementId: el.redCircle.id, patch: { fill: '#ef4444' } },
+      { type: 'updateElement', elementId: el.logoBox.id, patch: { fill: '#ef4444' } },
+    ] },
+  { prompt: 'ungroup the group',
+    commands: [{ type: 'ungroupElements' }],
+    // parse-only: remove the Intro group so later cases see the plain fixture
+    check: () => useEditorStore.getState().ungroupElements([el.redCircle.id]) },
+
+  // ── Captions ────────────────────────────────────────────────────────────────
+  { prompt: 'hormozi style captions', commands: [{ type: 'setCaptionStyle', preset: 'bold', style: undefined }] },
+  { prompt: 'use the karaoke preset for the captions', commands: [{ type: 'setCaptionStyle', preset: 'karaoke' }] },
+  { prompt: 'make the captions yellow with a black outline',
+    commands: [{ type: 'setCaptionStyle', preset: undefined, style: { color: /^#/, strokeColor: /^#/, strokeWidth: 9 } }],
+    check: c => assert.notEqual((c[0].style as Record<string, unknown>).color, (c[0].style as Record<string, unknown>).strokeColor) },
+  { prompt: 'move the captions to the top', commands: [{ type: 'setCaptionStyle', style: { positionY: 12 } }] },
+  { prompt: 'captions in all caps with a dark box behind', commands: [{ type: 'setCaptionStyle', style: { uppercase: true, boxOpacity: 0.72 } }] },
+  { prompt: 'highlight the spoken word in green in the captions', commands: [{ type: 'setCaptionStyle', style: { activeColor: '#22c55e' } }] },
+  { prompt: 'hide the captions', commands: [{ type: 'setCaptionStyle', enabled: false, style: undefined }] },
+  { prompt: "add a caption 'Hello'", check: c => assert.ok(c.length && c.every(x => x.type !== 'setCaptionStyle')) },
+  { prompt: 'make the subtitle red', setup: () => f.select(el.subtitle.id),
+    commands: [{ type: 'updateElement', elementId: el.subtitle.id }] },
+
+  // ── Media layout ────────────────────────────────────────────────────────────
+  { prompt: 'split screen', setup: () => f.goTo(2),
+    commands: [{ type: 'arrangeMedia', layout: 'split', targets: [{ elementId: el.image.id }, { elementId: el.video.id }] }] },
+  { prompt: 'stack the image and the video with a 20px gap', setup: () => f.goTo(2),
+    commands: [{ type: 'arrangeMedia', layout: 'stacked', gap: 20 }] },
+  // ── Putting clips in areas of the frame (1920×1080 here; 1080×1920 below) ────
+  { prompt: 'make the video fill the screen', setup: () => f.goTo(2),
+    commands: [{ type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 1920, height: 1080 }, width: undefined, height: undefined, fit: 'cover' }] },
+  { prompt: 'make it full screen', setup: () => { f.goTo(2); f.select(el.image.id) },
+    commands: [{ type: 'placeMedia', elementId: el.image.id, region: { x: 0, y: 0, width: 1920, height: 1080 } }] },
+  { prompt: 'put the image in the left half and the video in the right half', setup: () => f.goTo(2),
+    commands: [
+      { type: 'placeMedia', elementId: el.image.id, region: { x: 0, y: 0, width: 960, height: 1080 }, regionLabel: 'left half' },
+      { type: 'placeMedia', elementId: el.video.id, region: { x: 960, y: 0, width: 960, height: 1080 }, regionLabel: 'right half' },
+    ] },
+  { prompt: 'make video 1 fill the full screen and image 1 show in the bottom right at 400x300', setup: () => f.goTo(2),
+    commands: [
+      { type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 1920, height: 1080 }, width: undefined },
+      { type: 'placeMedia', elementId: el.image.id, region: { x: 32, y: 32, width: 1856, height: 1016 }, width: 400, height: 300, horizontal: 'right', vertical: 'bottom', regionLabel: 'bottom right corner' },
+    ] },
+  { prompt: 'make video_id_1 full screen', setup: () => f.goTo(2),
+    commands: [{ type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 1920, height: 1080 } }] },
+  { prompt: 'make this video full screen and this image bottom right at 30%', setup: () => { f.goTo(2); f.select(el.video.id, el.image.id) },
+    commands: [
+      { type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 1920, height: 1080 } },
+      { type: 'placeMedia', elementId: el.image.id, width: 576, height: undefined, horizontal: 'right', vertical: 'bottom' },
+    ] },
+  { prompt: 'make this full screen and put this one in the top left corner, 480px wide', setup: () => { f.goTo(2); f.select(el.video.id, el.image.id) },
+    commands: [
+      { type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 1920, height: 1080 } },
+      { type: 'placeMedia', elementId: el.image.id, region: { x: 32, y: 32, width: 1856, height: 1016 }, width: 480, horizontal: 'left', vertical: 'top' },
+    ] },
+  { prompt: 'put one in the top left quarter and the other in the bottom right quarter', setup: () => { f.goTo(2); f.select(el.video.id, el.image.id) },
+    commands: [
+      { type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 960, height: 540 } },
+      { type: 'placeMedia', elementId: el.image.id, region: { x: 960, y: 540, width: 960, height: 540 } },
+    ] },
+  { prompt: 'put the video in the top third', setup: () => f.goTo(2),
+    commands: [{ type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 1920, height: 360 }, regionLabel: 'top third' }] },
+  { prompt: 'put the video in the left 60%', setup: () => f.goTo(2),
+    commands: [{ type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 1152, height: 1080 }, width: undefined }] },
+  { prompt: 'fit the whole video in the upper half', setup: () => f.goTo(2),
+    commands: [{ type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 1920, height: 540 }, fit: 'contain' }] },
+  { prompt: 'stretch the video to fill the screen', setup: () => f.goTo(2),
+    commands: [{ type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 1920, height: 1080 }, fit: 'stretch' }] },
+  { prompt: 'put the video at x 100 y 200, 500px wide', setup: () => f.goTo(2),
+    commands: [{ type: 'placeMedia', elementId: el.video.id, region: { x: 100, y: 200, width: 1820, height: 880 }, width: 500, horizontal: 'left', vertical: 'top' }] },
+  { prompt: 'put the image in the bottom right corner at 400x300 with no margin', setup: () => f.goTo(2),
+    commands: [{ type: 'placeMedia', elementId: el.image.id, region: { x: 0, y: 0, width: 1920, height: 1080 }, width: 400, height: 300 }] },
+  { prompt: 'move the image to the top right corner', setup: () => f.goTo(2),
+    commands: [{ type: 'alignElement', elementId: el.image.id, horizontal: 'right', vertical: 'top', margin: 32 }] },
+  { prompt: 'picture in picture', setup: () => f.goTo(2),
+    commands: [
+      { type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 1920, height: 1080 } },
+      { type: 'placeMedia', elementId: el.image.id, width: 576, horizontal: 'right', vertical: 'bottom' },
+    ] },
+  { prompt: 'put the video in the upper half and the image in the lower half', setup: () => { f.goTo(2); portrait() },
+    commands: [
+      { type: 'placeMedia', elementId: el.video.id, region: { x: 0, y: 0, width: 1080, height: 960 }, regionLabel: 'upper half' },
+      { type: 'placeMedia', elementId: el.image.id, region: { x: 0, y: 960, width: 1080, height: 960 }, regionLabel: 'lower half' },
+    ],
+    check: () => landscape() },
+  { prompt: 'put the image and the video in the top and bottom halves', setup: () => { f.goTo(2); portrait() },
+    check: c => { landscape(); assert.equal(c[0].type, 'arrangeMedia') } },
+  { prompt: 'add clip.mp4 to the upper half',
+    commands: [
+      { type: 'addVideoFromAsset', assetId: 'asset-clip', alias: ALIAS },
+      { type: 'placeMedia', elementAlias: ALIAS, region: { x: 0, y: 0, width: 1920, height: 540 }, regionLabel: 'upper half' },
+    ] },
+  { prompt: 'slide the video in from the top left', setup: () => f.goTo(2),
+    check: c => assert.ok(c.every(x => x.type !== 'placeMedia')) },
+  { prompt: 'move the title to the top right', check: c => assert.equal(c[0].type, 'alignElement') },
+  { prompt: 'put the videos side by side', setup: () => f.goTo(2), commands: [], issues: [/at least two videos or images/] },
+  { prompt: 'split screen', commands: [], issues: [/no video or image/] },
+
+  // ── Ducking ─────────────────────────────────────────────────────────────────
+  { prompt: 'duck the music', commands: [{ type: 'duckMusic', level: undefined, fade: undefined }] },
+  { prompt: 'duck the music to 15% with a 0.5s fade', commands: [{ type: 'duckMusic', level: 0.15, fade: 0.5 }] },
+  { prompt: 'lower the background music by 80% when I talk', commands: [{ type: 'duckMusic', level: 0.2 }] },
+  { prompt: 'turn the music down while someone is speaking', commands: [{ type: 'duckMusic' }] },
+  { prompt: 'duck the music by -12db', check: c => near(c[0].level as number, 0.251, 0.001) },
+  { prompt: 'remove the ducking', commands: [], issues: [/No audio clip has ducking/] },
+  { prompt: 'lower the music volume to 30%', check: c => assert.ok(c.every(x => x.type !== 'duckMusic')) },
+
+  // ── Smart blocks ────────────────────────────────────────────────────────────
+  { prompt: "add a lower third for 'Adya' 'ML engineer' on the right",
+    commands: [{ type: 'insertBlock', blockId: 'lowerThird', sceneId: s1, params: { name: 'Adya', role: 'ML engineer', side: 'right' } }] },
+  { prompt: "add a hook 'Stop scrolling, this changes everything' highlighting 'everything'",
+    commands: [{ type: 'insertBlock', blockId: 'hook', params: { text: 'Stop scrolling, this changes everything', emphasis: 'everything' } }] },
+  { prompt: "add a title card 'Chapter 2' with subtitle 'Setup' on scene 3",
+    commands: [{ type: 'insertBlock', blockId: 'titleCard', sceneId: s3, params: { title: 'Chapter 2', subtitle: 'Setup' } }] },
+  { prompt: "add a boxed title card 'Results' in red",
+    commands: [{ type: 'insertBlock', blockId: 'titleCard', params: { title: 'Results', style: 'boxed', accent: '#ef4444' } }] },
+  { prompt: "add a call to action 'Follow for part 2' at the bottom at 3s",
+    commands: [{ type: 'insertBlock', blockId: 'hook', params: { text: 'Follow for part 2', position: 'bottom', startAt: 3 } }] },
+  { prompt: 'make the lower third red', setup: () => {
+      useEditorStore.getState().insertBlock('lowerThird', { name: 'Adya' })
+      f.goTo(1)
+    },
+    commands: [{ type: 'updateBlock', groupId: /.+/, params: { accent: '#ef4444' } }] },
+  { prompt: "change the lower third role to 'Founder' and put it on the left",
+    commands: [{ type: 'updateBlock', params: { role: 'Founder' } }, { type: 'updateBlock', params: { side: 'left' } }] },
+  { prompt: 'delete the lower third',
+    check: c => {
+      assert.ok(c.length > 1 && c.every(x => x.type === 'removeElement'), 'removes every part')
+      // parse-only: take the block back off so later cases see the plain fixture
+      const sc = useEditorStore.getState().project!.scenes[0]
+      for (const e of sc.elements.filter(e => e.groupId)) useEditorStore.getState().removeElement(e.id)
+    } },
 
   // ── Smart edits (expanded later by media analysis) ──────────────────────────
   { prompt: 'remove silences', commands: [{ type: 'removeSilences', sceneIds: undefined }] },

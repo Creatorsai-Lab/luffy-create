@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Blocks, ListOrdered, MousePointerClick, Trash2 } from 'lucide-react'
 import { ConnectSelected } from './ArrowConnections'
+import MediaLayoutControls from './MediaLayoutControls'
 import { useShallow } from 'zustand/react/shallow'
 import { useEditorStore } from '../../store/editorStore'
 import type { AnimationType, EditorElement } from '../../types/editor'
@@ -37,7 +38,9 @@ export default function GroupEffectsPanel() {
   const sceneElements = project?.scenes.find(scene => scene.id === currentSceneId)?.elements ?? []
   const selected = selectedIds.map(id => sceneElements.find(el => el.id === id)).filter((el): el is EditorElement => Boolean(el) && el!.type !== 'audio')
 
-  const [tab, setTab] = useState<'animate' | 'connect'>('animate')
+  const [tab, setTab] = useState<'animate' | 'connect' | 'layout'>('animate')
+  const mediaIds = selected.filter(el => el.type === 'video' || el.type === 'image').map(el => el.id)
+  const tabs = mediaIds.length >= 2 ? (['animate', 'connect', 'layout'] as const) : (['animate', 'connect'] as const)
   const [type, setType] = useState<AnimationType>('fadeIn')
   const [order, setOrder] = useState<StaggerOrder>('leftToRight')
   const [together, setTogether] = useState(false)
@@ -102,14 +105,20 @@ export default function GroupEffectsPanel() {
         </div>
 
         {selected.length >= 2 && (
-          <div className="grid grid-cols-2 gap-1 rounded bg-editor-elevated-highlight p-0.5">
-            {(['animate', 'connect'] as const).map(t => (
+          <div className={cn('grid gap-1 rounded bg-editor-elevated-highlight p-0.5', tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
+            {tabs.map(t => (
               <button key={t} type="button" onClick={() => setTab(t)}
                 className={cn('rounded py-1 text-xs', tab === t ? 'bg-editor-accent text-white' : 'text-editor-text-secondary hover:text-editor-text')}>
-                {t === 'animate' ? 'Animate' : 'Connect'}
+                {t === 'animate' ? 'Animate' : t === 'connect' ? 'Connect' : 'Layout'}
               </button>
             ))}
           </div>
+        )}
+
+        {mediaIds.length >= 2 && tab === 'layout' && (
+          <Section title={`Layout · ${mediaIds.length} videos / images`}>
+            <MediaLayoutControls ids={mediaIds} />
+          </Section>
         )}
 
         {selected.length >= 2 && tab === 'connect' && (

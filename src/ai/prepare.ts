@@ -1,4 +1,7 @@
 import { FONT_FAMILIES } from '../types/editor'
+import { getCaptionPreset } from '../subtitle/presets'
+import { normalizeVolumeKeys } from '../utils/volumeKeys'
+import { getBlock } from '../blocks/registry'
 import type { AnimationType, Background, EasingType, ShapeType, TransitionType } from '../types/editor'
 import type { AiAnimationSpec, AiEditorCommand, AiElementRef, AiPlan, AiPlanIssue, AiPreparedPlan, AiProjectContext, AiSceneRef } from './types'
 import { normalizeColorValue as normalizeColor } from './parser/colors'
@@ -232,6 +235,67 @@ function prepareCommand(
       return canResolveElement(command, context, aliases)
         ? command
         : drop(issues, index, `${command.type} removed because no target element could be resolved.`)
+
+    case 'groupElements':
+    case 'ungroupElements': {
+      const targets = command.targets.filter(t => canResolveElement(t, context, aliases))
+      if (command.type === 'groupElements' && targets.length < 2) return drop(issues, index, 'Group removed: a group needs at least two items.')
+      if (!targets.length) return drop(issues, index, 'Ungroup removed: nothing to ungroup.')
+      return { ...command, targets, ...(command.type === 'groupElements' ? { name: command.name?.slice(0, 60) } : {}) }
+    }
+
+    case 'setCaptionStyle': {
+      if (command.preset && !getCaptionPreset(command.preset)) return drop(issues, index, `There is no "${command.preset}" caption style.`)
+      const style = command.style ? { ...command.style } : undefined
+      if (style) {
+        for (const key of ['color', 'strokeColor', 'activeColor', 'boxColor'] as const) {
+          if (style[key] !== undefined) style[key] = normalizeColor(style[key])
+        }
+        if (style.fontSize !== undefined) style.fontSize = clamp(style.fontSize, 12, 200)
+        if (style.strokeWidth !== undefined) style.strokeWidth = clamp(style.strokeWidth, 0, 30)
+        if (style.boxOpacity !== undefined) style.boxOpacity = clamp(style.boxOpacity, 0, 1)
+        if (style.positionY !== undefined) style.positionY = clamp(style.positionY, 0, 100)
+      }
+      if (!command.preset && !style && command.enabled === undefined) return drop(issues, index, 'Caption change removed: nothing to change.')
+      if (!context.captions?.cues) issues.push({ level: 'warning', commandIndex: index, message: 'There are no captions yet — the style is saved and used when you generate them (Captions).' })
+      return { ...command, style }
+    }
+
+    case 'arrangeMedia': {
+      const targets = command.targets.filter(t => canResolveElement(t, context, aliases))
+      if (!targets.length) return drop(issues, index, 'Layout removed: no video or image could be found.')
+      if (!['split', 'sideBySide', 'stacked', 'grid'].includes(command.layout)) return drop(issues, index, `There is no "${command.layout}" layout.`)
+      return { ...command, targets, gap: clampOptional(command.gap, 0, 200) }
+    }
+
+    case 'placeMedia': {
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'Placement removed: the video or image could not be found.')
+      const r = command.region
+      const W = context.project.width
+      const H = context.project.height
+      if (![r?.x, r?.y, r?.width, r?.height].every(Number.isFinite) || r.width <= 0 || r.height <= 0) return drop(issues, index, 'Placement removed: the area is invalid.')
+      return {
+        ...command,
+        region: { x: clamp(r.x, -W, W * 2), y: clamp(r.y, -H, H * 2), width: clamp(r.width, 1, W * 3), height: clamp(r.height, 1, H * 3) },
+        width: clampOptional(command.width, 1, W * 3),
+        height: clampOptional(command.height, 1, H * 3),
+        fit: command.fit === 'contain' || command.fit === 'stretch' ? command.fit : 'cover',
+      }
+    }
+
+    case 'setVolumeKeys': {
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'Volume change removed because the audio clip could not be found.')
+      const keys = normalizeVolumeKeys(command.keys).slice(0, 4000)
+      return { ...command, keys }
+    }
+
+    case 'insertBlock':
+      return getBlock(command.blockId) ? command : drop(issues, index, `There is no "${command.blockId}" block.`)
+
+    case 'updateBlock': {
+      const known = context.scenes.some(scene => scene.groups?.some(g => g.id === command.groupId && g.blockId))
+      return known ? command : drop(issues, index, 'That group is not a smart block, so it has no settings to change.')
+    }
 
     case 'connectElements': {
       const from = command.from.filter(t => canResolveElement(t, context, aliases))

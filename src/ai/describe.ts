@@ -28,6 +28,34 @@ export function describeCommand(command: AiEditorCommand): string {
     case 'alignElement': return `Place ${target(command)} at ${[command.vertical, command.horizontal].filter(Boolean).join(' ') || 'center'}`
     case 'addAnimation': return `Animate ${target(command)}: ${command.animation.type}${command.animation.duration ? ` over ${command.animation.duration}s` : ''}`
     case 'removeAnimations': return `Remove animations from ${target(command)}`
+    case 'groupElements': return `Group ${command.targets.length} items${command.name ? ` as "${command.name}"` : ''}`
+    case 'ungroupElements': return 'Ungroup'
+    case 'insertBlock': return `Add ${command.blockId}${onScene(command)}`
+    case 'setCaptionStyle': return [
+      command.preset ? `Use the ${command.preset} caption style` : '',
+      command.style ? `${command.preset ? 'with' : 'Change captions:'} ${Object.entries(command.style).map(([k, v]) => `${k} ${formatValue(v)}`).join(', ')}` : '',
+      command.enabled === false ? 'Hide captions' : command.enabled ? 'Show captions' : '',
+    ].filter(Boolean).join(' ')
+    case 'arrangeMedia': return `Arrange ${command.targets.length} items: ${{ split: 'split screen', sideBySide: 'side by side', stacked: 'stacked', grid: 'grid' }[command.layout]}`
+    case 'placeMedia': {
+      const r = command.region
+      const where = command.regionLabel === 'full screen' ? 'full screen' : `in the ${command.regionLabel ?? 'area'}`
+      const fit = command.fit === 'contain' ? ', whole clip visible' : command.fit === 'stretch' ? ', stretched to fit' : ''
+      const w = command.width
+      const h = command.height
+      if (w != null && h != null) {
+        // A fixed size at a corner/edge: say where it lands.
+        const x = command.horizontal === 'left' ? r.x : command.horizontal === 'right' ? r.x + r.width - w : r.x + (r.width - w) / 2
+        const y = command.vertical === 'top' ? r.y : command.vertical === 'bottom' ? r.y + r.height - h : r.y + (r.height - h) / 2
+        return `Put ${target(command)} ${where}: ${w}×${h} at (${Math.round(x)}, ${Math.round(y)})${command.fit === 'cover' ? ', cropped to fill' : fit}`
+      }
+      if (w != null || h != null) return `Put ${target(command)} ${where}: ${w != null ? `${w} px wide` : `${h} px tall`}, whole clip${command.horizontal ? `, ${r.x} px from the edge` : ''}`
+      return `Put ${target(command)} ${where}: ${r.width}×${r.height} at (${r.x}, ${r.y})${command.fit === 'contain' ? fit : command.fit === 'stretch' ? fit : ', cropped to fill if needed'}`
+    }
+    case 'setVolumeKeys': return command.keys.length
+      ? `Automate the volume of ${target(command)} (${command.keys.length} points)`
+      : `Remove volume automation from ${target(command)}`
+    case 'updateBlock': return `Change ${Object.keys(command.params).join(', ')}`
     case 'connectElements': return command.to
       ? `Connect ${command.from.length} item${command.from.length === 1 ? '' : 's'} to ${command.to.length} item${command.to.length === 1 ? '' : 's'} with arrows`
       : `Connect ${command.from.length} items (${command.mode ?? 'chain'}) with arrows`

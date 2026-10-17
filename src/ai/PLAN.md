@@ -189,8 +189,8 @@ blocks: "add a 3-4-2 neural network with a forward pass", "add a title card
 |---|---|---|
 | 1 | Deterministic prompt parser + video-editing commands | **Done** |
 | 2 | Smart edits from media analysis (silences, fillers, beats, shots) | **Done** (fillers approximate) |
-| 3 | Foundations: sequencing (stagger/sequence, remove `startTime`), connectors, groups + locking, smart groups | **Sequencing + connectors done**; groups + locking next |
-| 4 | UGC blocks v1: title card, lower third, hook/CTA, split-screen/PiP, captions styles; face reframe; volume automation + ducking | |
+| 3 | Foundations: sequencing (stagger/sequence, remove `startTime`), connectors, groups + locking, smart groups | **Done** |
+| 4 | UGC blocks v1: title card, lower third, hook/CTA, split-screen/PiP, captions styles; face reframe; volume automation + ducking | **4a, 4b done** (blocks; ducking, split screen/PiP, caption presets) — face reframe next |
 | 5 | Technical blocks v1: neural network, flowchart/pipeline, equation reveal, code walkthrough | |
 | 6 | LLM planner (BYOK): tools from the block catalogue, compact context, caching, routing | |
 | 7 | More blocks (agents, attention, matrix, montage, B-roll); Pro backend; self-check on rendered frames | |
@@ -204,6 +204,71 @@ blocks: "add a 3-4-2 neural network with a forward pass", "add a title card
 ---
 
 ## Done so far
+
+### Phase 4b — Ducking, media layout, caption presets
+- Volume automation: `AudioElement.volumeKeys` (gain at source seconds, so
+  trims/splits/speed never misalign it). `src/utils/volumeKeys.ts` drives the
+  preview gain, a flat (non-nested) FFmpeg `volume` expression for export
+  (checked with real FFmpeg) and the curve drawn on timeline clips.
+- Ducking: `src/ai/smart/duck.ts` (speech ranges → keys; holds through short
+  pauses). Smart step `duckMusic` listens to unmuted video and voiceover clips
+  (existing speech detection) and emits `setVolumeKeys` per music clip.
+  "Duck under voice" in the audio panel uses the same path (`planSmartSteps`).
+- Media layout: `src/utils/mediaLayout.ts` — `layoutMedia` (side by side,
+  stacked, grid; "split" = stacked in portrait) and `placeInRegion` (one clip in
+  an area: cover / contain / stretch; a single size follows the clip's shape).
+  Commands `arrangeMedia` and `placeMedia` (exact region in scene px).
+  Group Effects → Layout for split screens. PiP/fill buttons were dropped in
+  favour of direct placement by the agent: `parser/place.ts` reads areas
+  (full screen, halves, thirds, quarters, corners with size and margin,
+  "top 60%", "at x 100 y 200") against the scene size and pairs them with the
+  clips named ("video 1", "video_id_2", "this video" × n, "one … the other").
+- Captions: style fields `uppercase`, `strokeColor/Width`, `activeColor`
+  (spoken word), `boxColor/Opacity`; karaoke spreads over the cue. Presets in
+  `src/subtitle/presets.ts` (Bold, Karaoke, Boxed, Minimal, Pop; frame-relative
+  sizes). Command `setCaptionStyle`; preset chips in the Captions window.
+- Parser: `parser/layout.ts`, `parser/captions.ts` ("…, and move them to the
+  bottom" keeps meaning the captions), ducking phrases in the smart handler.
+- Tests: `scripts/mediaLayout.test.ts`; ducking keys + FFmpeg filter + whole
+  prompt with synthetic speech in `smart.test.ts`; parser and executor cases.
+- Next: face-tracked reframe (needs a local face model), then Phase 5.
+
+### Phase 4a — First UGC blocks
+- Block engine: fields schema (`src/blocks/fields.ts`: text, number, colour,
+  select, toggle, each with the words people use for it) drives three things
+  at once — `normalizeFields` (clamps and repairs any input), the generated
+  Blocks panel form, and the AI parser. A new block needs no UI or parser code.
+- Layout helpers (`src/blocks/layout.ts`): frame unit, portrait check, text
+  measuring, word wrap — blocks fit 16:9 and 9:16 with long text.
+- Blocks: `titleCard` (centered / left bar / boxed, dim or solid background,
+  rise / fade / pop, hold time), `lowerThird` (left/right, bar / pill /
+  minimal, show at / hide after), `hook` (one element per word, highlighted
+  words, pill / outline / plain, word-by-word pop with a step, start time).
+- UI: Blocks menu (catalogue + settings form, debounced text, Detach, Delete);
+  selecting a whole smart group opens it; rebuilding keeps the selection.
+- AI: `src/ai/parser/blocks.ts` — "add a lower third for 'A' 'B' on the right",
+  "make the lower third red", "…, and put it on the left" (`lastBlock`),
+  "delete / fade the hook" (block phrases refer to the smart group).
+- Tests: `scripts/blocks.test.ts` (fit in both frames, bad input, keys,
+  timing, rebuild keeps ids), parser and executor cases.
+- Next in Phase 4: split-screen / PiP, caption style presets, face-tracked
+  reframe, volume automation + music ducking.
+
+### Phase 3c — Groups, locking, smart groups
+- Groups: members share `groupId`; `Scene.groups` keeps name (and smart-block
+  info). Click a member → whole group; Alt-click / Layers → one member;
+  Shift-click toggles the group. Ctrl+G / Ctrl+Shift+G and right-click Group,
+  Ungroup, Select whole group, Lock/Unlock (a group locks as a whole). Copies
+  (paste, Ctrl+D, menu Duplicate — one `insertCopies` path) become new groups;
+  groups prune themselves below two members. Canvas name tag + Layers chips.
+- Smart blocks: `src/blocks/registry.ts` (`SmartBlock`: defaults, normalize,
+  build with `blockKey` per part). Store `insertBlock`, `rebuildBlock` (same
+  ids for the same parts, keeps the user's move, same layer position, outside
+  connectors survive), `detachBlock`.
+- AI: `groupElements`, `ungroupElements`, generic `insertBlock` /
+  `updateBlock`; groups referenced by name or "the group"; context carries
+  groups and block settings.
+- Tests: `scripts/groups.test.ts` (incl. a test block), parser + executor cases.
 
 ### Phase 3b — Connectors
 - `src/utils/connectors.ts`: an arrow end can attach to an element (anchor auto
@@ -254,7 +319,7 @@ them into normal commands.
 | Remove filler words | Local Whisper with word segments and a filler-style prompt; cut edges snapped to quiet points | Done, approximate (tiny-model word timings can be 0.2–0.4 s off) |
 | Cut to the beat | Onset envelope → tempo → beat phase → scene ends snapped to beats | Done (±20 ms) |
 | Split into shots | Colour histograms every 0.25 s, cut refined to ~1/30 s | Done (within one frame) |
-| Duck music under voice | Needs volume automation (Phase 4) | Not started |
+| Duck music under voice | Speech detection → volume automation on the music | **Done** (Phase 4b) |
 | Edit by deleting transcript text | Builds on word-level transcript | Not started |
 
 Tests: `tests/smart.test.ts`.

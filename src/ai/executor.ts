@@ -1,4 +1,7 @@
 import { v4 as uuid } from 'uuid'
+import { getCaptionPreset } from '../subtitle/presets'
+import { makeSubtitleTrack, normalizeSubtitleStyle, normalizeSubtitleTrack } from '../subtitle/types'
+import { applyMediaLayout, applyPlacement } from '../utils/arrangeMedia'
 import type { AssetMeta, EditorElement, MoveDirection, Scene, ShapeType } from '../types/editor'
 import { makeAnimation, makeAudio, makeImage, makeScene, makeShape, makeText, makeVideo } from '../utils/defaults'
 import { clampAudioDuration, finitePositiveDuration, remainingTimelineDuration } from '../utils/audioMetadata'
@@ -108,6 +111,21 @@ function executeAiCommand(command: AiEditorCommand): AiCommandResult {
       return animateSequence(command)
     case 'connectElements':
       return connectElements(command)
+    case 'groupElements':
+    case 'ungroupElements':
+      return groupOrUngroup(command)
+    case 'insertBlock':
+      return insertBlock(command)
+    case 'updateBlock':
+      return updateBlock(command)
+    case 'setVolumeKeys':
+      return setVolumeKeys(command)
+    case 'arrangeMedia':
+      return arrangeMedia(command)
+    case 'placeMedia':
+      return placeMedia(command)
+    case 'setCaptionStyle':
+      return setCaptionStyle(command)
   }
 }
 
@@ -451,6 +469,87 @@ function removeAnimations(command: Extract<AiEditorCommand, { type: 'removeAnima
   return { ok: true, message: `Removed animations from ${el.name}.`, elementIds: [el.id] }
 }
 
+function groupOrUngroup(command: Extract<AiEditorCommand, { type: 'groupElements' | 'ungroupElements' }>): AiCommandResult {
+  const elements = command.targets.map(requireElement)
+  const store = useEditorStore.getState()
+  const scene = store.project?.scenes.find(sc => sc.elements.some(el => el.id === elements[0].id))
+  if (!scene) throw new Error('Could not find the items.')
+  if (store.currentSceneId !== scene.id) store.setCurrentScene(scene.id)
+  const ids = elements.map(el => el.id)
+  if (command.type === 'ungroupElements') {
+    useEditorStore.getState().ungroupElements(ids)
+    return { ok: true, message: 'Ungrouped.', elementIds: ids }
+  }
+  const groupId = useEditorStore.getState().groupElements(ids, command.name)
+  if (!groupId) throw new Error('A group needs at least two items.')
+  const name = useEditorStore.getState().project?.scenes.find(sc => sc.id === scene.id)?.groups?.[groupId]?.name
+  return { ok: true, message: `Grouped ${ids.length} items as "${name}".`, elementIds: ids }
+}
+
+function insertBlock(command: Extract<AiEditorCommand, { type: 'insertBlock' }>): AiCommandResult {
+  const scene = requireScene(command)
+  const store = useEditorStore.getState()
+  if (store.currentSceneId !== scene.id) store.setCurrentScene(scene.id)
+  const groupId = useEditorStore.getState().insertBlock(command.blockId, command.params)
+  if (!groupId) throw new Error(`Could not build "${command.blockId}".`)
+  const ids = useEditorStore.getState().project?.scenes.find(sc => sc.id === scene.id)?.elements.filter(el => el.groupId === groupId).map(el => el.id) ?? []
+  return { ok: true, message: `Added ${command.blockId} (${ids.length} items) to ${scene.name}.`, elementIds: ids, groupId }
+}
+
+function updateBlock(command: Extract<AiEditorCommand, { type: 'updateBlock' }>): AiCommandResult {
+  const store = useEditorStore.getState()
+  const scene = store.project?.scenes.find(sc => sc.groups?.[command.groupId]?.smart)
+  if (!scene) throw new Error('Could not find that block.')
+  if (store.currentSceneId !== scene.id) store.setCurrentScene(scene.id)
+  useEditorStore.getState().rebuildBlock(command.groupId, command.params)
+  return { ok: true, message: `Updated ${scene.groups![command.groupId].name}.` }
+}
+
+function setCaptionStyle(command: Extract<AiEditorCommand, { type: 'setCaptionStyle' }>): AiCommandResult {
+  const project = useEditorStore.getState().project
+  if (!project) throw new Error('No project is open.')
+  const track = normalizeSubtitleTrack(project.subtitleTracks?.[0] ?? makeSubtitleTrack())
+  const preset = command.preset ? getCaptionPreset(command.preset) : undefined
+  const style = normalizeSubtitleStyle({
+    ...track.style,
+    ...preset?.style({ width: project.width, height: project.height }),
+    ...command.style,
+  })
+  useEditorStore.getState().upsertSubtitleTrack({ ...track, style, enabled: command.enabled ?? track.enabled })
+  const what = preset ? `the ${preset.label} caption style` : 'the caption style'
+  return {
+    ok: true,
+    message: command.enabled === false ? 'Captions hidden.' : track.cues.length ? `Applied ${what}.` : `Saved ${what}; it is used when you generate captions.`,
+  }
+}
+
+function arrangeMedia(command: Extract<AiEditorCommand, { type: 'arrangeMedia' }>): AiCommandResult {
+  const elements = command.targets.map(requireElement)
+  const ids = applyMediaLayout(elements.map(el => el.id), command.layout, { gap: command.gap })
+  if (!ids.length) throw new Error('Only unlocked videos and images can be arranged.')
+  return { ok: true, message: `Arranged ${ids.length} item${ids.length === 1 ? '' : 's'}.`, elementIds: ids }
+}
+
+function placeMedia(command: Extract<AiEditorCommand, { type: 'placeMedia' }>): AiCommandResult {
+  const el = requireElement(command)
+  if (el.type !== 'video' && el.type !== 'image') throw new Error(`${el.name} is not a video or image.`)
+  const result = applyPlacement(el.id, command)
+  if (!result) throw new Error(`${el.name} is locked — unlock it first.`)
+  const cropped = result.crop ? ', cropped to fit' : ''
+  return { ok: true, message: `Placed ${el.name} at ${Math.round(result.x)}, ${Math.round(result.y)} — ${Math.round(result.width)}×${Math.round(result.height)}${cropped}.`, elementIds: [el.id] }
+}
+
+function setVolumeKeys(command: Extract<AiEditorCommand, { type: 'setVolumeKeys' }>): AiCommandResult {
+  const el = requireElement(command)
+  if (el.type !== 'audio') throw new Error(`${el.name} is not an audio clip.`)
+  useEditorStore.getState().updateElement(el.id, { volumeKeys: command.keys.length ? command.keys : undefined } as Partial<EditorElement>)
+  return {
+    ok: true,
+    message: command.keys.length ? `Automated the volume of ${el.name}.` : `Removed volume automation from ${el.name}.`,
+    elementIds: [el.id],
+  }
+}
+
 function connectElements(command: Extract<AiEditorCommand, { type: 'connectElements' }>): AiCommandResult {
   const store = useEditorStore.getState()
   const visual = (el: EditorElement) => el.type !== 'arrow' && el.type !== 'audio'
@@ -534,6 +633,9 @@ function allElementIds() {
 }
 
 function resolveElementAlias(command: AiEditorCommand, aliases: Record<string, string>): AiEditorCommand {
+  if (command.type === 'groupElements' || command.type === 'ungroupElements' || command.type === 'arrangeMedia') {
+    return { ...command, targets: command.targets.map(t => (t.elementAlias && aliases[t.elementAlias] ? { ...t, elementId: aliases[t.elementAlias], elementAlias: undefined } : t)) }
+  }
   if (command.type === 'connectElements') {
     const map = (refs: AiElementRef[]) => refs.map(t => (t.elementAlias && aliases[t.elementAlias] ? { ...t, elementId: aliases[t.elementAlias], elementAlias: undefined } : t))
     return { ...command, from: map(command.from), to: command.to && map(command.to) }

@@ -4,6 +4,7 @@ import type { AudioElement } from '../../types/editor'
 import { clampAudioEffect, clampAudioVolume } from '../../utils/audioEffects'
 import { clampFadeVolume } from '../../utils/audioFade'
 import { useShallow } from 'zustand/react/shallow'
+import DuckingControl from './DuckingControl'
 
 const AUDIO_SPEED_OPTIONS = [
   0.25,
@@ -212,6 +213,8 @@ export default function AudioPropertiesPanel({ element, onClose }: AudioProperti
             onMultiplierChange={handleFadeOutVolume}
           />
         </div>
+
+        {element.track !== 'voiceover' && <DuckingControl element={element} />}
 
       </div>
     </div>

@@ -1,5 +1,6 @@
 import type { AudioElement } from '../types/editor'
 import { audioFadeMultiplierAt } from './audioFade'
+import { clipSourceTime, volumeKeyGain } from './volumeKeys'
 
 type AudioContextCtor = typeof AudioContext
 
@@ -112,7 +113,8 @@ export function applyAudioEffects(graph: AudioEffectGraph, audio: AudioElement, 
   const voice = clampAudioEffect(audio.voice, -100, 100)
   const saturation = clampAudioEffect(audio.saturation, -100, 100)
 
-  graph.gain.gain.value = volume * fadeMultiplier
+  const automation = clipTime == null ? 1 : volumeKeyGain(audio.volumeKeys, clipSourceTime(audio, clipTime))
+  graph.gain.gain.value = volume * fadeMultiplier * automation
   graph.pitch.setRatio(audioPitchRatio(audio.pitch))
   graph.bass.gain.value = bass
 

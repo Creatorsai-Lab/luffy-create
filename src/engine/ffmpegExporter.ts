@@ -5,6 +5,7 @@ import type Konva from 'konva'
 import { renderTransition } from './transitionRenderer'
 import { toFileUrl } from '../utils/pathUtils'
 import { buildFfmpegFadeVolumeExpression } from '../utils/audioFade'
+import { buildFfmpegVolumeKeysFilter } from '../utils/volumeKeys'
 import { buildTransitionTimeline, getTransitionFrameState } from '../utils/transitionTiming'
 import { nextFrame } from '../utils/nextFrame'
 
@@ -272,6 +273,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     duration: number; speed: number; volume: number
     voice: number; pitch: number; bass: number; saturation: number
     fadeIn: number; fadeInVolume: number; fadeOut: number; fadeOutVolume: number
+    volumeKeys?: AudioElement['volumeKeys']
   }[] = []
 
   let audioElapsed = 0
@@ -295,6 +297,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
           fadeInVolume: a.fadeInVolume ?? 1,
           fadeOut:   a.fadeOut   ?? 0,
           fadeOutVolume: a.fadeOutVolume ?? 0,
+          volumeKeys: a.volumeKeys,
         })
       } else if (el.type === 'video') {
         const v = el as VideoElement
@@ -386,6 +389,8 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
             fadeOutVolume: clip.fadeOutVolume,
           })
           if (volumeFilter) filt.push(volumeFilter)
+          const automation = buildFfmpegVolumeKeysFilter(clip.volumeKeys, { startTime: clip.startTime, speed: clip.speed, duration: clip.duration })
+          if (automation) filt.push(automation)
           if (delayMs > 0) filt.push(`adelay=${delayMs}:all=1`)
           filt.push(`apad=whole_dur=${totalDuration.toFixed(3)}`)
 

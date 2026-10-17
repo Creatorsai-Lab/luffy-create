@@ -32,7 +32,7 @@ export type MediaEffectTarget = 'wholeMedia' | 'centerSubject' | 'manualFocus'
 export type MediaZoomPosition = 'center' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
 export type ActiveTool    = 'select' | 'shape-rect' | 'shape-circle' | 'shape-triangle' | 'shape-star' | 'shape-pentagon' | 'shape-hexagon' | 'shape-octagon' | 'shape-diamond' | 'shape-oval' | 'shape-speechBubble' | 'shape-roundedSpeech' | 'shape-cone' | 'shape-cube' | 'shape-rect-hand' | 'shape-circle-hand' | 'shape-square-hand' | 'shape-heart' | 'shape-rect-sketch' | 'arrow' | 'code' | 'image' | 'chart' | 'video' | 'latex' | 'counter'
   | 'handDraw'
-export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'motion' | 'groupEffects' | 'effects' | 'latex' | 'counter' | 'handDraw' | null
+export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'motion' | 'groupEffects' | 'blocks' | 'effects' | 'latex' | 'counter' | 'handDraw' | null
 export type HandDrawTool = 'pen' | 'paint' | 'spray' | 'eraser'
 export type ShapeFillMode = 'solid' | 'linearGradient' | 'radialGradient'
 export type TextFillMode = 'solid' | 'linearGradient'
@@ -170,7 +170,10 @@ export interface BaseElement {
   borderAnimationSpeed?: number
   perspectivePts?: { tl: [number, number]; tr: [number, number]; br: [number, number]; bl: [number, number] }
   perspectiveControls?: PerspectiveControls
-  groupId?: string   // elements sharing a groupId move together when group-locked
+  /** Members of a group share its id (see Scene.groups); clicking one selects all. */
+  groupId?: string
+  /** Stable part name inside a smart block ("neuron-1-3"), so a rebuild keeps ids. */
+  blockKey?: string
   /** Lineage id shared by copies of one element across scenes (duplicate scene, paste) — lets Morph match them. */
   morphKey?: string
 }
@@ -511,6 +514,12 @@ export interface HandDrawElement extends BaseElement {
   strokes: HandDrawStroke[]
 }
 
+/** A volume automation point: gain `v` (0–2) at `t` seconds into the source file. */
+export interface VolumeKey {
+  t: number
+  v: number
+}
+
 export interface AudioMarker {
   id: string
   offset: number  // seconds from clip start (audio.x)
@@ -535,6 +544,8 @@ export interface AudioElement extends BaseElement {
   loop: boolean
   track: 'background' | 'voiceover'
   markers?: AudioMarker[]
+  /** Volume automation (e.g. ducking under speech), on top of volume and fades. */
+  volumeKeys?: VolumeKey[]
   lane?: number      // explicit vertical lane in the timeline (manual override)
 }
 
@@ -589,6 +600,25 @@ export interface Scene {
   background: Background
   elements: EditorElement[]
   transition: SceneTransition
+  /** Groups on this scene by id; members carry the id in `groupId`. */
+  groups?: Record<string, SceneGroup>
+}
+
+export interface SceneGroup {
+  id: string
+  name: string
+  /** Set when the group was built by a smart block and can be rebuilt from new settings. */
+  smart?: SmartGroupInfo
+}
+
+export interface SmartGroupInfo {
+  blockId: string
+  params: Record<string, unknown>
+  /**
+   * Top-left of the block as built. The difference to the members' current
+   * top-left is how far the user moved it, kept when it is rebuilt.
+   */
+  origin: { x: number; y: number }
 }
 
 // ─── Project ──────────────────────────────────────────────────────────────────
@@ -663,6 +693,16 @@ export interface SubtitleStyle {
   animation?: SubtitleAnimationType
   captionLook?: SubtitleCaptionLook
   warpIntensity?: number
+  /** Show the words in capitals. */
+  uppercase?: boolean
+  /** Outline around the letters (px; 0 = none). */
+  strokeColor?: string
+  strokeWidth?: number
+  /** Colour of the word being spoken (karaoke) or popping in; unset = same as the text. */
+  activeColor?: string
+  /** Box behind each row (opacity 0 = none). */
+  boxColor?: string
+  boxOpacity?: number
 }
 
 export interface SubtitleTrack {

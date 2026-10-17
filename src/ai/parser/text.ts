@@ -25,7 +25,7 @@ const CLAUSE_VERBS = [
   'scale', 'bring', 'send', 'mute', 'unmute', 'fade', 'animate', 'slide', 'zoom', 'spin', 'rotate',
   'rename', 'speed', 'slow', 'loop', 'color', 'colour', 'give', 'enlarge', 'shrink', 'increase',
   'decrease', 'lower', 'raise', 'position', 'replace', 'reduce',
-  'connect', 'link', 'wire', 'flash', 'pulse', 'glow', 'blink', 'highlight', 'bounce', 'appear', 'reveal', 'typewrite',
+  'connect', 'link', 'wire', 'group', 'ungroup', 'lock', 'unlock', 'flash', 'pulse', 'glow', 'blink', 'highlight', 'bounce', 'appear', 'reveal', 'typewrite',
 ]
 
 const CONNECTOR_RE = new RegExp(

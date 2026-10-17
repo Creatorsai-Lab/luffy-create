@@ -1,10 +1,12 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react'
-import { Stage, Layer, Shape, Transformer, Circle, Path } from 'react-konva'
+import { Stage, Layer, Shape, Transformer, Circle, Path, Label, Tag, Text } from 'react-konva'
 import type Konva from 'konva'
-import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowUpToLine, ArrowDownToLine } from 'lucide-react'
+import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowUpToLine, ArrowDownToLine, Group, Ungroup, BoxSelect, Lock, Unlock } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
-import { copyElements } from '../../utils/connectors'
 import HighlightOverlay from './HighlightOverlay'
+import { elementsBox, expandToGroups } from '../../utils/groups'
+import LockedMark from './LockedMark'
+import { toast } from '../ui/Toast'
 import { useCanvasStore } from '../../store/canvasStore'
 import { getAnimatedProps } from '../../engine/animator'
 import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
@@ -96,6 +98,8 @@ export default function EditorCanvas() {
   const drawingLayerIdRef = useRef<string | null>(null)
   const drawingBaseStrokesRef = useRef<HandDrawStroke[]>([])
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; elementId: string } | null>(null)
+  /** The item pressed last — what Ctrl+arrow moves inside a selected group. */
+  const lastPressedIdRef = useRef<string | null>(null)
   const [localPlayingIds, setLocalPlayingIds] = useState<Set<string>>(new Set())
   const [cropState, setCropState] = useState<{ elId: string; pendingCrop: { x: number; y: number; w: number; h: number } } | null>(null)
   const [cropDrag, setCropDrag] = useState<{ handle: string; startX: number; startY: number; startCrop: { x: number; y: number; w: number; h: number } } | null>(null)
@@ -122,10 +126,10 @@ export default function EditorCanvas() {
     playhead, isPlaying, exportOpen, activeTool, activePanel, pendingChartType, handDrawSettings,
     cropElementId, setCropElement,
     addElement, selectElement, deselectAll,
-    removeElement, updateElement, setBackground, addElements, setActiveTool, setActivePanel, openCodeModal,
-    undo, redo, duplicateElement,
+    removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
+    undo, redo,
     bringForward, sendBackward, bringToFront, sendToBack,
-  } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds, playhead: s.playhead, isPlaying: s.isPlaying, exportOpen: s.exportOpen, activeTool: s.activeTool, activePanel: s.activePanel, pendingChartType: s.pendingChartType, handDrawSettings: s.handDrawSettings, cropElementId: s.cropElementId, setCropElement: s.setCropElement, addElement: s.addElement, selectElement: s.selectElement, deselectAll: s.deselectAll, removeElement: s.removeElement, updateElement: s.updateElement, setBackground: s.setBackground, addElements: s.addElements, setActiveTool: s.setActiveTool, setActivePanel: s.setActivePanel, openCodeModal: s.openCodeModal, undo: s.undo, redo: s.redo, duplicateElement: s.duplicateElement, bringForward: s.bringForward, sendBackward: s.sendBackward, bringToFront: s.bringToFront, sendToBack: s.sendToBack })))
+  } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds, playhead: s.playhead, isPlaying: s.isPlaying, exportOpen: s.exportOpen, activeTool: s.activeTool, activePanel: s.activePanel, pendingChartType: s.pendingChartType, handDrawSettings: s.handDrawSettings, cropElementId: s.cropElementId, setCropElement: s.setCropElement, addElement: s.addElement, selectElement: s.selectElement, deselectAll: s.deselectAll, removeElement: s.removeElement, updateElement: s.updateElement, setBackground: s.setBackground, setActiveTool: s.setActiveTool, setActivePanel: s.setActivePanel, openCodeModal: s.openCodeModal, undo: s.undo, redo: s.redo, bringForward: s.bringForward, sendBackward: s.sendBackward, bringToFront: s.bringToFront, sendToBack: s.sendToBack })))
   const showHighlights = useCanvasStore(s => s.showHighlights)
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
@@ -159,7 +163,7 @@ export default function EditorCanvas() {
   // ── Auto-select sidebar panel based on selected element ──────────────────────
   useEffect(() => {
     if (selectedIds.length === 0) return
-    const stickyPanels: ActivePanel[] = ['perspective', 'motion', 'handDraw', 'effects']
+    const stickyPanels: ActivePanel[] = ['perspective', 'motion', 'handDraw', 'effects', 'groupEffects', 'blocks']
     if (stickyPanels.includes(activePanel)) return
     
     const scene = project?.scenes.find(s => s.id === currentSceneId)
@@ -184,7 +188,10 @@ export default function EditorCanvas() {
       handDraw: 'handDraw',
     }
     
-    const homePanel = ELEMENT_PANEL[firstSelected.type]
+    // A whole smart group selected → its settings; one part (Ctrl-click) → that part's panel.
+    const smartGroup = firstSelected.groupId && scene.groups?.[firstSelected.groupId]?.smart
+      && scene.elements.filter(e => e.groupId === firstSelected.groupId).every(e => selectedIds.includes(e.id))
+    const homePanel = smartGroup ? 'blocks' : ELEMENT_PANEL[firstSelected.type]
     if (homePanel && activePanel !== homePanel) {
       setActivePanel(homePanel)
     }
@@ -241,10 +248,7 @@ export default function EditorCanvas() {
   useEffect(() => {
     const sync = () => {
       if (!trRef.current || !stageRef.current) return
-      const nodes = selectedIds
-        .filter(id => currentScene?.elements.find(el => el.id === id)?.type !== 'handDraw')
-        .map(id => stageRef.current!.findOne(`#${id}`))
-        .filter((n): n is Konva.Node => !!n && !!n.getStage?.())
+      const nodes = transformerNodes(selectedIds)
       // Runs every frame during playback (an element can re-mount mid-play);
       // only re-attach and redraw when the selected nodes actually changed.
       const attached = trRef.current.nodes()
@@ -288,11 +292,20 @@ export default function EditorCanvas() {
       const selectedEls = () => selectedIds
         .map(id => scene?.elements.find(el => el.id === id))
         .filter((el): el is EditorElement => el != null)
-      // Copies go in as one batch (connectors stay wired to the copies) and become the selection.
-      const insertCopies = (copies: EditorElement[]) => {
-        if (!copies.length) return
-        addElements(copies)
-        useEditorStore.setState({ selectedIds: copies.map(el => el.id) })
+      const { insertCopies, groupElements, ungroupElements } = useEditorStore.getState()
+      // Locked items are protected from delete/cut; say so instead of silently ignoring.
+      const unlockedSelection = () => {
+        const ids = selectedIds.filter(id => !scene?.elements.find(el => el.id === id)?.locked)
+        if (ids.length < selectedIds.length) toast.info('Locked items were kept — unlock them first (right-click → Unlock).')
+        return ids
+      }
+
+      // Group: Ctrl+G, Ungroup: Ctrl+Shift+G
+      if (mod && key === 'g') {
+        e.preventDefault()
+        if (e.shiftKey) ungroupElements(selectedIds)
+        else groupElements(selectedIds)
+        return
       }
 
       // Select all: Ctrl+A — every unlocked item on this scene
@@ -309,7 +322,7 @@ export default function EditorCanvas() {
           clipboardSourceSceneRef.current = currentSceneId ?? null
           if (key === 'x') {
             e.preventDefault()
-            const toCut = [...selectedIds]
+            const toCut = unlockedSelection()
             deselectAll()
             toCut.forEach(id => removeElement(id))
           }
@@ -320,7 +333,7 @@ export default function EditorCanvas() {
       // Duplicate: Ctrl+D — copies next to the originals, without touching the clipboard
       if (mod && key === 'd') {
         e.preventDefault()
-        insertCopies(copyElements(selectedEls(), 20))
+        insertCopies(selectedEls(), { offset: 20 })
         return
       }
 
@@ -331,10 +344,7 @@ export default function EditorCanvas() {
           // Only offset position when pasting into the SAME scene (to avoid overlap).
           // When pasting across scenes, preserve exact original coordinates.
           const isSameScene = clipboardSourceSceneRef.current === currentSceneId
-          const copies = copyElements(clipboardRef.current, isSameScene ? 20 : 0)
-          // A copy pasted into another scene is "the same object" for Morph.
-          if (!isSameScene) copies.forEach((copy, i) => { copy.morphKey = clipboardRef.current[i].morphKey ?? clipboardRef.current[i].id })
-          insertCopies(copies)
+          insertCopies(clipboardRef.current, { offset: isSameScene ? 20 : 0, sourceSceneId: clipboardSourceSceneRef.current })
         }
         return
       }
@@ -343,7 +353,7 @@ export default function EditorCanvas() {
       // used, so the timeline's handler (delete clip / scene) skips it.
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0 && !e.defaultPrevented) {
         e.preventDefault()
-        const toDelete = [...selectedIds]
+        const toDelete = unlockedSelection()
         deselectAll()
         toDelete.forEach(id => removeElement(id))
       }
@@ -352,13 +362,18 @@ export default function EditorCanvas() {
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
         if (selectedIds.length === 0) return  // let the timeline scrub instead
         e.preventDefault()
-        // Ctrl = fastest, Shift = fast, plain = normal (canvas is HD-sized so steps are large)
-        const step = (e.ctrlKey || e.metaKey) ? 100 : e.shiftKey ? 40 : 12
+        // Shift = 40 px, Alt = 100 px, plain = 12 px (canvas is HD-sized so steps are large).
+        // Groups move as one; Ctrl moves only the item pressed last.
+        const step = e.altKey ? 100 : e.shiftKey ? 40 : 12
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
         const dy = e.key === 'ArrowUp'   ? -step : e.key === 'ArrowDown'  ? step : 0
         const scene = project?.scenes.find(s => s.id === currentSceneId)
         if (!scene) return
-        for (const id of selectedIds) {
+        const only = lastPressedIdRef.current
+        const moving = (e.ctrlKey || e.metaKey)
+          ? (only && selectedIds.includes(only) ? [only] : selectedIds)
+          : expandToGroups(scene, selectedIds)
+        for (const id of moving) {
           const el = scene.elements.find(x => x.id === id)
           if (!el || el.locked) continue
           if (el.type === 'arrow') {
@@ -415,7 +430,7 @@ export default function EditorCanvas() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement, bringForward, sendBackward, bringToFront, sendToBack, addElement, addElements])
+  }, [selectedIds, removeElement, deselectAll, setActiveTool, undo, redo, project, currentSceneId, updateElement, bringForward, sendBackward, bringToFront, sendToBack, addElement])
 
   // Reset local video plays when preview starts (VideoKonva takes over)
   useEffect(() => {
@@ -759,6 +774,35 @@ export default function EditorCanvas() {
     return ''
   }
 
+  /** Canvas nodes the transformer handles for these ids (locked items get an outline + lock badge instead). */
+  function transformerNodes(ids: string[]) {
+    const scene = useEditorStore.getState().project?.scenes.find(sc => sc.id === useEditorStore.getState().currentSceneId)
+    return ids
+      .filter(id => {
+        const el = scene?.elements.find(x => x.id === id)
+        return el && el.type !== 'handDraw' && !el.locked
+      })
+      .map(id => stageRef.current?.findOne(`#${id}`))
+      .filter((n): n is Konva.Node => !!n && !!n.getStage?.())
+  }
+
+  /**
+   * Mouse-down on an item. Plain press: select it with its group — unless the
+   * selection already holds it (and its whole group), so dragging moves the whole
+   * selection. Shift: add/remove it (with its group). Ctrl/Alt: just this item.
+   */
+  function pressElement(id: string, multi: boolean, member: boolean) {
+    lastPressedIdRef.current = id
+    const store = useEditorStore.getState()
+    const el = currentScene?.elements.find(x => x.id === id)
+    const group = el?.groupId ? currentScene!.elements.filter(x => x.groupId === el.groupId).map(x => x.id) : [id]
+    if (multi || member) store.selectElement(id, multi, { member })
+    else if (!group.every(x => store.selectedIds.includes(x))) store.selectElement(id, false)
+    // Attach the new selection right away: a drag can start 3 px later, before
+    // React re-renders, and must already carry the whole group.
+    trRef.current?.nodes(transformerNodes(useEditorStore.getState().selectedIds))
+  }
+
   function handleStageContextMenu(e: Konva.KonvaEventObject<MouseEvent>) {
     e.evt.preventDefault()
 
@@ -778,6 +822,7 @@ export default function EditorCanvas() {
     setContextMenu({ x: e.evt.clientX, y: e.evt.clientY, elementId: id })
   }
   function handleStageClick(e: Konva.KonvaEventObject<MouseEvent>) {
+    if (e.evt.button !== 0) return
     if (suppressStageClickRef.current) { suppressStageClickRef.current = false; return }
     if (cropState) { exitCropMode(); return }
     if (!currentScene) return
@@ -1068,7 +1113,7 @@ export default function EditorCanvas() {
                   element={el}
                   animProps={shouldApplyAnim ? animProps : null}
                   isSelected={selectedIds.includes(el.id)}
-                  onSelect={multi => { if (!el.locked) selectElement(el.id, multi) }}
+                  onSelect={(multi, member) => pressElement(el.id, multi, member)}
                   onDblClick={() => {
                     if (el.type === 'code') openCodeModal(el.id)
                     else if (el.type === 'image' || el.type === 'video') setCropElement(el.id)
@@ -1135,6 +1180,30 @@ export default function EditorCanvas() {
                 }
               }}
             />
+
+            {/* Selected locked items: dashed outline + lock badge (no resize handles) */}
+            {!exportOpen && selectedIds.map(id => {
+              const el = currentScene?.elements.find(x => x.id === id)
+              if (!el?.locked) return null
+              const box = elementsBox([el])
+              return <LockedMark key={id} box={box} scale={scale} color={SELECTION_COLOR} />
+            })}
+
+            {/* Name tag above a selected group */}
+            {!exportOpen && (() => {
+              const els = selectedIds.map(id => currentScene?.elements.find(el => el.id === id)).filter((el): el is EditorElement => el != null)
+              const groupId = els[0]?.groupId
+              const group = groupId ? currentScene?.groups?.[groupId] : undefined
+              if (!group || !els.every(el => el.groupId === groupId)) return null
+              const box = elementsBox(els)
+              const size = 12 / scale
+              return (
+                <Label x={box.x} y={box.y - size * 2.2} listening={false}>
+                  <Tag fill={SELECTION_COLOR} opacity={0.35} cornerRadius={3 / scale} />
+                  <Text text={`${group.smart ? '✦ ' : ''}${group.name}`} fontSize={size} padding={size * 0.35} fill="#ffffff" opacity={0.5} fontStyle="bold" />
+                </Label>
+              )
+            })()}
 
             {activePanel === 'perspective' && selectedIds.length === 1 && (() => {
               const perspEl = currentScene?.elements.find(e => e.id === selectedIds[0])
@@ -1368,6 +1437,7 @@ export default function EditorCanvas() {
           ? currentScene?.elements.find(e => e.id === contextMenu.elementId) ?? null
           : null
         const isImage = ctxEl?.type === 'image'
+        const ctxGroupId = ctxEl?.groupId && currentScene?.elements.some(el => el.id !== ctxEl.id && el.groupId === ctxEl.groupId) ? ctxEl.groupId : undefined
 
         // Center the right-clicked element on the canvas using its mid-point.
         const center = (axis: 'h' | 'v') => {
@@ -1410,8 +1480,37 @@ export default function EditorCanvas() {
               {
                 label: 'Duplicate',
                 icon: <Copy size={14} />,
+                shortcut: 'Ctrl+D',
                 onClick: () => {
-                  selectedIds.forEach(id => duplicateElement(id))
+                  const els = selectedIds.map(id => currentScene?.elements.find(el => el.id === id)).filter((el): el is EditorElement => el != null)
+                  useEditorStore.getState().insertCopies(els, { offset: 20 })
+                  setContextMenu(null)
+                }
+              },
+              ...(selectedIds.length >= 2 && !(ctxGroupId && selectedIds.every(id => currentScene?.elements.find(el => el.id === id)?.groupId === ctxGroupId)) ? [{
+                label: 'Group',
+                icon: <Group size={14} />,
+                shortcut: 'Ctrl+G',
+                onClick: () => { useEditorStore.getState().groupElements(selectedIds); setContextMenu(null) },
+              }] : []),
+              ...(ctxGroupId ? [
+                {
+                  label: `Ungroup "${currentScene?.groups?.[ctxGroupId]?.name ?? 'group'}"`,
+                  icon: <Ungroup size={14} />,
+                  shortcut: 'Ctrl+Shift+G',
+                  onClick: () => { useEditorStore.getState().ungroupElements([contextMenu!.elementId]); setContextMenu(null) },
+                },
+                {
+                  label: 'Select whole group',
+                  icon: <BoxSelect size={14} />,
+                  onClick: () => { selectElement(contextMenu!.elementId, false); setContextMenu(null) },
+                },
+              ] : []),
+              {
+                label: ctxEl?.locked ? 'Unlock' : (ctxGroupId ? 'Lock group' : 'Lock'),
+                icon: ctxEl?.locked ? <Unlock size={14} /> : <Lock size={14} />,
+                onClick: () => {
+                  if (ctxEl) useEditorStore.getState().setLocked(ctxEl.locked ? [ctxEl.id] : selectedIds, !ctxEl.locked)
                   setContextMenu(null)
                 }
               },

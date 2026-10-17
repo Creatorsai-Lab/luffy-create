@@ -11,7 +11,9 @@ import { makeScene, makeProject, DEFAULT_TRANSITION } from '../utils/defaults'
 import { isMotionAnimation } from '../utils/moveAnimation'
 import { useHistoryStore } from './historyStore'
 import { migrateProject } from './migrateProject'
-import { remapConnectors, syncConnectors } from '../utils/connectors'
+import { copyElements, remapConnectors, syncConnectors } from '../utils/connectors'
+import { elementsBox, expandToGroups, groupMembers, nextGroupName, pruneGroups, translateElements } from '../utils/groups'
+import { getBlock } from '../blocks/registry'
 import { toast } from '../components/ui/Toast'
 import { LOOP_ANIMATION_TYPES } from '../utils/animationTypes'
 import { sceneAtTime, sceneStartTimes } from '../utils/sceneTiming'
@@ -87,15 +89,33 @@ interface EditorActions {
   reorderElementLayer: (id: string, targetTopIndex: number) => void
 
   // Selection
-  selectElement:    (id: string, multi?: boolean) => void
+  /** Selecting a group member selects the whole group, unless `member` (Alt-click, Layers). */
+  selectElement:    (id: string, multi?: boolean, opts?: { member?: boolean }) => void
   deselectAll:      () => void
+
+  // Groups and locking (current scene)
+  /** Groups the items (and the groups they are in); returns the new group id. */
+  groupElements:    (ids: string[], name?: string) => string | null
+  ungroupElements:  (ids: string[]) => void
+  renameGroup:      (groupId: string, name: string) => void
+  /** Locks/unlocks items — a group locks as a whole. Locked items can't be selected on the canvas. */
+  setLocked:        (ids: string[], locked: boolean) => void
+  /** Pastes/duplicates copies: connectors and groups stay wired to the copies, which get selected. */
+  insertCopies:     (sources: EditorElement[], opts: { offset: number; sourceSceneId?: string | null }) => void
+
+  // Smart blocks (src/blocks)
+  /** Builds a block as a smart group on the current scene; returns its group id. */
+  insertBlock:      (blockId: string, params?: Record<string, unknown>) => string | null
+  /** Rebuilds a smart group from new settings, in place (same ids for the same parts). */
+  rebuildBlock:     (groupId: string, params: Record<string, unknown>) => void
+  /** Keeps the elements as a normal group that no longer rebuilds. */
+  detachBlock:      (groupId: string) => void
 
   // Animations
   addAnimation:     (elId: string, anim: ElementAnimation) => void
   updateAnimation:  (elId: string, animId: string, patch: Partial<ElementAnimation>) => void
   removeAnimation:  (elId: string, animId: string) => void
   clearSceneAnimations: (sceneId: string) => void
-  setGroupId:       (ids: string[], groupId: string | null) => void
 
   // Playback
   setPlayhead:      (t: number) => void
@@ -609,6 +629,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
           if (idx >= 0) {
             sc.elements.splice(idx, 1)
             syncConnectors(sc.elements) // arrows attached to it keep their place, now free
+            pruneGroups(sc)
             s.selectedIds = s.selectedIds.filter(x => x !== id)
             s.isDirty = true
             return
@@ -624,6 +645,8 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         if (!el) return
         const clone = JSON.parse(JSON.stringify(el))
         clone.id = uuid()
+        clone.groupId = undefined // a copy of one member is not part of its group
+        clone.blockKey = undefined
         clone.x += 16; clone.y += 16
         // Arrows render from absolute endpoints — shift those too so the copy is visibly offset
         if (clone.type === 'arrow') {
@@ -727,12 +750,16 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       }),
 
       // ── Selection ─────────────────────────────────────────────────────────
-      selectElement: (id, multi) => set(s => {
+      selectElement: (id, multi, opts) => set(s => {
+        const scene = currentSceneOf(s)
+        const expanded = scene && !opts?.member ? expandToGroups(scene, [id]) : []
+        const ids = expanded.length ? expanded : [id]
         if (multi) {
-          if (s.selectedIds.includes(id)) s.selectedIds = s.selectedIds.filter(x => x !== id)
-          else s.selectedIds.push(id)
+          // Shift-click toggles the whole group.
+          if (ids.every(x => s.selectedIds.includes(x))) s.selectedIds = s.selectedIds.filter(x => !ids.includes(x))
+          else for (const x of ids) if (!s.selectedIds.includes(x)) s.selectedIds.push(x)
         } else {
-          s.selectedIds = [id]
+          s.selectedIds = ids
         }
       }),
 
@@ -774,15 +801,141 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         s.isDirty = true
       }),
 
-      // Assign (or clear) a shared groupId so elements move/lock together
-      setGroupId: (ids, groupId) => set(s => {
-        if (!s.project) return
-        for (const sc of s.project.scenes) {
-          sc.elements.forEach(el => {
-            if (ids.includes(el.id)) (el as { groupId?: string | null }).groupId = groupId ?? undefined
-          })
-        }
+      groupElements: (ids, name) => {
+        const sc = currentSceneOf(get())
+        if (!sc) return null
+        const members = expandToGroups(sc, ids)
+        if (members.length < 2) return null
+        const groupId = uuid()
+        set(s => {
+          const scene = currentSceneOf(s)!
+          for (const el of scene.elements) if (members.includes(el.id)) el.groupId = groupId
+          scene.groups = { ...(scene.groups ?? {}), [groupId]: { id: groupId, name: name?.trim() || nextGroupName(scene) } }
+          pruneGroups(scene) // groups merged into this one are gone now
+          s.selectedIds = members
+          s.isDirty = true
+        })
+        return groupId
+      },
+
+      ungroupElements: (ids) => set(s => {
+        const scene = currentSceneOf(s)
+        if (!scene) return
+        const groupIds = new Set(scene.elements.filter(el => ids.includes(el.id) && el.groupId).map(el => el.groupId!))
+        if (!groupIds.size) return
+        for (const el of scene.elements) if (el.groupId && groupIds.has(el.groupId)) el.groupId = undefined
+        for (const id of groupIds) delete scene.groups?.[id]
         s.isDirty = true
+      }),
+
+      renameGroup: (groupId, name) => set(s => {
+        const group = currentSceneOf(s)?.groups?.[groupId]
+        if (group && name.trim()) { group.name = name.trim(); s.isDirty = true }
+      }),
+
+      setLocked: (ids, locked) => set(s => {
+        const scene = currentSceneOf(s)
+        if (!scene) return
+        const all = expandToGroups(scene, ids)
+        for (const el of scene.elements) if (all.includes(el.id)) el.locked = locked
+        // Locked items can't be edited on the canvas, so they leave the selection.
+        if (locked) s.selectedIds = s.selectedIds.filter(id => !all.includes(id))
+        s.isDirty = true
+      }),
+
+      insertCopies: (sources, { offset, sourceSceneId }) => set(s => {
+        const scene = currentSceneOf(s)
+        if (!scene || !sources.length) return
+        const groupIds = new Map<string, string>()
+        const copies = copyElements(sources, offset, uuid, groupIds)
+        const crossScene = Boolean(sourceSceneId && sourceSceneId !== scene.id)
+        // A copy pasted into another scene is "the same object" for Morph.
+        if (crossScene) copies.forEach((copy, i) => { copy.morphKey = sources[i].morphKey ?? sources[i].id })
+        const sourceScene = s.project!.scenes.find(sc => sc.id === (sourceSceneId ?? scene.id)) ?? scene
+        scene.groups = scene.groups ?? {}
+        for (const [oldId, newId] of groupIds) {
+          const meta = sourceScene.groups?.[oldId]
+          scene.groups[newId] = meta
+            ? { ...JSON.parse(JSON.stringify(meta)), id: newId, name: crossScene ? meta.name : `${meta.name} copy` }
+            : { id: newId, name: nextGroupName(scene) }
+        }
+        copies.forEach((copy, i) => { copy.zIndex = scene.elements.length + i })
+        scene.elements.push(...copies)
+        syncConnectors(scene.elements, new Set(copies.map(el => el.id)))
+        pruneGroups(scene)
+        s.selectedIds = copies.filter(el => el.type !== 'audio').map(el => el.id)
+        s.isDirty = true
+      }),
+
+      insertBlock: (blockId, params = {}) => {
+        const block = getBlock(blockId)
+        const project = get().project
+        if (!block || !project || !currentSceneOf(get())) return null
+        const settings = block.normalize({ ...block.defaults, ...params })
+        const built = block.build(settings, { width: project.width, height: project.height })
+        if (!built.length) return null
+        const groupId = uuid()
+        const origin = elementsBox(built)
+        set(s => {
+          const scene = currentSceneOf(s)!
+          built.forEach((el, i) => { el.groupId = groupId; el.zIndex = scene.elements.length + i })
+          scene.groups = { ...(scene.groups ?? {}), [groupId]: {
+            id: groupId, name: block.title,
+            smart: { blockId, params: settings, origin: { x: origin.x, y: origin.y } },
+          } }
+          scene.elements.push(...built)
+          syncConnectors(scene.elements, new Set(built.map(el => el.id)))
+          s.selectedIds = built.filter(el => el.type !== 'audio').map(el => el.id)
+          s.isDirty = true
+        })
+        return groupId
+      },
+
+      rebuildBlock: (groupId, params) => set(s => {
+        const scene = currentSceneOf(s)
+        const group = scene?.groups?.[groupId]
+        const block = group?.smart && getBlock(group.smart.blockId)
+        if (!scene || !group?.smart || !block || !s.project) return
+        const settings = block.normalize({ ...group.smart.params, ...params })
+        const built = block.build(settings, { width: s.project.width, height: s.project.height })
+        const old = groupMembers(scene, groupId)
+        // Wherever the user moved the block, the rebuilt one goes the same distance.
+        const moved = elementsBox(old)
+        const newOrigin = elementsBox(built)
+        translateElements(built, moved.x - group.smart.origin.x, moved.y - group.smart.origin.y)
+        // Same part → same id, so selection and outside connectors survive.
+        const oldByKey = new Map(old.filter(el => el.blockKey).map(el => [el.blockKey!, el.id]))
+        const ids = new Map<string, string>()
+        for (const el of built) {
+          const keep = el.blockKey ? oldByKey.get(el.blockKey) : undefined
+          if (keep) { ids.set(el.id, keep); el.id = keep }
+          el.groupId = groupId
+        }
+        for (const el of built) {
+          if (el.type !== 'arrow') continue
+          if (el.startAttach && ids.has(el.startAttach.elementId)) el.startAttach = { ...el.startAttach, elementId: ids.get(el.startAttach.elementId)! }
+          if (el.endAttach && ids.has(el.endAttach.elementId)) el.endAttach = { ...el.endAttach, elementId: ids.get(el.endAttach.elementId)! }
+        }
+        // The new parts take the old parts' place in the layer order.
+        const firstZ = Math.min(...old.map(el => el.zIndex))
+        const others = scene.elements.filter(el => el.groupId !== groupId).sort((a, b) => a.zIndex - b.zIndex)
+        const below = others.filter(el => el.zIndex < firstZ)
+        const above = others.filter(el => el.zIndex >= firstZ)
+        scene.elements = [...below, ...built, ...above]
+        scene.elements.forEach((el, i) => { el.zIndex = i })
+        group.smart = { blockId: group.smart.blockId, params: settings, origin: { x: newOrigin.x, y: newOrigin.y } }
+        syncConnectors(scene.elements)
+        // A selected block stays selected as a whole, new parts included.
+        const wasSelected = old.some(el => s.selectedIds.includes(el.id))
+        const keptIds = new Set(scene.elements.map(el => el.id))
+        s.selectedIds = s.selectedIds.filter(id => keptIds.has(id) && !built.some(el => el.id === id))
+        if (wasSelected) s.selectedIds.push(...built.map(el => el.id))
+        s.isDirty = true
+      }),
+
+      detachBlock: (groupId) => set(s => {
+        const group = currentSceneOf(s)?.groups?.[groupId]
+        if (group?.smart) { delete group.smart; s.isDirty = true }
       }),
 
       // ── Playback ──────────────────────────────────────────────────────────
@@ -1006,6 +1159,11 @@ useEditorStore.subscribe(
     }, 500)
   }
 )
+
+/** The scene being edited (works on the store state and on an immer draft of it). */
+function currentSceneOf(s: { project: Project | null; currentSceneId: string | null }): Scene | null {
+  return s.project?.scenes.find(sc => sc.id === s.currentSceneId) ?? null
+}
 
 /** Replace the whole project (load/close) without recording an undo step, and start a fresh history. */
 function replaceProjectWithoutHistory(apply: () => void) {

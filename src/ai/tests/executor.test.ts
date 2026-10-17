@@ -6,6 +6,8 @@ import { useEditorStore } from '../../store/editorStore'
 import { buildAiProjectContext, executeAiPlan, planAiEdit, prepareAiPlan } from '..'
 import type { TextElement, VideoElement, ShapeElement } from '../../types/editor'
 import { loadFixture } from './fixture'
+import { CAPTION_PRESETS, matchingCaptionPreset } from '../../subtitle/presets'
+import { defaultSubtitleStyle } from '../../subtitle/types'
 
 ;(globalThis as { window?: unknown }).window ??= { api: {} }
 
@@ -26,6 +28,89 @@ async function run(prompt: string) {
 }
 
 const tests: Array<[string, () => Promise<void>]> = [
+  ['caption presets style the project captions, and tweaks go on top', async () => {
+    loadFixture()
+    const track = () => project().subtitleTracks?.[0]
+    const context = buildAiProjectContext()!
+    const planned = await planAiEdit('use bold captions', context)
+    const prepared = prepareAiPlan(planned.plan, context)
+    assert.ok(prepared.issues.some(i => /no captions yet/.test(i.message)), 'explains there are no captions yet')
+    executeAiPlan(prepared.plan)
+    const style = track()!.style
+    assert.equal(style.uppercase, true)
+    assert.equal(style.activeColor, '#facc15')
+    assert.equal(style.fontSize, 81)
+    assert.equal(matchingCaptionPreset(style, { width: 1920, height: 1080 })?.id, 'bold')
+    useEditorStore.getState().upsertSubtitleTrack({ ...track()!, cues: [{ id: 'c1', start: 0, end: 2, text: 'hello there' }] })
+    await run('make the captions bigger and move them to the bottom')
+    assert.equal(track()!.style.fontSize, 101)
+    assert.equal(track()!.style.positionY, 88)
+    assert.equal(track()!.style.uppercase, true, 'the preset stays')
+    assert.equal(track()!.cues.length, 1, 'cues are untouched')
+    for (const preset of CAPTION_PRESETS) {
+      for (const frame of [{ width: 1920, height: 1080 }, { width: 1080, height: 1920 }]) {
+        assert.equal(matchingCaptionPreset({ ...defaultSubtitleStyle(), ...preset.style(frame) }, frame)?.id, preset.id, `${preset.id} is recognised`)
+      }
+    }
+  }],
+  ['split screen tiles the clips without stretching them, and undoes', async () => {
+    const f = loadFixture()
+    f.goTo(2)
+    await run('put the image and the video side by side')
+    const scene = () => project().scenes[1]
+    const find = (id: string) => scene().elements.find(e => e.id === id) as VideoElement
+    const [image, video] = [find(f.el.image.id), find(f.el.video.id)]
+    assert.deepEqual([image.x, image.width, image.height, video.x, video.width], [0, 960, 1080, 960, 960])
+    // The video is 16:9, the tile is 960×1080: it is cropped to the tile's shape around its centre.
+    assert.ok(Math.abs(video.crop!.w - (960 / 1080) / (16 / 9)) < 0.001, JSON.stringify(video.crop))
+    assert.ok(Math.abs(video.crop!.x + video.crop!.w / 2 - 0.5) < 0.001)
+    useEditorStore.getState().undo()
+    assert.deepEqual([find(f.el.video.id).x, find(f.el.video.id).width, find(f.el.video.id).crop], [400, 640, undefined])
+  }],
+  ['clips go exactly where the prompt says, in a vertical frame', async () => {
+    const f = loadFixture()
+    useEditorStore.setState(s => ({ project: { ...s.project!, width: 1080, height: 1920 } }))
+    f.goTo(2)
+    const scene = () => project().scenes[1]
+    const find = (id: string) => scene().elements.find(e => e.id === id) as VideoElement
+    await run('put the video in the upper half and the image in the lower half')
+    let video = find(f.el.video.id)
+    let image = find(f.el.image.id)
+    assert.deepEqual([video.x, video.y, video.width, video.height], [0, 0, 1080, 960])
+    assert.deepEqual([image.x, image.y, image.width, image.height], [0, 960, 1080, 960])
+    // Not stretched: the 16:9 video shows its centre strip at 1080:960.
+    assert.ok(Math.abs((video.width / video.crop!.w) / (video.height / video.crop!.h) - 16 / 9) < 0.01, JSON.stringify(video.crop))
+
+    await run('make the video full screen and the image bottom right at 400x300')
+    video = find(f.el.video.id)
+    image = find(f.el.image.id)
+    assert.deepEqual([video.x, video.y, video.width, video.height], [0, 0, 1080, 1920])
+    assert.deepEqual([image.x, image.y, image.width, image.height], [1080 - 32 - 400, 1920 - 32 - 300, 400, 300])
+    // The full-screen video is the backdrop; the small image is in front of it.
+    const z = scene().elements.slice().sort((a, b) => a.zIndex - b.zIndex).map(e => e.id)
+    assert.equal(z[0], f.el.video.id)
+    assert.ok(z.indexOf(f.el.image.id) > z.indexOf(f.el.video.id))
+    // The 3:2 image is cropped to 4:3, not squashed.
+    assert.ok(Math.abs((image.width / image.crop!.w) / (image.height / image.crop!.h) - 1.5) < 0.01, JSON.stringify(image.crop))
+  }],
+  ['a smart block is added, then edited by name', async () => {
+    loadFixture()
+    await run("add a lower third for 'Adya' 'ML engineer'")
+    const group = () => Object.values(project().scenes[0].groups ?? {}).find(g => g.smart?.blockId === 'lowerThird')!
+    const g = group()
+    assert.ok(g, 'block group created')
+    const parts = () => project().scenes[0].elements.filter(e => e.groupId === g.id)
+    const nameId = parts().find(e => e.blockKey === 'name')!.id
+    assert.equal((parts().find(e => e.blockKey === 'name') as TextElement).content, 'Adya')
+    await run("change the lower third name to 'Adya P' and make it green")
+    assert.equal(group().smart!.params.name, 'Adya P')
+    assert.equal(group().smart!.params.accent, '#22c55e')
+    const name = parts().find(e => e.blockKey === 'name') as TextElement
+    assert.equal(name.id, nameId, 'rebuild keeps ids')
+    assert.equal(name.content, 'Adya P')
+    useEditorStore.getState().undo()
+    assert.equal(group().smart!.params.name, 'Adya')
+  }],
   ['deleting several scenes removes exactly those scenes', async () => {
     const f = loadFixture()
     await run('delete scene 2 and 4')
@@ -134,6 +219,18 @@ const tests: Array<[string, () => Promise<void>]> = [
     await run("add a red circle in the bottom right and connect it to the title")
     const arrows = project().scenes[0].elements.filter(e => e.type === 'arrow')
     assert.equal(arrows.length, 1)
+  }],
+  ['grouping by AI, then referring to the group by name', async () => {
+    const f = loadFixture()
+    f.goTo(2)
+    await run("group all circles as 'Layer 1'")
+    const scene = () => project().scenes[1]
+    const groupId = scene().elements.find(e => e.id === f.el.greenCircle.id)!.groupId!
+    assert.equal(scene().groups?.[groupId]?.name, 'Layer 1')
+    assert.equal(scene().elements.find(e => e.id === f.el.redCircle2.id)!.groupId, groupId)
+    await run('make the layer 1 group blue')
+    const fills = scene().elements.filter(e => e.groupId === groupId).map(e => (e as import('../../types/editor').ShapeElement).fill)
+    assert.deepEqual(fills, ['#3b82f6', '#3b82f6'])
   }],
   ['a whole plan undoes in one step', async () => {
     const f = loadFixture()

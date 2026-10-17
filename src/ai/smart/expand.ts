@@ -6,9 +6,10 @@
 import type { AiEditorCommand, AiElementSummary, AiPlanIssue, AiPlanStep, AiProjectContext, AiSceneSummary, AiSmartStep } from '../types'
 import { isSmartStep } from '../types'
 import { detectBeats, snapDurationsToBeats } from './beats'
-import { removeRanges, splitAt, type SceneInfo } from './cuts'
+import { mergeRanges, removeRanges, splitAt, type SceneInfo } from './cuts'
 import { findCuts } from './shots'
 import { detectSpeech, frameLoudness, silencesBetween, type TimeRange } from './speech'
+import { DEFAULT_DUCK_LEVEL, duckingKeys } from './duck'
 
 export interface SmartMedia {
   decodeMono: (path: string) => Promise<{ samples: Float32Array; sampleRate: number } | null>
@@ -123,6 +124,61 @@ async function expandOne(
       return { commands, note: shots ? `Split at ${shots} shot change${shots === 1 ? '' : 's'}.` : 'No shot changes found.' }
     }
 
+    case 'duckMusic': {
+      const clips = context.scenes.flatMap(scene => scene.elements
+        .filter(el => el.type === 'audio' && el.src)
+        .map(el => ({ el, sceneId: scene.id, sceneIndex: scene.index, start: sceneStart(context, scene.id) })))
+      const music = step.musicIds?.length
+        ? clips.filter(c => step.musicIds!.includes(c.el.id))
+        : clips.filter(c => c.el.track !== 'voiceover')
+      if (!music.length) { warn('There is no music to duck — add a background track first.'); return { commands: [] } }
+
+      // Everything that talks: unmuted video clips and voiceover tracks.
+      const voices = [
+        ...context.scenes.flatMap(scene => scene.elements
+          .filter(el => el.type === 'video' && el.src && !el.muted && (el.volume ?? 1) > 0)
+          .map(el => ({ el, start: sceneStart(context, scene.id), window: clipWindow(el) }))),
+        ...clips.filter(c => c.el.track === 'voiceover' || (step.musicIds?.length && !step.musicIds.includes(c.el.id)))
+          .map(c => ({ el: c.el, start: c.start, window: audioWindow(c.el) })),
+      ].filter(v => !music.some(m => m.el.id === v.el.id))
+      if (!voices.length) { warn('There is no voice to duck under — the music needs a video with sound or a voiceover.'); return { commands: [] } }
+
+      const decoded = new Map<string, Awaited<ReturnType<SmartMedia['decodeMono']>>>()
+      const speech: TimeRange[] = []
+      for (const voice of voices) {
+        onProgress?.(`Listening to ${voice.el.name}…`)
+        if (!decoded.has(voice.el.src!)) decoded.set(voice.el.src!, await media.decodeMono(voice.el.src!).catch(() => null))
+        const audio = decoded.get(voice.el.src!)
+        if (!audio) { warn(`Could not read the audio of ${voice.el.name}.`); continue }
+        const { from, to, toScene } = voice.window
+        for (const [a, b] of detectSpeech(audio.samples, audio.sampleRate, { minSilence: 0.35 })) {
+          if (b <= from || a >= to) continue
+          speech.push([voice.start + toScene(Math.max(a, from)), voice.start + toScene(Math.min(b, to))])
+        }
+      }
+      if (!speech.length) { warn('No speech found, so the music was left as it is.'); return { commands: [] } }
+
+      const level = step.level ?? DEFAULT_DUCK_LEVEL
+      const commands: AiEditorCommand[] = []
+      for (const m of music) {
+        const keys = duckingKeys(speech, {
+          absStart: m.start + (m.el.timelineX ?? 0),
+          duration: m.el.duration ?? 0,
+          startTime: m.el.startTime ?? 0,
+          speed: m.el.playbackRate || 1,
+        }, { level, fade: step.fade })
+        if (!keys.length && !m.el.volumeKeys) continue
+        commands.push({ type: 'setVolumeKeys', elementId: m.el.id, sceneId: m.sceneId, sceneIndex: m.sceneIndex, targetLabel: m.el.name, keys })
+      }
+      const talking = mergeRanges(speech).reduce((sum, [a, b]) => sum + b - a, 0)
+      return {
+        commands,
+        note: commands.length
+          ? `Duck ${commands.length === 1 ? music[0].el.name : `${commands.length} music clips`} to ${Math.round(level * 100)}% while someone talks (${talking.toFixed(1)}s of speech).`
+          : 'The music does not play while anyone talks, so nothing changed.',
+      }
+    }
+
     case 'cutToBeat': {
       const music = findMusic(context)
       if (!music) { warn('Add music to the timeline first — cutting to the beat follows the background music.'); return { commands: [] } }
@@ -186,6 +242,14 @@ function clipWindow(video: AiElementSummary) {
   const length = video.duration ?? Math.max(0, (video.sourceDuration ?? 0) - from) / rate
   const offset = video.timelineX ?? 0
   return { from, to: from + length * rate, toScene: (t: number) => offset + (t - from) / rate }
+}
+
+/** The part of the source file an audio clip plays, and source → scene time. */
+function audioWindow(audio: AiElementSummary) {
+  const from = audio.startTime ?? 0
+  const rate = audio.playbackRate || 1
+  const offset = audio.timelineX ?? 0
+  return { from, to: from + (audio.duration ?? 0) * rate, toScene: (t: number) => offset + (t - from) / rate }
 }
 
 function findMusic(context: AiProjectContext) {

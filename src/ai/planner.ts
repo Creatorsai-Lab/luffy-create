@@ -1,4 +1,4 @@
-import type { AiPlanResult, AiProjectContext } from './types'
+import type { AiPlanResult, AiProjectContext, AiSmartStep } from './types'
 import { isSmartStep } from './types'
 import { summarizeCommands } from './describe'
 import { parsePrompt } from './parser'
@@ -30,4 +30,16 @@ export async function planAiEdit(
   const { commands, notes } = await expandSmartSteps(steps, context, issues, opts.media ?? browserMedia, opts.onProgress)
   const summary = notes.length ? notes.join(' ') : summarizeCommands(commands)
   return { plan: { summary, commands, needsConfirmation: true }, issues, source: 'local' }
+}
+
+/** Plans smart steps picked in the UI (e.g. the audio panel's "Duck under voice") the same way as a prompt. */
+export async function planSmartSteps(
+  steps: AiSmartStep[],
+  context: AiProjectContext,
+  opts: { onProgress?: (message: string) => void; media?: SmartMedia } = {}
+): Promise<AiPlanResult> {
+  const issues: AiPlanResult['issues'] = []
+  const { commands, notes } = await expandSmartSteps(steps, context, issues, opts.media ?? browserMedia, opts.onProgress)
+  const summary = notes.length ? notes.join(' ') : summarizeCommands(commands)
+  return { plan: { summary, commands }, issues, source: 'local' }
 }

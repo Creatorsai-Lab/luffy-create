@@ -28,7 +28,8 @@ interface Props {
   element:    EditorElement
   animProps:  ReturnType<typeof import('../../engine/animator').getAnimatedProps> | null
   isSelected: boolean
-  onSelect:   (multi: boolean) => void
+  /** On press: multi = Shift (add/remove), member = Ctrl/Alt (just this item, even inside a group). */
+  onSelect:   (multi: boolean, member: boolean) => void
   onDblClick: () => void
   stageScale: number
   localTime?: number   // scene-local seconds — drives video seeking
@@ -75,8 +76,11 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
     rotation: animProps?.rotation ?? element.rotation,
     draggable: interaction.draggable,
     listening: interaction.listening,
-    onClick:  (e: Konva.KonvaEventObject<MouseEvent>) => {
-      onSelect(e.evt.shiftKey)
+    // Select on press (left button only), before a drag can start, so dragging a
+    // group member drags the whole group. Right-click keeps the selection.
+    onMouseDown: (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (e.evt.button !== 0) return
+      onSelect(e.evt.shiftKey, e.evt.ctrlKey || e.evt.metaKey || e.evt.altKey)
       setCursor(e.target, 'selected')
     },
     onMouseEnter: (e: Konva.KonvaEventObject<MouseEvent>) => {

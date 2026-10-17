@@ -5,6 +5,7 @@
  * circle" when there are three) become plan issues instead of guesses.
  */
 import type { AiEditorCommand, AiElementRef, AiElementSummary, AiPlanIssue, AiProjectContext } from '../types'
+import { getBlock } from '../../blocks/registry'
 import { nearestColorName, readColors } from './colors'
 import type { Clause } from './text'
 import { ordinalValue } from './text'
@@ -36,6 +37,12 @@ export interface ParseState {
   aliasCount: number
   /** The sequence the previous clause built; a following wave clause joins it ("…, then flash them red"). */
   lastSequence?: Extract<AiEditorCommand, { type: 'animateSequence' }> | null
+  /** The smart block the previous clause changed — "…, and make it green" changes it again. */
+  lastBlock?: string | null
+  /** The previous clause styled the captions — "…, and move them to the top" means the captions. */
+  lastCaptions?: boolean
+  /** How many "this video" references the prompt has used: the 1st means the 1st selected clip, the 2nd the 2nd. */
+  mediaThisUsed?: number
   /** Set by the sequence handler; parsePrompt clears `lastSequence` after any other clause. */
   sequenceTouched?: boolean
 }
@@ -238,6 +245,21 @@ export function readElements(clause: Clause, state: ParseState, opts: ElementOpt
     if (found.length) return found.map(item => target(item.el, item.sceneId))
   }
 
+  // 1b. A group by name ("'Layer 1'", "the layer 1 group") or "the group" when the scene has one.
+  const groupScenes = state.context.scenes.filter(sc => !scenes || scenes.some(t => t.sceneId === sc.id) || (!scenes && sc.index === state.context.currentSceneIndex))
+  for (const sc of groupScenes) {
+    for (const group of sc.groups ?? []) {
+      const name = group.name.toLowerCase()
+      const quoted = clause.quotes.some((q, i) => !opts.skipQuotes?.includes(i) && q.trim().toLowerCase() === name)
+      const written = name.length >= 3 && new RegExp(`(?<![\\w])${escapeRe(name)}(?![\\w])`).test(text)
+      if (quoted || written) return groupTargets(sc, group.id, group.name)
+    }
+    const groups = sc.groups ?? []
+    if (groups.length === 1 && /\b(?:the|this|that) group\b/.test(text)) return groupTargets(sc, groups[0].id, groups[0].name)
+    const block = groups.slice().reverse().find(g => g.blockId && getBlock(g.blockId)?.phrases?.test(text))
+    if (block) return groupTargets(sc, block.id, block.name)
+  }
+
   // 2. Custom element names written in the clause ("move Logo 2 to the left").
   // Default names ("Text", "Circle", "Video") are type words and handled in step 3.
   const byName = (items: PoolItem[]) => items
@@ -314,6 +336,22 @@ function resolveKind(
   return []
 }
 
+export function groupTargets(scene: AiProjectContext['scenes'][number], groupId: string, name: string): ElementTarget[] {
+  return scene.elements
+    .filter(el => el.groupId === groupId)
+    .map(el => ({ ref: { elementId: el.id, targetLabel: `${el.name} (${name})` }, type: el.type, summary: el, sceneId: scene.id, label: name }))
+}
+
+/** Whether the text names a group on the current scene, by its name or its block ("the lower third"). */
+export function mentionsGroup(text: string, state: ParseState) {
+  const scene = state.context.scenes.find(sc => sc.index === state.context.currentSceneIndex)
+  return (scene?.groups ?? []).some(g => {
+    const name = g.name.toLowerCase()
+    return (name.length >= 3 && new RegExp(`(?<![\\w])${escapeRe(name)}(?![\\w])`).test(text)) ||
+      (g.blockId && getBlock(g.blockId)?.phrases?.test(text))
+  })
+}
+
 function selection(state: ParseState): ElementTarget[] {
   const { selectedElements } = state.context
   if (!selectedElements.length) {
@@ -354,6 +392,6 @@ function isWholeMatch(re: RegExp, value: string) {
   return Boolean(match && match[0] === value.replace(/\s*\d+$/, ''))
 }
 
-function escapeRe(value: string) {
+export function escapeRe(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

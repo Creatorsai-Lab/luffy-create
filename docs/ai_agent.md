@@ -118,6 +118,108 @@ Connect the selected items
 Add a red circle in the bottom right and connect it to the title
 ```
 
+**Groups**
+
+```text
+Group all circles as 'Layer 1'
+Group the selected items
+Make the layer 1 group blue
+Ungroup the group
+```
+
+A group's name (or "the group", when the scene has one) refers to all of its
+members.
+
+**Audio ducking**
+
+```text
+Duck the music
+Duck the music to 15% with a 0.5s fade
+Lower the background music by 80% when I talk
+Duck the music by -12dB
+Remove the ducking
+```
+
+Ducking listens to every unmuted video clip and voiceover track, finds where
+someone talks and lowers the music (background-track audio) there with
+volume automation. "to 20%" is the music level while talking; "by 80%" lowers
+it by that much. Run it again after editing.
+
+**Split screen**
+
+```text
+Split screen                       (side by side; stacked in a vertical video)
+Put the image and the video side by side
+Stack the clips with a 20px gap
+```
+
+**Putting clips in an area of the frame**
+
+```text
+Make video 1 full screen and video 2 bottom right at 400x300
+Make this video fill the screen and this one show in the bottom right at 30%
+Put the video in the upper half and the image in the lower half
+Put one video in the left half and the other in the right half
+Put the video in the top third        the left 60%        the top left quarter
+Put the video at x 100 y 200, 500px wide
+Fit the whole video in the upper half (no crop)     Stretch the video to fill the screen
+Add intro.mp4 to the upper half
+```
+
+The agent works out exact pixels from the scene size: the upper half of a
+1080×1920 scene is 1080×960 at (0, 0); the right half of 1920×1080 is
+960×1080 at (960, 0). The plan preview shows the numbers.
+
+- **Which clip:** its name, "video 1" / "video_id_2" / "the second video"
+  (in the order they were added), "this video" (the 1st "this" is the 1st
+  selected clip, the 2nd the 2nd), "one … the other", or "it".
+- **Fit:** clips are cropped to fill their area, centred on what they showed
+  (cover). "fit" / "without cropping" shows the whole clip as large as fits;
+  "stretch" fills the area and distorts. With only a width ("480px wide",
+  "at 30%") the height follows the clip's shape.
+- **Corners and edges** keep a small margin (3% of the short side, 32 px at
+  1080p); say "no margin" or "with 50px margin". A big clip sent to a corner
+  without a size shrinks to 30% of the width (42% in vertical video); a small
+  one just moves there.
+- A clip that fills the frame goes behind everything; a smaller clip on top
+  of a bigger one comes to the front.
+
+**Captions**
+
+```text
+Hormozi style captions             Use the karaoke preset for the captions
+Make the captions yellow with a black outline
+Captions in all caps with a dark box behind
+Highlight the spoken word in green in the captions
+Make the captions bigger and move them to the bottom
+Hide the captions
+```
+
+Presets: Bold, Karaoke, Boxed, Minimal, Pop. Styles apply to the project's
+caption track; without captions yet, the style is saved and used when you
+generate them.
+
+**Blocks**
+
+```text
+Add a title card 'Chapter 2' with subtitle 'Setup' on scene 3
+Add a boxed title card 'Results' in red
+Add a lower third for 'Adya' 'ML engineer' on the right
+Add a hook 'Stop scrolling, this changes everything' highlighting 'everything'
+Add a call to action 'Follow for part 2' at the bottom at 3s
+Make the lower third red
+Change the lower third role to 'Founder' and put it on the left
+Delete the lower third          Fade out the hook
+```
+
+Blocks are smart groups: the agent only picks the block and its settings, and
+the editor builds and lays it out (16:9 and 9:16). The first quote is the main
+text and the second the secondary text (subtitle, role); a quote after a
+setting's name ("subtitle 'Setup'", "highlighting 'everything'") goes to that
+setting. Naming a placed block ("the lower third", "the hook") and asking for a
+new setting rebuilds it in place; "move", "delete" or "fade" act on all of its
+parts.
+
 **Audio and video**
 
 ```text

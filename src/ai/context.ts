@@ -1,4 +1,4 @@
-import type { EditorElement } from '../types/editor'
+import type { EditorElement, Project } from '../types/editor'
 import { useEditorStore } from '../store/editorStore'
 import type { AiElementSummary, AiProjectContext } from './types'
 
@@ -24,6 +24,7 @@ export function buildAiProjectContext(): AiProjectContext | null {
       sceneCount: project.scenes.length,
       totalDuration: project.scenes.reduce((sum, scene) => sum + scene.duration, 0),
     },
+    captions: captionsSummary(project),
     currentSceneIndex,
     currentSceneId,
     playhead,
@@ -35,6 +36,9 @@ export function buildAiProjectContext(): AiProjectContext | null {
       name: scene.name,
       duration: scene.duration,
       backgroundType: scene.background.type,
+      groups: Object.values(scene.groups ?? {}).map(group => ({
+        id: group.id, name: group.name, blockId: group.smart?.blockId, params: group.smart?.params,
+      })),
       elements: scene.elements
         .slice()
         .sort((a, b) => a.zIndex - b.zIndex)
@@ -61,6 +65,7 @@ export function summarizeElement(el: EditorElement): AiElementSummary {
     height: Number.isFinite(el.height) ? Math.round(el.height) : undefined,
     opacity: el.opacity,
     rotation: el.rotation,
+    groupId: el.groupId,
   }
   switch (el.type) {
     case 'text':
@@ -92,8 +97,15 @@ export function summarizeElement(el: EditorElement): AiElementSummary {
         volume: el.volume,
         playbackRate: el.speed ?? 1,
         track: el.track,
+        volumeKeys: el.volumeKeys?.length || undefined,
       }
     default:
       return summary
   }
+}
+
+function captionsSummary(project: Project): AiProjectContext['captions'] {
+  const track = project.subtitleTracks?.[0]
+  if (!track) return undefined
+  return { cues: track.cues.length, enabled: track.enabled, fontSize: track.style?.fontSize ?? 38 }
 }

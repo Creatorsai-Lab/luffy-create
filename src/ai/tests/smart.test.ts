@@ -9,6 +9,9 @@ import { detectBeats, snapDurationsToBeats } from '../smart/beats'
 import type { SmartMedia } from '../smart/expand'
 import { findCuts } from '../smart/shots'
 import { detectSpeech, silencesBetween } from '../smart/speech'
+import { duckingKeys } from '../smart/duck'
+import { buildFfmpegVolumeKeysFilter, volumeKeyGain } from '../../utils/volumeKeys'
+import type { AudioElement } from '../../types/editor'
 import { loadFixture } from './fixture'
 
 ;(globalThis as { window?: unknown }).window ??= { api: {} }
@@ -137,6 +140,68 @@ const tests: Array<[string, () => void | Promise<void>]> = [
     loadFixture()
     await apply('split the video into shots', fakeMedia({ detectShotChanges: async () => [1.2, 2.8] }))
     assert.deepEqual(project().scenes.slice(1, 4).map(s => Math.round(s.duration * 100) / 100), [1.2, 1.6, 1.2])
+  }],
+  ['ducking keys dip under speech, hold through short pauses and follow trim and speed', () => {
+    const clip = { absStart: 10, duration: 20, startTime: 0, speed: 1 }
+    const keys = duckingKeys([[12, 14], [14.5, 16], [22, 23]], clip, { level: 0.2, fade: 0.3, hold: 0.6 })
+    // 12–16 is one dip (the 0.5 s pause is held), 22–23 another.
+    assert.deepEqual(keys, [
+      { t: 1.7, v: 1 }, { t: 2, v: 0.2 }, { t: 6, v: 0.2 }, { t: 6.3, v: 1 },
+      { t: 11.7, v: 1 }, { t: 12, v: 0.2 }, { t: 13, v: 0.2 }, { t: 13.3, v: 1 },
+    ])
+    near(volumeKeyGain(keys, 1), 1, 1e-9, 'before')
+    near(volumeKeyGain(keys, 1.85), 0.6, 1e-9, 'half way down')
+    near(volumeKeyGain(keys, 4), 0.2, 1e-9, 'while talking')
+    near(volumeKeyGain(keys, 9), 1, 1e-9, 'in a long pause')
+    // A trimmed, sped-up clip: keys land at the right source seconds.
+    const fast = duckingKeys([[12, 14]], { absStart: 10, duration: 10, startTime: 5, speed: 2 }, { level: 0.5, fade: 0.25 })
+    assert.deepEqual(fast.map(k => k.t), [8.5, 9, 13, 13.5])
+    // Speech outside the clip changes nothing.
+    assert.deepEqual(duckingKeys([[1, 3], [40, 41]], clip), [])
+  }],
+  ['the FFmpeg volume filter follows the keys in clip time', () => {
+    assert.equal(buildFfmpegVolumeKeysFilter([], { duration: 5 }), null)
+    assert.equal(buildFfmpegVolumeKeysFilter([{ t: 1, v: 1 }, { t: 3, v: 1 }], { duration: 5 }), null)
+    const filter = buildFfmpegVolumeKeysFilter([{ t: 4, v: 1 }, { t: 6, v: 0.5 }], { startTime: 2, speed: 2, duration: 5 })!
+    // Source 4 s and 6 s are clip seconds 1 and 2.
+    assert.match(filter, /^volume='lt\(t\\,1\)\*1\+gte\(t\\,1\)\*lt\(t\\,2\)\*\(1\+\(-0\.5\)\*\(t-1\)\)\+gte\(t\\,2\)\*0\.5':eval=frame$/)
+    // Keys far outside the clip are left out.
+    const many = buildFfmpegVolumeKeysFilter([{ t: 0, v: 1 }, { t: 1, v: 0.3 }, { t: 50, v: 0.3 }, { t: 51, v: 1 }, { t: 90, v: 1 }], { duration: 10 })!
+    assert.ok(!many.includes('90'), many)
+  }],
+  ['"duck the music" lowers the song while the video talks, and undoes in one step', async () => {
+    const f = loadFixture()
+    const media = fakeMedia({
+      decodeMono: async path => path === 'clip.mp4'
+        ? { samples: speechSignal(10, [[1, 2.5]]), sampleRate: SR }
+        : { samples: new Float32Array(SR * 10), sampleRate: SR },
+    })
+    const { planned, issues } = await apply('duck the music to 20%', media)
+    assert.deepEqual(issues.map(i => i.message), [])
+    assert.match(planned.plan.summary, /Duck song\.mp3 to 20%/)
+    const music = () => project().scenes[0].elements.find(el => el.id === f.el.music.id) as AudioElement
+    const keys = music().volumeKeys!
+    assert.equal(keys.length, 4, JSON.stringify(keys))
+    // The clip talks at 1–2.5 s of its file; scene 2 starts at 5 s, so the song dips around 6–7.5 s.
+    near(keys[1].t, 6, 0.06, 'dip starts')
+    near(keys[2].t, 7.5, 0.06, 'dip ends')
+    near(volumeKeyGain(keys, 6.8), 0.2, 1e-6, 'gain while talking')
+    near(volumeKeyGain(keys, 3), 1, 1e-6, 'gain before')
+    useEditorStore.getState().undo()
+    assert.equal(music().volumeKeys, undefined)
+  }],
+  ['"remove the ducking" clears the keys', async () => {
+    const f = loadFixture()
+    useEditorStore.getState().updateElement(f.el.music.id, { volumeKeys: [{ t: 1, v: 0.2 }] } as Partial<AudioElement>)
+    await apply('remove the ducking', fakeMedia({}))
+    assert.equal((project().scenes[0].elements.find(el => el.id === f.el.music.id) as AudioElement).volumeKeys, undefined)
+  }],
+  ['ducking with no voice explains why', async () => {
+    const f = loadFixture()
+    useEditorStore.getState().updateElement(f.el.video.id, { muted: true } as Partial<VideoElement>)
+    useEditorStore.getState().removeElement(f.el.voice.id)
+    const { issues } = await apply('lower the music when I talk', fakeMedia({}))
+    assert.ok(issues.some(i => /no voice to duck under/.test(i.message)), JSON.stringify(issues))
   }],
   ['no speech means no cuts', async () => {
     loadFixture()

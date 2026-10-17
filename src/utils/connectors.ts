@@ -132,12 +132,22 @@ export function remapConnectors(elements: EditorElement[], idMap: Map<string, st
  * with the items they attach to are attached to the copies; ends whose item
  * was not copied are released so the copy stays where it was put.
  */
-export function copyElements(elements: EditorElement[], offset = 0, newId: () => string = () => crypto.randomUUID()): EditorElement[] {
+export function copyElements(
+  elements: EditorElement[],
+  offset = 0,
+  newId: () => string = () => crypto.randomUUID(),
+  /** Filled with old group id → new group id, so copied groups become new groups. */
+  groupIds = new Map<string, string>(),
+): EditorElement[] {
   const ids = new Map<string, string>()
   const copies = elements.map(el => {
     const copy = JSON.parse(JSON.stringify(el)) as EditorElement
     copy.id = newId()
     ids.set(el.id, copy.id)
+    if (copy.groupId) {
+      if (!groupIds.has(copy.groupId)) groupIds.set(copy.groupId, newId())
+      copy.groupId = groupIds.get(copy.groupId)
+    }
     copy.x += offset
     copy.y += offset
     if (copy.type === 'arrow') {

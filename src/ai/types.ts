@@ -1,3 +1,4 @@
+import type { SubtitleStyle } from '../types/editor'
 import type { AlignType, AnimationTiming, AnimationType, Background, EasingType, SceneTransition, ShapeType, SlideDir, TransitionType } from '../types/editor'
 
 /** A scene by id (preferred: stable while a plan adds/removes scenes), 1-based index, or alias of a scene created earlier in the plan. */
@@ -76,6 +77,25 @@ export type AiEditorCommand =
    * every item in the next column — a network layer) or `hub` (first to all).
    */
   | { type: 'connectElements'; from: AiElementRef[]; to?: AiElementRef[]; mode?: 'chain' | 'columns' | 'hub'; keepOrder?: boolean; color?: string; width?: number; heads?: boolean; behind?: boolean }
+  | { type: 'groupElements'; targets: AiElementRef[]; name?: string }
+  | { type: 'ungroupElements'; targets: AiElementRef[] }
+  /** Builds a smart block (src/blocks) as a group that remembers its settings. */
+  | ({ type: 'insertBlock'; blockId: string; params?: Record<string, unknown>; alias?: string } & AiSceneRef)
+  /** Changes a smart group's settings; it rebuilds in place. */
+  | { type: 'updateBlock'; groupId: string; params: Record<string, unknown> }
+  /** Tiles videos/images: `split` (side by side, or stacked in portrait), `sideBySide`, `stacked` or `grid`. Clips are cropped to fill, never stretched. */
+  | { type: 'arrangeMedia'; targets: AiElementRef[]; layout: 'split' | 'sideBySide' | 'stacked' | 'grid'; gap?: number }
+  /**
+   * Puts one video/image in an area of the frame (scene pixels): `region` is the area ("upper half" of
+   * 1080×1920 = {0, 0, 1080, 960}); `width`/`height` the clip's own size in it (a missing side follows
+   * the clip's shape); `horizontal`/`vertical` where it sits in the area. `cover` fills the box and crops,
+   * `contain` shows the whole clip as large as fits, `stretch` fills the box and distorts.
+   */
+  | ({ type: 'placeMedia'; region: { x: number; y: number; width: number; height: number }; regionLabel?: string; width?: number; height?: number; horizontal?: 'left' | 'center' | 'right'; vertical?: 'top' | 'middle' | 'bottom'; fit?: 'cover' | 'contain' | 'stretch' } & AiElementRef)
+  /** Caption look for the whole project: a preset (src/subtitle/presets.ts), then any style fields on top; `enabled` shows/hides them. */
+  | { type: 'setCaptionStyle'; preset?: string; style?: Partial<SubtitleStyle>; enabled?: boolean }
+  /** Volume automation of an audio clip: gain `v` at `t` seconds into its source file; [] removes it. */
+  | ({ type: 'setVolumeKeys'; keys: Array<{ t: number; v: number }> } & AiElementRef)
   /** Staggered waves played one after another ("pulse left to right, then flash red right to left, repeating"). */
   | { type: 'animateSequence'; waves: AiWave[]; start?: number | 'afterLast'; repeat?: boolean | number; repeatGap?: number }
 
@@ -102,10 +122,12 @@ export type AiSmartStep =
   | { type: 'removeFillers'; sceneIds?: string[] }
   | { type: 'cutToBeat'; beatsPerCut?: number }
   | { type: 'splitShots'; sceneIds?: string[] }
+  /** Lower the music while someone talks (video sound or voiceover). `level` is the music gain while talking. */
+  | { type: 'duckMusic'; level?: number; fade?: number; musicIds?: string[] }
 
 export type AiPlanStep = AiEditorCommand | AiSmartStep
 
-export const SMART_STEP_TYPES = new Set<AiSmartStep['type']>(['removeSilences', 'removeFillers', 'cutToBeat', 'splitShots'])
+export const SMART_STEP_TYPES = new Set<AiSmartStep['type']>(['removeSilences', 'removeFillers', 'cutToBeat', 'splitShots', 'duckMusic'])
 
 export function isSmartStep(step: AiPlanStep): step is AiSmartStep {
   return SMART_STEP_TYPES.has(step.type as AiSmartStep['type'])
@@ -133,6 +155,7 @@ export interface AiCommandResult {
   message: string
   elementIds?: string[]
   sceneIds?: string[]
+  groupId?: string
 }
 
 export interface AiPlanResult {
@@ -169,6 +192,9 @@ export interface AiElementSummary {
   playbackRate?: number
   muted?: boolean
   track?: 'background' | 'voiceover'
+  /** Audio: how many volume automation keys the clip has. */
+  volumeKeys?: number
+  groupId?: string
 }
 
 export interface AiSceneSummary {
@@ -178,6 +204,7 @@ export interface AiSceneSummary {
   duration: number
   backgroundType: string
   elements: AiElementSummary[]
+  groups?: Array<{ id: string; name: string; blockId?: string; params?: Record<string, unknown> }>
 }
 
 export interface AiProjectContext {
@@ -190,6 +217,8 @@ export interface AiProjectContext {
     sceneCount: number
     totalDuration: number
   }
+  /** The project's captions, when it has a caption track. */
+  captions?: { cues: number; enabled: boolean; fontSize: number }
   currentSceneIndex: number
   currentSceneId: string | null
   /** Timeline playhead, seconds from the start of the project. */

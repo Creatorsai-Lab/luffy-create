@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Group, Text } from 'react-konva'
+import { Group, Rect, Text } from 'react-konva'
 import type { Project, SubtitleCue, SubtitleStyle, SubtitleTrack } from '../types/editor'
 import { getActiveSubtitleCue } from './timeline'
 import { normalizeSubtitleStyle, normalizeSubtitleTrack } from './types'
@@ -55,7 +55,8 @@ function SubtitleCaptionStack({ width, height, cue, track, time, rows }: StackPr
         context.font = `${rowStyle.italic ? 'italic ' : ''}${fontWeightToCssValue(rowStyle.fontWeight)} ${size}px "${rowStyle.fontFamily}"`
         return context.measureText(text).width
       }
-      const fitted = fitSubtitleRow(row.text, rowStyle.fontSize, maxWidth, measureAtSize)
+      const text = rowStyle.uppercase ? row.text.toLocaleUpperCase() : row.text
+      const fitted = fitSubtitleRow(text, rowStyle.fontSize, maxWidth, measureAtSize)
       const measured = layoutMeasuredSubtitleWords(fitted.text, text => measureAtSize(text, fitted.fontSize))
       const warp = rowStyle.captionLook === 'normal' ? 1 : 1 + (rowStyle.warpIntensity ?? 50) / 100 * 0.85
       return { ...row, style: { ...rowStyle, fontSize: fitted.fontSize }, ...fitted, ...measured, height: fitted.height * warp }
@@ -67,9 +68,12 @@ function SubtitleCaptionStack({ width, height, cue, track, time, rows }: StackPr
   const origin = getCaptionOrigin(width, height, stack.width, stack.height, style.positionX, style.positionY)
   const maxWords = Math.max(...metrics.map(row => row.words.length))
   const duration = Math.max(0.01, cue.end - cue.start)
+  // Karaoke walks through the words over the whole cue, roughly as they are spoken.
   const entranceDuration = style.animation === 'smoothReveal'
     ? Math.min(0.65, duration)
-    : Math.min(duration * 0.85, Math.max(0.38, maxWords * 0.11))
+    : style.animation === 'karaokePulse'
+      ? duration * 0.95
+      : Math.min(duration * 0.85, Math.max(0.38, maxWords * 0.11))
   const progress = Math.max(0, Math.min(1, (time - cue.start) / Math.max(0.01, entranceDuration)))
   const block = getSubtitleBlockState(style.animation, progress)
   const wordStates = getSubtitleStackWordStates(style.animation ?? 'wordPop', progress, metrics.map(row => row.words.length))
@@ -83,15 +87,27 @@ function SubtitleCaptionStack({ width, height, cue, track, time, rows }: StackPr
         const rowX = (stack.width - visualWidth) / 2
         const fontStyle = [row.style.italic ? 'italic' : '', fontWeightToKonvaStyle(row.style.fontWeight)].join(' ').trim()
         const fill = subtitleTextFillProps(row.style, row.width)
+        const activeFill = row.style.activeColor ? { fill: row.style.activeColor, fillPriority: 'color' as const } : null
+        const stroke = (row.style.strokeWidth ?? 0) > 0
+          ? { stroke: row.style.strokeColor ?? '#000000', strokeWidth: row.style.strokeWidth, fillAfterStrokeEnabled: true, lineJoin: 'round' as const }
+          : {}
+        const boxPad = row.style.fontSize * 0.28
         return (
           <Group key={`${row.language}-${row.text}`} x={rowX + visualWidth / 2} y={stack.rows[rowIndex].y}
             offsetX={row.width / 2} scaleX={row.scaleX}>
+            {(row.style.boxOpacity ?? 0) > 0 && (
+              <Rect x={-boxPad} y={-boxPad * 0.45} width={row.width + boxPad * 2} height={row.height + boxPad * 0.9}
+                fill={row.style.boxColor ?? '#000000'} opacity={row.style.boxOpacity} cornerRadius={boxPad * 0.8}
+                listening={false} perfectDrawEnabled={false} />
+            )}
             {row.words.map((word, index) => {
               const state = wordStates[rowIndex][index]
-              const common = { fontFamily: row.style.fontFamily, fontSize: row.style.fontSize, fontStyle, ...fill,
+              const active = state.emphasis > 0 && activeFill
+              const common = { fontFamily: row.style.fontFamily, fontSize: row.style.fontSize, fontStyle,
+                ...(active ? activeFill : fill), ...stroke,
                 lineHeight: 1.08, wrap: 'none' as const, listening: false, perfectDrawEnabled: false,
-                shadowColor: state.emphasis ? row.style.color : undefined,
-                shadowBlur: state.emphasis ? row.style.fontSize * 0.16 : 0 }
+                shadowColor: state.emphasis ? row.style.activeColor ?? row.style.color : undefined,
+                shadowBlur: state.emphasis && !stroke.stroke ? row.style.fontSize * 0.16 : 0 }
               if (row.style.captionLook !== 'normal') return (
                 <Group key={`${index}-${word.text}`} x={word.x + word.width / 2} y={row.height / 2 + state.offsetY}
                   offsetX={word.width / 2} offsetY={row.style.fontSize * 0.54} scaleX={state.scale} scaleY={state.scale} opacity={state.opacity}>

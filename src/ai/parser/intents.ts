@@ -6,13 +6,16 @@
  * handler that passes never leaves stray warnings.
  */
 import type { AnimationTiming, AnimationType, Background, ShapeType, SlideDir, TransitionType } from '../../types/editor'
+import { blocksHandler } from './blocks'
+import { layoutHandler } from './layout'
+import { placeHandler, placementForNewClip } from './place'
+import { captionsHandler } from './captions'
 import { FONT_FAMILIES } from '../../types/editor'
 import type { AiAnimationSpec, AiArrangeOrder, AiEditorCommand, AiElementRef, AiPlanStep, AiSceneRef, AiWave } from '../types'
 import { readColors, type ColorMatch } from './colors'
 import {
   NOUN_KINDS, currentScene, defaultScenes, findSceneMentions, nextAlias, readElements, readScenes, sceneTarget, warn,
-  type ElementTarget, type ParseState, type SceneTarget,
-} from './refs'
+  type ElementTarget, type ParseState, type SceneTarget, mentionsGroup } from './refs'
 import {
   countValue, numberAfter, readFactor, readPercent, readSize, readTimes, timeAfter, type Clause,
 } from './text'
@@ -168,6 +171,29 @@ const smart: Handler = (clause, state) => {
   const sceneIds = () => readScenes(text, state)?.map(t => t.sceneId).filter((id): id is string => Boolean(id))
   const cutVerb = /\b(?:remove|cut|delete|trim|skip|tighten|shorten|drop|get rid of|take out|clean up|edit out)\b/
 
+  // Ducking: "duck the music", "lower the music when I talk", "remove the ducking".
+  const music = /\b(?:music|songs?|soundtrack|bgm|background (?:music|audio|track|sound))\b/
+  const voice = /\b(?:talk\w*|speak\w*|speech|voices?|voiceover|narrat\w*|dialog(?:ue)?|someone|people)\b/
+  const lower = /\b(?:lower|quieter|softer|down|reduce|dip|drop|soften)\b/
+  if (/\bduck(?:s|ing|ed)?\b|\bauto[\s-]?duck/.test(text) || /\bvolume automation\b/.test(text) ||
+      (music.test(text) && voice.test(text) && lower.test(text) && /\b(?:when|while|under|during|whenever|behind|over)\b/.test(text))) {
+    if (/\b(?:remove|clear|undo|stop|turn off|disable|reset|no more)\b/.test(text)) {
+      const automated = state.context.scenes.flatMap(sc => sc.elements
+        .filter(el => el.type === 'audio' && el.volumeKeys)
+        .map(el => ({ type: 'setVolumeKeys' as const, elementId: el.id, sceneId: sc.id, sceneIndex: sc.index, targetLabel: el.name, keys: [] })))
+      if (!automated.length) warn(state, 'No audio clip has ducking or volume automation to remove.')
+      return automated
+    }
+    if (/\bvolume automation\b/.test(text) && !/\bduck/.test(text)) return null
+    const db = text.match(/(-?\d+(?:\.\d+)?)\s*db\b/)
+    const percent = readPercent(text)
+    const level = db ? Math.pow(10, -Math.abs(Number(db[1])) / 20)
+      : percent != null ? (/\bby\s+\d+(?:\.\d+)?\s*(?:%|percent)/.test(text) ? 1 - percent : percent)
+      : undefined
+    const fade = text.match(/(\d+(?:\.\d+)?)\s*(?:s|sec|secs|seconds?)\s+fades?\b|\bfades?\s+(?:of\s+|over\s+)?(\d+(?:\.\d+)?)\s*(?:s|sec|secs|seconds?)\b/)
+    return [{ type: 'duckMusic', level: level != null ? Math.round(Math.max(0, Math.min(1, level)) * 1000) / 1000 : undefined, fade: fade ? Number(fade[1] ?? fade[2]) : undefined }]
+  }
+
   if (/\b(?:fillers?|filler words?|ums?|umms?|uhs?|uhms?|erms?|ahs?)\b/.test(text) && cutVerb.test(text)) {
     return [{ type: 'removeFillers', sceneIds: sceneIds() }]
   }
@@ -276,7 +302,7 @@ const remove: Handler = (clause, state) => {
   }
 
   const scenes = readScenes(text, state)
-  const elements = mentionsElement(text) ? readElements(clause, state, { scenes }) : null
+  const elements = mentionsElement(text) || mentionsGroup(text, state) ? readElements(clause, state, { scenes }) : null
   if (elements) {
     remember(state, null)
     return elements.map(t => ({ type: 'removeElement', ...elementRef(t) }))
@@ -610,6 +636,23 @@ const connect: Handler = (clause, state) => {
   }]
 }
 
+/** "group all circles as 'Layer 1'", "group the selected items", "ungroup it". */
+const group: Handler = (clause, state) => {
+  const text = clause.text
+  const ungroup = /^(?:ungroup|break up|split up)\b|\bungroup\b/.test(text)
+  if (!ungroup && !/^(?:group|regroup)\b|\b(?:make|put) (?:\w+ ){0,3}into a group\b/.test(text)) return null
+  const nameQuote = text.match(/\b(?:as|called|named)\s+(?:a\s+)?(?:group\s+)?⟦(\d+)⟧/)?.[1]
+  const targets = elementsOrSelection(clause, state, readScenes(text, state), nameQuote != null ? [Number(nameQuote)] : undefined)
+  if (!targets.length) return []
+  remember(state, targets)
+  if (ungroup) return [{ type: 'ungroupElements', targets: targets.map(elementRef) }]
+  if (targets.length < 2) {
+    warn(state, 'A group needs at least two items.')
+    return []
+  }
+  return [{ type: 'groupElements', targets: targets.map(elementRef), name: nameQuote != null ? clause.quotes[Number(nameQuote)] : undefined }]
+}
+
 const SHAPE_WORDS: Array<[RegExp, ShapeType]> = [
   [/\bcircles?\b/, 'circle'], [/\b(?:squares?|rectangles?|rects?|box|boxes)\b/, 'rect'], [/\btriangles?\b/, 'triangle'],
   [/\bstars?\b/, 'star'], [/\bhearts?\b/, 'heart'], [/\bhexagons?\b/, 'hexagon'], [/\bpentagons?\b/, 'pentagon'],
@@ -644,7 +687,10 @@ const addElement: Handler = (clause, state) => {
         commands.push({ type: 'addAudioFromAsset', ...base, timelineX: timeAfter(text, ['at', 'from', 'starting at']) ?? 0 })
       } else {
         commands.push({ type: asset.type === 'video' ? 'addVideoFromAsset' : 'addImageFromAsset', ...base, ...size })
-        place(alias, t, asset.name)
+        // "add intro.mp4 to the upper half": the same area rules as for clips already on the scene.
+        const placement = placementForNewClip(text, state.context.project)
+        if (placement) commands.push({ type: 'placeMedia', elementAlias: alias, targetLabel: asset.name, ...sceneRef(t), ...placement })
+        else place(alias, t, asset.name)
       }
       created.push({ ref: { elementAlias: alias, targetLabel: asset.name }, type: asset.type, label: asset.name })
     }
@@ -1026,6 +1072,6 @@ const modify: Handler = (clause, state) => {
 
 /** In priority order: the first handler that claims a clause wins. */
 export const HANDLERS: Handler[] = [
-  smart, addScene, remove, duplicate, split, trim, reorder, transition, background, setDuration,
+  smart, captionsHandler, group, blocksHandler, layoutHandler, placeHandler, addScene, remove, duplicate, split, trim, reorder, transition, background, setDuration,
   layer, connect, addElement, media, moveAnimation, sequence, animate, position, modify,
 ]

@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import VolumeEnvelope from './VolumeEnvelope'
 import { Plus, Play, Pause, SkipBack, ZoomIn, ZoomOut, ArrowLeftRight, Music, Trash2, Copy, Scissors, Split, X, Volume2, Bookmark, Shuffle, Film, Repeat } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { cn } from '../../utils/cn'
@@ -1321,6 +1322,10 @@ export default function Timeline() {
                       clipWidthPx={audioWidthPx}
                       trackH={TRACK_HEIGHT - 4}
                     />
+
+                    {(audio.volumeKeys?.length ?? 0) > 0 && (
+                      <VolumeEnvelope audio={audio} clipDuration={audioDur} widthPx={audioWidthPx} heightPx={TRACK_HEIGHT - 4} />
+                    )}
 
                     {audio.fadeIn > 0 && (
                       <div

@@ -27,6 +27,14 @@ const COMMAND_TYPES = new Set<AiCommandType>([
   'removeAnimations',
   'animateSequence',
   'connectElements',
+  'groupElements',
+  'ungroupElements',
+  'insertBlock',
+  'updateBlock',
+  'setVolumeKeys',
+  'arrangeMedia',
+  'setCaptionStyle',
+  'placeMedia',
 ])
 
 export const AI_PLAN_JSON_SCHEMA = {
@@ -87,7 +95,14 @@ function validateCommand(value: unknown): AiEditorCommand {
     case 'setSceneDuration': need(typeof value.duration === 'number', 'setSceneDuration requires duration.'); break
     case 'arrangeElement': need(typeof value.order === 'string', 'arrangeElement requires order.'); break
     case 'addAnimation': need(isRecord(value.animation), 'addAnimation requires animation.'); break
+    case 'groupElements':
+    case 'ungroupElements': need(Array.isArray(value.targets) && value.targets.length > 0, `${value.type} requires targets.`); break
+    case 'insertBlock': need(typeof value.blockId === 'string', 'insertBlock requires blockId.'); break
+    case 'updateBlock': need(typeof value.groupId === 'string' && isRecord(value.params), 'updateBlock requires groupId and params.'); break
     case 'connectElements': need(Array.isArray(value.from) && value.from.length > 0, 'connectElements requires from.'); break
+    case 'placeMedia': need(typeof value.region === 'object' && value.region !== null, 'placeMedia requires region.'); break
+    case 'arrangeMedia': need(Array.isArray(value.targets) && value.targets.length > 0 && typeof value.layout === 'string', 'arrangeMedia requires targets and layout.'); break
+    case 'setVolumeKeys': need(Array.isArray(value.keys), 'setVolumeKeys requires keys.'); break
     case 'animateSequence': need(Array.isArray(value.waves) && value.waves.length > 0, 'animateSequence requires waves.'); break
   }
   return value as AiEditorCommand

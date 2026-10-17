@@ -108,6 +108,7 @@ const SECTIONS: Section[] = [
           ['Arrow', 'Click to add an arrow in the scene center. In its panel, “+ Add Arrow” adds another; “Draw Arrow” lets you drag one on the canvas (crosshair cursor, Esc cancels). Heads, dashes, curve, bends, colors. Under Connections, attach either end to an item so the arrow follows it.'],
           ['Audio', 'Upload music, voiceover and sound effects; add them to the timeline or drag them onto the audio track.'],
           ['Background', 'Solid, gradient, grid, dots, animated, transparent or image background for the current scene.'],
+          ['Blocks', 'Ready-made smart pieces — Title card, Lower third, Hook / CTA. Add one, then change its text, style, colours and timing; it rebuilds in place and fits 16:9 or 9:16.'],
           ['Charts', 'Bar, line, area, points, pie and doughnut charts with editable data, axes and styling.'],
           ['Code', 'Monaco code editor with syntax highlighting, line numbers and typing animations.'],
           ['Counter', 'Animated counter that counts as numbers, English words or Hindi words, with range, speed, loop and text styling.'],
@@ -130,7 +131,7 @@ const SECTIONS: Section[] = [
           ['Video', 'Upload MP4/WebM/MOV; trim, speed, volume, loop, crop, color grading, effects.'],
         ]} />
         <H>Editing an element</H>
-        <P>Select it, then use the right Options panel. Nudge with the arrow keys: <Kbd>Arrow</Kbd> moves 12 px, <Kbd>Shift</Kbd> 40 px, <Kbd>Ctrl</Kbd> 100 px. Rotate with the round rotate icon above the selection; it snaps to 45° angles when you get close.</P>
+        <P>Select it, then use the right Options panel. Nudge with the arrow keys: <Kbd>Arrow</Kbd> moves 12 px, <Kbd>Shift</Kbd> 40 px, <Kbd>Alt</Kbd> 100 px; a group moves as one, <Kbd>Ctrl</Kbd>+arrow moves only the item you clicked. Rotate with the round rotate icon above the selection; it snaps to 45° angles when you get close.</P>
         <P>Right-click an element for Copy, Duplicate, Bring Forward, Send Backward, Bring to Front, Send to Back, Center Horizontally, Center Vertically and Delete. Images also offer Set Background (Cover / Fill).</P>
         <P>Pasting into the same scene offsets the copy by 20 px. Pasting into a different scene keeps the exact position and links the copy to the original, so a Morph transition between those scenes moves it.</P>
         <H>Perspective</H>
@@ -156,6 +157,11 @@ const SECTIONS: Section[] = [
         <P>The Motion tool adds movement that is not an entrance or exit: <strong>Move</strong> slides an element by direction or to exact center coordinates (it can travel outside the scene), and <strong>Zoom In / Zoom Out</strong> scale toward the center or a corner.</P>
         <H>Stagger (many items, one after another)</H>
         <P>Shift-click several items and open <strong>Group Effects</strong>. It applies one animation to all of them, each a step later than the last: choose the order (left → right, top → bottom, …), the step, and <strong>Rows / columns together</strong> to animate a whole column at once — like one layer of a neural network. Loop animations can <strong>repeat the wave</strong>. <strong>After last</strong> starts the new wave when the scene's other animations end, so you can chain waves (a forward pass, then a backward pass).</P>
+        <H>Groups and locking</H>
+        <P>Select several items and press <Kbd>Ctrl+G</Kbd> (or right-click → Group). Clicking any member then selects the whole group, so it moves (drag or arrow keys), resizes and copies as one; <Kbd>Ctrl</Kbd>+click or <Kbd>Ctrl</Kbd>+drag picks a single member, and the Layers panel always selects single items (members show a coloured group tag). Right-click → Ungroup (<Kbd>Ctrl+Shift+G</Kbd>), Select whole group, or Lock — locking one member locks the group. A locked item can't be moved, resized or deleted; clicking it shows a lock badge, and right-click still works (Unlock, copy, layer order). Copies of a group become a new group, with connectors wired to the copies.</P>
+        <P>Some groups are <strong>smart groups</strong> (✦), built by a block from the <strong>Blocks</strong> menu: they remember their settings and rebuild in place when a setting changes, keeping where you moved them.</P>
+        <H>Blocks</H>
+        <P>Open <strong>Blocks</strong> and click <strong>Add</strong> on a <strong>Title card</strong> (chapter or section break), <strong>Lower third</strong> (name and role of the speaker) or <strong>Hook / CTA</strong> (bold text that pops in word by word, with highlighted words). Selecting a placed block shows its settings — text, style, colours, font, size and timing; every change rebuilds it in place and it always fits the frame, landscape or vertical. Move it anywhere: the rebuild keeps your position. <strong>Detach</strong> turns it into ordinary items you can edit one by one.</P>
         <H>Connectors</H>
         <P>In <strong>Group Effects → Connect</strong>, link the selected items with arrows whose ends stay attached: <strong>Chain</strong> (each to the next, in the order you selected them), <strong>Columns</strong> (every item to every item in the next column — a network layer in one click) or <strong>Hub</strong> (the first to all others). <strong>Select all similar</strong> picks, say, every circle on the scene at once. Attached arrows follow their items when you move or resize them; dragging an arrow itself releases it. A single arrow's ends can be attached or released in its own panel.</P>
         <H>Easing</H>
@@ -273,9 +279,12 @@ const SECTIONS: Section[] = [
           ['Duration', 'How long the clip plays on the timeline.'],
           ['Playback Speed', 'Speed audio up or down to match the scene.'],
           ['Fade In / Fade Out', 'Smoothly enter or leave music, ambience and voice.'],
-          ['Fade Volume', 'Target fade level — useful for ducking music under speech.'],
+          ['Fade Volume', 'Target fade level at the start or end of the clip.'],
+          ['Duck under voice', 'Music dips while the video or a voiceover talks and comes back up in the pauses. Pick the volume while talking and the fade, then click Duck under voice; the curve shows on the clip in the timeline.'],
           ['Markers', 'Timing marks for beats, voice cues and edit points.'],
         ]} />
+        <H>Ducking</H>
+        <P>Select the music clip and use <strong>Duck under voice</strong> in its panel (or ask the AI Agent: "duck the music"). The editor listens to every unmuted video clip and voiceover, finds where someone talks, and lowers the music there — it stays down through short pauses so it doesn't pump. Run it again after you change the edit; <strong>Remove</strong> takes it off. The preview and the exported MP4 sound the same.</P>
         <H>Audio effects</H>
         <P>Voice, pitch, bass and saturation. Pitch changes the tone without changing timing, so pitched clips stay in sync with the timeline. The editor preview of pitch is an approximation; the exported MP4 uses the full-quality version.</P>
         <H>Timeline workflow</H>
@@ -300,6 +309,8 @@ const SECTIONS: Section[] = [
           ['Loop', 'Repeat short clips and background motion.'],
           ['Crop', 'Double-click the video, adjust the frame, press Enter to apply or Escape to cancel.'],
         ]} />
+        <H>Split screen and placing clips</H>
+        <P>Select two or more clips and open <strong>Group Effects → Layout</strong> for <strong>Side by side</strong>, <strong>Stacked</strong> (best for 9:16) or <strong>Grid</strong>. To put clips anywhere else, tell the AI Agent where: "make video 1 full screen and video 2 bottom right at 400x300", "put this video in the upper half and this one in the lower half", "fit the whole video in the top third". It works out the exact pixels from the scene size (the upper half of 1080×1920 is 1080×960). Clips are cropped to fill their area, centred on what they showed — never stretched unless you say "stretch"; say "fit" or "without cropping" to see the whole clip.</P>
         <H>Cutting video</H>
         <P>To remove a middle section, split the scene (or the clip) at the start of the unwanted part, split again at its end, and delete the middle. Playback continues smoothly from the new trim point in the editor, Preview and export.</P>
         <H>Styling</H>
@@ -318,7 +329,7 @@ const SECTIONS: Section[] = [
           <LI>Optionally paste the script; it is distributed across the detected speech timings for accurate wording.</LI>
         </ul>
         <H>Caption style</H>
-        <P>Font, size, weight, solid or gradient color, width and position. Animations: None, Word Pop, Word Rise, Karaoke Pulse, Smooth Reveal. Looks: Normal, Bulge Warp, Inflate Warp.</P>
+        <P>Start from a <strong>preset</strong> — <strong>Bold</strong> (big capitals, black outline, the spoken word in yellow), <strong>Karaoke</strong> (words light up as they are spoken), <strong>Boxed</strong> (text on a dark box), <strong>Minimal</strong> or <strong>Pop</strong> — then fine-tune: font, size, weight, solid or gradient color, capitals, outline, spoken-word colour, box, width and position. Animations: None, Word Pop, Word Rise, Karaoke Pulse (spread over each caption), Smooth Reveal. Looks: Normal, Bulge Warp, Inflate Warp. Presets size themselves to the frame, so they suit 16:9 and 9:16.</P>
         <H>Translation (English ↔ Hindi)</H>
         <ul className="list-disc pl-5">
           <LI>Install the translation model once (Install Model); after that it works fully offline. Remove Model frees the space.</LI>
@@ -341,9 +352,11 @@ const SECTIONS: Section[] = [
           ['Copy / Cut / Paste', 'Ctrl+C / Ctrl+X / Ctrl+V (same scene: 20 px offset; other scene: same position)'],
           ['Select all on the scene', 'Ctrl+A'],
           ['Duplicate selection', 'Ctrl+D (connected items stay connected)'],
+          ['Group / Ungroup', 'Ctrl+G / Ctrl+Shift+G'],
+          ['One item inside a group', 'Ctrl+click / Ctrl+drag / Ctrl+arrow keys'],
           ['Delete selected element', 'Delete / Backspace'],
           ['Deselect, cancel the active tool or Draw Arrow', 'Escape'],
-          ['Move element', 'Arrow keys — 12 px; Shift 40 px; Ctrl 100 px'],
+          ['Move element', 'Arrow keys — 12 px; Shift 40 px; Alt 100 px (groups move as one)'],
         ]} />
         <H>Layer order</H>
         <Table head={['Action', 'Keys']} rows={[
@@ -421,6 +434,13 @@ const SECTIONS: Section[] = [
           ['Remove filler words', 'Cut "um", "uh" and "hmm" found by local Whisper. Play it back — word timings are approximate.'],
           ['Cut to the beat', 'Move scene ends onto the beat of the background music.'],
           ['Split the video into shots', 'Make a new scene at every camera cut.'],
+          ["Add a lower third for 'Adya' 'ML engineer' on the right", 'Add a smart block; then "make the lower third red" or "change its role to \'Founder\'".'],
+          ["Add a hook 'Stop scrolling, this changes everything' highlighting 'everything'", 'Word-by-word hook text with the highlighted word in colour.'],
+          ['Duck the music to 20% / lower the music when I talk', 'Lower the music wherever someone talks.'],
+          ['Split screen / put the videos side by side', 'Tile videos and images, cropped to fill.'],
+          ['Make video 1 full screen and video 2 bottom right at 400x300', 'Put each clip in an exact area of the frame.'],
+          ['Put this video in the upper half and this one in the lower half', 'Areas from the scene size: halves, thirds, quarters, corners, "top 60%", "at x 100 y 200".'],
+          ['Hormozi style captions / make the captions yellow with a black outline', 'Apply a caption preset or change the caption look.'],
         ]} />
         <P>Full guide: <DocLink path="docs/ai_agent.md">docs/ai_agent.md</DocLink></P>
       </>

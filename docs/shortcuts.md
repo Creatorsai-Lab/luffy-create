@@ -13,6 +13,9 @@
 | Paste | `Ctrl + V` | `Cmd + V` |
 | Select all on the scene | `Ctrl + A` | `Cmd + A` |
 | Duplicate selection | `Ctrl + D` | `Cmd + D` |
+| Group | `Ctrl + G` | `Cmd + G` |
+| Ungroup | `Ctrl + Shift + G` | `Cmd + Shift + G` |
+| One item inside a group | `Ctrl + click / drag / Arrow keys` | `Cmd + click / drag / Arrow keys` |
 | Delete selected | `Delete` or `Backspace` | `Delete` or `Backspace` |
 | Deselect all / cancel the active tool (including Draw Arrow) | `Escape` | `Escape` |
 
@@ -39,7 +42,7 @@
 |---|---|---|
 | Nudge element (small) | `Arrow keys` | `Arrow keys` |
 | Nudge element (medium) | `Shift + Arrow keys` | `Shift + Arrow keys` |
-| Nudge element (large) | `Ctrl + Arrow keys` | `Cmd + Arrow keys` |
+| Nudge element (large) | `Alt + Arrow keys` | `Option + Arrow keys` |
 
 > Nudge distances: 12px (normal), 40px (Shift), 100px (Ctrl/Cmd)
 
