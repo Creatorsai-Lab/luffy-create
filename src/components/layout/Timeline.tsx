@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { coarseToFine, requestFrames } from '../../utils/filmstripCache'
 import VolumeEnvelope from './VolumeEnvelope'
 import { Plus, Play, Pause, SkipBack, ZoomIn, ZoomOut, ArrowLeftRight, Music, Trash2, Copy, Scissors, Split, X, Volume2, Bookmark, Shuffle, Film, Repeat } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
@@ -1609,156 +1610,63 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
   trackH: number
   loop: boolean
 }) {
-  const [stripUrl, setStripUrl] = useState<string | null>(null)
-  const [failed, setFailed] = useState(false)
-  const stripUrlRef = useRef<string | null>(null)
-
-  // Release the last strip's blob URL when the clip unmounts.
-  useEffect(() => () => { if (stripUrlRef.current) URL.revokeObjectURL(stripUrlRef.current) }, [])
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const frameW = 68
+  const gap = 2
+  const safeTrackH = Math.max(20, Math.round(trackH))
+  const visibleWidth = Math.max(40, Math.round(clipWidthPx))
+  const frameCount = Math.max(1, Math.min(48, Math.ceil(visibleWidth / frameW)))
+  const canvasW = frameCount * frameW + Math.max(0, frameCount - 1) * gap
 
   useEffect(() => {
-    let cancelled = false
-    const video = document.createElement('video')
-    const canvas = document.createElement('canvas')
-    const frameW = 68
-    const gap = 2
-    const safeTrackH = Math.max(20, Math.round(trackH))
-    const visibleWidth = Math.max(40, Math.round(clipWidthPx))
-    const frameCount = Math.max(1, Math.min(48, Math.ceil(visibleWidth / frameW)))
-    const canvasW = frameCount * frameW + Math.max(0, frameCount - 1) * gap
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = Math.round(canvasW * dpr)
+    canvas.height = Math.round(safeTrackH * dpr)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-    setFailed(false)
-
-    canvas.width = canvasW
-    canvas.height = safeTrackH
-    const ctx = canvas.getContext('2d')
-    if (!ctx) {
-      setFailed(true)
-      return () => {}
+    // Placeholder slots; each fills in as its frame arrives (cached frames at once).
+    ctx.fillStyle = '#111018'
+    ctx.fillRect(0, 0, canvasW, safeTrackH)
+    for (let i = 0; i < frameCount; i++) {
+      ctx.fillStyle = 'rgba(56,60,68,0.85)'
+      ctx.fillRect(i * (frameW + gap), 0, frameW, safeTrackH)
     }
 
-    video.crossOrigin = 'anonymous'
-    video.muted = true
-    video.preload = 'metadata'
-
-    const seekTo = (time: number) => new Promise<void>((resolve, reject) => {
-      const cleanup = () => {
-        video.removeEventListener('seeked', onSeeked)
-        video.removeEventListener('error', onError)
-      }
-      const onSeeked = () => { cleanup(); resolve() }
-      const onError = () => { cleanup(); reject(new Error('Video frame seek failed')) }
-      video.addEventListener('seeked', onSeeked, { once: true })
-      video.addEventListener('error', onError, { once: true })
-      video.currentTime = time
+    // Source time shown in each slot (looping clips wrap around the source).
+    const sourceSpan = Math.max(0.05, clipDuration * Math.max(speed, 0.01))
+    const times = Array.from({ length: frameCount }, (_, i) => {
+      const offset = frameCount === 1 ? 0 : (sourceSpan * i) / (frameCount - 1)
+      return startTime + offset
     })
-
-    const drawCoverFrame = (x: number) => {
-      const vw = video.videoWidth || frameW
-      const vh = video.videoHeight || safeTrackH
-      const scale = Math.max(frameW / vw, safeTrackH / vh)
-      const dw = vw * scale
-      const dh = vh * scale
-      const dx = x + (frameW - dw) / 2
-      const dy = (safeTrackH - dh) / 2
-      ctx.drawImage(video, dx, dy, dw, dh)
+    const drawSlot = (i: number, image: CanvasImageSource & { width: number; height: number }) => {
+      const x = i * (frameW + gap)
+      const iw = (image as HTMLImageElement).naturalWidth || image.width || frameW
+      const ih = (image as HTMLImageElement).naturalHeight || image.height || safeTrackH
+      const scale = Math.max(frameW / iw, safeTrackH / ih)
+      const dw = iw * scale
+      const dh = ih * scale
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(x, 0, frameW, safeTrackH)
+      ctx.clip()
+      ctx.drawImage(image, x + (frameW - dw) / 2, (safeTrackH - dh) / 2, dw, dh)
+      ctx.restore()
     }
 
-    const render = async () => {
-      try {
-        await new Promise<void>((resolve, reject) => {
-          const onLoaded = () => { cleanup(); resolve() }
-          const onError = () => { cleanup(); reject(new Error('Video metadata failed')) }
-          const cleanup = () => {
-            video.removeEventListener('loadedmetadata', onLoaded)
-            video.removeEventListener('loadeddata', onLoaded)
-            video.removeEventListener('error', onError)
-          }
-          video.addEventListener('loadedmetadata', onLoaded, { once: true })
-          video.addEventListener('loadeddata', onLoaded, { once: true })
-          video.addEventListener('error', onError, { once: true })
-          if (video.readyState >= 1) onLoaded()
-        })
-
-        const duration = Number.isFinite(video.duration) && video.duration > 0
-          ? video.duration
-          : startTime + clipDuration * speed
-        const maxTime = Math.max(0, duration - 0.05)
-        const sourceStart = Math.max(0, Math.min(startTime, maxTime))
-        const sourceSpan = Math.max(0.05, duration - sourceStart)
-        const clipSourceSpan = Math.max(0.05, clipDuration * Math.max(speed, 0.01))
-
-        ctx.fillStyle = '#111018'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-        for (let i = 0; i < frameCount; i++) {
-          if (cancelled) return
-          const ratio = frameCount === 1 ? 0 : i / (frameCount - 1)
-          const rawOffset = clipSourceSpan * ratio
-          const sourceTime = loop
-            ? Math.min(maxTime, sourceStart + (rawOffset % sourceSpan))
-            : Math.min(maxTime, sourceStart + rawOffset)
-          await seekTo(sourceTime)
-          if (cancelled) return
-          const x = i * (frameW + gap)
-          drawCoverFrame(x)
-          if (gap > 0 && i < frameCount - 1) {
-            ctx.fillStyle = 'rgba(7,7,10,0.92)'
-            ctx.fillRect(x + frameW, 0, gap, safeTrackH)
-          }
-          if (loop && sourceSpan > 0 && rawOffset >= sourceSpan) {
-            ctx.fillStyle = 'rgba(255,255,255,0.5)'
-            ctx.fillRect(x, 0, 1, safeTrackH)
-          }
-        }
-
-        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.76))
-        if (!blob || cancelled) return
-        // Swap in the new strip, then release the one it replaces.
-        const url = URL.createObjectURL(blob)
-        if (stripUrlRef.current) URL.revokeObjectURL(stripUrlRef.current)
-        stripUrlRef.current = url
-        setStripUrl(url)
-      } catch {
-        if (!cancelled) setFailed(true)
-      }
-    }
-
-    // Zooming or trim-dragging changes the inputs many times a second: decode
-    // once they settle instead of re-seeking up to 48 frames on every step.
-    const start = setTimeout(() => {
-      video.src = toFileUrl(src)
-      render()
-    }, 200)
-
-    return () => {
-      cancelled = true
-      clearTimeout(start)
-      video.pause()
-      video.removeAttribute('src')
-    }
-  }, [src, startTime, clipDuration, speed, clipWidthPx, trackH, loop])
-
-  if (stripUrl) {
-    return (
-      <img
-        src={stripUrl}
-        className="absolute inset-0 w-full h-full pointer-events-none object-cover"
-        style={{ opacity: 0.95, imageRendering: 'auto' }}
-      />
-    )
-  }
+    // Ends and middle first, so the strip reads as complete early. Zooming or trim-dragging
+    // re-asks many times a second: cached frames come back at once, and frames nobody
+    // wants any more are dropped before they are decoded.
+    const order = coarseToFine(frameCount)
+    return requestFrames(src, order.map(i => times[i]), (k, image) => drawSlot(order[k], image), loop ? { loopFrom: startTime } : undefined)
+  }, [src, startTime, clipDuration, speed, frameCount, canvasW, safeTrackH, loop])
 
   return (
-    <div
-      className="absolute inset-0 pointer-events-none"
-      style={{
-        background: failed
-          ? 'linear-gradient(135deg, rgba(39,43,48,0.88), rgba(16,18,22,0.94))'
-          : 'repeating-linear-gradient(90deg, rgba(38,42,48,0.9) 0 54px, rgba(68,74,84,0.72) 54px 56px)',
-        opacity: 0.9,
-      }}
-    />
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <canvas ref={canvasRef} style={{ width: canvasW, height: safeTrackH, opacity: 0.95 }} />
+    </div>
   )
 }
 

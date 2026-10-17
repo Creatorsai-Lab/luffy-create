@@ -37,6 +37,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { Readable } from 'stream'
 import { inferUploadAssetKind, makeAssetUploadName, randomAssetHash } from './assetNaming'
 import { createPlannerStore } from './planner'
+import { createFilmstripCache } from './filmstripCache'
 import {
   createTranslationPackManager,
   type TranslationDirection,
@@ -889,6 +890,12 @@ function registerIpcHandlers() {
   const planner = createPlannerStore(join(USER_DATA, 'planner'), writeFileAtomic)
   ipcMain.handle('planner:load', () => planner.load())
   ipcMain.handle('planner:save', (_, data: unknown) => planner.save(data))
+
+  // Timeline video thumbnails, kept so a reopened project shows them at once.
+  // Not under userData/cache: on Windows that is Chromium's own Cache folder, which it clears at start.
+  const filmstrips = createFilmstripCache(join(USER_DATA, 'thumbnails', 'filmstrips'), writeFileAtomic)
+  ipcMain.handle('filmstrip:load', (_, videoPath: string, grid: number) => filmstrips.load(String(videoPath), Number(grid)))
+  ipcMain.handle('filmstrip:save', (_, videoPath: string, data: unknown) => filmstrips.save(String(videoPath), data as never))
 
   ipcMain.handle('projects:list', () => readIndex())
 

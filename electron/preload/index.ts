@@ -23,6 +23,10 @@ const api = {
     },
     closeReady: () => ipcRenderer.send('app:close-ready'),
   },
+  filmstrip: {
+    load: (videoPath: string, grid: number)    => ipcRenderer.invoke('filmstrip:load', videoPath, grid),
+    save: (videoPath: string, data: unknown)   => ipcRenderer.invoke('filmstrip:save', videoPath, data),
+  },
   planner: {
     load: ()              => ipcRenderer.invoke('planner:load'),
     save: (data: unknown) => ipcRenderer.invoke('planner:save', data),

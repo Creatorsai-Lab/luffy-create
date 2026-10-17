@@ -127,6 +127,10 @@ declare global {
         onBeforeClose: (callback: () => void) => () => void
         closeReady:    () => void
       }
+      filmstrip: {
+        load: (videoPath: string, grid: number) => Promise<{ grid: number; frames: Record<string, string> }>
+        save: (videoPath: string, data: { grid: number; frames: Record<string, string> }) => Promise<void>
+      }
       planner: {
         load: () => Promise<import('../planner/types').PlannerData>
         save: (data: import('../planner/types').PlannerData) => Promise<void>
