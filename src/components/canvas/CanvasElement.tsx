@@ -1,4 +1,5 @@
 import type Konva from 'konva'
+import { memo } from 'react'
 import { useEditorStore } from '../../store/editorStore'
 import { isAttachedTo } from '../../utils/connectors'
 import type { EditorElement, VideoElement } from '../../types/editor'
@@ -38,7 +39,30 @@ interface Props {
   videoPlaybackActive?: boolean
 }
 
-export default function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, sceneWidth, syncVideoToTime = true, videoPlaybackActive = false }: Props) {
+/**
+ * Re-renders only when what it draws changes: the element, its animation state,
+ * zoom, time or video sync. Selection and the click handlers are left out on
+ * purpose — nothing drawn depends on them, and the handlers read the store when
+ * called. (Re-rendering 1,500 arrows on every selection change was what made
+ * big add-ons slow.)
+ */
+function sameProps(a: Props, b: Props) {
+  return a.element === b.element && a.stageScale === b.stageScale &&
+    a.localTime === b.localTime && a.sceneWidth === b.sceneWidth && a.syncVideoToTime === b.syncVideoToTime &&
+    a.videoPlaybackActive === b.videoPlaybackActive && sameAnim(a.animProps, b.animProps)
+}
+
+function sameAnim(a: Props['animProps'], b: Props['animProps']) {
+  if (a === b) return true
+  if (!a || !b) return false
+  const ka = Object.keys(a)
+  if (ka.length !== Object.keys(b).length) return false
+  return ka.every(k => (a as unknown as Record<string, unknown>)[k] === (b as unknown as Record<string, unknown>)[k])
+}
+
+export default memo(CanvasElement, sameProps)
+
+function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, sceneWidth, syncVideoToTime = true, videoPlaybackActive = false }: Props) {
   const { activeTool, updateElement } = useEditorStore(useShallow(s => ({ activeTool: s.activeTool, updateElement: s.updateElement })))
   const interaction = getCanvasElementInteraction(activeTool, element.locked, element.type)
   const setCursor = (target: Konva.Node, state: 'canvas' | 'selected' | 'dragging', movable = interaction.draggable) => {
@@ -84,7 +108,7 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
       setCursor(e.target, 'selected')
     },
     onMouseEnter: (e: Konva.KonvaEventObject<MouseEvent>) => {
-      if (isSelected) setCursor(e.target, 'selected')
+      if (useEditorStore.getState().selectedIds.includes(element.id)) setCursor(e.target, 'selected')
     },
     onMouseLeave: (e: Konva.KonvaEventObject<MouseEvent>) => setCursor(e.target, 'canvas', false),
     onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => setCursor(e.target, 'dragging'),

@@ -245,6 +245,10 @@ export default function EditorCanvas() {
     return () => cancelAnimationFrame(animFrameRef.current)
   }, [currentScene?.background.type])
 
+  // ── Let go of the old selection at once ──────────────────────────────────────
+  // (pressElement attaches the new one right after; the effect below keeps it in sync.)
+  useEffect(() => useEditorStore.subscribe(s => s.selectedIds, () => { trRef.current?.nodes([]) }), [])
+
   // ── Sync Transformer to selected nodes ────────────────────────────────────────
   useEffect(() => {
     const sync = () => {
@@ -782,16 +786,25 @@ export default function EditorCanvas() {
 
   /** Canvas nodes the transformer handles for these ids (locked items get an outline + lock badge instead). */
   function transformerNodes(ids: string[]) {
+    const stage = stageRef.current
+    if (!stage || !ids.length) return []
     const scene = useEditorStore.getState().project?.scenes.find(sc => sc.id === useEditorStore.getState().currentSceneId)
-    return ids
-      .filter(id => {
-        const el = scene?.elements.find(x => x.id === id)
-        // Members of a group drawn in perspective are only a hidden source; the warped picture stands for them.
-        const warped = el?.groupId && scene?.groups?.[el.groupId]?.perspective
-        return el && el.type !== 'handDraw' && !el.locked && !warped
-      })
-      .map(id => stageRef.current?.findOne(`#${id}`))
-      .filter((n): n is Konva.Node => !!n && !!n.getStage?.())
+    const byId = new Map(scene?.elements.map(el => [el.id, el]))
+    const wanted = new Set(ids.filter(id => {
+      const el = byId.get(id)
+      // Members of a group drawn in perspective are only a hidden source; the warped picture stands for them.
+      const warped = el?.groupId && scene?.groups?.[el.groupId]?.perspective
+      return el && el.type !== 'handDraw' && !el.locked && !warped
+    }))
+    if (!wanted.size) return []
+    // One walk over the canvas; the first node with each id (as findOne did).
+    const found = new Map<string, Konva.Node>()
+    stage.find((node: Konva.Node) => {
+      const id = node.id()
+      if (id && wanted.has(id) && !found.has(id)) found.set(id, node)
+      return false
+    })
+    return ids.map(id => found.get(id)).filter((n): n is Konva.Node => !!n && !!n.getStage?.())
   }
 
   /**
@@ -802,10 +815,12 @@ export default function EditorCanvas() {
   function pressElement(id: string, multi: boolean, member: boolean) {
     lastPressedIdRef.current = id
     const store = useEditorStore.getState()
-    const el = currentScene?.elements.find(x => x.id === id)
-    const group = el?.groupId ? currentScene!.elements.filter(x => x.groupId === el.groupId).map(x => x.id) : [id]
+    const scene = store.project?.scenes.find(sc => sc.id === store.currentSceneId)
+    const el = scene?.elements.find(x => x.id === id)
+    const group = el?.groupId ? scene!.elements.filter(x => x.groupId === el.groupId).map(x => x.id) : [id]
+    const selected = new Set(store.selectedIds)
     if (multi || member) store.selectElement(id, multi, { member })
-    else if (!group.every(x => store.selectedIds.includes(x))) store.selectElement(id, false)
+    else if (!group.every(x => selected.has(x))) store.selectElement(id, false)
     // Attach the new selection right away: a drag can start 3 px later, before
     // React re-renders, and must already carry the whole group.
     trRef.current?.nodes(transformerNodes(useEditorStore.getState().selectedIds))
@@ -1049,6 +1064,8 @@ export default function EditorCanvas() {
   }
 
   const sortedEls = [...(activeScene ?? currentScene).elements].sort((a, b) => a.zIndex - b.zIndex)
+  const selectedSet = new Set(selectedIds)
+  const sceneElementById = new Map((currentScene?.elements ?? []).map(el => [el.id, el]))
 
   // Lock aspect ratio in transformer when single image/video has lockRatio enabled
   const keepRatioInTransform = (() => {
@@ -1125,7 +1142,7 @@ export default function EditorCanvas() {
                   key={el.id}
                   element={el}
                   animProps={shouldApplyAnim ? animProps : null}
-                  isSelected={selectedIds.includes(el.id)}
+                  isSelected={selectedSet.has(el.id)}
                   onSelect={(multi, member) => pressElement(el.id, multi, member)}
                   onDblClick={() => {
                     if (el.type === 'code') openCodeModal(el.id)
@@ -1176,13 +1193,9 @@ export default function EditorCanvas() {
               ref={trRef}
               visible={shouldShowSelectionHandles(activeTool) && activePanel !== 'perspective' && !cropState}
               rotateEnabled
-              enabledAnchors={['top-left','top-center','top-right','middle-right','bottom-right','bottom-center','bottom-left','middle-left']}
+              enabledAnchors={TRANSFORM_ANCHORS}
               keepRatio={keepRatioInTransform}
-              boundBoxFunc={(_old, box) => ({
-                ...box,
-                width:  Math.max(10, box.width),
-                height: Math.max(10, box.height)
-              })}
+              boundBoxFunc={minTransformBox}
               anchorSize={5}
               anchorFill="#6a32c9"
               anchorStroke="#f3e7e7"
@@ -1192,32 +1205,14 @@ export default function EditorCanvas() {
               borderStrokeWidth={2}
               rotateAnchorOffset={15}
               rotateLineVisible={false}
-              rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
+              rotationSnaps={ROTATION_SNAPS}
               rotateAnchorCursor="grab"
-              anchorStyleFunc={(anchor) => {
-                // Rotation anchor drawn as a rotate icon: accent disc + clockwise arrow.
-                if (anchor.hasName('rotater')) {
-                  const size = 18
-                  anchor.width(size)
-                  anchor.height(size)
-                  anchor.offsetX(size / 2)
-                  anchor.offsetY(size / 2)
-                  anchor.sceneFunc(ctx => drawRotateIcon(
-                    (ctx as unknown as { _context: CanvasRenderingContext2D })._context, size,
-                  ))
-                  anchor.hitFunc((ctx, shape) => {
-                    ctx.beginPath()
-                    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
-                    ctx.closePath()
-                    ctx.fillStrokeShape(shape)
-                  })
-                }
-              }}
+              anchorStyleFunc={styleTransformAnchor}
             />
 
             {/* Selected locked items: dashed outline + lock badge (no resize handles) */}
             {!exportOpen && selectedIds.map(id => {
-              const el = currentScene?.elements.find(x => x.id === id)
+              const el = sceneElementById.get(id)
               if (!el?.locked) return null
               const box = elementsBox([el])
               return <LockedMark key={id} box={box} scale={scale} color={SELECTION_COLOR} />
@@ -1225,7 +1220,7 @@ export default function EditorCanvas() {
 
             {/* Name tag above a selected group */}
             {!exportOpen && (() => {
-              const els = selectedIds.map(id => currentScene?.elements.find(el => el.id === id)).filter((el): el is EditorElement => el != null)
+              const els = selectedIds.map(id => sceneElementById.get(id)).filter((el): el is EditorElement => el != null)
               const groupId = els[0]?.groupId
               const group = groupId ? currentScene?.groups?.[groupId] : undefined
               if (!group || !els.every(el => el.groupId === groupId)) return null
@@ -1660,6 +1655,32 @@ export default function EditorCanvas() {
 
 /** Selection outline color; the rotate icon uses it too. */
 const SELECTION_COLOR = '#d44747'
+
+// Transformer settings, made once. (Konva re-measures every selected item when one of
+// these changes — a new array or function on each render made big selections crawl.)
+const TRANSFORM_ANCHORS = ['top-left', 'top-center', 'top-right', 'middle-right', 'bottom-right', 'bottom-center', 'bottom-left', 'middle-left']
+const ROTATION_SNAPS = [0, 45, 90, 135, 180, 225, 270, 315]
+
+function minTransformBox(_old: { x: number; y: number; width: number; height: number; rotation: number }, box: { x: number; y: number; width: number; height: number; rotation: number }) {
+  return { ...box, width: Math.max(10, box.width), height: Math.max(10, box.height) }
+}
+
+/** The rotation anchor drawn as a rotate icon: accent disc + clockwise arrow. */
+function styleTransformAnchor(anchor: Konva.Rect) {
+  if (!anchor.hasName('rotater')) return
+  const size = 18
+  anchor.width(size)
+  anchor.height(size)
+  anchor.offsetX(size / 2)
+  anchor.offsetY(size / 2)
+  anchor.sceneFunc(ctx => drawRotateIcon((ctx as unknown as { _context: CanvasRenderingContext2D })._context, size))
+  anchor.hitFunc((ctx, shape) => {
+    ctx.beginPath()
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
+    ctx.closePath()
+    ctx.fillStrokeShape(shape)
+  })
+}
 
 function drawRotateIcon(ctx: CanvasRenderingContext2D, size: number) {
   const c = size / 2

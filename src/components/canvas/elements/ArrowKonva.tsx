@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Arrow, Group, Line, Shape } from 'react-konva'
 import type { ArrowElement } from '../../../types/editor'
 import { getArrowPathPoints } from '../../../engine/arrowPath'
@@ -24,7 +25,9 @@ export default function ArrowKonva({ el, konvaProps, pathProgress = 1, dashOffse
     ? [el.strokeWidth * 4, el.strokeWidth * 3]
     : undefined
 
-  const points = getArrowPathPoints(el, pathProgress)
+  // A new points array tells a selection box around the arrow to re-measure, so make one only when the shape changes.
+  const points = useMemo(() => getArrowPathPoints(el, pathProgress),
+    [el.x1, el.y1, el.x2, el.y2, el.curve, el.bendCount, el.bendDirection, el.bendCurve, pathProgress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const headColor = el.arrowHeadColor && el.arrowHeadColor !== '' ? el.arrowHeadColor : el.stroke
   // Points are absolute (x1..y2), so the node position must NOT add element.x/y again —
