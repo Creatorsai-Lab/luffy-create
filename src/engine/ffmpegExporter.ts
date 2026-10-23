@@ -5,6 +5,8 @@ import { prepareKeying } from './keying'
 import type Konva from 'konva'
 import { renderTransition, solidCanvas } from './transitionRenderer'
 import { warmUpShaders } from './transitions/glRenderer'
+import { soundPieces } from '../utils/speedCurve'
+import { prepareFx } from './fx/render'
 import { toFileUrl } from '../utils/pathUtils'
 import { buildFfmpegFadeVolumeExpression } from '../utils/audioFade'
 import { buildFfmpegVolumeKeysFilter } from '../utils/volumeKeys'
@@ -31,6 +33,8 @@ let ffmpegLoaded = false
 // load() pending forever. Cap it so the UI surfaces an error instead of hanging.
 const FFMPEG_LOAD_TIMEOUT_MS = 30_000
 const FALLBACK_EXPORT_AUDIO_GAIN = 4.0
+/** Footage seconds of spare sound either side of a speed-curve sound piece (see the pieces filter). */
+const SOUND_PIECE_MARGIN = 0.2
 
 async function deleteIfExists(ffmpeg: FFmpeg, path: string) {
   try { await ffmpeg.deleteFile(path) } catch {}
@@ -119,6 +123,8 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
   onProgress(0, 'Initializing FFmpeg...')
   const ffmpeg = await loadFFmpeg(onLog)
 
+  // Effects: shaders compiled, music beats found, the cut-out model loaded before the first frame.
+  await prepareFx(project)
   // The AI cut-out model must be ready before the first frame is captured.
   await prepareKeying(project.scenes.flatMap(scene => scene.elements as Array<{ keying?: MediaKeying }>))
 
@@ -275,6 +281,8 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     voice: number; pitch: number; bass: number; saturation: number
     fadeIn: number; fadeInVolume: number; fadeOut: number; fadeOutVolume: number
     volumeKeys?: AudioElement['volumeKeys']
+    /** Speed curve / freeze frame: constant-speed pieces (footage seconds from startTime), played one after another. */
+    pieces?: ReturnType<typeof soundPieces>
   }[] = []
 
   // Clip sound follows the transitions: a clip that runs into a cut keeps playing
@@ -345,6 +353,8 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
             fadeInVolume: 1,
             fadeOut,
             fadeOutVolume: 0,
+            // Sound follows a speed curve with its pitch kept (time-stretched), silent through a freeze.
+            ...(v.speedCurve || v.freeze ? { pieces: soundPieces(v, duration) } : {}),
           })
         }
       }
@@ -400,13 +410,46 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
           const delayMs = Math.round(clip.absStart * 1000)
           const label   = `[aout_${suffix}_${index}]`
 
-          const filt: string[] = [
-            `atrim=start=${clip.startTime.toFixed(3)}:duration=${rawDur.toFixed(3)}`,
-            `asetpts=PTS-STARTPTS`,
-            ...buildPitchFilters(clip.pitch),
-            ...buildAtempoFilters(clip.speed),
-            ...buildAudioToneFilters(clip.voice, clip.bass, clip.saturation),
-          ]
+          let input = `[${index + 1}:a]`
+          const filt: string[] = []
+          if (clip.pieces?.length) {
+            // Each piece trimmed and time-stretched to its speed (silence for a freeze), then joined.
+            const heard = clip.pieces.filter((piece): piece is { from: number; footage: number; tempo: number } => 'footage' in piece)
+            const splits = heard.map((_, k) => `[ps_${suffix}_${index}_${k}]`)
+            if (heard.length) filterSegments.push(`[${index + 1}:a]asplit=${heard.length}${splits.join('')}`)
+            let next = 0
+            const parts = clip.pieces.map((piece, k) => {
+              const out = `[pc_${suffix}_${index}_${k}]`
+              const format = 'aformat=sample_rates=44100:channel_layouts=stereo'
+              if ('silence' in piece) {
+                filterSegments.push(`aevalsrc=0|0:d=${piece.silence.toFixed(4)}:s=44100,${format}${out}`)
+              } else {
+                // atempo returns a little less sound than asked (most when slowing down), so each piece is
+                // stretched with spare sound either side and then cut to its exact length — otherwise the
+                // shortfall adds up piece after piece and the sound drifts ahead of the picture.
+                const start = clip.startTime + piece.from
+                const pre = Math.min(SOUND_PIECE_MARGIN, start)
+                const length = piece.footage / piece.tempo
+                filterSegments.push(`${splits[next++]}atrim=start=${(start - pre).toFixed(4)}:duration=${(piece.footage + pre + SOUND_PIECE_MARGIN).toFixed(4)},asetpts=PTS-STARTPTS,${[
+                  ...buildAtempoFilters(piece.tempo),
+                  `atrim=start=${(pre / piece.tempo).toFixed(4)}:duration=${length.toFixed(4)}`, 'asetpts=PTS-STARTPTS', `apad=whole_dur=${length.toFixed(4)}`,
+                  format,
+                ].join(',')}${out}`)
+              }
+              return out
+            })
+            const joined = `[pcat_${suffix}_${index}]`
+            filterSegments.push(`${parts.join('')}concat=n=${parts.length}:v=0:a=1${joined}`)
+            input = joined
+          } else {
+            filt.push(
+              `atrim=start=${clip.startTime.toFixed(3)}:duration=${rawDur.toFixed(3)}`,
+              `asetpts=PTS-STARTPTS`,
+              ...buildPitchFilters(clip.pitch),
+              ...buildAtempoFilters(clip.speed),
+            )
+          }
+          filt.push(...buildAudioToneFilters(clip.voice, clip.bass, clip.saturation))
           const volumeFilter = buildFfmpegFadeVolumeExpression({
             duration: clip.duration,
             baseVolume: clip.volume,
@@ -421,7 +464,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
           if (delayMs > 0) filt.push(`adelay=${delayMs}:all=1`)
           filt.push(`apad=whole_dur=${totalDuration.toFixed(3)}`)
 
-          filterSegments.push(`[${index + 1}:a]${filt.join(',')}${label}`)
+          filterSegments.push(`${input}${filt.join(',')}${label}`)
           outLabels.push(label)
         })
 

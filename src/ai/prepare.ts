@@ -3,6 +3,8 @@ import { getCaptionPreset } from '../subtitle/presets'
 import { normalizeVolumeKeys } from '../utils/volumeKeys'
 import { normalizeKeying } from '../utils/keying'
 import { isTransitionType, TRANSITION_DURATION } from '../engine/transitions/catalog'
+import { isFxType } from '../engine/fx/catalog'
+import { SPEED_PRESETS } from '../utils/speedCurve'
 import { getBlock } from '../blocks/registry'
 import type { AnimationType, Background, EasingType, ShapeType } from '../types/editor'
 import type { AiAnimationSpec, AiEditorCommand, AiElementRef, AiPlan, AiPlanIssue, AiPreparedPlan, AiProjectContext, AiSceneRef, AiTransitionSpec } from './types'
@@ -215,6 +217,41 @@ function prepareCommand(
       if (!transition) return drop(issues, index, `"${command.transition.type}" is not a transition the editor has.`)
       return { ...command, sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues), transition }
     }
+
+    case 'addEffect': {
+      if (!isFxType(command.effect)) return drop(issues, index, `"${command.effect}" is not an effect the editor has.`)
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'addEffect removed because no video or image could be resolved.')
+      const params = Object.fromEntries(Object.entries(command.params ?? {})
+        .filter(([, v]) => typeof v === 'boolean' || typeof v === 'string' || (typeof v === 'number' && Number.isFinite(v)))
+        .map(([k, v]) => [k, typeof v === 'string' && /colou?r/i.test(k) ? normalizeColor(v) ?? v : v]))
+      return {
+        ...command,
+        sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues),
+        params,
+        intensity: clampOptional(command.intensity, 0, 1),
+        start: clampOptional(command.start, 0, 3600),
+        end: clampOptional(command.end, 0, 3600),
+      }
+    }
+
+    case 'removeEffects':
+      if (command.effect && !isFxType(command.effect)) return drop(issues, index, `"${command.effect}" is not an effect the editor has.`)
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'removeEffects removed because no video or image could be resolved.')
+      return { ...command, sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues) }
+
+    case 'setSpeedCurve':
+      if (command.preset !== 'none' && !SPEED_PRESETS.some(p => p.id === command.preset)) return drop(issues, index, `"${command.preset}" is not a speed ramp the editor has.`)
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'setSpeedCurve removed because no video could be resolved.')
+      return { ...command, sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues) }
+
+    case 'freezeFrame':
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'freezeFrame removed because no video could be resolved.')
+      return {
+        ...command,
+        sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues),
+        at: Math.max(0, Number.isFinite(command.at) ? command.at : 0),
+        hold: Math.max(0, Math.min(10, Number.isFinite(command.hold) ? command.hold : 1)),
+      }
 
     case 'setEndTransition': {
       const transition = normalizeTransition(command.transition)

@@ -1,4 +1,5 @@
 import type { VideoElement } from '../types/editor'
+import { clipLengthFor, footageTimeAt } from './speedCurve'
 
 export interface VideoClipState {
   visible: boolean
@@ -10,7 +11,14 @@ export function sourceVideoClipDuration(el: VideoElement): number {
   const source = el.sourceDuration ?? 9999
   const start = el.startTime ?? 0
   const rate = el.playbackRate ?? 1
+  // A speed curve or freeze frame changes how long the same footage plays.
+  if (el.speedCurve || el.freeze) return Math.max(0.1, clipLengthFor(source - start, rate, el.speedCurve, el.freeze))
   return Math.max(0.1, (source - start) / rate)
+}
+
+/** Seconds of footage (from the trim point) played `clipLocal` seconds into the clip. */
+function footageAt(el: VideoElement, clipLocal: number, rate: number) {
+  return el.speedCurve || el.freeze ? footageTimeAt(el, clipLocal) : clipLocal * rate
 }
 
 /**
@@ -33,9 +41,9 @@ export function getVideoClipState(el: VideoElement, sceneLocalTime: number, opts
   const duration = el.duration ?? el.sourceDuration ?? 9999
   if (clipLocal >= duration && opts.sceneEnd != null && timelineX + duration >= opts.sceneEnd - 0.05) {
     const source = el.sourceDuration ?? Number.POSITIVE_INFINITY
-    const raw = startTime + clipLocal * rate
+    const raw = startTime + footageAt(el, clipLocal, rate)
     const sourceTime = el.loop
-      ? startTime + (clipLocal * rate) % Math.max(0.05, (Number.isFinite(source) ? source : duration * rate) - startTime)
+      ? startTime + footageAt(el, clipLocal, rate) % Math.max(0.05, (Number.isFinite(source) ? source : duration * rate) - startTime)
       : Math.max(startTime, Math.min(raw, source - 0.04))
     return { visible: true, sourceTime, clipLocalTime: clipLocal }
   }
@@ -43,7 +51,7 @@ export function getVideoClipState(el: VideoElement, sceneLocalTime: number, opts
     return { visible: false, sourceTime: startTime, clipLocalTime: clipLocal }
   }
 
-  const rawElapsed = clipLocal * rate
+  const rawElapsed = footageAt(el, clipLocal, rate)
   if (el.loop) {
     const source = el.sourceDuration ?? duration * rate
     const sourceSpan = Math.max(0.05, source - startTime)

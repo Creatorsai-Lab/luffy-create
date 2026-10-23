@@ -45,6 +45,10 @@ interface Props {
   mediaKey?: string
   /** Hidden copies draw nothing while their media loads. */
   quietLoading?: boolean
+  /** Timeline seconds (beat-synced effects). */
+  globalTime?: number
+  /** The scene's length (how long an image's effects run without an end). */
+  sceneDuration?: number
 }
 
 /**
@@ -58,7 +62,8 @@ function sameProps(a: Props, b: Props) {
   return a.element === b.element && a.stageScale === b.stageScale &&
     a.localTime === b.localTime && a.sceneWidth === b.sceneWidth && a.syncVideoToTime === b.syncVideoToTime &&
     a.videoPlaybackActive === b.videoPlaybackActive && a.sceneEnd === b.sceneEnd && a.mediaVolume === b.mediaVolume &&
-    a.mediaKey === b.mediaKey && a.quietLoading === b.quietLoading && sameAnim(a.animProps, b.animProps)
+    a.mediaKey === b.mediaKey && a.quietLoading === b.quietLoading && a.sceneDuration === b.sceneDuration &&
+    (a.globalTime === b.globalTime || !hasBeatEffects(a.element)) && sameAnim(a.animProps, b.animProps)
 }
 
 function sameAnim(a: Props['animProps'], b: Props['animProps']) {
@@ -69,9 +74,14 @@ function sameAnim(a: Props['animProps'], b: Props['animProps']) {
   return ka.every(k => (a as unknown as Record<string, unknown>)[k] === (b as unknown as Record<string, unknown>)[k])
 }
 
+/** Media whose look follows the music's beats must redraw as the timeline moves. */
+function hasBeatEffects(el: EditorElement) {
+  return (el.type === 'video' || el.type === 'image') && Boolean(el.fx?.some(fx => fx.beatSync || fx.type === 'phonk'))
+}
+
 export default memo(CanvasElement, sameProps)
 
-function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, sceneWidth, syncVideoToTime = true, videoPlaybackActive = false, sceneEnd, mediaVolume, mediaKey, quietLoading }: Props) {
+function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, sceneWidth, syncVideoToTime = true, videoPlaybackActive = false, sceneEnd, mediaVolume, mediaKey, quietLoading, globalTime = 0, sceneDuration = 0 }: Props) {
   const { activeTool, updateElement } = useEditorStore(useShallow(s => ({ activeTool: s.activeTool, updateElement: s.updateElement })))
   const interaction = getCanvasElementInteraction(activeTool, element.locked, element.type)
   const setCursor = (target: Konva.Node, state: 'canvas' | 'selected' | 'dragging', movable = interaction.draggable) => {
@@ -206,7 +216,7 @@ function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, s
       case 'shape':  return <ShapeKonva  el={animProps?.textColor ? { ...element, fill: animProps.textColor } : element} konvaProps={p} wipeProgress={wipeProgress} wipeDir={wipeDir} dashOffset={animProps?.dashOffset ?? 0} localTime={localTime} />
       case 'arrow':  return <ArrowKonva  el={animProps?.textColor ? { ...element, stroke: animProps.textColor, arrowHeadColor: animProps.textColor } : element} konvaProps={p} pathProgress={animProps?.textProgress ?? 1} dashOffset={animProps?.dashOffset ?? 0} />
       case 'code':   return <CodeKonva   el={element} konvaProps={p} localTime={localTime} sceneWidth={sceneWidth} />
-      case 'image':  return <ImageKonva  el={element} konvaProps={p} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} localTime={localTime} />
+      case 'image':  return <ImageKonva  el={element} konvaProps={p} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} localTime={localTime} globalTime={globalTime} sceneDuration={sceneDuration} mediaKey={mediaKey} />
       case 'table':  return <TableKonva  el={element} konvaProps={p} wipeProgress={wipeProgress} wipeDir={wipeDir} />
       case 'chart':  return <ChartKonva  el={element} konvaProps={p} animProgress={animProps?.chartAnimProgress ?? 1} />
       case 'video': {
@@ -223,6 +233,10 @@ function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, s
             volumeScale={mediaVolume}
             mediaKey={mediaKey}
             quietLoading={quietLoading}
+            globalTime={globalTime}
+            sceneDuration={sceneDuration}
+            wipeProgress={wipeProgress}
+            wipeDir={wipeDir}
           />
         )
       }

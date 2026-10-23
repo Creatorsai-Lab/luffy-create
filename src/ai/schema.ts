@@ -13,6 +13,11 @@ const COMMAND_TYPES = new Set<AiCommandType>([
   'applyMove',
   'addScene',
   'setTransition',
+  'setEndTransition',
+  'addEffect',
+  'removeEffects',
+  'setSpeedCurve',
+  'freezeFrame',
   'generateStoryboard',
   'removeScene',
   'duplicateScene',
@@ -90,6 +95,10 @@ function validateCommand(value: unknown): AiEditorCommand {
     case 'styleElement': need(isRecord(value.patch), `${value.type} requires patch.`); break
     case 'applyMove': need(typeof value.direction === 'string', 'applyMove requires direction.'); break
     case 'setTransition': need(isRecord(value.transition), 'setTransition requires transition.'); break
+    case 'setEndTransition': need(isRecord(value.transition), 'setEndTransition requires transition.'); break
+    case 'addEffect': need(typeof value.effect === 'string', 'addEffect requires effect.'); break
+    case 'setSpeedCurve': need(typeof value.preset === 'string', 'setSpeedCurve requires preset.'); break
+    case 'freezeFrame': need(typeof value.at === 'number' && typeof value.hold === 'number', 'freezeFrame requires at and hold.'); break
     case 'generateStoryboard': need(Array.isArray(value.scenes), 'generateStoryboard requires scenes.'); break
     case 'splitScene': need(typeof value.at === 'number', 'splitScene requires at.'); break
     case 'moveScene': need(typeof value.toIndex === 'number', 'moveScene requires toIndex.'); break

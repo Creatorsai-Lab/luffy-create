@@ -80,6 +80,8 @@ export default function SceneStage({
                 mediaVolume={mediaVolume}
                 mediaKey={mediaKeySuffix ? `${el.id}${mediaKeySuffix}` : undefined}
                 quietLoading={quietLoading}
+                globalTime={globalTime}
+                sceneDuration={scene.duration}
               />
             )
             // Groups in perspective play as one warped picture, like on the canvas and in export.

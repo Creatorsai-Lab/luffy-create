@@ -1,6 +1,6 @@
 import type { SubtitleStyle } from '../types/editor'
 import type { JumpCutSettings } from './smart/jumpcut'
-import type { AlignType, AnimationTiming, AnimationType, Background, EasingType, ShapeType, SlideDir, TransitionEasing, TransitionType } from '../types/editor'
+import type { AlignType, AnimationTiming, AnimationType, Background, EasingType, FxType, ShapeType, SlideDir, SpeedCurve, TransitionEasing, TransitionType } from '../types/editor'
 
 /** A scene by id (preferred: stable while a plan adds/removes scenes), 1-based index, or alias of a scene created earlier in the plan. */
 export type AiSceneRef = {
@@ -67,6 +67,17 @@ export type AiEditorCommand =
   | ({ type: 'setTransition'; transition: AiTransitionSpec } & AiSceneRef)
   /** The fade-out at the end of the video, to black; type 'none' removes it. */
   | { type: 'setEndTransition'; transition: AiTransitionSpec }
+  /**
+   * Adds an effect (src/engine/fx/catalog.ts) to a video or image; 'look' sets its colour look (replacing
+   * one it has). `start`/`end` are clip seconds (missing = the whole clip); missing settings take defaults.
+   */
+  | ({ type: 'addEffect'; effect: FxType; params?: Record<string, number | string | boolean>; intensity?: number; beatSync?: boolean; start?: number; end?: number } & AiElementRef)
+  /** Removes a video's or image's effects — all of them, or one kind. */
+  | ({ type: 'removeEffects'; effect?: FxType } & AiElementRef)
+  /** A speed ramp preset (src/utils/speedCurve.ts) on a video; 'none' goes back to constant speed. */
+  | ({ type: 'setSpeedCurve'; preset: string } & AiElementRef)
+  /** Holds a video's picture for `hold` seconds, `at` seconds into the clip; hold 0 removes the freeze. */
+  | ({ type: 'freezeFrame'; at: number; hold: number } & AiElementRef)
   | ({ type: 'generateStoryboard'; scenes: Array<{ name?: string; duration?: number; title?: string; subtitle?: string; backgroundColor?: string }> })
   | ({ type: 'removeScene' } & AiSceneRef)
   | ({ type: 'duplicateScene'; alias?: string } & AiSceneRef)
@@ -220,6 +231,11 @@ export interface AiElementSummary {
   cropKeys?: number
   /** Video: punch-in zoom from jump cuts (1.1 = 10%), when zoomed. */
   punchIn?: number
+  /** Video: its speed ramp and freeze frame, when it has them. */
+  speedCurve?: SpeedCurve
+  freeze?: { at: number; hold: number }
+  /** Video/image: the effects on it, in order (e.g. ['glitch', 'look']). */
+  effects?: FxType[]
   /** Video/image: how its background is removed, if it is ('chroma' = green screen, 'person' = AI cut-out). */
   keying?: 'chroma' | 'person'
   /** Audio: how many volume automation keys the clip has. */

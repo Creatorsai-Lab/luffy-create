@@ -8,6 +8,8 @@ import type {
   ActiveTool, ActivePanel, TimeMarker, VideoElement, AudioElement, ImageElement, HandDrawTool, SubtitleTrack, GroupPerspective
 } from '../types/editor'
 import { makeScene, makeProject, DEFAULT_TRANSITION } from '../utils/defaults'
+import { effectStack, shiftFx, stackPatch } from '../engine/fx/stack'
+import { splitTiming } from '../utils/speedCurve'
 import { isMotionAnimation } from '../utils/moveAnimation'
 import { useHistoryStore } from './historyStore'
 import { migrateProject } from './migrateProject'
@@ -293,13 +295,11 @@ function shiftElementTiming(el: EditorElement, splitAt: number) {
     })
     .map(a => ({ ...a, delay: a.delay - splitAt }))
 
-  if (el.type === 'image' || el.type === 'video') {
-    const media = el as ImageElement | VideoElement
-    if (media.mediaEffects?.length) {
-      media.mediaEffects = media.mediaEffects
-        .filter(clip => clip.endAt > splitAt)
-        .map(clip => ({ ...clip, startAt: Math.max(0, clip.startAt - splitAt), endAt: clip.endAt - splitAt }))
-    }
+  // An image's effects run on scene time, so the second part's start moves them back by the split.
+  // (A video's run on its own clock — splitVisualElement shifts those by how much of the clip was used.)
+  if (el.type === 'image') {
+    const stack = effectStack(el)
+    if (stack.length) Object.assign(el, stackPatch(el, shiftFx(stack, splitAt)))
   }
 }
 
@@ -333,11 +333,25 @@ function splitVisualElement(el: EditorElement, splitAt: number): { first?: Edito
     const firstDur = Math.max(0.1, splitAt - clipStart)
     const secondDur = Math.max(0.1, clipEnd - splitAt)
     const second = cloneElement(video) as VideoElement
+    // Speed curves and freeze frames: each part keeps its own piece of them.
+    const timing = video.speedCurve || video.freeze ? splitTiming(video, firstDur) : null
+    // The second part's clock starts at 0 where the first one stopped, so its effects move back.
+    const stack = effectStack(video)
+    if (stack.length) {
+      Object.assign(second, stackPatch(second, shiftFx(stack, firstDur)))
+      Object.assign(video, stackPatch(video, stack))
+    }
 
     video.duration = firstDur
     second.timelineX = 0
-    second.startTime = (video.startTime ?? 0) + firstDur * speed
+    second.startTime = (video.startTime ?? 0) + (timing ? timing.footage : firstDur * speed)
     second.duration = secondDur
+    if (timing) {
+      video.speedCurve = timing.curves[0]
+      second.speedCurve = timing.curves[1]
+      video.freeze = timing.freezes[0]
+      second.freeze = timing.freezes[1]
+    }
 
     return { first: video, second }
   }

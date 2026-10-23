@@ -96,8 +96,60 @@ export interface MediaEffectClip extends MediaEffectSettings {
 }
 
 export interface MediaEffectControls extends MediaEffectSettings {
+  /** The effect stack. When missing, the older fields below are read and converted (src/engine/fx/stack.ts). */
+  fx?: MediaFx[]
+  /** Older single effect / timed effects — read only when `fx` is missing. */
   mediaEffect?: MediaEffectType
   mediaEffects?: MediaEffectClip[]
+}
+
+/** Every effect in the effects engine (src/engine/fx). */
+export type FxType =
+  // Body (AI person mask, on this computer)
+  | 'neonOutline' | 'aura' | 'spotlight' | 'echo'
+  // Retro & texture
+  | 'vhs' | 'film8mm' | 'oldFilm' | 'dust' | 'paper' | 'halftone' | 'grain'
+  // Glitch
+  | 'glitch' | 'rgbSplit' | 'crt' | 'signalLoss'
+  // Warp
+  | 'wave' | 'swirl' | 'bulge' | 'ripple' | 'kaleidoscope' | 'heatHaze'
+  // Light
+  | 'glow' | 'halation' | 'lightLeak' | 'lightSweep' | 'godRays' | 'lensFlare' | 'defocus' | 'vignette'
+  // Energy
+  | 'phonk' | 'strobe' | 'zoomPulse' | 'shake' | 'flash' | 'flicker'
+  // Motion
+  | 'float' | 'wiggle' | 'drift' | 'kenBurnsIn' | 'kenBurnsOut'
+  // Weather
+  | 'rain' | 'snow'
+  // Colour look (one per clip)
+  | 'look'
+
+/**
+ * One effect on a video or image. Times are the clip's own seconds (for an
+ * image, its scene's): it runs from `start` to `end` (the clip's end when
+ * missing), fading in and out, and loops while it runs.
+ */
+export interface MediaFx {
+  id: string
+  type: FxType
+  start: number
+  end?: number
+  fadeIn?: number
+  fadeOut?: number
+  /** Strength, 0–1. */
+  intensity: number
+  /** Effect-specific settings (see the catalogue in src/engine/fx/catalog.ts). */
+  params?: Record<string, number | string | boolean>
+  /** Hit on the music's beats (energy effects). */
+  beatSync?: boolean
+  /** Hidden without removing it. */
+  off?: boolean
+}
+
+/** A speed curve: speed (multiplying the clip's speed) over the clip's footage, 0 = its first frame, 1 = its last. */
+export interface SpeedCurve {
+  preset: string
+  points: Array<{ x: number; speed: number }>
 }
 
 export interface MediaVignetteControls {
@@ -453,6 +505,10 @@ export interface VideoElement extends BaseElement, MediaEffectControls, MediaVig
   cropKeys?: CropKey[]
   /** Punch-in zoom from jump cuts: the picture is scaled up by this much (1.1 = 10%) about the crop's centre. */
   punchIn?: number
+  /** Speed ramp over the clip (velocity edits); `playbackRate` still scales it. */
+  speedCurve?: SpeedCurve
+  /** A freeze frame: at `at` seconds into the clip the picture holds for `hold` seconds, then carries on. */
+  freeze?: { at: number; hold: number }
   /** Green screen / background removal. */
   keying?: MediaKeying
   volume: number

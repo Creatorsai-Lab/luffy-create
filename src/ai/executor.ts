@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { getCaptionPreset } from '../subtitle/presets'
 import { makeSubtitleTrack, normalizeSubtitleStyle, normalizeSubtitleTrack } from '../subtitle/types'
 import { applyMediaLayout, applyPlacement } from '../utils/arrangeMedia'
-import type { AssetMeta, EditorElement, MoveDirection, Scene, SceneTransition, ShapeType } from '../types/editor'
+import type { AssetMeta, EditorElement, ImageElement, MoveDirection, Scene, SceneTransition, ShapeType, VideoElement } from '../types/editor'
 import { makeAnimation, makeAudio, makeImage, makeScene, makeShape, makeText, makeVideo } from '../utils/defaults'
 import { clampAudioDuration, finitePositiveDuration, remainingTimelineDuration } from '../utils/audioMetadata'
 import { computeMoveDelta, durationFromMove } from '../utils/moveAnimation'
@@ -13,6 +13,10 @@ import { animationsEnd, buildSequence, isLoopType, rowTolerance } from '../utils
 import { connectionPairs, makeConnector } from '../utils/connectors'
 import { normalizeKeying } from '../utils/keying'
 import { transitionDef, withDefaults } from '../engine/transitions/catalog'
+import { fxDef } from '../engine/fx/catalog'
+import { effectStack, makeFx, stackPatch } from '../engine/fx/stack'
+import { presetCurve } from '../utils/speedCurve'
+import { retimeClip } from '../utils/retime'
 import type { AiCommandResult, AiEditorCommand, AiElementRef, AiPlan, AiSceneRef, AiTransitionSpec } from './types'
 
 const SHAPE_TYPES: Set<ShapeType> = new Set([
@@ -88,6 +92,14 @@ function executeAiCommand(command: AiEditorCommand): AiCommandResult {
       return setTransition(command)
     case 'setEndTransition':
       return setEndTransition(command)
+    case 'addEffect':
+      return addEffect(command)
+    case 'removeEffects':
+      return removeEffects(command)
+    case 'setSpeedCurve':
+      return setSpeedCurve(command)
+    case 'freezeFrame':
+      return freezeFrame(command)
     case 'generateStoryboard':
       return generateStoryboard(command)
     case 'removeScene':
@@ -334,6 +346,52 @@ function setTransition(command: Extract<AiEditorCommand, { type: 'setTransition'
   const scene = requireScene(command)
   setTransition(scene.id, fullTransition(command.transition, scene.transition))
   return { ok: true, message: `Set ${transitionDef(command.transition.type).label} transition on ${scene.name}.`, sceneIds: [scene.id] }
+}
+
+function requireMedia(ref: AiElementRef, kinds: Array<'video' | 'image'> = ['video', 'image']) {
+  const el = requireElement(ref)
+  if (!kinds.includes(el.type as 'video')) throw new Error(`${el.name} is not a ${kinds.join(' or ')}.`)
+  return el as VideoElement | ImageElement
+}
+
+function addEffect(command: Extract<AiEditorCommand, { type: 'addEffect' }>): AiCommandResult {
+  const el = requireMedia(command)
+  const fx = makeFx(command.effect, {
+    ...(command.intensity != null && { intensity: command.intensity }),
+    ...(command.beatSync != null && { beatSync: command.beatSync }),
+    ...(command.start != null && { start: command.start }),
+    ...(command.end != null && { end: command.end }),
+    params: command.params ?? {},
+  })
+  const current = effectStack(el)
+  const next = command.effect === 'look' ? [...current.filter(f => f.type !== 'look'), fx] : [...current, fx]
+  useEditorStore.getState().updateElement(el.id, stackPatch(el, next) as Partial<EditorElement>)
+  return { ok: true, message: `Added ${fxDef(command.effect).label} to ${el.name}.`, elementIds: [el.id] }
+}
+
+function removeEffects(command: Extract<AiEditorCommand, { type: 'removeEffects' }>): AiCommandResult {
+  const el = requireMedia(command)
+  const current = effectStack(el)
+  const next = command.effect ? current.filter(f => f.type !== command.effect) : []
+  if (next.length === current.length) throw new Error(`${el.name} has no ${command.effect ? fxDef(command.effect).label + ' ' : ''}effect to remove.`)
+  useEditorStore.getState().updateElement(el.id, stackPatch(el, next) as Partial<EditorElement>)
+  const removed = current.length - next.length
+  return { ok: true, message: `Removed ${removed} effect${removed === 1 ? '' : 's'} from ${el.name}.`, elementIds: [el.id] }
+}
+
+function setSpeedCurve(command: Extract<AiEditorCommand, { type: 'setSpeedCurve' }>): AiCommandResult {
+  const el = requireMedia(command, ['video']) as VideoElement
+  const scene = useEditorStore.getState().project?.scenes.find(sc => sc.elements.some(e => e.id === el.id))
+  retimeClip(el, scene, { speedCurve: command.preset === 'none' ? null : presetCurve(command.preset) })
+  return { ok: true, message: command.preset === 'none' ? `${el.name} plays at constant speed.` : `Speed ramp on ${el.name}.`, elementIds: [el.id] }
+}
+
+function freezeFrame(command: Extract<AiEditorCommand, { type: 'freezeFrame' }>): AiCommandResult {
+  const el = requireMedia(command, ['video']) as VideoElement
+  const scene = useEditorStore.getState().project?.scenes.find(sc => sc.elements.some(e => e.id === el.id))
+  if (command.hold > 0 && command.at > (el.duration ?? 0)) throw new Error(`${el.name} is only ${(el.duration ?? 0).toFixed(1)}s long.`)
+  retimeClip(el, scene, { freeze: command.hold > 0 ? { at: command.at, hold: command.hold } : null })
+  return { ok: true, message: command.hold > 0 ? `Freeze frame on ${el.name}.` : `Removed the freeze frame from ${el.name}.`, elementIds: [el.id] }
 }
 
 function setEndTransition(command: Extract<AiEditorCommand, { type: 'setEndTransition' }>): AiCommandResult {

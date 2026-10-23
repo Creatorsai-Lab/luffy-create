@@ -1,6 +1,7 @@
 import type { EditorElement, Project } from '../types/editor'
 import { useEditorStore } from '../store/editorStore'
 import type { AiElementSummary, AiProjectContext } from './types'
+import { effectStack } from '../engine/fx/stack'
 
 // Local only (the parser); a future LLM gets a compact summary instead.
 const MAX_ELEMENTS_PER_SCENE = 500
@@ -89,6 +90,9 @@ export function summarizeElement(el: EditorElement): AiElementSummary {
         cropKeys: el.cropKeys?.length || undefined,
         punchIn: el.punchIn && el.punchIn > 1 ? el.punchIn : undefined,
         keying: el.keying?.mode,
+        speedCurve: el.speedCurve,
+        freeze: el.freeze,
+        effects: effectNames(el),
       }
     case 'audio':
       return {
@@ -104,10 +108,15 @@ export function summarizeElement(el: EditorElement): AiElementSummary {
         volumeKeys: el.volumeKeys?.length || undefined,
       }
     case 'image':
-      return { ...summary, src: el.src, crop: el.crop, keying: el.keying?.mode }
+      return { ...summary, src: el.src, crop: el.crop, keying: el.keying?.mode, effects: effectNames(el) }
     default:
       return summary
   }
+}
+
+function effectNames(el: Parameters<typeof effectStack>[0]) {
+  const names = effectStack(el).filter(fx => !fx.off).map(fx => fx.type)
+  return names.length ? names : undefined
 }
 
 function captionsSummary(project: Project): AiProjectContext['captions'] {

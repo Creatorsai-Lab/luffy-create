@@ -947,6 +947,8 @@ export default function EditorCanvas() {
                   syncVideoToTime={!localPlayingIds.has(el.id) && (isPlaying || playhead > 0)}
                   videoPlaybackActive={isPlaying}
                   mediaVolume={mainVolume}
+                  globalTime={playhead}
+                  sceneDuration={(activeScene ?? currentScene).duration}
                 />
               )
               }

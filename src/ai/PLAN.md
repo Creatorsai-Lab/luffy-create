@@ -248,6 +248,48 @@ blocks: "add a 3-4-2 neural network with a forward pass", "add a title card
   outgoing video still playing) and the fade-out; a 4.8 s 1280×720 export with
   a video took 27 s.
 
+### Effects engine, speed ramps and freeze frames
+- One GPU effects engine for images and videos (`src/engine/fx/`): a catalogue
+  of 43 effects in nine groups (Body (AI): neon outline, aura, spotlight, echo
+  trail; Retro & Texture; Glitch; Warp; Light; Energy incl. phonk; Motion;
+  Weather; 12 colour looks), one shared WebGL context, passes in a fixed order
+  (base grade → body → combined camera move → warp → stylize → present) and a
+  per-element cached result. Body effects use the same person mask as the AI
+  cut-out. Camera moves (Ken Burns, shake, zoom pulse, phonk punch, gate weave)
+  combine into one move with overscan so edges never show.
+- An effect stack per clip (`MediaFx`: intensity, params, speed, beat sync,
+  clip-time window, fades, hide). Old projects convert on read (media effects,
+  grading, video effect, grain, vignette → the stack); the old panels and
+  `mediaEffects.ts` are gone. Beat sync uses the project's music beats (120 BPM
+  without music). Splitting a clip shifts each part's effects.
+- Media drawing shared by editor, Preview and export (`mediaDraw.ts`): keying →
+  effects → draw, always clipped to the box (fixes spill), perspective via a
+  scratch canvas.
+- Speed ramps (`speedCurve.ts`, `retime.ts`): 7 presets + a log-scale curve
+  editor, freeze frames; the clip keeps its footage and its length (and the
+  scene, if it ended with it) follows. Playback sets the video's rate per
+  frame (pitch kept); export seeks per frame and builds the sound from
+  constant-speed pieces (atempo, silence for a freeze). atempo returns less
+  sound than asked when slowing down, so each piece is stretched with spare
+  sound and cut to its exact length — otherwise the sound drifted 0.7 s ahead
+  over a 6 s ramp. Splits divide curves and freezes; jump cuts / transcript
+  edits map words through the curve (`clipTimeAtFootage`).
+- Panel: grouped tiles with a live hover preview on the clip, stack cards
+  (strength, per-effect settings, speed, beat sync, timing and fades, hide),
+  Surprise me, all parts of a cut clip. Timeline: draggable/resizable bars per
+  timed effect, a speed tag with the ramp's name. AI: addEffect /
+  removeEffects / setSpeedCurve / freezeFrame, every effect name, looks,
+  strength, windows, beat words; animation words (glow, flash, float) only
+  mean a clip when it is named, selected or was just talked about.
+- Checked in Electron (hidden windows): every shader compiles and renders,
+  11–13 ms per 1080×1350 frame (neon 18 ms). In the built app, paused frames
+  and a real export both show the black-and-white look (chroma 0), the vignette
+  only inside its window, the flash only on beats, the freeze (frame diff 0),
+  and ramp frames that match the source at the curve's time (plain 1× timing
+  is up to 2× further off); playback runs at 0.3× in the slow start, pauses
+  for the freeze and resumes on time; the exported freeze is silent and the
+  sound lines up with the curve.
+
 ### Phase 7a–7c — Jump cuts, transcript editing, green screen / AI cut-out
 - One cut engine for both (`src/ai/smart/jumpcut.ts`, pure): pause ranges from
   loudness (`speechFromLoudness` with an automatic or set silence level,

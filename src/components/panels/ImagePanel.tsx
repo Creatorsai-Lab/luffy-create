@@ -7,9 +7,8 @@ import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
 import BoxShadowControls from './BoxShadowControls'
 import KeyingControl from './KeyingControl'
+import { effectStack } from '../../engine/fx/stack'
 import BorderControls from './BorderControls'
-import MediaVignetteControls from './MediaVignetteControls'
-import MediaGrainControls from './MediaGrainControls'
 import { isMotionAnimation } from '../../utils/moveAnimation'
 import { isLoopAnimation } from '../../utils/animationTypes'
 import { useShallow } from 'zustand/react/shallow'
@@ -219,13 +218,19 @@ export default function ImagePanel() {
                   <Slider value={el.blur ?? 0} min={0} max={20} step={0.5}
                     onChange={v => upd({ blur: v })} display={`${el.blur ?? 0}px`} />
                 </Row>
-                <MediaVignetteControls value={el} onChange={upd} />
-                <MediaGrainControls value={el} onChange={upd} />
               </div>
 
               {/* ── Effects ─────────────────────────────────────────── */}
               <div className="pb-2">
-                <span className="text-xs font-medium text-editor-text block mb-1">Effects</span>
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="text-xs font-medium text-editor-text">Effects</span>
+                  <span className="text-[10px] text-editor-text-secondary">{effectStack(el).length} on this image</span>
+                  <button type="button" onClick={() => useEditorStore.getState().setActivePanel('effects')}
+                    className="ml-auto rounded border border-editor-border bg-editor-elevated-highlight px-2 py-0.5 text-[11px] text-editor-text hover:border-editor-accent">
+                    Open Effects
+                  </button>
+                </div>
+                <p className="mb-1 text-[10px] leading-relaxed text-editor-text-secondary">Colour looks, film grain, vignette, glitch, retro, neon, light and more are in the Effects panel.</p>
 
                 <Row label="Glassmorphism">
                   <button

@@ -85,7 +85,7 @@ const SECTIONS: Section[] = [
       <>
         <ul className="list-disc pl-5">
           <LI><strong>Real Morph transition</strong> — objects that exist in both scenes glide, resize and change color into their new place. See Transitions.</LI>
-          <LI><strong>Media effects</strong> for images and video — stackable, timed effects such as zoom, light sweep, glitch, rain and snow, plus grain and vignette. See Effects.</LI>
+          <LI><strong>Effects</strong> for images and video — 43 stackable GPU effects (neon outline on a person, VHS, glitch, warp, light leaks, phonk on the beat, colour looks…), timed on the clip, plus <strong>speed ramps</strong> and <strong>freeze frames</strong>. See Effects and Video.</LI>
           <LI><strong>Flash Blur and Flicker Shake</strong> transitions with direction, speed and hardness.</LI>
           <LI><strong>Bilingual, offline captions</strong> — Hindi transcription, optional offline English↔Hindi translation and bilingual SRT export. See Captions.</LI>
           <LI><strong>Perspective on every element</strong> except arrows, with true perspective and no seam lines.</LI>
@@ -113,7 +113,7 @@ const SECTIONS: Section[] = [
           ['Code', 'Monaco code editor with syntax highlighting, line numbers and typing animations.'],
           ['Counter', 'Animated counter that counts as numbers, English words or Hindi words, with range, speed, loop and text styling.'],
           ['Edit BG', 'Remove, blur or replace the background of a video or image in one click (AI cut-out on this computer), or remove a green screen. Applies to every part of a clip that was cut into parts.'],
-          ['Effects', 'Timed media effects, grain and vignette for the selected image or video.'],
+          ['Effects', 'Stackable effects for the selected image or video: body (AI), retro, glitch, warp, light, energy, motion, weather and colour looks — timed, and on the beat.'],
           ['Hand Draw', 'Freehand drawing with Pen, Paint, Spray and Eraser.'],
           ['Icons', 'Searchable icon library; color and stroke width.'],
           ['Images', 'Upload PNG/JPG/WebP/GIF; crop, adjustments, borders, shadows, perspective, effects.'],
@@ -129,7 +129,7 @@ const SECTIONS: Section[] = [
           ['Text', 'Click to add a text box in the scene center; “+ Add Text” in its panel adds more. Fonts, gradient fill, stroke, shadow, background box, Glow and Hollow effects.'],
           ['Transitions', 'Choose how the current scene enters from the previous one.'],
           ['User Guide', 'This guide — available even before a project is open.'],
-          ['Video', 'Upload MP4/WebM/MOV; trim, speed, volume, loop, crop, color grading, effects.'],
+          ['Video', 'Upload MP4/WebM/MOV; trim, speed ramps, freeze frames, volume, loop, crop, effects.'],
         ]} />
         <H>Editing an element</H>
         <P>Select it, then use the right Options panel. Nudge with the arrow keys: <Kbd>Arrow</Kbd> moves 12 px, <Kbd>Shift</Kbd> 40 px, <Kbd>Alt</Kbd> 100 px; a group moves as one, <Kbd>Ctrl</Kbd>+arrow moves only the item you clicked. Rotate with the round rotate icon above the selection; it snaps to 45° angles when you get close.</P>
@@ -179,20 +179,27 @@ const SECTIONS: Section[] = [
     id: 'effects', title: 'Effects', icon: <Wand2 size={15} />,
     content: (
       <>
-        <P>Select an image or video and open <strong>Effects</strong>. Effects are cards you can stack; each one runs between its own <strong>Start At</strong> and <strong>End At</strong> times (in seconds from the scene start).</P>
-        <Table head={['Effect', 'What it does']} rows={[
-          ['Subtle Hover / Wiggle / Doodle Drift', 'Gentle floating or hand-made movement.'],
-          ['Shake / Vibration Distort', 'Camera shake and vibrating distortion.'],
-          ['Zoom In / Zoom Out', 'Slow zoom toward the center or a chosen corner.'],
-          ['God Rays / Light Sweep / Light Flicker', 'Light beams, a sweeping highlight, or flickering light.'],
-          ['Glitch', 'Digital glitch bursts.'],
-          ['Rain / Snow', 'Weather particles over the media.'],
+        <P>Select an image or video and open <strong>Effects</strong> (or <strong>Open Effects</strong> in its panel). Pick a group, <strong>hover</strong> an effect to watch it on your own clip in the preview box, and click to add it. Effects stack — they play top to bottom, and the same effect can be added twice. They run on the GPU, in the editor, Preview and export alike.</P>
+        <Table head={['Group', 'Effects']} rows={[
+          ['Body (AI)', 'Neon outline, Aura glow, Spotlight, Echo trail — they find the person in the picture (on this computer, the same AI as background removal) and draw around or behind them.'],
+          ['Retro & Texture', 'VHS, 8mm film, Old film, Dust & scratches, Paper texture, Halftone comic, Film grain.'],
+          ['Glitch', 'Digital glitch, RGB split, CRT screen, Signal loss.'],
+          ['Warp', 'Wave, Swirl, Bulge, Ripple, Kaleidoscope, Heat haze.'],
+          ['Light', 'Glow, Halation, Light leaks, Light sweep, God rays, Lens flare, Defocus, Vignette.'],
+          ['Energy', 'Phonk, Strobe, Zoom pulse, Handheld shake, Flash, Light flicker — punchy effects for edits to music.'],
+          ['Motion', 'Float, Wiggle, Drift, Ken Burns in / out — move the picture or the whole item.'],
+          ['Weather', 'Rain, Snow.'],
+          ['Colour look', 'One grade per clip: Cinematic, Teal & orange, Warm, Cool, Vintage, Faded film, Bleach bypass, Vivid, Cyberpunk, Sunset, Monochrome, Noir.'],
         ]} />
-        <P>Depending on the effect, a card offers Intensity, Speed, Direction, Color and Color Opacity, Zoom Position, and a Target: Whole Media, Center Subject, or Manual Focus with Focus X / Focus Y.</P>
-        <H>Grain and vignette</H>
-        <P>Grain adds film texture (color, size, hardness). Vignette darkens or tints the edges (color, size, fade, hardness). Both work on images and videos.</P>
-        <H>Video-only looks</H>
-        <P>The Video panel also has color grading presets, legacy video effects and frame shapes (circle, triangle).</P>
+        <P>Open a card under <strong>On this clip</strong> to set its <strong>Strength</strong>, its own settings (colour, size, direction…) and <strong>Speed</strong>. The eye hides an effect without removing it; × removes it. <strong>Surprise me</strong> swaps the clip's effects for a random colour look plus two effects from different groups — click again for another.</P>
+        <H>On the beat</H>
+        <P>Effects marked ♪ can <strong>Sync to the music's beat</strong>: the flash, punch, glitch or glow hits on every beat of the project's background music (found automatically; 120 BPM when there is no music). Phonk is always on the beat.</P>
+        <H>Timing</H>
+        <P>An effect runs for <strong>the whole clip</strong>, or untick it and set <strong>From</strong> / <strong>To</strong> (seconds into the clip) with optional <strong>Fade in</strong> / <strong>Fade out</strong>. Timed effects show as coloured bars under the clip in the timeline — drag a bar to move it, drag an end to resize it. Splitting a clip keeps each effect where it was in the footage.</P>
+        <H>Clips cut into parts</H>
+        <P>When a clip was cut into parts (by jump cuts or splits), <strong>All parts of this clip</strong> applies effects to every part at once; untick it to change just this part.</P>
+        <H>Speed ramps and freeze frames</H>
+        <P>Speed ramps live in the Video panel — see Video → Speed ramp.</P>
       </>
     ),
   },
@@ -311,6 +318,10 @@ const SECTIONS: Section[] = [
           ['Loop', 'Repeat short clips and background motion.'],
           ['Crop', 'Double-click the video, adjust the frame, press Enter to apply or Escape to cancel.'],
         ]} />
+        <H>Speed ramp (velocity)</H>
+        <P>The <strong>Speed ramp</strong> section changes the speed during the clip: <strong>Slow-mo start</strong>, <strong>Montage</strong> (fast, a slow moment, fast again), <strong>Hero</strong> (a dramatic slow-motion middle), <strong>Bullet</strong>, <strong>Flash in</strong>, <strong>Flash out</strong> and <strong>Jump</strong>. Then shape it on the curve: drag a point up or down (0.1× to 10×), double-click to add one, right-click to remove one. The clip plays the same footage, so it gets longer or shorter — and when it ended with its scene, the scene follows. The sound follows the speed and keeps its pitch. The timeline shows the ramp's name on the clip.</P>
+        <H>Freeze frame</H>
+        <P>Put the playhead on a moment and click <strong>Freeze at the playhead</strong>: the picture holds there for the <strong>Hold</strong> time (silent), then the clip carries on. One freeze per clip; split the clip for more.</P>
         <H>Split screen and placing clips</H>
         <P>Select two or more clips and open <strong>Group Effects → Layout</strong> for <strong>Side by side</strong>, <strong>Stacked</strong> (best for 9:16) or <strong>Grid</strong>. To put clips anywhere else, tell the AI Agent where: "make video 1 full screen and video 2 bottom right at 400x300", "put this video in the upper half and this one in the lower half", "fit the whole video in the top third". It works out the exact pixels from the scene size (the upper half of 1080×1920 is 1080×960). Clips are cropped to fill their area, centred on what they showed — never stretched unless you say "stretch"; say "fit" or "without cropping" to see the whole clip.</P>
         <H>Auto reframe (follow the face)</H>
@@ -324,7 +335,7 @@ const SECTIONS: Section[] = [
         <H>Cutting video</H>
         <P>To remove a middle section, split the scene (or the clip) at the start of the unwanted part, split again at its end, and delete the middle. Playback continues smoothly from the new trim point in the editor, Preview and export.</P>
         <H>Styling</H>
-        <P>Brightness, contrast, saturation, blur, temperature, tint, vibrance, color grading presets, frame shapes, perspective, corner radius, borders (including gradient and animated), box shadow, inner shadow, grain, vignette and timed media effects.</P>
+        <P>Brightness, contrast, saturation, blur, temperature, tint, vibrance, frame shapes, perspective, corner radius, borders (including gradient and animated), box shadow, inner shadow — and everything in Effects (colour looks, grain, vignette, glitch…) via <strong>Open Effects</strong>.</P>
       </>
     ),
   },

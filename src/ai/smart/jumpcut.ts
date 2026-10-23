@@ -6,6 +6,8 @@
  * Pure: the audio and words are analysed elsewhere.
  */
 import type { AiEditorCommand, AiSceneRef } from '../types'
+import type { SpeedCurve } from '../../types/editor'
+import { clipTimeAtFootage, footageTimeAt } from '../../utils/speedCurve'
 import { removeRanges, type SceneInfo } from './cuts'
 import { silencesBetween, type TimeRange } from './speech'
 
@@ -65,11 +67,20 @@ export interface ClipWindow {
   fromScene: (t: number) => number
 }
 
-export function clipWindow(video: Pick<ClipVideo, 'startTime' | 'playbackRate' | 'duration' | 'sourceDuration' | 'timelineX'>): ClipWindow {
+export function clipWindow(video: Pick<ClipVideo, 'startTime' | 'playbackRate' | 'duration' | 'sourceDuration' | 'timelineX' | 'speedCurve' | 'freeze'>): ClipWindow {
   const from = video.startTime ?? 0
   const rate = video.playbackRate || 1
   const length = video.duration ?? Math.max(0, (video.sourceDuration ?? 0) - from) / rate
   const offset = video.timelineX ?? 0
+  // A speed ramp or freeze frame: source time follows the curve.
+  if (video.speedCurve || video.freeze?.hold) {
+    const timed = { ...video, duration: length, playbackRate: rate, startTime: from }
+    return {
+      from, to: from + footageTimeAt(timed, length),
+      toScene: (t: number) => offset + clipTimeAtFootage(timed, t - from),
+      fromScene: (t: number) => from + footageTimeAt(timed, t - offset),
+    }
+  }
   return { from, to: from + length * rate, toScene: (t: number) => offset + (t - from) / rate, fromScene: (t: number) => from + (t - offset) * rate }
 }
 
@@ -84,6 +95,8 @@ export interface ClipVideo {
   playbackRate?: number
   sourceDuration?: number
   timelineX?: number
+  speedCurve?: SpeedCurve
+  freeze?: { at: number; hold: number }
 }
 
 /** One scene's piece of a source file: the clip that plays it there and the window it plays. */

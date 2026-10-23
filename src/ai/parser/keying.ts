@@ -86,9 +86,11 @@ export function keyingHandler(clause: Clause, state: ParseState): AiPlanStep[] |
 }
 
 /** Which clips: named, numbered ("video 2"), "it", the selection, else the videos (or images) on the scene. */
-function pickTargets(text: string, clause: Clause, media: AiElementSummary[], selected: AiElementSummary[], state: ParseState) {
-  const named = media.filter(el => el.name.length >= 3 && !/^(?:video|clip|image|photo)(?:\s*\d+)?$/i.test(el.name) &&
-    (clause.quotes.some(q => q.trim().toLowerCase() === el.name.toLowerCase()) || text.includes(el.name.toLowerCase())))
+export function pickTargets(text: string, clause: Clause, media: AiElementSummary[], selected: AiElementSummary[], state: ParseState) {
+  // "the logo" names logo.png.
+  const named = media.filter(el => [el.name.toLowerCase(), el.name.toLowerCase().replace(/\.[a-z0-9]{2,4}$/, '')].some(name =>
+    name.length >= 3 && !/^(?:video|clip|image|photo)(?:\s*\d+)?$/.test(name) &&
+    (clause.quotes.some(q => q.trim().toLowerCase() === name) || text.includes(name))))
   if (named.length) return named
   const numbered = text.match(/\b(video|clip|image|photo|picture)[_\-\s]*(?:(?:id|item|number|num)[_\-\s]*)?#?(\d+)\b/)
   if (numbered) {

@@ -80,6 +80,33 @@ Blur, Flicker Shake, Cube (3D) and Morph. "Smooth" means a dissolve,
 of quietly becoming a fade. A transition on the first scene is an intro from
 black; "at the end" sets the fade-out after the last scene.
 
+**Effects, speed ramps and freeze frames** (videos and images)
+
+```text
+Add a neon outline to me                    Add a pink neon outline to the image
+Make the video look like VHS                Old film look on the video
+Phonk edit on the beat                      Add an RGB split on the beat
+Give the video a teal and orange look       Make it black and white
+Add a strong glitch from 2s to 4s           Add a subtle light leak for the first 3 seconds
+Add film grain     Add a lens flare     Warp the video     Add rain to the photo
+Remove the glitch                           Remove all effects from the video
+Velocity edit      Slow-mo start      Bullet time      Hero time
+Freeze the frame at 2s for 1.5s             Remove the freeze frame
+Remove the speed ramp
+```
+
+Every effect in the Effects panel is understood by name ("neon", "vhs", "8mm",
+"glitch", "chromatic aberration", "kaleidoscope", "god rays", "phonk",
+"zoom pulse", "handheld shake", "ken burns"…); a colour look is one of
+Cinematic, Teal & orange, Warm, Cool, Vintage, Faded film, Bleach bypass, Vivid,
+Cyberpunk, Sunset, Monochrome or Noir. "Strong" / "subtle" set the strength,
+"on the beat" syncs it to the music, and "from 2s to 4s" / "for the first 3
+seconds" set when it runs. Words that are also animations ("glow", "flash",
+"float", "shake") mean the clip only when you name it, select it or just
+talked about it — "make the title glow" still animates the title. A clip cut
+into parts gets the effect in every part. Speed ramps and freeze frames work on
+videos; the clip's length changes and the scene follows.
+
 **Adding items**
 
 ```text

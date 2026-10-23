@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { coarseToFine, requestFrames } from '../../utils/filmstripCache'
 import VolumeEnvelope from './VolumeEnvelope'
-import { Plus, Play, Pause, SkipBack, ZoomIn, ZoomOut, ArrowLeftRight, Music, Trash2, Copy, Scissors, Split, X, Volume2, Bookmark, Shuffle, Film, Repeat } from 'lucide-react'
+import { Plus, Play, Pause, SkipBack, ZoomIn, ZoomOut, ArrowLeftRight, Music, Trash2, Copy, Scissors, Split, X, Volume2, Bookmark, Shuffle, Film, Repeat, Gauge } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { cn } from '../../utils/cn'
 import { toFileUrl } from '../../utils/pathUtils'
@@ -18,6 +18,9 @@ import { findElementScene, sceneAtTime, sceneStartTimes } from '../../utils/scen
 import { CUT_COLORS, CUT_LABELS, useCutPreview } from '../../store/cutPreviewStore'
 import { buildTransitionTimeline, getEffectiveTransitionDuration, getEndTransitionDuration } from '../../utils/transitionTiming'
 import { transitionDef } from '../../engine/transitions/catalog'
+import { effectStack, stackPatch } from '../../engine/fx/stack'
+import { fxDef } from '../../engine/fx/catalog'
+import { footageSpan, SPEED_PRESETS } from '../../utils/speedCurve'
 import { useShallow } from 'zustand/react/shallow'
 import {
   applyAudioEffects,
@@ -1087,7 +1090,7 @@ export default function Timeline() {
                     src={video.src}
                     startTime={video.startTime ?? 0}
                     clipDuration={clipDur}
-                    speed={video.playbackRate ?? 1}
+                    speed={video.speedCurve || video.freeze ? footageSpan(video) / Math.max(0.1, clipDur) : video.playbackRate ?? 1}
                     clipWidthPx={Math.max(widthPx, 40)}
                     trackH={heightPx}
                     loop={video.loop ?? false}
@@ -1097,12 +1100,18 @@ export default function Timeline() {
                     <span className="text-[9px] text-white/90 truncate ml-1 font-medium drop-shadow">
                       {(video.playbackRate ?? 1) !== 1 ? `${video.playbackRate}× ` : ''}{clipDur.toFixed(1)}s
                     </span>
+                    {(video.speedCurve || video.freeze) && (
+                      <span className="ml-1 flex items-center gap-0.5 rounded bg-sky-500/80 px-1 text-[9px] text-white" title="Speed ramp / freeze frame">
+                        <Gauge size={8} />{video.speedCurve ? SPEED_PRESETS.find(sp => sp.id === video.speedCurve!.preset)?.label ?? 'Custom' : ''}{video.freeze ? ' ❄' : ''}
+                      </span>
+                    )}
                     {video.loop && (
                       <span className="ml-auto flex items-center gap-0.5 rounded bg-black/80 px-1 py-0.5 text-[10px] uppercase tracking-normal text-white/85">
                         <Repeat size={9} /> loop
                       </span>
                     )}
                   </div>
+                  <FxBars video={video} pxPerSec={PX_PER_SEC} />
                   <div
                     className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 z-10"
                     onMouseDown={e => handleVideoResizeMouseDown(e, video, 'start')}
@@ -1619,6 +1628,58 @@ export default function Timeline() {
 }
 
 // ── Video clip filmstrip (timeline thumbnail) ─────────────────────────────────
+
+const FX_BAR_COLOR: Record<string, string> = {
+  body: '#22d3ee', retro: '#f59e0b', glitch: '#ec4899', warp: '#8b5cf6', light: '#fde047',
+  energy: '#ef4444', motion: '#22c55e', weather: '#60a5fa', look: '#f97316',
+}
+
+/** A clip's effects as thin bars along its bottom: drag to move, drag an end to change when it starts or stops. */
+function FxBars({ video, pxPerSec }: { video: VideoElement; pxPerSec: number }) {
+  const stack = effectStack(video).filter(fx => !fx.off)
+  if (!stack.length) return null
+  const length = video.duration ?? 0
+  const drag = (index: number, mode: 'move' | 'start' | 'end') => (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const startX = e.clientX
+    const all = effectStack(video)
+    const fx = stack[index]
+    const from = Math.max(0, fx.start)
+    const to = fx.end ?? length
+    const move = (ev: MouseEvent) => {
+      const dt = (ev.clientX - startX) / pxPerSec
+      let start = from
+      let end = to
+      if (mode === 'move') { const d = Math.max(-from, Math.min(length - to, dt)); start = from + d; end = to + d }
+      if (mode === 'start') start = Math.max(0, Math.min(to - 0.1, from + dt))
+      if (mode === 'end') end = Math.max(from + 0.1, Math.min(length, to + dt))
+      const next = all.map(item => (item.id === fx.id ? { ...item, start, end: end >= length - 0.01 && mode !== 'end' && fx.end == null ? undefined : end } : item))
+      useEditorStore.getState().updateElement(video.id, stackPatch(video, next))
+    }
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-10" style={{ height: Math.min(3, stack.length) * 5 }}>
+      {stack.slice(0, 3).map((fx, i) => {
+        const def = fxDef(fx.type)
+        const start = Math.max(0, fx.start)
+        const end = Math.min(length, fx.end ?? length)
+        if (end <= start) return null
+        return (
+          <div key={fx.id} className="group absolute cursor-grab rounded-sm" title={`${def.label} ${start.toFixed(1)}–${end.toFixed(1)}s — drag to move, drag an end to resize`}
+            style={{ left: start * pxPerSec, width: Math.max(4, (end - start) * pxPerSec), bottom: i * 5, height: 4, background: FX_BAR_COLOR[def.group] }}
+            onMouseDown={drag(i, 'move')}>
+            <div className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/70" onMouseDown={drag(i, 'start')} />
+            <div className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/70" onMouseDown={drag(i, 'end')} />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 /** Cuts a panel is previewing: tinted, striped stretches over the video track and scenes. */
 function CutPreviewLayer({ sceneStarts, pxPerSec, top, height }: { sceneStarts: Record<string, number>; pxPerSec: number; top: number; height: number }) {

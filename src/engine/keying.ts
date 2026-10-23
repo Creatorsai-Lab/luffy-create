@@ -118,6 +118,24 @@ function personMask(source: Source, rect: SourceRect): { data: Uint8Array; w: nu
   }
 }
 
+const maskCache = new Map<string, { stamp: string; mask: { data: Uint8Array; w: number; h: number } }>()
+
+/**
+ * The person mask of a frame for an element (cached per element and frame,
+ * so keying and body effects share one segmentation). Null while the model
+ * loads — the stage redraws when it is ready.
+ */
+export function personMaskFor(key: string, source: Source, rect: SourceRect, time: number) {
+  const stamp = `${time.toFixed(4)}|${rect.x.toFixed(1)},${rect.y.toFixed(1)},${rect.w.toFixed(1)},${rect.h.toFixed(1)}|${source instanceof HTMLImageElement ? source.src : ''}`
+  const hit = maskCache.get(key)
+  if (hit?.stamp === stamp) return hit.mask
+  const mask = personMask(source, rect)
+  if (!mask) return null
+  maskCache.set(key, { stamp, mask })
+  if (maskCache.size > 64) maskCache.delete(maskCache.keys().next().value as string)
+  return mask
+}
+
 // ── WebGL ────────────────────────────────────────────────────────────────────
 
 const VERTEX = `
@@ -276,7 +294,8 @@ export function keyedFrame(elementId: string, keying: MediaKeying | undefined, s
 
   let mask: Entry['mask'] = null
   if (keying.mode === 'person') {
-    const found = personMask(source, rect)
+    const shared = personMaskFor(elementId, source, rect, time)
+    const found = shared ? { ...shared, data: new Uint8Array(shared.data) } : null
     if (!found) return null
     // Blend with the previous frame's mask when this frame follows it, to calm flicker.
     const prev = cached?.mask

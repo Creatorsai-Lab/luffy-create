@@ -11,7 +11,9 @@ import { layoutHandler } from './layout'
 import { placeHandler, placementForNewClip } from './place'
 import { captionsHandler } from './captions'
 import { keyingHandler } from './keying'
+import { effectsHandler } from './effects'
 import { TRANSITION_DEFS, transitionDef, transitionFromWords } from '../../engine/transitions/catalog'
+import { fxFromWords } from '../../engine/fx/catalog'
 import { FONT_FAMILIES } from '../../types/editor'
 import type { AiAnimationSpec, AiArrangeOrder, AiEditorCommand, AiElementRef, AiPlanStep, AiSceneRef, AiWave } from '../types'
 import { readColors, type ColorMatch } from './colors'
@@ -258,7 +260,9 @@ const smart: Handler = (clause, state) => {
     const longer = timeAfter(text, ['than', 'over', 'above', 'at least', 'longer than'])
     return [{ type: 'removeSilences', sceneIds: sceneIds(), minSilence: longer ?? (/\btighten\b/.test(text) ? 0.35 : undefined) }]
   }
-  if (/\b(?:beats?|rhythm|tempo|bpm)\b/.test(text) && /\b(?:cut|sync|match|align|snap|time|edit)\w*/.test(text)) {
+  // "phonk edit on the beat" is an effect on the beat, not cutting the scenes to it.
+  const beatEffect = fxFromWords(text) && !/\b(?:cut\w*|scenes?)\b/.test(text)
+  if (/\b(?:beats?|rhythm|tempo|bpm)\b/.test(text) && /\b(?:cut|sync|match|align|snap|time|edit)\w*/.test(text) && !beatEffect) {
     const every = text.match(/\bevery\s+(\w+)\s+beats?\b/)?.[1]
     const beatsPerCut = /\bevery\s+(?:bar|measure)\b/.test(text) ? 4
       : /\bevery\s+other\s+beat\b/.test(text) ? 2
@@ -1194,6 +1198,6 @@ const modify: Handler = (clause, state) => {
 
 /** In priority order: the first handler that claims a clause wins. */
 export const HANDLERS: Handler[] = [
-  smart, captionsHandler, keyingHandler, group, blocksHandler, layoutHandler, placeHandler, addScene, videoEnds, remove, duplicate, split, trim, reorder, transition, background, setDuration,
+  smart, captionsHandler, keyingHandler, effectsHandler, group, blocksHandler, layoutHandler, placeHandler, addScene, videoEnds, remove, duplicate, split, trim, reorder, transition, background, setDuration,
   layer, connect, addElement, media, moveAnimation, sequence, animate, position, modify,
 ]

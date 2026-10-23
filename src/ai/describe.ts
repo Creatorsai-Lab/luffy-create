@@ -1,5 +1,7 @@
 import { getBlock } from '../blocks/registry'
 import { transitionDef } from '../engine/transitions/catalog'
+import { fxDef, LOOKS } from '../engine/fx/catalog'
+import { SPEED_PRESETS } from '../utils/speedCurve'
 import type { AiEditorCommand, AiElementRef, AiSceneRef } from './types'
 
 /** One line per command for the plan preview, e.g. `Fade in "Hello" on Scene 2`. */
@@ -24,6 +26,14 @@ export function describeCommand(command: AiEditorCommand): string {
     case 'setTransition': return command.transition.type === 'none'
       ? `Remove transition${onScene(command)}`
       : `Set ${transitionDef(command.transition.type).label} transition${onScene(command)}`
+    case 'addEffect': return command.effect === 'look'
+      ? `Give ${target(command)} the ${LOOKS.find(([id]) => id === command.params?.look)?.[1] ?? 'cinematic'} look`
+      : `Add ${fxDef(command.effect).label}${command.beatSync ? ' (on the beat)' : ''} to ${target(command)}`
+    case 'removeEffects': return command.effect ? `Remove ${fxDef(command.effect).label} from ${target(command)}` : `Remove the effects from ${target(command)}`
+    case 'setSpeedCurve': return command.preset === 'none'
+      ? `Constant speed for ${target(command)}`
+      : `Speed ramp "${SPEED_PRESETS.find(p => p.id === command.preset)?.label ?? command.preset}" on ${target(command)}`
+    case 'freezeFrame': return command.hold > 0 ? `Freeze ${target(command)} at ${command.at}s for ${command.hold}s` : `Remove the freeze frame from ${target(command)}`
     case 'setEndTransition': return command.transition.type === 'none'
       ? 'Remove the fade-out at the end'
       : `End the video with ${transitionDef(command.transition.type).label} to black`

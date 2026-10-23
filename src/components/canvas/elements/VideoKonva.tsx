@@ -1,42 +1,23 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Group, Rect, Shape } from 'react-konva'
 import type Konva from 'konva'
-import type { VideoElement } from '../../../types/editor'
+import type { SlideDir, VideoElement } from '../../../types/editor'
 import { getVideoClipState } from '../../../utils/videoClip'
+import { playbackSpeedAt } from '../../../utils/speedCurve'
 import { cropAt, punchedCrop } from '../../../utils/cropKeys'
-import { keyedFrame } from '../../../engine/keying'
 import { videoRegistry } from '../../../engine/videoRegistry'
 import { createVideoFor, isAtFrame, loadVideoAt, releaseVideo, seekVideo, takeWarmVideo } from '../../../engine/videoPreloader'
-import { buildCssFilter, applyCanvasAdjustments, drawGrain, drawVignette } from '../../../engine/imageFilters'
-import { drawBoxShadow, drawInnerShadow } from '../../../engine/boxShadow'
-import { drawPerspectiveWarp, perspectiveHitFunc } from '../../../engine/perspectiveUtils'
-import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
-import { drawMediaWithEffects, getMediaEffectClips, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
+import { perspectiveHitFunc } from '../../../engine/perspectiveUtils'
+import { drawMedia, drawMediaInPerspective, type MediaSource } from './mediaDraw'
 
-function makeVideoDrawFns(video: HTMLVideoElement, el: VideoElement, width: number, height: number, key = el.id): MediaDrawFns {
-  const vw = video.videoWidth || width
-  const vh = video.videoHeight || height
-  // A reframed clip's crop moves with the frame actually on screen; a jump-cut part may be punched in.
-  const crop = punchedCrop(cropAt(el.crop, el.cropKeys, video.currentTime), el.punchIn)
-  const cropX = (crop?.x ?? 0) * vw
-  const cropY = (crop?.y ?? 0) * vh
-  const cropW = (crop?.w ?? 1) * vw
-  const cropH = (crop?.h ?? 1) * vh
-  // Green screen / background removal: the cropped frame with its background keyed out.
-  const keyed = video.videoWidth ? keyedFrame(key, el.keying, video, vw, vh, { x: cropX, y: cropY, w: cropW, h: cropH }, video.currentTime) : null
-  const image: CanvasImageSource = keyed ?? video
-  const sx = keyed ? 0 : cropX
-  const sy = keyed ? 0 : cropY
-  const sw = keyed ? keyed.width : cropW
-  const sh = keyed ? keyed.height : cropH
-
+/** The video's frame on screen, with the crop it shows (a reframed clip's crop follows the frame; a jump-cut part may be punched in). */
+function videoSource(video: HTMLVideoElement, el: VideoElement): MediaSource {
   return {
-    drawBase: (ctx, dx = 0, dy = 0, dw = width, dh = height) => {
-      ctx.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh)
-    },
-    drawSlice: (ctx, sourceY, sourceH, destX, destY, destW, destH) => {
-      ctx.drawImage(image, sx, sy + (sourceY / height) * sh, sw, (sourceH / height) * sh, destX, destY, destW, destH)
-    },
+    image: video,
+    width: video.videoWidth,
+    height: video.videoHeight,
+    crop: punchedCrop(cropAt(el.crop, el.cropKeys, video.currentTime), el.punchIn),
+    time: video.currentTime,
   }
 }
 
@@ -54,9 +35,14 @@ interface Props {
   mediaKey?: string
   /** Draw nothing while loading instead of the dashed placeholder (hidden copies). */
   quietLoading?: boolean
+  /** Timeline seconds (beat-synced effects). */
+  globalTime?: number
+  sceneDuration?: number
+  wipeProgress?: number
+  wipeDir?: SlideDir
 }
 
-export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime = true, playbackActive = false, sceneEnd, volumeScale = 1, mediaKey, quietLoading = false }: Props) {
+export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime = true, playbackActive = false, sceneEnd, volumeScale = 1, mediaKey, quietLoading = false, globalTime = 0, sceneDuration = 0, wipeProgress = 1, wipeDir }: Props) {
   const key = mediaKey ?? el.id
   const sceneEndRef = useRef(sceneEnd)
   sceneEndRef.current = sceneEnd
@@ -194,7 +180,21 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
     target = Math.max(0, Math.min(target, dur - 0.03))
 
     if (playbackActive) {
-      if (Math.abs(v.currentTime - target) > 0.25) v.currentTime = target
+      // A speed curve or freeze frame: follow it with the playback speed (the sound keeps its
+      // pitch), holding the picture while frozen, and keep closer to the expected frame.
+      const curved = Boolean(el.speedCurve || el.freeze)
+      if (curved) {
+        const speed = playbackSpeedAt(el, clip.clipLocalTime)
+        if (speed < 0.06) {
+          if (!v.paused) v.pause()
+          if (Math.abs(v.currentTime - target) > 0.02) v.currentTime = target
+          else redraw()
+          return
+        }
+        const rate = Math.min(16, Math.max(0.0625, speed))
+        if (Math.abs(v.playbackRate - rate) > 0.01) v.playbackRate = rate
+      }
+      if (Math.abs(v.currentTime - target) > (curved ? 0.12 : 0.25)) v.currentTime = target
       if (v.paused) v.play().catch(() => {
         if (Math.abs(v.currentTime - target) > 0.015) v.currentTime = target
         else redraw()
@@ -209,7 +209,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
     } else {
       redraw()
     }
-  }, [localTime, loaded, syncToTime, playbackActive, sceneEnd, el.loop, el.startTime, el.duration, el.timelineX, el.playbackRate, el.sourceDuration])
+  }, [localTime, loaded, syncToTime, playbackActive, sceneEnd, el.loop, el.startTime, el.duration, el.timelineX, el.playbackRate, el.sourceDuration, el.speedCurve, el.freeze])
 
   if (!loaded || !videoRef.current) {
     // During playback an unready clip draws nothing rather than flashing the
@@ -231,6 +231,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
   }
 
   const video = videoRef.current
+  const drawContext = { key, localTime, globalTime, sceneDuration: sceneDuration || el.duration || 0, wipeProgress, wipeDir }
 
   return (
     <Shape
@@ -241,256 +242,14 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
       hitFunc={el.perspectivePts ? perspectiveHitFunc(el.perspectivePts) : (ctx, shape) => {
         ctx.beginPath(); ctx.rect(0, 0, el.width, el.height); ctx.closePath(); ctx.fillStrokeShape(shape)
       }}
-      sceneFunc={(ctx, shape) => {
+      sceneFunc={(ctx) => {
         const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
-
-        raw.save()
-
-        const w = el.width, h = el.height
-        const frame = el.frameType ?? 'none'
-
+        if (!video.videoWidth) return
         if (el.perspectivePts) {
-          const source = perspectiveScratchRef.current ??= document.createElement('canvas')
-          if (source.width !== w) source.width = w
-          if (source.height !== h) source.height = h
-          const sourceCtx = source.getContext('2d')!
-          sourceCtx.clearRect(0, 0, w, h)
-
-          sourceCtx.save()
-          if (frame === 'circle') {
-            sourceCtx.beginPath()
-            sourceCtx.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2)
-            sourceCtx.closePath()
-            sourceCtx.clip()
-          } else if (frame === 'triangle') {
-            sourceCtx.beginPath()
-            sourceCtx.moveTo(w / 2, 0)
-            sourceCtx.lineTo(w, h)
-            sourceCtx.lineTo(0, h)
-            sourceCtx.closePath()
-            sourceCtx.clip()
-          } else if (el.cornerRadius > 0) {
-            const r = Math.min(el.cornerRadius, w / 2, h / 2)
-            sourceCtx.beginPath()
-            sourceCtx.moveTo(r, 0)
-            sourceCtx.arcTo(w, 0, w, h, r)
-            sourceCtx.arcTo(w, h, 0, h, r)
-            sourceCtx.arcTo(0, h, 0, 0, r)
-            sourceCtx.arcTo(0, 0, w, 0, r)
-            sourceCtx.closePath()
-            sourceCtx.clip()
-          }
-          sourceCtx.filter = buildCssFilter(el) || 'none'
-          drawMediaWithEffects(sourceCtx, el, w, h, localTime, makeVideoDrawFns(video, el, w, h, key))
-          if (el.glass) {
-            sourceCtx.filter = 'none'
-            sourceCtx.fillStyle = 'rgba(255,255,255,0.18)'
-            sourceCtx.fillRect(0, 0, w, h)
-          }
-          applyCanvasAdjustments(sourceCtx, el)
-          drawGrain(sourceCtx, el)
-          drawVignette(sourceCtx, el)
-          sourceCtx.restore()
-
-          raw.filter = 'none'
-          drawBoxShadow(raw, el.boxShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
-          drawPerspectiveWarp(raw, source, el.perspectivePts, w, h)
-          drawInnerShadow(raw, el.innerShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
-          drawPerspectiveQuadBorder(raw, el, localTime)
-          raw.restore()
-          return
-        }
-
-        drawBoxShadow(raw, el.boxShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
-
-        // 1. Frame Shape Mask
-        if (frame === 'circle') {
-          raw.beginPath()
-          raw.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2)
-          raw.closePath()
-          raw.clip()
-        } else if (frame === 'triangle') {
-          raw.beginPath()
-          raw.moveTo(w / 2, 0)
-          raw.lineTo(w, h)
-          raw.lineTo(0, h)
-          raw.closePath()
-          raw.clip()
-        } else if (el.cornerRadius > 0) {
-          const r = el.cornerRadius
-          raw.beginPath()
-          raw.moveTo(r, 0)
-          raw.arcTo(w, 0, w, h, r)
-          raw.arcTo(w, h, 0, h, r)
-          raw.arcTo(0, h, 0, 0, r)
-          raw.arcTo(0, 0, w, 0, r)
-          raw.closePath()
-          raw.clip()
-        }
-
-        // 2. Setup Effects & Adjustments Filters. Shared media effects take
-        // priority; legacy video-only effects still work when no shared effect
-        // is selected from the Effects panel.
-        const hasSharedEffect = getMediaEffectClips(el).length > 0
-        const effect = hasSharedEffect ? 'none' : (el.videoEffect ?? 'none')
-        const intensity = hasSharedEffect ? 0 : (el.videoEffectIntensity ?? 0.5)
-
-        let filterStr = buildCssFilter(el) || 'none'
-        if (effect === 'lensBlur' && intensity > 0) {
-          const blurVal = Math.round(15 * intensity)
-          if (filterStr === 'none') filterStr = `blur(${blurVal}px)`
-          else filterStr += ` blur(${blurVal}px)`
-        }
-        if (effect === 'comic' && intensity > 0) {
-          const val = 1.4 + intensity * 0.8
-          if (filterStr === 'none') filterStr = `contrast(${val}) saturate(${val})`
-          else filterStr += ` contrast(${val}) saturate(${val})`
-        }
-        raw.filter = filterStr
-
-        // 3. Draw Video with shared media effects.
-        const drawFns = makeVideoDrawFns(video, el, w, h, key)
-        if (mediaEffectRequiresAnimation(el)) {
-          drawMediaWithEffects(raw, el, w, h, localTime, drawFns)
+          drawMediaInPerspective(raw, el, videoSource(video, el), drawContext, perspectiveScratchRef.current ??= document.createElement('canvas'))
         } else {
-          drawFns.drawBase(raw, 0, 0, w, h)
+          drawMedia(raw, el, videoSource(video, el), drawContext)
         }
-
-        // 5. Comic ink outlines
-        if (effect === 'comic' && intensity > 0) {
-          raw.save()
-          raw.filter = 'none'
-          raw.strokeStyle = '#000000'
-          raw.lineWidth = 4 * intensity
-          if (frame === 'circle') {
-            raw.beginPath()
-            raw.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2)
-            raw.stroke()
-          } else if (frame === 'triangle') {
-            raw.beginPath()
-            raw.moveTo(w / 2, 0)
-            raw.lineTo(w, h)
-            raw.lineTo(0, h)
-            raw.closePath()
-            raw.stroke()
-          } else {
-            const r = el.cornerRadius
-            raw.beginPath()
-            raw.moveTo(r, 0)
-            raw.arcTo(w, 0, w, h, r)
-            raw.arcTo(w, h, 0, h, r)
-            raw.arcTo(0, h, 0, 0, r)
-            raw.arcTo(0, 0, w, 0, r)
-            raw.closePath()
-            raw.stroke()
-          }
-          raw.restore()
-        }
-
-        // 6. Retro scanlines and noise
-        if (effect === 'retro' && intensity > 0) {
-          raw.save()
-          raw.filter = 'none'
-          raw.fillStyle = 'rgba(0, 0, 0, 0.12)'
-          for (let y = 0; y < h; y += 3) {
-            raw.fillRect(0, y, w, 1)
-          }
-          raw.fillStyle = 'rgba(255, 255, 255, 0.04)'
-          const grainCount = Math.round(w * h * 0.0003 * intensity)
-          for (let k = 0; k < grainCount; k++) {
-            const gx = Math.random() * w
-            const gy = Math.random() * h
-            raw.fillRect(gx, gy, 1.5, 1.5)
-          }
-          raw.restore()
-        }
-
-        // 7. Strobe flash
-        if (effect === 'flash' && intensity > 0) {
-          raw.save()
-          raw.filter = 'none'
-          const flashAlpha = (0.5 + 0.5 * Math.sin(localTime * 18)) * 0.35 * intensity
-          raw.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`
-          raw.fillRect(0, 0, w, h)
-          raw.restore()
-        }
-
-        // 8. Glass overlay
-        if (el.glass) {
-          raw.filter = 'none'
-          raw.fillStyle = 'rgba(255,255,255,0.18)'
-          raw.fillRect(0, 0, el.width, el.height)
-        }
-
-        // 9. Standard Color Adjustments
-        applyCanvasAdjustments(raw, el)
-
-        // 10. Color Grading presets
-        const grading = el.colorGrading ?? 'none'
-        if (grading !== 'none') {
-          raw.save()
-          raw.filter = 'none'
-          if (grading === 'warm') {
-            raw.globalCompositeOperation = 'color'
-            raw.fillStyle = 'rgba(255, 130, 0, 0.12)'
-            raw.fillRect(0, 0, w, h)
-          } else if (grading === 'cool') {
-            raw.globalCompositeOperation = 'color'
-            raw.fillStyle = 'rgba(0, 100, 255, 0.12)'
-            raw.fillRect(0, 0, w, h)
-          } else if (grading === 'vintage') {
-            raw.globalCompositeOperation = 'color'
-            raw.fillStyle = 'rgba(180, 135, 80, 0.25)'
-            raw.fillRect(0, 0, w, h)
-            raw.globalCompositeOperation = 'multiply'
-            raw.fillStyle = 'rgba(240, 220, 200, 0.08)'
-            raw.fillRect(0, 0, w, h)
-          } else if (grading === 'cyberpunk') {
-            const grad = raw.createLinearGradient(0, 0, w, h)
-            grad.addColorStop(0, 'rgba(255, 0, 128, 0.18)')
-            grad.addColorStop(1, 'rgba(0, 255, 255, 0.18)')
-            raw.globalCompositeOperation = 'color'
-            raw.fillStyle = grad
-            raw.fillRect(0, 0, w, h)
-          } else if (grading === 'cinematic') {
-            raw.globalCompositeOperation = 'difference'
-            raw.fillStyle = 'rgba(0, 40, 60, 0.08)'
-            raw.fillRect(0, 0, w, h)
-            raw.globalCompositeOperation = 'color'
-            raw.fillStyle = 'rgba(255, 140, 40, 0.08)'
-            raw.fillRect(0, 0, w, h)
-          } else if (grading === 'monochrome') {
-            raw.globalCompositeOperation = 'color'
-            raw.fillStyle = 'rgba(128, 128, 128, 1)'
-            raw.fillRect(0, 0, w, h)
-          } else if (grading === 'noir') {
-            raw.globalCompositeOperation = 'color'
-            raw.fillStyle = 'rgba(128, 128, 128, 1)'
-            raw.fillRect(0, 0, w, h)
-            raw.globalCompositeOperation = 'overlay'
-            raw.fillStyle = 'rgba(0,0,0,0.2)'
-            raw.fillRect(0, 0, w, h)
-          } else if (grading === 'sunset') {
-            const grad = raw.createLinearGradient(0, h, w, 0)
-            grad.addColorStop(0, 'rgba(253, 94, 83, 0.2)')
-            grad.addColorStop(1, 'rgba(255, 180, 0, 0.15)')
-            raw.globalCompositeOperation = 'color'
-            raw.fillStyle = grad
-            raw.fillRect(0, 0, w, h)
-          }
-          raw.restore()
-        }
-
-        // 11. Grain and vignette overlays
-        drawGrain(raw, el)
-        drawVignette(raw, el)
-
-        drawInnerShadow(raw, el.innerShadow, w, h, frame === 'none' ? el.cornerRadius : Math.min(w, h) / 2)
-
-        raw.restore()
-        drawMediaBorder(raw, el, w, h, localTime, frame)
-
-        ctx.fillStrokeShape(shape)
       }}
     />
   )

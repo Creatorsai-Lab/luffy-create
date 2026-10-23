@@ -26,6 +26,8 @@ Video timing has two layers: where the video appears in the scene, and where pla
 | **Start Time** | Trim point inside the original source video |
 | **Duration** | How long the clip plays in the scene |
 | **Playback Speed** | Slow down or speed up the clip |
+| **Speed ramp** | Change the speed during the clip (slow-mo start, montage, hero, bullet time…) |
+| **Freeze frame** | Hold one frame for a moment, then carry on |
 | **Loop** | Repeat a short video for the scene duration |
 | **Volume / Muted** | Keep, lower, or remove the original audio |
 
@@ -64,6 +66,33 @@ Video supports many of the same visual controls as images:
 | **Corner Radius** | Make videos feel like modern UI panels |
 
 For screen recordings, a border, small corner radius, and soft shadow often make the clip feel intentionally designed instead of pasted into the scene.
+
+---
+
+## Speed Ramps and Freeze Frames
+
+The **Speed ramp** section of the Video panel changes speed during the clip — the "velocity" edit:
+
+| Preset | What it does |
+|---|---|
+| **Slow-mo start** | Starts in slow motion, then plays normally |
+| **Montage** | Fast, a slow moment, fast again |
+| **Hero** | Normal, a dramatic slow-motion middle, normal |
+| **Bullet** | Very fast into an almost-frozen moment and out |
+| **Flash in** / **Flash out** | Rushes in and settles / plays normally, then rushes out |
+| **Jump** | Steps between normal and fast |
+
+Shape the curve by dragging points (0.1× to 10×); double-click adds a point, right-click removes one. The clip keeps the same footage, so its length changes — and a clip that ended with its scene takes the scene with it. The sound follows the speed and keeps its pitch, in the editor and in export.
+
+**Freeze frame**: put the playhead on a moment, click **Freeze at the playhead** and set **Hold**. The picture holds (silently), then the clip continues.
+
+Splitting a ramped clip keeps each part's piece of the curve; jump cuts and transcript edits on a ramped clip cut at the right words.
+
+---
+
+## Effects
+
+Select the clip and click **Open Effects** (or use the **Effects** tool). 43 GPU effects in nine groups — Body (AI): neon outline, aura, spotlight and echo trail around the person; Retro & Texture; Glitch; Warp; Light; Energy (phonk, strobe, zoom pulse, shake, flash); Motion; Weather; and Colour looks. Hover to preview on your clip, click to add, stack as many as you like. Each effect has a strength, its own settings and a speed; ♪ effects can hit on the music's beat; and each can run for the whole clip or from/to a time with fades (shown as bars under the clip in the timeline). Everything appears the same in Preview and export.
 
 ---
 
