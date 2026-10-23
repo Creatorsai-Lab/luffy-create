@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { ArrowUpRight, AudioLines, Heart, HeartHandshake, Settings, Sparkles, Sprout, X } from 'lucide-react'
+import { ArrowUpRight, AudioLines, Github, Heart, HeartHandshake, MessageSquareHeart, Settings, Sparkles, Sprout, Star, X } from 'lucide-react'
 import luffyLogo from '/images/luffy_create_logo.webp'
 import { cn } from '../../utils/cn'
 
@@ -13,6 +13,8 @@ const PRODUCTS = [
     desc: 'Grow without ad spend: an AI copilot that plans and writes organic content your audience shares.' },
 ]
 const DONATE_URL = ''
+/** Where feedback goes — GitHub issues for now; swap in the feedback form page when it is ready. */
+const FEEDBACK_URL = 'https://github.com/Creatorsai-Lab/luffy-create/issues'
 
 const open = (url: string) => { if (url) void window.api.shell.openExternal(url) }
 
@@ -71,6 +73,40 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               </p>
             </section>
 
+            {/* Feedback: a preview of the form — the whole card opens the real one in the browser. */}
+            <section className="flex flex-col gap-3">
+              <h3 className="flex items-center gap-1.5 text-lg font-semibold text-editor-text">
+                <MessageSquareHeart size={17} className="text-editor-accent" /> Tell us what you think
+              </h3>
+              <div role="link" tabIndex={0} onClick={() => open(FEEDBACK_URL)} title="Opens the feedback page in your browser"
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(FEEDBACK_URL) } }}
+                className="group flex w-full cursor-pointer flex-col gap-3 rounded-xl border border-editor-border bg-editor-elevated-highlight p-5 text-left outline-none transition-colors hover:border-editor-accent/70 focus-visible:border-editor-accent">
+                <p className="text-sm leading-relaxed text-editor-text-secondary">
+                  Found a bug, missing a feature, or just loving it? Every note is read — and the best ideas ship in the next update.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <DemoField label="Name" placeholder="Your name" />
+                  <DemoField label="Email" placeholder="you@example.com (optional)" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-editor-text-secondary">How's Luffy Create so far?</span>
+                  <span className="flex gap-1">
+                    {[0, 1, 2, 3, 4].map(n => <Star key={n} size={16} className={n < 4 ? 'fill-amber-400 text-amber-400' : 'text-editor-text-secondary'} />)}
+                  </span>
+                </div>
+                <DemoField label="Your feedback" placeholder="What should we build, fix or improve next?" tall />
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <span className="flex min-w-0 items-center gap-1.5 truncate text-xs text-editor-text-secondary group-hover:text-editor-text">
+                    <Github size={13} className="flex-none" /> github.com/Creatorsai-Lab/luffy-create
+                  </span>
+                  <span style={{ '--cta-delay': '0.8s' } as React.CSSProperties}
+                    className="cta-shine cta-glow flex flex-none items-center gap-1 whitespace-nowrap rounded-lg bg-editor-accent px-4 py-2 text-sm font-medium text-white transition-colors group-hover:bg-editor-accent-hover">
+                    Share feedback <ArrowUpRight size={14} className="cta-nudge" />
+                  </span>
+                </div>
+              </div>
+            </section>
+
             {/* Other products */}
             <section className="flex flex-col gap-3">
               <h3 className="text-lg font-semibold text-editor-text">Try other cool products from <em>Creators AI Lab</em></h3>
@@ -115,6 +151,18 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** A form field look-alike for the feedback preview (not typed into; the real form opens in the browser). */
+function DemoField({ label, placeholder, tall }: { label: string; placeholder: string; tall?: boolean }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs text-editor-text-secondary">{label}</span>
+      <span className={cn('rounded-lg border border-editor-border bg-editor-panel px-3 py-2 text-sm text-editor-text-secondary/70', tall && 'h-20')}>
+        {placeholder}
+      </span>
     </div>
   )
 }
