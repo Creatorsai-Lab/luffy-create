@@ -35,3 +35,12 @@ export function cropAt(crop: Crop | undefined, keys: readonly CropKey[] | undefi
     h: crop.h,
   }
 }
+
+/** The crop with a punch-in zoom (jump cuts) applied about its centre: 1.1 shows the middle 1/1.1 of it. */
+export function punchedCrop(crop: Crop | undefined, zoom: number | undefined): Crop | undefined {
+  if (!zoom || zoom <= 1) return crop
+  const c = crop ?? { x: 0, y: 0, w: 1, h: 1 }
+  const w = c.w / zoom
+  const h = c.h / zoom
+  return { x: c.x + (c.w - w) / 2, y: c.y + (c.h - h) / 2, w, h }
+}

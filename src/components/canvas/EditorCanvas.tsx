@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react'
+import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react'
 import { Stage, Layer, Shape, Transformer, Circle, Path, Label, Tag, Text, Line } from 'react-konva'
 import type Konva from 'konva'
 import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowUpToLine, ArrowDownToLine, Group, Ungroup, BoxSelect, Lock, Unlock } from 'lucide-react'
@@ -10,22 +10,14 @@ import LockedMark from './LockedMark'
 import { toast } from '../ui/Toast'
 import { useCanvasStore } from '../../store/canvasStore'
 import { getAnimatedProps } from '../../engine/animator'
-import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
-import { isDirectionalTransition } from '../../engine/directionalTransitions'
-import {
-  buildTransitionTimeline,
-  getEffectiveTransitionDuration,
-  getTransitionFrameState,
-  getTransitionPreviewKey,
-  getUpcomingTransitionEntry,
-} from '../../utils/transitionTiming'
+import { buildTransitionTimeline, getTransitionFrameState, getUpcomingTransitionEntry } from '../../utils/transitionTiming'
 import { drawBackground } from '../../engine/backgroundRenderer'
-import { registerStage } from '../../engine/stageRegistry'
+import { registerOutgoingStage, registerStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
 import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
 import { getMorphFrame } from '../../engine/morph'
 import { makeShape, makeArrow, makeChart, makeHandDrawLayer } from '../../utils/defaults'
-import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke, SlideDir, TransitionType } from '../../types/editor'
+import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
 import { getCanvasCursor, shouldShowSelectionHandles } from '../../utils/canvasInteraction'
@@ -39,11 +31,8 @@ import ContextMenu from '../ui/ContextMenu'
 import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
 import { sceneStartTime } from '../../utils/sceneTiming'
 import { useShallow } from 'zustand/react/shallow'
-import {
-  captureStageToCanvas,
-  refreshStageSnapshot,
-  rememberRecentSnapshot,
-} from './captureStageToCanvas'
+import SceneStage from './SceneStage'
+import { blendVolumes, captureLayers, drawBlend, type BlendState } from './transitionComposite'
 
 const IMAGE_BG_ADJUSTMENT_KEYS: (keyof ImageBg)[] = [
   'opacity',
@@ -78,12 +67,12 @@ export default function EditorCanvas() {
   const trRef        = useRef<Konva.Transformer | null>(null)
   const animFrameRef = useRef<number>(0)
   const bgShapeRef   = useRef<Konva.Shape | null>(null)
-  const transitionCanvasRef = useRef<HTMLCanvasElement>(null)
-  const transitionToCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const transitionFrameRef = useRef<number>(0)
-  const transitionSnapshotsRef = useRef(new Map<string, string>())
-  const transitionCanvasSnapshotsRef = useRef(new Map<string, HTMLCanvasElement>())
-  const transitionFinalSnapshotsRef = useRef(new Set<string>())
+  // Transitions: the main stage's picture layers, the outgoing scene's hidden stage, and the blend layer.
+  const bgLayerRef = useRef<Konva.Layer | null>(null)
+  const elementsLayerRef = useRef<Konva.Layer | null>(null)
+  const blendLayerRef = useRef<Konva.Layer | null>(null)
+  const outgoingStageRef = useRef<Konva.Stage | null>(null)
+  const blendScratchRef = useRef<{ main: HTMLCanvasElement; other: HTMLCanvasElement } | null>(null)
 
   // Computed display size (project coords → screen pixels)
   const [scale,    setScale]    = useState(1)
@@ -108,20 +97,6 @@ export default function EditorCanvas() {
   const clipboardRef  = useRef<EditorElement[]>([])
   const clipboardSourceSceneRef = useRef<string | null>(null)
 
-  // ── Live transition overlay ───────────────────────────────────────────────────
-  const [transOverlay, setTransOverlay] = useState<{
-    snap?: string
-    fromSceneId: string
-    type: TransitionType
-    direction?: SlideDir
-    speed?: number
-    hardness?: number
-    toSceneId: string
-    transitionStart: number
-    duration: number
-  } | null>(null)
-  const transitionKeyRef = useRef<string | null>(null)
-
   const {
     project, currentSceneId, selectedIds,
     playhead, isPlaying, exportOpen, activeTool, activePanel, pendingChartType, handDrawSettings,
@@ -134,21 +109,6 @@ export default function EditorCanvas() {
   const showHighlights = useCanvasStore(s => s.showHighlights)
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
-
-  const rememberTransitionSnapshot = useCallback((sceneId: string, snap: string) => {
-    const removed = rememberRecentSnapshot(transitionSnapshotsRef.current, sceneId, snap)
-    removed.forEach(id => transitionFinalSnapshotsRef.current.delete(id))
-  }, [])
-
-  const captureTransitionCanvas = useCallback((sceneId: string, stage: Konva.Stage) => {
-    return refreshStageSnapshot(
-      transitionCanvasSnapshotsRef.current,
-      sceneId,
-      stage,
-      canvasW,
-      canvasH,
-    )
-  }, [canvasH, canvasW])
 
   const setStageRef = useCallback((stage: Konva.Stage | null) => {
     stageRef.current = stage
@@ -164,7 +124,7 @@ export default function EditorCanvas() {
   // ── Auto-select sidebar panel based on selected element ──────────────────────
   useEffect(() => {
     if (selectedIds.length === 0) return
-    const stickyPanels: ActivePanel[] = ['perspective', 'motion', 'handDraw', 'effects', 'groupEffects', 'blocks']
+    const stickyPanels: ActivePanel[] = ['perspective', 'motion', 'handDraw', 'effects', 'groupEffects', 'blocks', 'editBg']
     if (stickyPanels.includes(activePanel)) return
     
     const scene = project?.scenes.find(s => s.id === currentSceneId)
@@ -438,223 +398,6 @@ export default function EditorCanvas() {
   useEffect(() => {
     if (project && isPlaying) prewarmUpcomingVideos(project, playhead)
   }, [project, isPlaying, playhead])
-
-  useEffect(() => {
-    transitionSnapshotsRef.current.clear()
-    transitionCanvasSnapshotsRef.current.clear()
-    transitionFinalSnapshotsRef.current.clear()
-  }, [project?.id])
-
-  useEffect(() => {
-    const valid = new Set(project?.scenes.map(scene => scene.id) ?? [])
-    for (const id of transitionSnapshotsRef.current.keys()) {
-      if (!valid.has(id)) transitionSnapshotsRef.current.delete(id)
-    }
-    for (const id of transitionCanvasSnapshotsRef.current.keys()) {
-      if (!valid.has(id)) transitionCanvasSnapshotsRef.current.delete(id)
-    }
-    for (const id of transitionFinalSnapshotsRef.current) {
-      if (!valid.has(id)) transitionFinalSnapshotsRef.current.delete(id)
-    }
-    if (!isPlaying && currentSceneId) {
-      transitionSnapshotsRef.current.delete(currentSceneId)
-      transitionCanvasSnapshotsRef.current.delete(currentSceneId)
-      transitionFinalSnapshotsRef.current.delete(currentSceneId)
-    }
-  }, [currentSceneId, isPlaying, project?.scenes])
-
-  useEffect(() => {
-    if (isPlaying || !stageRef.current || !currentSceneId) return
-    rememberTransitionSnapshot(
-      currentSceneId,
-      stageRef.current.toDataURL({ pixelRatio: 1 }),
-    )
-    captureTransitionCanvas(currentSceneId, stageRef.current)
-    transitionFinalSnapshotsRef.current.delete(currentSceneId)
-  }, [captureTransitionCanvas, currentSceneId, isPlaying, rememberTransitionSnapshot])
-
-  useEffect(() => {
-    if (!isPlaying || !stageRef.current || !currentSceneId) return
-    const stage = stageRef.current
-    const sceneId = currentSceneId
-    const frame = requestAnimationFrame(() => captureTransitionCanvas(sceneId, stage))
-    return () => cancelAnimationFrame(frame)
-  }, [captureTransitionCanvas, currentSceneId, isPlaying])
-
-  // Resolve the same transition window used by Preview and export. Capture the
-  // outgoing scene once just before its boundary so the incoming scene can play.
-  useEffect(() => {
-    if (!project || !isPlaying) {
-      if (transitionKeyRef.current) {
-        transitionKeyRef.current = null
-        setTransOverlay(null)
-      }
-      return
-    }
-    const timeline = buildTransitionTimeline(project.scenes)
-    const frameState = getTransitionFrameState(timeline, playhead)
-    const stage = stageRef.current
-    const upcoming = getUpcomingTransitionEntry(timeline, playhead, 0.1)
-
-    // Repaint the same bounded Canvas throughout the lead window. This keeps
-    // animated/video outgoing frames current without allocating per tick.
-    if (upcoming && isDirectionalTransition(upcoming.transition.type) && stage) {
-      const from = timeline[upcoming.sceneIndex - 1]
-      if (from && currentSceneId === from.sceneId) {
-        captureTransitionCanvas(from.sceneId, stage)
-      }
-    }
-
-    // Morph is rendered as a live in-between scene (see getMorphFrame below),
-    // not as a snapshot overlay.
-    if (frameState.kind === 'transition' && frameState.transition.type === 'morph') {
-      if (transitionKeyRef.current) {
-        transitionKeyRef.current = null
-        setTransOverlay(null)
-      }
-      return
-    }
-
-    if (frameState.kind === 'transition') {
-      const to = timeline[frameState.toSceneIndex]
-      const key = getTransitionPreviewKey(frameState.fromSceneId, to)
-      if (transitionKeyRef.current !== key && stage) {
-        const directional = isDirectionalTransition(frameState.transition.type)
-        if (directional) {
-          let fromCanvas = transitionCanvasSnapshotsRef.current.get(frameState.fromSceneId)
-          if (!fromCanvas && currentSceneId === frameState.fromSceneId) {
-            fromCanvas = captureTransitionCanvas(frameState.fromSceneId, stage)
-          }
-          if (!fromCanvas) {
-            transitionKeyRef.current = null
-            setTransOverlay(null)
-            return
-          }
-        } else {
-          let snap = transitionSnapshotsRef.current.get(frameState.fromSceneId)
-          if (!snap && currentSceneId === frameState.fromSceneId) {
-            snap = stage.toDataURL({ pixelRatio: 1 })
-            rememberTransitionSnapshot(frameState.fromSceneId, snap)
-          }
-          if (!snap) {
-            transitionKeyRef.current = null
-            setTransOverlay(null)
-            return
-          }
-        }
-        transitionKeyRef.current = key
-        setTransOverlay({
-          snap: directional
-            ? undefined
-            : transitionSnapshotsRef.current.get(frameState.fromSceneId),
-          fromSceneId: frameState.fromSceneId,
-          type: frameState.transition.type,
-          direction: frameState.transition.direction,
-          speed: frameState.transition.speed,
-          hardness: frameState.transition.hardness,
-          toSceneId: frameState.toSceneId,
-          transitionStart: to.startTime,
-          duration: getEffectiveTransitionDuration(to),
-        })
-      }
-      return
-    }
-
-    const current = timeline[frameState.sceneIndex]
-    const next = timeline[frameState.sceneIndex + 1]
-    if (!stage) return
-    // Fallback "from" snapshot for an upcoming fade-style transition. toDataURL
-    // is a synchronous full-frame encode, so skip it at plain cuts (e.g. a
-    // split video scene) where it would stall the first frame of the scene.
-    const nextUsesSnapshot = !!next && next.transition.type !== 'none' &&
-      next.transition.type !== 'morph' && !isDirectionalTransition(next.transition.type)
-    if (nextUsesSnapshot && !transitionSnapshotsRef.current.has(current.sceneId)) {
-      rememberTransitionSnapshot(
-        current.sceneId,
-        stage.toDataURL({ pixelRatio: 1 }),
-      )
-    }
-
-    if (upcoming && isDirectionalTransition(upcoming.transition.type)) {
-      const key = getTransitionPreviewKey(current.sceneId, upcoming)
-      if (transitionKeyRef.current !== key &&
-          transitionCanvasSnapshotsRef.current.has(current.sceneId)) {
-        transitionKeyRef.current = key
-        setTransOverlay({
-          fromSceneId: current.sceneId,
-          type: upcoming.transition.type,
-          direction: upcoming.transition.direction,
-          speed: upcoming.transition.speed,
-          hardness: upcoming.transition.hardness,
-          toSceneId: upcoming.sceneId,
-          transitionStart: upcoming.startTime,
-          duration: getEffectiveTransitionDuration(upcoming),
-        })
-      }
-      return
-    }
-
-    if (transitionKeyRef.current) {
-      transitionKeyRef.current = null
-      setTransOverlay(null)
-    }
-
-    if (!next || next.transition.type === 'none' || next.transition.type === 'morph') return
-    const captureLead = Math.min(0.05, getEffectiveTransitionDuration(next))
-    if (playhead >= current.endTime - captureLead && playhead < current.endTime) {
-      if (!transitionFinalSnapshotsRef.current.has(current.sceneId)) {
-        rememberTransitionSnapshot(
-          current.sceneId,
-          stage.toDataURL({ pixelRatio: 1 }),
-        )
-        transitionFinalSnapshotsRef.current.add(current.sceneId)
-      }
-    }
-  }, [
-    captureTransitionCanvas, currentSceneId, isPlaying, playhead, project,
-    rememberTransitionSnapshot,
-  ])
-
-  const drawDirectionalPreview = useCallback(() => {
-    if (!transOverlay || !isDirectionalTransition(transOverlay.type)) return
-    const canvas = transitionCanvasRef.current
-    const from = transitionCanvasSnapshotsRef.current.get(transOverlay.fromSceneId)
-    const stage = stageRef.current
-    if (!canvas || !from || !stage) return
-    if (canvas.width !== canvasW) canvas.width = canvasW
-    if (canvas.height !== canvasH) canvas.height = canvasH
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const toCanvas = transitionToCanvasRef.current ?? document.createElement('canvas')
-    transitionToCanvasRef.current = toCanvas
-    renderTransition({
-      ctx,
-      width: canvasW,
-      height: canvasH,
-      progress: (playhead - transOverlay.transitionStart) / transOverlay.duration,
-      type: transOverlay.type,
-      direction: transOverlay.direction,
-      speed: transOverlay.speed,
-      hardness: transOverlay.hardness,
-      fromCanvas: from,
-      toCanvas: captureStageToCanvas(stage, toCanvas, canvasW, canvasH),
-    })
-  }, [canvasH, canvasW, playhead, transOverlay])
-  const drawDirectionalPreviewRef = useRef(drawDirectionalPreview)
-  drawDirectionalPreviewRef.current = drawDirectionalPreview
-
-  useEffect(() => {
-    if (!transOverlay || !isDirectionalTransition(transOverlay.type)) return
-    // One continuous loop while the overlay is active. A one-shot rAF that the
-    // effect cancels and reschedules on every playhead render never fires during
-    // playback (store updates re-render synchronously inside the frame).
-    const loop = () => {
-      drawDirectionalPreviewRef.current()
-      transitionFrameRef.current = requestAnimationFrame(loop)
-    }
-    transitionFrameRef.current = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(transitionFrameRef.current)
-  }, [transOverlay])
 
   // ── Crop mode: initialize pendingCrop from store trigger ──────────────────────
   useEffect(() => {
@@ -1034,6 +777,57 @@ export default function EditorCanvas() {
     raw.restore()
   }
 
+  // ── Transitions ─────────────────────────────────────────────────────────────
+  // The playhead's scene is always on the main stage. During a transition the
+  // outgoing scene of a cut plays on a hidden stage, and the blend layer draws
+  // both through the transition (intros and outros blend with black). The same
+  // happens paused, so scrubbing shows the transition too. Export composes the
+  // two stages itself at full resolution.
+  const transitionTimeline = useMemo(
+    () => (project ? buildTransitionTimeline(project.scenes, project.endTransition) : null),
+    [project?.scenes, project?.endTransition],
+  )
+  const transitionState = transitionTimeline?.length ? getTransitionFrameState(transitionTimeline, playhead) : null
+  const morphActive = (isPlaying || exportOpen) && transitionState?.kind === 'transition' && transitionState.transition.type === 'morph'
+  const blend: BlendState | null = transitionState?.kind === 'transition' && !morphActive && transitionState.transition.type !== 'morph' &&
+    (transitionState.phase === 'outro' ? transitionState.fromSceneId : transitionState.toSceneId) === currentSceneId
+    ? transitionState : null
+  const blendRef = useRef<BlendState | null>(null)
+  blendRef.current = blend
+  const blendActive = Boolean(blend) && !exportOpen
+
+  // Redraw the blend every frame while it shows (both scenes may be playing).
+  useEffect(() => {
+    if (!blendActive) return
+    let frame = 0
+    const loop = () => {
+      blendLayerRef.current?.batchDraw()
+      frame = requestAnimationFrame(loop)
+    }
+    frame = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(frame)
+  }, [blendActive])
+
+  const drawBlendLayer = useCallback((ctx: Konva.Context) => {
+    const state = blendRef.current
+    const bg = bgLayerRef.current
+    const els = elementsLayerRef.current
+    if (!state || !bg || !els) return
+    const scratch = blendScratchRef.current ??= { main: document.createElement('canvas'), other: document.createElement('canvas') }
+    const outgoing = outgoingStageRef.current
+    // Until the outgoing scene's stage is up, show the scene as it is.
+    if (state.phase === 'cut' && !outgoing) return
+    const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
+    drawBlend(raw, raw.canvas.width, raw.canvas.height, state,
+      captureLayers([bg, els], scratch.main),
+      outgoing ? captureLayers(outgoing.getLayers(), scratch.other) : null)
+  }, [])
+
+  const setOutgoingStage = useCallback((stage: Konva.Stage | null) => {
+    outgoingStageRef.current = stage
+    registerOutgoingStage(stage)
+  }, [])
+
   // ── Render ─────────────────────────────────────────────────────────────────────
 
   if (!project || !currentScene) {
@@ -1044,24 +838,23 @@ export default function EditorCanvas() {
     )
   }
 
-  // A directional transition is pre-armed before its boundary. Keep rendering
-  // the outgoing scene until the incoming scene actually begins.
-  const transitionStarted = !!transOverlay && playhead >= transOverlay.transitionStart
-  const activeSceneId = transitionStarted ? transOverlay.toSceneId : currentSceneId
   // During a Morph (playback or export frames) render the live in-between scene.
   // Paused editing always shows the real scene so it stays editable.
-  const morphFrame = isPlaying || exportOpen ? getMorphFrame(project, playhead) : null
-  const activeScene   = morphFrame?.scene ?? project.scenes.find(s => s.id === activeSceneId) ?? currentScene
+  const morphFrame = morphActive ? getMorphFrame(project, playhead) : null
+  const activeScene = morphFrame?.scene ?? currentScene
+  const localTime = morphFrame ? morphFrame.localTime : currentSceneId ? playhead - sceneStartTime(project.scenes, currentSceneId) : 0
 
-  // Compute scene-local time for animations
-  let localTime = 0
-  if (morphFrame) {
-    localTime = morphFrame.localTime
-  } else if (transitionStarted && transOverlay) {
-    localTime = Math.max(0, playhead - transOverlay.transitionStart)
-  } else if (currentSceneId) {
-    localTime = playhead - sceneStartTime(project.scenes, currentSceneId)
-  }
+  // Clip sound crosses over: the outgoing scene fades out as the incoming one fades in.
+  const volumes = blend ? blendVolumes(blend) : null
+  const mainVolume = blend ? (blend.phase === 'outro' ? volumes!.from : volumes!.to) : 1
+  // The outgoing copy of a cut. While playing it starts a little before the cut (muted),
+  // so its videos are ready and it simply carries on when the main stage moves to the next scene.
+  const upcoming = !blend && isPlaying && transitionTimeline ? getUpcomingTransitionEntry(transitionTimeline, playhead, 0.6) : null
+  const outgoing = blend?.phase === 'cut'
+    ? { scene: project.scenes[blend.fromSceneIndex], localTime: blend.fromLocalTime, volume: volumes!.from }
+    : upcoming && upcoming.transition.type !== 'morph' && transitionTimeline
+      ? { scene: project.scenes[upcoming.sceneIndex - 1], localTime: playhead - transitionTimeline[upcoming.sceneIndex - 1].startTime, volume: 0 }
+      : null
 
   const sortedEls = [...(activeScene ?? currentScene).elements].sort((a, b) => a.zIndex - b.zIndex)
   const selectedSet = new Set(selectedIds)
@@ -1111,7 +904,7 @@ export default function EditorCanvas() {
           onContextMenu={handleStageContextMenu}
         >
           {/* Background */}
-          <Layer>
+          <Layer ref={bgLayerRef}>
             <BackgroundShape
               ref={bgShapeRef}
               bg={(activeScene ?? currentScene).background}
@@ -1126,7 +919,7 @@ export default function EditorCanvas() {
           </Layer>
 
           {/* Elements */}
-          <Layer>
+          <Layer ref={elementsLayerRef}>
             {(() => {
               // A group drawn in perspective renders once, as one warped picture, where its lowest member sits.
               const scene = activeScene ?? currentScene
@@ -1153,6 +946,7 @@ export default function EditorCanvas() {
                   sceneWidth={project?.width}
                   syncVideoToTime={!localPlayingIds.has(el.id) && (isPlaying || playhead > 0)}
                   videoPlaybackActive={isPlaying}
+                  mediaVolume={mainVolume}
                 />
               )
               }
@@ -1177,6 +971,17 @@ export default function EditorCanvas() {
                 )
               })
             })()}
+          </Layer>
+
+          {/* A transition in progress: the outgoing and incoming scenes drawn together over the scene. */}
+          {blendActive && (
+            <Layer ref={blendLayerRef} listening={false}>
+              <Shape sceneFunc={drawBlendLayer} listening={false} />
+            </Layer>
+          )}
+
+          {/* Captions sit above transitions — they belong to the timeline, not to a scene. */}
+          <Layer id="subtitles" listening={false}>
             <SubtitleOverlay project={project} time={playhead} />
           </Layer>
 
@@ -1314,67 +1119,27 @@ export default function EditorCanvas() {
         )}
       </div>
 
-      {transOverlay && isDirectionalTransition(transOverlay.type) && (
-        <canvas
-          ref={transitionCanvasRef}
+      {/* The outgoing scene of a transition, drawn off screen for the blend layer and export. */}
+      {outgoing && (
+        <SceneStage
+          key={outgoing.scene.id}
+          refSetter={setOutgoingStage}
+          project={project}
+          scene={outgoing.scene}
+          localTime={outgoing.localTime}
+          globalTime={playhead}
           width={canvasW}
           height={canvasH}
-          style={{
-            position: 'absolute',
-            left: offsetX, top: offsetY,
-            width: canvasW, height: canvasH,
-            pointerEvents: 'none',
-            zIndex: 40,
-          }}
+          scale={scale}
+          isPlaying={isPlaying}
+          keepPlaying
+          mediaVolume={outgoing.volume}
+          mediaKeySuffix="@out"
+          quietLoading
+          subtitles={false}
+          style={{ position: 'absolute', left: offsetX, top: offsetY, width: canvasW, height: canvasH, visibility: 'hidden' }}
         />
       )}
-
-      {/* Existing transitions keep their lightweight HTML preview path. */}
-      {transOverlay && !isDirectionalTransition(transOverlay.type) && (() => {
-        const rawP = Math.min(1, Math.max(0, (playhead - transOverlay.transitionStart) / transOverlay.duration))
-        const p = easeInOutCubic(rawP)
-        const dir = transOverlay.direction
-        // The overlay is the OLD (FROM) scene sitting on top; the NEW scene renders
-        // beneath. So we animate the OLD scene's EXIT. `dir` = edge the NEW scene
-        // enters from, therefore the OLD scene leaves toward the OPPOSITE edge.
-        let overlayStyle: React.CSSProperties = {}
-        switch (transOverlay.type) {
-          case 'fade':
-            overlayStyle = { opacity: 1 - p }
-            break
-          case 'slide':
-          case 'push':
-            // old exits opposite to where the new enters
-            if (dir === 'right') overlayStyle = { transform: `translateX(-${p * 100}%)` }
-            else if (dir === 'left') overlayStyle = { transform: `translateX(${p * 100}%)` }
-            else if (dir === 'down') overlayStyle = { transform: `translateY(-${p * 100}%)` }
-            else if (dir === 'up') overlayStyle = { transform: `translateY(${p * 100}%)` }
-            else overlayStyle = { transform: `translateX(-${p * 100}%)` }
-            break
-          case 'zoom':
-            overlayStyle = { opacity: 1 - p, transform: `scale(${1 + p * 0.035})`, transformOrigin: 'center center' }
-            break
-          case 'wipe':
-            if (dir === 'right') overlayStyle = { clipPath: `inset(0 0 0 ${p * 100}%)` }
-            else if (dir === 'left') overlayStyle = { clipPath: `inset(0 ${p * 100}% 0 0)` }
-            else if (dir === 'down') overlayStyle = { clipPath: `inset(${p * 100}% 0 0 0)` }
-            else overlayStyle = { clipPath: `inset(0 0 ${p * 100}% 0)` }
-            break
-        }
-        return (
-          <img
-            src={transOverlay.snap ?? ''}
-            style={{
-              position: 'absolute',
-              left: offsetX, top: offsetY,
-              width: canvasW, height: canvasH,
-              pointerEvents: 'none',
-              zIndex: 40,
-              ...overlayStyle,
-            }}
-          />
-        )
-      })()}
 
       {/* Crop overlay — HTML, not Konva, excluded from export */}
       {cropState && (() => {

@@ -4,7 +4,7 @@
  * the scene backwards: splitScene keeps the original id on the first part, so
  * every earlier time stays valid while later parts are cut away.
  */
-import type { AiEditorCommand } from '../types'
+import type { AiEditorCommand, AiSceneRef } from '../types'
 import type { TimeRange } from './speech'
 
 export interface SceneInfo {
@@ -15,32 +15,67 @@ export interface SceneInfo {
 
 const EDGE = 0.1 // splitScene refuses cuts closer than this to either end
 
-/** Ranges are in scene time. Returns the commands and how many seconds they remove. */
-export function removeRanges(scene: SceneInfo, ranges: TimeRange[], nextAlias: () => string, opts: { canRemoveScene: boolean; minRange?: number }) {
+/** A part of a scene left after cutting: [from, to] in the scene's old time, and how to refer to it in later commands. */
+export interface KeptPart {
+  from: number
+  to: number
+  ref: AiSceneRef
+}
+
+/**
+ * Ranges are in scene time. Returns the commands, how many seconds they remove
+ * and the parts that stay. With `nameParts`, every kept part after a cut gets a
+ * scene alias so later commands in the plan can change it (e.g. punch-in zooms).
+ * Kept slivers shorter than `minKeep` are cut along with their neighbours.
+ */
+export function removeRanges(
+  scene: SceneInfo,
+  ranges: TimeRange[],
+  nextAlias: () => string,
+  opts: { canRemoveScene: boolean; minRange?: number; minKeep?: number; nameParts?: boolean }
+) {
   const minRange = opts.minRange ?? 0.2
-  const clean = mergeRanges(ranges.map(([a, b]): TimeRange => [Math.max(0, a), Math.min(scene.duration, b)]))
+  const minKeep = opts.minKeep ?? 0
+  let clean = mergeRanges(ranges.map(([a, b]): TimeRange => [Math.max(0, a), Math.min(scene.duration, b)]))
     .filter(([a, b]) => b - a >= minRange)
+  if (minKeep > 0) {
+    clean = mergeRanges(clean.map(([a, b], i): TimeRange => [
+      a < minKeep ? 0 : a,
+      // Close the gap to the next range (or the scene end) when what's left between is a sliver.
+      Math.min(scene.duration, b + minKeep > (clean[i + 1]?.[0] ?? scene.duration) ? (clean[i + 1]?.[0] ?? scene.duration) : b),
+    ]))
+  }
 
   const ref = { sceneId: scene.id, sceneIndex: scene.index }
   const commands: AiEditorCommand[] = []
+  const kept: KeptPart[] = []
   let removed = 0
+  let keptUntil = scene.duration
   for (const [a, b] of clean.slice().reverse()) {
     const atStart = a <= EDGE
     const atEnd = b >= scene.duration - EDGE
+    // The part after this range (up to the next range) stays.
+    const keepAlias = !atEnd && opts.nameParts ? nextAlias() : undefined
+    if (!atEnd) kept.unshift({ from: b, to: keptUntil, ref: keepAlias ? { sceneAlias: keepAlias } : {} })
     if (atStart && atEnd) {
-      if (!opts.canRemoveScene) continue
+      if (!opts.canRemoveScene) {
+        kept.push({ from: 0, to: scene.duration, ref })
+        continue
+      }
       commands.push({ type: 'removeScene', ...ref })
     } else if (atStart) {
       // The scene becomes [0, b] and is removed; the rest lives on as the new part.
-      commands.push({ type: 'splitScene', ...ref, at: round(b) }, { type: 'removeScene', ...ref })
+      commands.push({ type: 'splitScene', ...ref, at: round(b), ...(keepAlias && { alias: keepAlias }) }, { type: 'removeScene', ...ref })
     } else {
       const alias = nextAlias()
-      if (!atEnd) commands.push({ type: 'splitScene', ...ref, at: round(b) })
+      if (!atEnd) commands.push({ type: 'splitScene', ...ref, at: round(b), ...(keepAlias && { alias: keepAlias }) })
       commands.push({ type: 'splitScene', ...ref, at: round(a), alias }, { type: 'removeScene', sceneAlias: alias })
     }
     removed += (atEnd ? scene.duration : b) - (atStart ? 0 : a)
+    keptUntil = a
   }
-  return { commands, removed: round(removed), count: commands.filter(c => c.type === 'removeScene').length }
+  if (!clean.length || clean[0][0] > EDGE) kept.unshift({ from: 0, to: keptUntil, ref })
+  return { commands, removed: round(removed), count: commands.filter(c => c.type === 'removeScene').length, kept }
 }
 
 /** Splits a scene at each time (scene time), skipping times too close to the ends. */

@@ -58,10 +58,27 @@ Move scene 4 before scene 2  Swap scene 1 and 3
 ```text
 Use wipe transitions between all scenes
 Add a zoom transition to scene 2 lasting 1s
-Remove all transitions
+Add whip pan transitions between all scenes
+Add a strong zoom blur transition to scene 2
+Add a push transition from the left to scene 3
+Add a dip to white transition to scene 2
+Cinematic transitions between all scenes
+Fade in from black at the start              Start the video with an iris
+Fade out to black at the end                 End the video with a dip to white
+Remove the fade at the end                   Remove all transitions
 Make the background dark blue
 Gradient background from purple to pink
 ```
+
+Transition names: Dissolve (fade, crossfade), Dip to black / white, Push, Slide,
+Wipe, Zoom in, Zoom out, Iris (circle), Whip pan (swish, swipe), Zoom blur
+(crash zoom), Spin, Blur dissolve, Light leak, Film burn, Luma fade, Flash,
+Glitch (RGB split), Pixelate (mosaic), Stretch, Slices (strips, blinds), Flash
+Blur, Flicker Shake, Cube (3D) and Morph. "Smooth" means a dissolve,
+"cinematic" a blur dissolve and "quick" or "energetic" a whip pan; "strong" and
+"subtle" set the strength. A name the editor doesn't have is reported instead
+of quietly becoming a fade. A transition on the first scene is an intro from
+black; "at the end" sets the fade-out after the last scene.
 
 **Adding items**
 
@@ -304,6 +321,8 @@ Trim the first 2 seconds of the video
 ```text
 Remove silences              Remove pauses longer than 1s        Tighten the pauses
 Remove filler words          Cut all the ums and uhs
+Remove the retakes           Cut out the false starts in scene 2
+Add jump cuts with punch-in zooms                                Zoom in 15% on every other cut
 Cut to the beat              Cut to the beat every 2 beats       Cut on every bar
 Split the video into shots   Detect camera cuts in scene 2
 ```
@@ -313,10 +332,35 @@ Split the video into shots   Detect camera cuts in scene 2
 - **Filler words** ("um", "uh", "er", "hmm") come from local Whisper with word
   timings. Those timings are approximate, so play the result back; when a filler
   runs straight into the next word it can be missed.
+- **Retakes** are sentences started again ("So today we're— so today we're
+  going to…"): the earlier tries are cut and the last take stays. They come
+  from the same Whisper words, so play the result back.
+- **Punch-in zooms** zoom every other part of a cut clip in a little (10%, or
+  the percentage you give) so jump cuts look intentional. "Punch in on the
+  cuts" alone zooms the parts already there.
+- The **Jump cuts** section of the Video panel does the same with sliders, and
+  shows every cut on the timeline before applying; **Edit by transcript** there
+  cuts the video by deleting its words.
 - **Cut to the beat** finds the tempo of the background music and moves scene
   ends to the nearest beat.
 - **Shots** are found where the picture changes suddenly; each becomes its own
   scene.
+
+**Green screen and background removal**
+
+```text
+Remove the green screen            Key out the blue screen on the video
+Chroma key the image               Remove the background from my video
+Blur my background                 Replace the background behind me with black
+Bring the background back
+```
+
+A green or blue screen colour becomes transparent; "remove the background"
+of a clip (or "cut me out") keeps the person with an on-device AI cut-out,
+optionally blurring the room or filling it with a colour. Without a clip being
+meant, "change the background to blue" still changes the scene's background.
+A clip cut into parts (jump cuts, splits) changes in every part. Fine-tune
+both in **Edit BG** (left menu) or the clip's **Remove background** section.
 
 Run smart edits as their own request. They plan against the project as it is
 when you press send.

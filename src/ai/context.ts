@@ -87,6 +87,8 @@ export function summarizeElement(el: EditorElement): AiElementSummary {
         muted: el.muted,
         crop: el.crop,
         cropKeys: el.cropKeys?.length || undefined,
+        punchIn: el.punchIn && el.punchIn > 1 ? el.punchIn : undefined,
+        keying: el.keying?.mode,
       }
     case 'audio':
       return {
@@ -101,6 +103,8 @@ export function summarizeElement(el: EditorElement): AiElementSummary {
         track: el.track,
         volumeKeys: el.volumeKeys?.length || undefined,
       }
+    case 'image':
+      return { ...summary, src: el.src, crop: el.crop, keying: el.keying?.mode }
     default:
       return summary
   }

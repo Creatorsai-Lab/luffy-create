@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { X, Download, CheckCircle, AlertCircle, Loader2, Settings, Image, Film, FolderOpen, Play } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { exportToMP4WithFFmpeg, isFFmpegAvailable } from '../../engine/ffmpegExporter'
-import { getStage } from '../../engine/stageRegistry'
+import { getOutgoingStage, getStage } from '../../engine/stageRegistry'
+import { buildTransitionTimeline, getTransitionFrameState } from '../../utils/transitionTiming'
 import { videoRegistry } from '../../engine/videoRegistry'
 import { decodeGif } from '../../engine/gifDecoder'
 import type { ImageElement, Scene, VideoElement } from '../../types/editor'
@@ -73,6 +74,7 @@ export default function ExportModal() {
     await waitForSceneGifs(sceneId)
     await nextFrame()
     if (sceneId) await waitForSceneVideos(sceneId, globalTime)
+    await waitForOutgoingVideos(globalTime)
     // Wait for any video elements to finish seeking to this frame, so the
     // captured stage shows the correct video frame (not a stale one).
     await waitForVideoSeeks()
@@ -100,6 +102,25 @@ export default function ExportModal() {
       v.addEventListener('seeked', finish)
       setTimeout(finish, 250)  // safety cap so export can't hang
     }))).then(() => undefined)
+  }
+
+  // During a cut the outgoing scene plays on its own stage (videos keyed `<id>@out`): wait for those too.
+  async function waitForOutgoingVideos(globalTime: number): Promise<void> {
+    if (!project) return
+    const state = getTransitionFrameState(buildTransitionTimeline(project.scenes, project.endTransition), globalTime)
+    if (state.kind !== 'transition' || state.phase !== 'cut' || state.transition.type === 'morph') return
+    const from = project.scenes[state.fromSceneIndex]
+    const videos = from.elements.filter((el): el is VideoElement =>
+      el.type === 'video' && el.visible && getVideoClipState(el, state.fromLocalTime, { sceneEnd: from.duration }).visible)
+    const deadline = performance.now() + 1500
+    while (performance.now() < deadline) {
+      const pending = !getOutgoingStage() || videos.some(el => {
+        const video = videoRegistry.get(`${el.id}@out`)
+        return !video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.seeking
+      })
+      if (!pending) return
+      await nextFrame()
+    }
   }
 
   async function waitForSceneVideos(sceneId: string, globalTime: number): Promise<void> {
@@ -149,7 +170,7 @@ export default function ExportModal() {
           window.api.exportTask?.progress(pct / 100)
         },
         onLog: (msg) => console.log('[Export]', msg),
-        renderSceneFrame: async (sceneId, globalTime) => { await ensureFrameRendered(sceneId, globalTime) },
+        getOutgoingStage,
         renderFrame: async (t) => { await ensureFrameRendered(sceneAtTime(project.scenes, t)?.scene.id ?? null, t) }
       })
       if (cancelRef.current) return

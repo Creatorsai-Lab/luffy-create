@@ -1,82 +1,80 @@
-import type { TransitionType, SlideDir } from '../types/editor'
+import type { SceneTransition, SlideDir } from '../types/editor'
 import {
   getDirectionalTransitionGeometry,
   getDirectionalTransitionState,
   type DirectionalTransitionType,
 } from './directionalTransitions'
+import { ease, transitionDef } from './transitions/catalog'
+import { renderGlTransition } from './transitions/glRenderer'
 
 export interface TransitionRenderOptions {
   ctx: CanvasRenderingContext2D
   width: number
   height: number
-  progress: number  // 0 to 1
-  type: TransitionType
-  direction?: SlideDir
-  speed?: number
-  hardness?: number
+  /** Linear progress 0–1 through the transition (easing is applied here). */
+  progress: number
+  transition: SceneTransition
   fromCanvas: CanvasImageSource
   toCanvas: CanvasImageSource
+  /** Varies glitch blocks and light leaks between cuts; the same seed draws the same frame. */
+  seed?: number
 }
 
 /**
- * Renders a transition between two scene canvases
- * @param opts Transition rendering options
+ * Draws one frame of a scene transition into `ctx`. The editor, Preview and
+ * export all call this, so a transition looks the same everywhere.
  */
 export function renderTransition(opts: TransitionRenderOptions): void {
-  const {
-    ctx, width, height, progress, type, direction, speed, hardness,
-    fromCanvas, toCanvas,
-  } = opts
+  const { ctx, width, height, progress, transition, fromCanvas, toCanvas } = opts
   const p = clamp01(progress)
-  const e = easeInOutCubic(p)
+  const def = transitionDef(transition.type)
 
-  // Clear canvas
   ctx.save()
   ctx.globalAlpha = 1
   ctx.filter = 'none'
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.clearRect(0, 0, width, height)
 
-  switch (type) {
-    case 'none':
-      // No transition - just show the new scene
-      ctx.drawImage(toCanvas, 0, 0, width, height)
-      break
-
-    case 'fade':
-      renderFadeTransition(ctx, width, height, e, fromCanvas, toCanvas)
-      break
-
-    case 'slide':
-      renderPushTransition(ctx, width, height, e, direction ?? 'left', fromCanvas, toCanvas)
-      break
-
-    case 'push':
-      renderPushTransition(ctx, width, height, e, direction ?? 'left', fromCanvas, toCanvas)
-      break
-
-    case 'zoom':
-      renderZoomTransition(ctx, width, height, e, fromCanvas, toCanvas)
-      break
-
-    case 'wipe':
-      renderWipeTransition(ctx, width, height, e, direction ?? 'left', fromCanvas, toCanvas)
-      break
-
-    case 'flashBlur':
-    case 'flickerShake':
-      renderDirectionalTransition(
-        ctx, width, height, type, p, direction ?? 'right',
-        speed ?? 1, hardness ?? 50, fromCanvas, toCanvas,
-      )
-      break
-
-    default:
-      // Fallback to fade
-      renderFadeTransition(ctx, width, height, e, fromCanvas, toCanvas)
+  if (transition.type === 'none') {
+    ctx.drawImage(toCanvas, 0, 0, width, height)
+  } else if (def.render === 'directional') {
+    renderDirectionalTransition(
+      ctx, width, height, transition.type as DirectionalTransitionType, p, transition.direction ?? 'right',
+      transition.speed ?? 1, transition.hardness ?? 50, fromCanvas, toCanvas,
+    )
+  } else {
+    const eased = ease(p, transition.easing)
+    const gl = renderGlTransition({
+      type: transition.type,
+      progress: eased,
+      direction: transition.direction,
+      intensity: transition.intensity ?? def.intensity,
+      softness: transition.softness ?? def.softness,
+      color: transition.color ?? def.color0,
+      seed: opts.seed,
+    }, fromCanvas as TexImageSource, toCanvas as TexImageSource, width, height)
+    if (gl) ctx.drawImage(gl, 0, 0, width, height)
+    else renderFadeTransition(ctx, width, height, eased, fromCanvas, toCanvas)
   }
 
   ctx.restore()
+}
+
+const solids = new Map<string, HTMLCanvasElement>()
+
+/** A small canvas of one colour — the black the video fades in from at the start and out to at the end. */
+export function solidCanvas(color = '#000000'): HTMLCanvasElement {
+  let canvas = solids.get(color)
+  if (!canvas) {
+    canvas = document.createElement('canvas')
+    canvas.width = 16
+    canvas.height = 16
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = color
+    ctx.fillRect(0, 0, 16, 16)
+    solids.set(color, canvas)
+  }
+  return canvas
 }
 
 // ─── Transition Implementations ──────────────────────────────────────────────
@@ -98,134 +96,6 @@ function renderFadeTransition(
   ctx.drawImage(to, 0, 0, w, h)
 
   ctx.globalAlpha = 1
-}
-
-function renderPushTransition(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  t: number,
-  dir: SlideDir,
-  from: CanvasImageSource,
-  to: CanvasImageSource
-): void {
-  // Both scenes move together. `dir` = edge the NEW scene enters from;
-  // the old scene exits toward the opposite edge.
-  let fromX = 0, fromY = 0, toX = 0, toY = 0
-
-  switch (dir) {
-    case 'right':  // new in from right, old out to left
-      toX = w * (1 - t);  fromX = -w * t; break
-    case 'left':   // new in from left, old out to right
-      toX = -w * (1 - t); fromX = w * t;  break
-    case 'down':   // new in from bottom, old out to top
-      toY = h * (1 - t);  fromY = -h * t; break
-    case 'up':     // new in from top, old out to bottom
-      toY = -h * (1 - t); fromY = h * t;  break
-  }
-
-  fromX = Math.round(fromX)
-  fromY = Math.round(fromY)
-  toX = Math.round(toX)
-  toY = Math.round(toY)
-  ctx.drawImage(from, fromX, fromY, w, h)
-  ctx.drawImage(to, toX, toY, w, h)
-}
-
-function renderZoomTransition(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  t: number,
-  from: CanvasImageSource,
-  to: CanvasImageSource
-): void {
-  const toScale = 0.985 + t * 0.015
-
-  // Keep the source scene stable. The zoom transition should feel like the
-  // incoming scene eases forward, not like both scenes lurch at the cut.
-  ctx.globalAlpha = 1
-  ctx.drawImage(from, 0, 0, w, h)
-
-  ctx.globalAlpha = t
-  ctx.save()
-  ctx.translate(w / 2, h / 2)
-  ctx.scale(toScale, toScale)
-  ctx.translate(-w / 2, -h / 2)
-  ctx.drawImage(to, 0, 0, w, h)
-  ctx.restore()
-  
-  ctx.globalAlpha = 1
-}
-
-function renderWipeTransition(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  t: number,
-  dir: SlideDir,
-  from: CanvasImageSource,
-  to: CanvasImageSource
-): void {
-  ctx.drawImage(from, 0, 0, w, h)
-
-  const feather = Math.max(12, Math.min(w, h) * 0.018)
-  let x = 0, y = 0, ww = w, hh = h
-
-  switch (dir) {
-    case 'left':
-      ww = w * t
-      break
-    case 'right':
-      x = w * (1 - t)
-      ww = w * t
-      break
-    case 'up':
-      hh = h * t
-      break
-    case 'down':
-      y = h * (1 - t)
-      hh = h * t
-      break
-  }
-
-  ctx.save()
-  ctx.beginPath()
-  ctx.rect(x, y, Math.max(0, ww), Math.max(0, hh))
-  ctx.clip()
-  ctx.drawImage(to, 0, 0, w, h)
-  ctx.restore()
-
-  // Feather only the reveal edge to avoid a hard mechanical curtain line.
-  if (t > 0 && t < 1) {
-    ctx.save()
-    const g = dir === 'left' || dir === 'right'
-      ? ctx.createLinearGradient(
-          dir === 'left' ? ww - feather : x,
-          0,
-          dir === 'left' ? ww : x + feather,
-          0
-        )
-      : ctx.createLinearGradient(
-          0,
-          dir === 'up' ? hh - feather : y,
-          0,
-          dir === 'up' ? hh : y + feather
-        )
-    if (dir === 'left' || dir === 'up') {
-      g.addColorStop(0, 'rgba(0,0,0,0)')
-      g.addColorStop(1, 'rgba(0,0,0,0.22)')
-    } else {
-      g.addColorStop(0, 'rgba(0,0,0,0.22)')
-      g.addColorStop(1, 'rgba(0,0,0,0)')
-    }
-    ctx.fillStyle = g
-    if (dir === 'left') ctx.fillRect(Math.max(0, ww - feather), 0, feather, h)
-    if (dir === 'right') ctx.fillRect(x, 0, feather, h)
-    if (dir === 'up') ctx.fillRect(0, Math.max(0, hh - feather), w, feather)
-    if (dir === 'down') ctx.fillRect(0, y, w, feather)
-    ctx.restore()
-  }
 }
 
 function renderDirectionalTransition(

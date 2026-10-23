@@ -1,5 +1,7 @@
 import { useRef, useEffect } from 'react'
 import ReframeControl from './ReframeControl'
+import JumpCutControl from './JumpCutControl'
+import KeyingControl from './KeyingControl'
 import { Film, Lock, Unlock, Scissors, X } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { VideoElement, AnimationType } from '../../types/editor'
@@ -98,6 +100,8 @@ export default function VideoPanel() {
 
         {el && (
           <>
+            <JumpCutControl element={el} />
+            <KeyingControl element={el} />
             <ReframeControl element={el} />
 
             {/* ── Dimensions ──────────────────────────────────────── */}

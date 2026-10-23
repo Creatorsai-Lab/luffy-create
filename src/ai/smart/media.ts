@@ -4,6 +4,7 @@
  */
 import { toFileUrl } from '../../utils/pathUtils'
 import { colorHistogram, histogramDistance } from './shots'
+import { frameLoudness } from './speech'
 
 export const ANALYSIS_SAMPLE_RATE = 16000
 
@@ -37,6 +38,19 @@ export function decodeMono(path: string): Promise<MonoAudio | null> {
     })()
     audioCache.set(path, hit)
     hit.then(result => { if (!result) audioCache.delete(path) })
+  }
+  return hit
+}
+
+const loudnessCache = new Map<string, Promise<Float32Array | null>>()
+
+/** The file's loudness per 10 ms (dBFS), for panels that redo speech detection as settings change. */
+export function sourceLoudness(path: string): Promise<Float32Array | null> {
+  let hit = loudnessCache.get(path)
+  if (!hit) {
+    hit = decodeMono(path).then(audio => (audio ? frameLoudness(audio.samples, audio.sampleRate) : null))
+    loudnessCache.set(path, hit)
+    hit.then(result => { if (!result) loudnessCache.delete(path) })
   }
   return hit
 }

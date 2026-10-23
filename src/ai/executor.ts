@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { getCaptionPreset } from '../subtitle/presets'
 import { makeSubtitleTrack, normalizeSubtitleStyle, normalizeSubtitleTrack } from '../subtitle/types'
 import { applyMediaLayout, applyPlacement } from '../utils/arrangeMedia'
-import type { AssetMeta, EditorElement, MoveDirection, Scene, ShapeType } from '../types/editor'
+import type { AssetMeta, EditorElement, MoveDirection, Scene, SceneTransition, ShapeType } from '../types/editor'
 import { makeAnimation, makeAudio, makeImage, makeScene, makeShape, makeText, makeVideo } from '../utils/defaults'
 import { clampAudioDuration, finitePositiveDuration, remainingTimelineDuration } from '../utils/audioMetadata'
 import { computeMoveDelta, durationFromMove } from '../utils/moveAnimation'
@@ -11,7 +11,9 @@ import { useEditorStore } from '../store/editorStore'
 import { clampAudioVolume } from '../utils/audioEffects'
 import { animationsEnd, buildSequence, isLoopType, rowTolerance } from '../utils/stagger'
 import { connectionPairs, makeConnector } from '../utils/connectors'
-import type { AiCommandResult, AiEditorCommand, AiElementRef, AiPlan, AiSceneRef } from './types'
+import { normalizeKeying } from '../utils/keying'
+import { transitionDef, withDefaults } from '../engine/transitions/catalog'
+import type { AiCommandResult, AiEditorCommand, AiElementRef, AiPlan, AiSceneRef, AiTransitionSpec } from './types'
 
 const SHAPE_TYPES: Set<ShapeType> = new Set([
   'rect', 'circle', 'triangle', 'star', 'pentagon', 'hexagon', 'octagon', 'diamond',
@@ -26,8 +28,8 @@ const BASE_PATCH_KEYS = new Set([
 const TYPE_PATCH_KEYS: Record<string, Set<string>> = {
   text: new Set(['content', 'fontSize', 'fontFamily', 'fontWeight', 'italic', 'color', 'align', 'lineHeight', 'letterSpacing', 'underline']),
   shape: new Set(['shapeType', 'fill', 'stroke', 'strokeWidth', 'cornerRadius', 'rotateX', 'rotateY', 'rotateZ']),
-  image: new Set(['cornerRadius', 'brightness', 'contrast', 'saturation', 'blur', 'crop', 'borderColor', 'borderWidth']),
-  video: new Set(['cornerRadius', 'volume', 'playbackRate', 'muted', 'loop', 'startTime', 'duration', 'timelineX', 'crop', 'borderColor', 'borderWidth']),
+  image: new Set(['cornerRadius', 'brightness', 'contrast', 'saturation', 'blur', 'crop', 'borderColor', 'borderWidth', 'keying']),
+  video: new Set(['cornerRadius', 'volume', 'playbackRate', 'muted', 'loop', 'startTime', 'duration', 'timelineX', 'crop', 'borderColor', 'borderWidth', 'punchIn', 'keying']),
   audio: new Set(['volume', 'speed', 'fadeIn', 'fadeOut', 'startTime', 'duration', 'loop']),
   icon: new Set(['iconName', 'color', 'strokeWidth']),
 }
@@ -84,6 +86,8 @@ function executeAiCommand(command: AiEditorCommand): AiCommandResult {
       return addScene(command)
     case 'setTransition':
       return setTransition(command)
+    case 'setEndTransition':
+      return setEndTransition(command)
     case 'generateStoryboard':
       return generateStoryboard(command)
     case 'removeScene':
@@ -318,18 +322,29 @@ function addScene(command: Extract<AiEditorCommand, { type: 'addScene' }>): AiCo
   return { ok: true, message: `Added ${command.name ?? scene.name}.`, sceneIds: [scene.id] }
 }
 
+/** The transition with its type's defaults under whatever the command set. */
+function fullTransition(spec: AiTransitionSpec, previous?: SceneTransition): SceneTransition {
+  if (spec.type === 'none') return { type: 'none', duration: spec.duration ?? 0 }
+  const set = Object.fromEntries(Object.entries(spec).filter(([, v]) => v !== undefined)) as Partial<SceneTransition>
+  return { ...withDefaults(spec.type, previous), ...set } as SceneTransition
+}
+
 function setTransition(command: Extract<AiEditorCommand, { type: 'setTransition' }>): AiCommandResult {
   const { setTransition } = useEditorStore.getState()
   const scene = requireScene(command)
-  const tr = command.transition
-  setTransition(scene.id, {
-    type: tr.type,
-    duration: Math.max(0, tr.duration ?? 0.8),
-    direction: tr.direction,
-    speed: tr.speed,
-    hardness: tr.hardness,
-  })
-  return { ok: true, message: `Set ${tr.type} transition on ${scene.name}.`, sceneIds: [scene.id] }
+  setTransition(scene.id, fullTransition(command.transition, scene.transition))
+  return { ok: true, message: `Set ${transitionDef(command.transition.type).label} transition on ${scene.name}.`, sceneIds: [scene.id] }
+}
+
+function setEndTransition(command: Extract<AiEditorCommand, { type: 'setEndTransition' }>): AiCommandResult {
+  const { project, setEndTransition } = useEditorStore.getState()
+  if (!project) throw new Error('No project is open.')
+  if (command.transition.type === 'none') {
+    setEndTransition(undefined)
+    return { ok: true, message: 'The video now just stops at the end.' }
+  }
+  setEndTransition(fullTransition(command.transition, project.endTransition ?? { type: 'fade', duration: 1 }))
+  return { ok: true, message: `The video ends with ${transitionDef(command.transition.type).label} to black.` }
 }
 
 function generateStoryboard(command: Extract<AiEditorCommand, { type: 'generateStoryboard' }>): AiCommandResult {
@@ -740,7 +755,10 @@ function sanitizePatch(el: EditorElement, patch: Record<string, unknown>) {
     if (typeof value === 'number') out[key] = Number.isFinite(value) ? value : undefined
     else if (typeof value === 'string' || typeof value === 'boolean') out[key] = value
     else if (key === 'crop' && value && typeof value === 'object') out[key] = value
+    // null removes the green screen / cut-out.
+    else if (key === 'keying') out[key] = value && typeof value === 'object' ? normalizeKeying(value as Record<string, unknown>) : undefined
   }
+  if (typeof out.punchIn === 'number') out.punchIn = Math.max(1, Math.min(1.5, out.punchIn))
   return out
 }
 

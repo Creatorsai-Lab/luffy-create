@@ -11,11 +11,13 @@ import Tooltip from '../ui/Tooltip'
 import ContextMenu from '../ui/ContextMenu'
 import type { AssetMeta, AudioElement, VideoElement } from '../../types/editor'
 import { maxVideoClipDuration } from '../../utils/videoClip'
-import { TRANS_COLOR } from '../../utils/transitions'
 import { makeAudio } from '../../utils/defaults'
 import { AUDIO_ASSET_DRAG_TYPE } from '../../utils/dragPayloads'
 import { clampAudioDuration, readAudioMetadataDuration, remainingTimelineDuration, resolveStoredAudioDuration } from '../../utils/audioMetadata'
 import { findElementScene, sceneAtTime, sceneStartTimes } from '../../utils/sceneTiming'
+import { CUT_COLORS, CUT_LABELS, useCutPreview } from '../../store/cutPreviewStore'
+import { buildTransitionTimeline, getEffectiveTransitionDuration, getEndTransitionDuration } from '../../utils/transitionTiming'
+import { transitionDef } from '../../engine/transitions/catalog'
 import { useShallow } from 'zustand/react/shallow'
 import {
   applyAudioEffects,
@@ -1183,36 +1185,50 @@ export default function Timeline() {
             })}
           </div>
 
-          {/* Transition blocks — straddle scene boundaries */}
-          {project.scenes.map((sc, index) => {
-            if (index === 0) return null
-            if (!sc.transition || sc.transition.type === 'none') return null
-            const startPx = sceneStarts[sc.id] * PX_PER_SEC
-            const color   = TRANS_COLOR[sc.transition.type] ?? '#6366f1'
-            const BLOCK_W = 20
-            const BLOCK_H = 20
-            const BLOCK_TOP = SCENE_TOP + 2 + Math.round(((SCENE_HEIGHT - 4) - BLOCK_H) / 2)
-            return (
-              <div
-                key={`trans-${sc.id}`}
-                className="absolute z-20 flex items-center justify-center rounded select-none pointer-events-none"
-                style={{
-                  left: startPx - BLOCK_W / 2,
-                  top: BLOCK_TOP,
-                  width: BLOCK_W,
-                  height: BLOCK_H,
-                  background: color + '66',
-                  border: `1.5px solid ${color}`,
-                  boxShadow: '0 1px 6px rgba(0,0,0,0.45)',
-                  borderRadius: 5,
-                  backdropFilter: 'blur(1px)',
-                }}
-                title={`${sc.transition.type} · ${sc.transition.duration}s`}
-              >
-                <Shuffle size={9} color="white" strokeWidth={2.5} />
-              </div>
-            )
-          })}
+          {/* Transitions — a bar over the stretch each one plays (the start of its scene; the end for the fade-out) */}
+          {(() => {
+            const timeline = buildTransitionTimeline(project.scenes, project.endTransition)
+            const bars = timeline.flatMap(entry => {
+              const d = getEffectiveTransitionDuration(entry)
+              return d > 0 ? [{ key: entry.sceneId, sceneId: entry.sceneId, start: entry.startTime, duration: d, transition: entry.transition, ending: false }] : []
+            })
+            const endD = getEndTransitionDuration(timeline)
+            const last = timeline[timeline.length - 1]
+            if (endD > 0 && last && project.endTransition) {
+              bars.push({ key: 'end', sceneId: last.sceneId, start: last.endTime - endD, duration: endD, transition: project.endTransition, ending: true })
+            }
+            return bars.map(bar => {
+              const def = transitionDef(bar.transition.type)
+              const width = Math.max(14, bar.duration * PX_PER_SEC)
+              const what = bar.ending ? `Fade out: ${def.label}` : bar.start === 0 ? `Intro: ${def.label}` : def.label
+              return (
+                <div
+                  key={`trans-${bar.key}`}
+                  className="absolute z-20 flex items-center gap-1 overflow-hidden rounded-sm px-1 select-none cursor-pointer hover:brightness-125"
+                  style={{
+                    left: bar.start * PX_PER_SEC,
+                    top: SCENE_TOP + 3,
+                    width,
+                    height: 14,
+                    background: `linear-gradient(90deg, ${def.color}aa, ${def.color}44)`,
+                    border: `1px solid ${def.color}`,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.45)',
+                  }}
+                  title={`${what} · ${bar.duration.toFixed(1)}s — click to edit`}
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => {
+                    e.stopPropagation()
+                    const state = useEditorStore.getState()
+                    state.setCurrentScene(bar.sceneId)
+                    state.setActivePanel('transitions')
+                  }}
+                >
+                  <Shuffle size={9} color="white" strokeWidth={2.5} className="flex-none" />
+                  {width > 46 && <span className="truncate text-[9px] font-medium text-white drop-shadow">{what}</span>}
+                </div>
+              )
+            })
+          })()}
 
           {/* Audio tracks — lane-packed so non-overlapping clips share a row */}
           <div
@@ -1394,6 +1410,9 @@ export default function Timeline() {
               )
             })
           )}
+          {/* Cuts waiting to be applied (jump cuts, transcript edits) */}
+          <CutPreviewLayer sceneStarts={sceneStarts} pxPerSec={PX_PER_SEC} top={RULER_HEIGHT} height={SCENE_TOP + SCENE_HEIGHT - RULER_HEIGHT} />
+
           {/* Playhead */}
           <div
             className="absolute top-0 bottom-0 z-30"
@@ -1600,6 +1619,34 @@ export default function Timeline() {
 }
 
 // ── Video clip filmstrip (timeline thumbnail) ─────────────────────────────────
+
+/** Cuts a panel is previewing: tinted, striped stretches over the video track and scenes. */
+function CutPreviewLayer({ sceneStarts, pxPerSec, top, height }: { sceneStarts: Record<string, number>; pxPerSec: number; top: number; height: number }) {
+  const cuts = useCutPreview(s => s.cuts)
+  if (!cuts.length) return null
+  return (
+    <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top, height }}>
+      {cuts.map((cut, i) => {
+        const start = sceneStarts[cut.sceneId]
+        if (start == null) return null
+        const color = CUT_COLORS[cut.kind]
+        return (
+          <div
+            key={i}
+            className="absolute top-0 bottom-0 rounded-sm"
+            title={`${CUT_LABELS[cut.kind]} — ${(cut.to - cut.from).toFixed(2)}s`}
+            style={{
+              left: (start + cut.from) * pxPerSec,
+              width: Math.max(2, (cut.to - cut.from) * pxPerSec),
+              background: `repeating-linear-gradient(135deg, ${color}66 0 4px, ${color}2e 4px 8px)`,
+              boxShadow: `inset 0 0 0 1px ${color}`,
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
 
 function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, trackH, loop }: {
   src: string

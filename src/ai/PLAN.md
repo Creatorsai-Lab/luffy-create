@@ -193,7 +193,8 @@ blocks: "add a 3-4-2 neural network with a forward pass", "add a title card
 | 4 | UGC blocks v1: title card, lower third, hook/CTA, split-screen/PiP, captions styles; face reframe; volume automation + ducking | **Done** (4a blocks; 4b ducking, placement, caption presets; 4c face reframe) |
 | 5 | Technical blocks v1: neural network, flowchart/pipeline, equation reveal, code walkthrough | **Done** |
 | 6 | LLM planner (BYOK): tools from the block catalogue, compact context, caching, routing | |
-| 7 | More blocks (agents, attention, matrix, montage, B-roll); Pro backend; self-check on rendered frames | |
+| 7 | UGC editing: 7a jump-cut studio, 7b transcript editing, 7c green screen + AI cut-out; later 7d text-to-speech / voice, 7e script-based auto-assembly | **Done** (7a–7c) |
+| 8 | More blocks (agents, attention, matrix, montage, B-roll); Pro backend; self-check on rendered frames | |
 
 **How we measure success**
 - Time to build our 3-layer network with forward/backward pass: about an hour by
@@ -204,6 +205,93 @@ blocks: "add a 3-4-2 neural network with a forward pass", "add a title card
 ---
 
 ## Done so far
+
+### Edit BG menu and transitions rework
+- **Edit BG** (left menu, `EditBgPanel`): one-click Remove / Blur / Colour
+  background, Green screen and Original for the selected video or image (or a
+  pick list of the scene's media), then the shared `KeyingSettings`. Changes go
+  to every part of a clip cut into parts (`clipParts`: same file across scenes,
+  toggle remembered); "Put behind" adds the image/video behind every part, a
+  background video carrying on across the cuts. AI keying prompts do the same.
+- One transition engine for the editor, Preview and export
+  (`renderTransition` → `engine/transitions/`): a catalogue (labels, groups,
+  colours, default lengths, which settings each has, AI words) and 22 GLSL
+  shaders on one shared WebGL context (programs cached; compiled up front for
+  export). Flash Blur / Flicker Shake keep their 2D renderer; Morph stays
+  element-level (outgoing-only videos now carry on instead of restarting).
+- Timing (`transitionTiming.ts`): first scene = intro from black,
+  `Project.endTransition` = fade-out after the last scene, and the outgoing
+  scene keeps playing — its local time runs past its end and clips that reach
+  the cut continue into the footage after the trim point
+  (`getVideoClipState(…, { sceneEnd })`) or hold the last frame. Clip sound
+  crosses over (outgoing fades out, incoming in), in export too.
+- Editor: the playhead's scene stays on the main stage; a hidden `SceneStage`
+  plays the outgoing scene (`@out` video keys, mounted 0.6 s early while
+  playing so its videos are ready) and a blend layer between the elements and
+  the captions layer draws both — also while paused, since `setPlayhead` now
+  moves to the scene under the playhead. Replaced the PNG-snapshot/CSS overlay
+  path (and its encodes after every paused edit). Preview keys stages by scene
+  (no remount pop) and blends the same way; export renders each transition
+  frame once with both stages instead of switching scenes twice.
+- Panel: grouped list with a live looping preview, per-type settings
+  (direction, strength, softness, colour, easing), Play here, Apply to all
+  cuts, intro note and an Ending section. Timeline: a clickable bar over the
+  stretch each transition plays. AI: every name ("whip pan", "crash zoom", "dip
+  to white"), moods (smooth/cinematic/quick), strength, intro/outro phrasing,
+  unknown names reported (no silent fade). Fixed along the way: editor/Preview/
+  export mismatches (push, wipe direction, zoom), the near-invisible zoom, the
+  hard wipe edge, the 0 s duration trap, 'slide' missing from the panel.
+- Checked in Electron (hidden windows): all 22 shaders compile; every one
+  starts exactly on the old picture and ends exactly on the new (pixel diff 0);
+  ~8–11 ms per 1080p frame; contact sheet inspected. In the built app, paused
+  frames, Preview and a real export all show the intro, the push (with the
+  outgoing video still playing) and the fade-out; a 4.8 s 1280×720 export with
+  a video took 27 s.
+
+### Phase 7a–7c — Jump cuts, transcript editing, green screen / AI cut-out
+- One cut engine for both (`src/ai/smart/jumpcut.ts`, pure): pause ranges from
+  loudness (`speechFromLoudness` with an automatic or set silence level,
+  `autoThreshold`), fillers and retakes from Whisper words, transcript
+  deletions (`transcriptCuts`: a deleted run takes half the gap either side;
+  edges snap to quiet frames). Retakes: both takes start a phrase (start,
+  punctuation, a ≥0.2 s pause or a filler) and agree on ≥3 words, or ≥2 when
+  the whole abandoned take repeats; within 30 words / 15 s; last take kept.
+- `cutCommands` works per part of a clip (`partsOfSource`: every scene that
+  plays the file), so re-running after a first cut covers all parts.
+  `removeRanges` now reports the parts it keeps and can alias them
+  (`nameParts`); slivers under 0.3 s go with their neighbours. Punch-in:
+  `VideoElement.punchIn` (absolute, so re-runs never compound), alternating
+  1 / zoom over all parts in timeline order, applied about the crop centre in
+  VideoKonva (`punchedCrop`), so it works with face-following crops.
+- `jumpCut` smart step (prompts: "remove the retakes", "jump cuts with
+  punch-in zooms", "zoom in 15% on every other cut"); the Video panel's
+  **Jump cuts** section previews every cut on the timeline
+  (`src/store/cutPreviewStore.ts`, striped by kind) and applies the same step
+  as one numbered AI edit. Whisper words are cached per file in the session
+  and on disk (`electron/main/transcriptCache.ts`, `userData/transcripts`,
+  checked by size + mtime).
+- **Edit by transcript** (`TranscriptPanel`, shown in the properties panel
+  until closed): click to seek (the spoken word highlighted without
+  re-rendering the list), drag / Shift+click to select, Delete toggles cuts,
+  filler and pause chips, bulk "cut all fillers / pauses".
+- Keying (`MediaKeying` on videos and images, `src/engine/keying.ts`): one
+  shared WebGL context; chroma key on Cb/Cr distance (3×3 averaged) with
+  softness and spill (desaturation); AI cut-out with MediaPipe's selfie
+  segmenter (Apache-2.0, `public/models/selfie_segmenter.tflite`, 249 KB, CPU,
+  IMAGE mode) on the cropped frame at ≤384 px, mask lightly blended with the
+  previous frame, feathered in the shader; background none / blur / colour.
+  Applied inside the media draw functions, so effects, perspective, Preview
+  and export all see it; frames cached per element and frame; export waits
+  for the model (`prepareKeying`). "Put behind" adds a project image/video
+  behind the clip, cover-cropped to its box. Prompts: "remove the green
+  screen", "blur my background", "bring the background back".
+- Checked in Electron (hidden windows, own data folders): chroma on a
+  synthetic 1080p green screen left 0% background with face/shirt/hair intact;
+  the segmenter (loads ~0.4 s, ~16 ms per 820×1024 frame) kept face, tie and
+  suit and removed curtains, flags and desk on a portrait; local images and
+  videos upload to WebGL in the built app; end to end in the built app the
+  keyed clip showed the scene behind it, Jump cuts previewed 3 pauses in under
+  1 s, Apply made edit #1 with 3 parts, and the transcript panel opened.
 
 ### /history, /undo and the Planner
 - `/history` and `/undo #id` in the AI prompt (`PROMPT_COMMANDS` in

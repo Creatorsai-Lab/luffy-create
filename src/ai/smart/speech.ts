@@ -11,6 +11,8 @@ export interface SpeechOptions {
   minSilence?: number
   /** Speech shorter than this is treated as noise (seconds). */
   minSpeech?: number
+  /** Loudness (dBFS) above which a frame counts as speech; worked out from the recording when missing. */
+  threshold?: number
 }
 
 const FRAME = 0.02
@@ -32,18 +34,29 @@ export function frameLoudness(samples: Float32Array, sampleRate: number): Float3
 }
 
 export function detectSpeech(samples: Float32Array, sampleRate: number, opts: SpeechOptions = {}): TimeRange[] {
-  const minSilence = opts.minSilence ?? 0.5
-  const minSpeech = opts.minSpeech ?? 0.12
-  const db = frameLoudness(samples, sampleRate)
-  if (!db.length) return []
+  return speechFromLoudness(frameLoudness(samples, sampleRate), opts)
+}
 
+/**
+ * The level that separates speech from silence: above the noise floor, but at
+ * least 12 dB under the loud level (so a clip that is nearly all talking keeps
+ * its talking) and never below -55 dBFS. Null when there is no sound at all.
+ */
+export function autoThreshold(db: Float32Array): number | null {
+  if (!db.length) return null
   const sorted = Float32Array.from(db).sort()
   const floor = sorted[Math.floor(sorted.length * 0.05)]
   const loud = sorted[Math.floor(sorted.length * 0.95)]
-  // Above the noise floor, but at least 12 dB under the loud level (so a clip
-  // that is nearly all talking keeps its talking) and never below -55 dBFS.
   const threshold = Math.max(Math.min(floor + 8, loud - 12), loud - 30, -55)
-  if (loud < threshold) return []
+  return loud < threshold ? null : threshold
+}
+
+/** Speech regions from per-10 ms loudness (see frameLoudness), so settings can change without measuring again. */
+export function speechFromLoudness(db: Float32Array, opts: SpeechOptions = {}): TimeRange[] {
+  const minSilence = opts.minSilence ?? 0.5
+  const minSpeech = opts.minSpeech ?? 0.12
+  const threshold = opts.threshold ?? autoThreshold(db)
+  if (threshold == null) return []
 
   const regions: TimeRange[] = []
   let start = -1
@@ -78,6 +91,19 @@ export function silencesBetween(speech: TimeRange[], from: number, to: number, m
   }
   if (to - cursor >= minSilence) out.push([cursor, to])
   return out
+}
+
+/** Returns t moved to the quietest 10 ms frame within ±0.12 s (to put a cut between words, not inside one). */
+export function quietSnapper(db: Float32Array) {
+  return (t: number) => {
+    const center = Math.round(t / HOP)
+    if (center < 0 || center >= db.length) return t
+    let best = center
+    for (let i = Math.max(0, center - 12); i <= Math.min(db.length - 1, center + 12); i++) {
+      if (db[i] < db[best] - 0.5) best = i
+    }
+    return best / 100
+  }
 }
 
 function round(n: number) {

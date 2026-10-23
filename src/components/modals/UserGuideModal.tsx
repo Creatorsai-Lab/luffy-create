@@ -112,6 +112,7 @@ const SECTIONS: Section[] = [
           ['Charts', 'Bar, line, area, points, pie and doughnut charts with editable data, axes and styling.'],
           ['Code', 'Monaco code editor with syntax highlighting, line numbers and typing animations.'],
           ['Counter', 'Animated counter that counts as numbers, English words or Hindi words, with range, speed, loop and text styling.'],
+          ['Edit BG', 'Remove, blur or replace the background of a video or image in one click (AI cut-out on this computer), or remove a green screen. Applies to every part of a clip that was cut into parts.'],
           ['Effects', 'Timed media effects, grain and vignette for the selected image or video.'],
           ['Hand Draw', 'Freehand drawing with Pen, Paint, Spray and Eraser.'],
           ['Icons', 'Searchable icon library; color and stroke width.'],
@@ -218,22 +219,21 @@ const SECTIONS: Section[] = [
     id: 'transitions', title: 'Transitions', icon: <Shuffle size={15} />,
     content: (
       <>
-        <P>A transition plays at the <strong>start</strong> of a scene, leading in from the previous scene. Set it in the Transitions tool, or right-click a scene in the timeline → Edit Transition. Duration is 0.1–2 seconds.</P>
-        <Table head={['Transition', 'Effect']} rows={[
-          ['None', 'Hard cut.'],
-          ['Fade', 'Cross-fade from the previous scene.'],
-          ['Push', 'The new scene pushes the old one out (direction).'],
-          ['Zoom', 'The new scene eases in with a gentle zoom.'],
-          ['Wipe', 'A soft-edged reveal (direction).'],
-          ['Morph', 'Matching objects move, resize and recolor into their new place.'],
-          ['Flash Blur', 'A directional blur through a white flash (direction, speed, hardness).'],
-          ['Flicker Shake', 'Rapid flicker between the scenes with a shake (direction, speed, hardness).'],
+        <P>A transition plays over the <strong>start</strong> of a scene, leading in from the scene before. On the <strong>first scene</strong> it is an intro from black, and the last scene has an <strong>Ending</strong> section to fade the video out to black. Open the Transitions tool (or click the coloured bar over a scene in the timeline). Hover a transition to see it in the preview box; pick it to use it. Length is 0.1–3 seconds.</P>
+        <Table head={['Group', 'Transitions']} rows={[
+          ['Basic', 'Dissolve, Dip to black, Dip to white, Push, Slide, Wipe, Zoom in, Zoom out, Iris.'],
+          ['Cinematic', 'Whip pan, Zoom blur, Spin, Blur dissolve, Light leak, Film burn, Luma fade, Flash.'],
+          ['Energy', 'Glitch, Pixelate, Stretch, Slices, Flash Blur, Flicker Shake.'],
+          ['3D', 'Cube.'],
+          ['Smart', 'Morph — matching objects move, resize and recolour into their new place.'],
         ]} />
+        <P>Each transition shows only the settings it has: <strong>New scene comes in</strong> (from the left, right, top or bottom), <strong>Strength</strong> (blur, zoom, glitch, light), <strong>Edge softness</strong> (wipe, iris, luma fade), <strong>Colour</strong> (dips and flash) and <strong>Motion</strong> — Smooth eases in and out, Snappy rushes through the middle (good for whips and glitches), Linear is even. <strong>Play here</strong> plays the transition on the canvas; <strong>Apply to all cuts</strong> uses it between every pair of scenes.</P>
+        <P>During a transition the outgoing scene keeps playing — a video carries on into the footage after its trim point (or holds its last frame) — and its sound fades out as the new scene's fades in. Transitions look the same on the canvas (also while paused or scrubbing), in Preview and in the exported video; captions stay on top, untouched.</P>
         <H>Using Morph</H>
         <P>Morph works like PowerPoint Morph. Duplicate a scene (or copy elements into the next scene), then move, resize or recolor things in the copy and give the copy a Morph transition. Objects are matched across the two scenes — copies are linked automatically, and otherwise elements of the same type with the same content (same text, image or shape type) are paired. Unmatched objects fade out or in. If matched text changes its wording, the old and new text cross-fade while the box moves.</P>
         <P>Morph plays in timeline playback, Preview and export. While paused, the editor shows the real scene so it stays editable.</P>
         <H>When to use transitions</H>
-        <P>Use transitions to separate ideas, not to decorate every cut. Fade suits calm narration, Push suits step-by-step movement, Wipe reveals before/after comparisons, Morph explains change, and Flash Blur / Flicker Shake give energetic social-style cuts. Each transition has a fixed color on its timeline marker.</P>
+        <P>Use transitions to separate ideas, not to decorate every cut. Dissolve and dips suit calm narration, Push and Slide suit step-by-step movement, Wipe and Luma fade reveal before/after comparisons, Morph explains change, Whip pan, Zoom blur and Glitch give energetic social-style cuts, and Light leak or Film burn add a filmic mood. Each transition has a fixed colour on its timeline bar.</P>
       </>
     ),
   },
@@ -315,6 +315,12 @@ const SECTIONS: Section[] = [
         <P>Select two or more clips and open <strong>Group Effects → Layout</strong> for <strong>Side by side</strong>, <strong>Stacked</strong> (best for 9:16) or <strong>Grid</strong>. To put clips anywhere else, tell the AI Agent where: "make video 1 full screen and video 2 bottom right at 400x300", "put this video in the upper half and this one in the lower half", "fit the whole video in the top third". It works out the exact pixels from the scene size (the upper half of 1080×1920 is 1080×960). Clips are cropped to fill their area, centred on what they showed — never stretched unless you say "stretch"; say "fit" or "without cropping" to see the whole clip.</P>
         <H>Auto reframe (follow the face)</H>
         <P>Select a video and use <strong>Auto reframe</strong> at the top of its panel. <strong>Fill frame</strong> makes the clip cover the whole frame — e.g. landscape footage in a 9:16 video — and moves the crop to keep the speaker's face in shot; <strong>In place</strong> keeps the clip's size and position and only moves the crop (useful in a split screen). <strong>Steady</strong> holds one framing per shot, <strong>Auto</strong> stays still while the speaker sits still and pans smoothly when they move, <strong>Follow</strong> always follows. Shot changes cut instead of panning. Faces are found on your computer — nothing is uploaded. <strong>Stop following</strong> or a new hand-made crop turns it off.</P>
+        <H>Jump cuts</H>
+        <P>Select a talking clip and open <strong>Jump cuts</strong> at the top of its panel. Turn on what to cut — <strong>Pauses</strong>, <strong>Filler words</strong> ("um", "uh") and <strong>Retakes</strong> (a sentence you started again: the earlier tries go, the last take stays) — and every cut shows on the timeline as a striped block before anything changes: red pauses, amber fillers, violet retakes. <strong>Shortest pause to cut</strong> and <strong>Breath kept by each cut</strong> set how tight it gets; <strong>Silence level</strong> is worked out from the clip (Auto) or set by hand for noisy rooms. <strong>Punch-in zoom</strong> zooms every other part in a little (10% by default) so the cuts look intentional. <strong>Apply</strong> cuts the clip into scenes as one numbered AI edit — undo it with Ctrl+Z or /undo #N. If the clip was already cut, every part of it is included. Fillers and retakes need a transcript from local Whisper (once per clip, then remembered); pauses don't.</P>
+        <H>Edit by transcript</H>
+        <P><strong>Jump cuts → Edit by transcript</strong> shows the clip's words in the properties panel. Click a word to jump the playhead there (the word being spoken is highlighted). Drag or Shift+click to select words, then <Kbd>Delete</Kbd> to cut them — they stay visible, struck through, and <Kbd>Delete</Kbd> again brings them back. Filler words are coloured and pauses show as chips you can cut the same way; <strong>Cut N fillers</strong> / <strong>Cut N pauses</strong> do them all at once. Cuts show on the timeline until you <strong>Apply</strong>.</P>
+        <H>Remove background</H>
+        <P><strong>Edit BG</strong> in the left menu gives one-click <strong>Remove background</strong>, <strong>Blur background</strong>, <strong>Colour background</strong>, <strong>Green screen</strong> and <strong>Original</strong> for the selected video or image (or lists the scene's videos and images to pick from), then the fine-tune settings. When a clip was cut into parts (e.g. by jump cuts), the change goes to <strong>all parts</strong> unless you untick it. Videos and images also have <strong>Remove background</strong> in their panel. <strong>Green screen</strong> removes a colour: the colour is found from the picture's edges when you turn it on, or use <strong>Pick</strong> and click the screen anywhere on the canvas. <strong>Strength</strong> sets how many shades of the screen go, <strong>Edge softness</strong> softens the outline and <strong>Spill removal</strong> takes the green cast off hair and edges. <strong>AI cut-out</strong> keeps the person and removes the rest without a green screen (on this computer); <strong>Edge feather</strong> softens the outline, and the background can be removed, <strong>blurred</strong> (portrait look) or replaced with a <strong>colour</strong>. Whatever is behind the clip shows through; <strong>Put behind</strong> places a project image or video right behind it, filling its box. It shows in Preview and export.</P>
         <H>Cutting video</H>
         <P>To remove a middle section, split the scene (or the clip) at the start of the unwanted part, split again at its end, and delete the middle. Playback continues smoothly from the new trim point in the editor, Preview and export.</P>
         <H>Styling</H>
@@ -387,6 +393,8 @@ const SECTIONS: Section[] = [
           ['Rename project', 'Click the name, then Enter to save or Escape to cancel'],
           ['Code editor', 'Standard editor keys: Ctrl+/ comment, Ctrl+F find, Shift+Alt+F format, Alt+↑/↓ move line'],
           ['AI prompt: / or @ list', '↑ / ↓ to move, Enter or Tab to pick, Escape to close'],
+          ['Transcript: select words', 'Drag, or click then Shift+click'],
+          ['Transcript: cut / restore the selection', 'Delete / Backspace (again to restore); Escape clears the selection'],
         ]} />
         <P>Tip: Space, the arrow keys and Home/End make repeated review fast. Combine arrow nudging with the right-click Center commands and the layer shortcuts for clean alignment.</P>
       </>
@@ -433,6 +441,8 @@ const SECTIONS: Section[] = [
           ['Delete scenes 2-4 / duplicate scene 1 / swap scene 1 and 3', 'Remove, copy and reorder scenes.'],
           ['Make all scenes 3s long / extend scene 1 by 2s', 'Change scene durations.'],
           ['Use wipe transitions between all scenes', 'Set the transition on every scene after the first.'],
+          ['Add whip pan transitions between all scenes / add a strong zoom blur transition to scene 2', 'Any of the transitions by name, with strength, direction and length.'],
+          ['Fade in from black at the start / fade out to black at the end', 'An intro on the first scene and a fade-out after the last one.'],
           ['Make the background dark blue', 'Solid, gradient ("from purple to pink") or transparent backgrounds.'],
           ["Add a title 'Intro' at the top and make it fade in", 'Add text, place it, then animate it.'],
           ['Add a red circle with a white border in the bottom right', 'Add shapes with fill, border and position.'],
@@ -442,6 +452,10 @@ const SECTIONS: Section[] = [
           ['Move the selected item to the right with speed 400', 'Add a move animation.'],
           ['Remove silences / tighten the pauses', 'Listen to each video clip and cut out the quiet parts.'],
           ['Remove filler words', 'Cut "um", "uh" and "hmm" found by local Whisper. Play it back — word timings are approximate.'],
+          ['Remove the retakes / cut out the false starts', 'Cut sentences you started again, keeping the last take.'],
+          ['Add jump cuts with punch-in zooms / zoom in 15% on every other cut', 'Cut the pauses and zoom every other part in.'],
+          ['Remove the green screen / key out the blue screen on the video', 'Make the screen colour transparent.'],
+          ['Remove the background from my video / blur my background / bring the background back', 'AI cut-out of the person, a blurred or coloured background, or the original again.'],
           ['Cut to the beat', 'Move scene ends onto the beat of the background music.'],
           ['Split the video into shots', 'Make a new scene at every camera cut.'],
           ["Add a lower third for 'Adya' 'ML engineer' on the right", 'Add an add-on; then "make the lower third red" or "change its role to \'Founder\'".'],

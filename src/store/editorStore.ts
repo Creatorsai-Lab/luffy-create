@@ -73,6 +73,8 @@ interface EditorActions {
   updateScene:      (id: string, patch: Partial<Pick<Scene, 'name' | 'duration'>>) => void
   setBackground:    (id: string, bg: Background) => void
   setTransition:    (id: string, tr: SceneTransition) => void
+  /** The fade-out at the end of the video (undefined removes it). */
+  setEndTransition: (tr: SceneTransition | undefined) => void
 
   // Elements
   addElement:         (el: EditorElement) => void
@@ -570,6 +572,12 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         if (sc) { sc.transition = tr; s.isDirty = true }
       }),
 
+      setEndTransition: (tr) => set(s => {
+        if (!s.project) return
+        s.project.endTransition = tr && tr.type !== 'none' ? tr : undefined
+        s.isDirty = true
+      }),
+
       // ── Elements ──────────────────────────────────────────────────────────
       addElement: (el) => set(s => {
         if (!s.project || !s.currentSceneId) return
@@ -951,7 +959,17 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       }),
 
       // ── Playback ──────────────────────────────────────────────────────────
-      setPlayhead: (t) => set(s => { s.playhead = t }),
+      // Moving the playhead (clicking the ruler, dragging, stepping) shows the scene it lands in,
+      // so a paused canvas always matches the frame under the playhead — transitions included.
+      setPlayhead: (t) => set(s => {
+        s.playhead = t
+        if (!s.project || s.isPlaying) return
+        const at = sceneAtTime(s.project.scenes, t)
+        if (at && at.scene.id !== s.currentSceneId) {
+          s.currentSceneId = at.scene.id
+          s.selectedIds = []
+        }
+      }),
       play:        ()  => set(s => { s.isPlaying = true }),
       pause:       ()  => set(s => { s.isPlaying = false }),
       stop:        ()  => set(s => { s.isPlaying = false; s.playhead = 0 }),

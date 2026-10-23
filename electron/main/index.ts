@@ -38,6 +38,7 @@ import { Readable } from 'stream'
 import { inferUploadAssetKind, makeAssetUploadName, randomAssetHash } from './assetNaming'
 import { createPlannerStore } from './planner'
 import { createFilmstripCache } from './filmstripCache'
+import { createTranscriptCache } from './transcriptCache'
 import {
   createTranslationPackManager,
   type TranslationDirection,
@@ -719,10 +720,19 @@ async function resolveNativeFfmpeg() {
   return python ? pythonImageioFfmpegPath(python) : null
 }
 
+// Word timings (jump cuts, transcript editing) are kept so a clip is transcribed once.
+const transcripts = createTranscriptCache(join(USER_DATA, 'transcripts'), writeFileAtomic)
+
 async function transcribeAudioWithLocalWhisper(req: SubtitleTranscribeRequest) {
   if (!req.sourcePath) throw new Error('No audio file was provided for transcription.')
   const info = await stat(req.sourcePath)
   if (!info.isFile()) throw new Error('Selected audio source is not a file.')
+
+  const variant = `words:${req.language?.trim() || 'auto'}`
+  if (req.words) {
+    const cached = await transcripts.load(req.sourcePath, variant)
+    if (cached) return { source: 'whisper.cpp', text: cached.map(cue => cue.text).join(' ').trim(), cues: cached }
+  }
 
   const cli = resolveWhisperCli()
   const model = resolveWhisperModel(req.language)
@@ -786,6 +796,7 @@ async function transcribeAudioWithLocalWhisper(req: SubtitleTranscribeRequest) {
 
     const payload = JSON.parse(await readFile(outputJson, 'utf-8'))
     const cues = coerceWhisperJson(payload)
+    if (req.words) await transcripts.save(req.sourcePath, variant, cues).catch(() => {})
     return {
       source: 'whisper.cpp',
       text: cues.map(cue => cue.text).join(' ').trim(),

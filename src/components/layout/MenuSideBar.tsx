@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Type, ArrowRight, Code2, Table2, Layers, Shuffle, ImagePlus, BarChart3, Music,
-  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, Rotate3d, SquarePlay, Sigma, BookOpen, Captions, Timer, Route, SquareTerminal, PenTool, Clapperboard, Blocks, Unplug
+  Play, Download, Monitor, ChevronDown, Undo2, Redo2, PaintBucket, Shapes, PointerOff, Rotate3d, SquarePlay, Sigma, BookOpen, Captions, Timer, Route, SquareTerminal, PenTool, Clapperboard, Blocks, Unplug, SquareDashedMousePointer,
 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { useHistoryStore } from '../../store/historyStore'
@@ -35,6 +35,7 @@ const TOOLS: ToolItem[] = [
   { icon: <BarChart3 size={15} />, label: 'Charts', tool: 'chart', panel: 'charts' },
   { icon: <Code2 size={15} />, label: 'Code', tool: 'code', panel: 'code' },
   { icon: <Timer size={15} />, label: 'Counter', tool: 'counter', panel: 'counter' },
+  { icon: <SquareDashedMousePointer size={15} />, label: 'Edit BG', panel: 'editBg' },
   { icon: <Clapperboard size={15} />, label: 'Effects', panel: 'effects' },
   { icon: <Blocks size={15} />, label: 'Group Effects', panel: 'groupEffects' },
   { icon: <PenTool size={15} />, label: 'Hand Draw', tool: 'handDraw', panel: 'handDraw' },

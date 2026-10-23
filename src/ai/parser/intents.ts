@@ -10,6 +10,8 @@ import { blocksHandler } from './blocks'
 import { layoutHandler } from './layout'
 import { placeHandler, placementForNewClip } from './place'
 import { captionsHandler } from './captions'
+import { keyingHandler } from './keying'
+import { TRANSITION_DEFS, transitionDef, transitionFromWords } from '../../engine/transitions/catalog'
 import { FONT_FAMILIES } from '../../types/editor'
 import type { AiAnimationSpec, AiArrangeOrder, AiEditorCommand, AiElementRef, AiPlanStep, AiSceneRef, AiWave } from '../types'
 import { readColors, type ColorMatch } from './colors'
@@ -226,7 +228,30 @@ const smart: Handler = (clause, state) => {
     return [{ type: 'duckMusic', level: level != null ? Math.round(Math.max(0, Math.min(1, level)) * 1000) / 1000 : undefined, fade: fade ? Number(fade[1] ?? fade[2]) : undefined }]
   }
 
-  if (/\b(?:fillers?|filler words?|ums?|umms?|uhs?|uhms?|erms?|ahs?)\b/.test(text) && cutVerb.test(text)) {
+  // Retakes and punch-in zooms go through the jump-cut engine: "remove retakes",
+  // "jump cut with punch-in zooms", "zoom in on every other cut".
+  const fillerWords = /\b(?:fillers?|filler words?|ums?|umms?|uhs?|uhms?|erms?|ahs?)\b/
+  const retakes = /\b(?:re-?takes?|repeated (?:takes?|sentences?|lines?|phrases?)|false starts?|bad takes?|stumbles?|restarts?)\b/
+  const punch = /\bpunch[\s-]?ins?\b|\bzoom\w*\b.*\b(?:cuts?|parts?)\b|\b(?:cuts?|parts?)\b.*\bzoom/
+  if ((retakes.test(text) && cutVerb.test(text)) || (punch.test(text) && /\b(?:jump[\s-]?cuts?|cuts?|pauses?|silen\w*)\b/.test(text))) {
+    const pct = readPercent(text)
+    const longer = timeAfter(text, ['than', 'over', 'above', 'at least', 'longer than'])
+    const punchIn = punch.test(text)
+    return [{
+      type: 'jumpCut',
+      sceneIds: sceneIds(),
+      settings: {
+        pauses: /\b(?:silen\w*|pauses?|dead air|quiet parts?|jump[\s-]?cuts?)\b/.test(text),
+        fillers: fillerWords.test(text),
+        retakes: retakes.test(text),
+        punchIn,
+        ...(longer != null && { minPause: longer }),
+        ...(punchIn && pct != null && pct > 0 && pct <= 0.5 && { zoom: Math.round((1 + pct) * 100) / 100 }),
+      },
+    }]
+  }
+
+  if (fillerWords.test(text) && cutVerb.test(text)) {
     return [{ type: 'removeFillers', sceneIds: sceneIds() }]
   }
   if ((/\b(?:silen(?:ce|ces|t parts?)|pauses?|dead air|quiet parts?)\b/.test(text) && cutVerb.test(text)) || /\bjump[\s-]?cuts?\b/.test(text)) {
@@ -536,31 +561,96 @@ const reorder: Handler = (clause, state) => {
   return [{ type: 'moveScene', ...sceneRef(from), toIndex }]
 }
 
-const TRANSITIONS: Array<[RegExp, TransitionType]> = [
-  [/\bflicker(?:\s+shake)?\b/, 'flickerShake'],
-  [/\bflash(?:\s+blur)?\b/, 'flashBlur'],
-  [/\bmorph\w*/, 'morph'],
-  [/\b(?:cross\s?fade|dissolve|fade)\w*/, 'fade'],
-  [/\bwipe\w*/, 'wipe'],
-  [/\bzoom\w*/, 'zoom'],
-  [/\bpush\w*/, 'push'],
-  [SLIDE_WORD, 'slide'],
-  [/\b(?:no|none|hard cut|cut)\b/, 'none'],
+/** Adjectives that ask for a kind of transition without naming one. */
+const TRANSITION_MOODS: Array<[RegExp, TransitionType]> = [
+  [/\b(?:smooth|soft|subtle|simple|gentle|classic|clean)\b/, 'fade'],
+  [/\b(?:cinematic|film(?:ic)?|dreamy)\b/, 'blurDissolve'],
+  [/\b(?:quick|fast|snappy|energetic|dynamic|punchy|trendy)\b/, 'whip'],
 ]
+
+const NOT_A_TRANSITION_NAME = /^(?:a|an|the|some|my|all|every|each|new|nice|cool|good|great|fancy|modern|better|same|different|other|more|these|those|this|that|between|scene|scenes|slide|slides|\d+)$/
+
+/** The transition a clause names: a known name, a mood ("smooth", "cinematic"), or null with the unknown name. */
+function readTransitionType(text: string): { type: TransitionType | null; unknown?: string } {
+  const named = transitionFromWords(text.replace(/\btransitions?\b/g, ' '))
+  if (named) return { type: named }
+  if (/\bdip\b/.test(text)) return { type: 'dipBlack' }
+  const mood = TRANSITION_MOODS.find(([re]) => re.test(text))
+  if (mood) return { type: mood[1] }
+  const before = text.match(/\b([a-z][\w-]*)\s+transitions?\b/)?.[1]
+  return { type: null, unknown: before && !NOT_A_TRANSITION_NAME.test(before) ? before : undefined }
+}
+
+/** Duration, direction, strength and colour said with a transition. */
+function readTransitionSettings(text: string, type: TransitionType) {
+  const def = transitionDef(type)
+  const out: Record<string, unknown> = {}
+  const duration = readTimes(text)[0]?.seconds
+  if (duration != null) out.duration = duration
+  const direction = readDirection(text) ?? (text.match(/\b(left|right|up|down)\b/)?.[1] as SlideDir | undefined)
+  if (direction && def.direction) out.direction = direction
+  if (def.intensity != null) {
+    if (/\b(?:strong|heavy|intense|big|extreme|hard)\b/.test(text)) out.intensity = 0.9
+    else if (/\b(?:subtle|light|gentle|soft|slight)\b/.test(text)) out.intensity = 0.3
+  }
+  const color = readColors(text).find(c => !/^(?:black|white)$/.test(c.name ?? '') || type === 'flash')
+  if (color && (type === 'dipBlack' || type === 'dipWhite' || type === 'flash')) out.color = color.hex
+  if (/\bsnappy\b/.test(text)) out.easing = 'snappy'
+  return out
+}
+
+function unknownTransition(state: ParseState, name: string) {
+  const names = TRANSITION_DEFS.filter(t => t.value !== 'none').map(t => t.label).join(', ')
+  warn(state, `I don't know a "${name}" transition. Try one of: ${names}.`)
+}
 
 const transition: Handler = (clause, state) => {
   const text = clause.text
-  const between = /\bbetween\b/.test(text) && /\b(?:scenes?|slides?)\b/.test(text)
+  const between = /\bbetween\b/.test(text) && /\b(?:scenes?|slides?|cuts?|clips?)\b/.test(text)
   if (!/\btransitions?\b/.test(text) && !between) return null
-  const type = TRANSITIONS.find(([re]) => re.test(text.replace(/\btransitions?\b/g, '')))?.[1] ?? 'fade'
+  const { type, unknown } = readTransitionType(text)
+  if (!type) {
+    if (unknown) { unknownTransition(state, unknown); return [] }
+  }
+  const chosen = type ?? 'fade'
 
   let scenes = readScenes(text, state) ?? defaultScenes(state)
   // A transition plays as a scene starts, so "between" scenes means every scene but the first one named.
   if (between) scenes = scenes.slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).slice(1)
-  const duration = readTimes(text)[0]?.seconds
-  const direction = readDirection(text) ?? (text.match(/\b(left|right|up|down)\b/)?.[1] as SlideDir | undefined)
   remember(state, undefined, scenes)
-  return scenes.map(t => ({ type: 'setTransition', ...sceneRef(t), transition: { type, duration, direction } }))
+  const settings = readTransitionSettings(text, chosen)
+  return scenes.map(t => ({ type: 'setTransition', ...sceneRef(t), transition: { type: chosen, ...settings } }))
+}
+
+/**
+ * The start and end of the video: "fade in from black at the start", "start with an iris",
+ * "fade out to black at the end", "end with a dip to white", "remove the fade at the end".
+ */
+const videoEnds: Handler = (clause, state) => {
+  const text = clause.text
+  const atEnd = /\b(?:at|in)\s+the\s+(?:very\s+)?end(?:ing)?\b|\bend\s+of\s+the\s+(?:video|film|movie|project)\b|\b(?:ending|outro)\b|\bend\s+(?:the\s+video\s+)?with\b/.test(text)
+  const atStart = /\b(?:fade|dip)\s+in\s+from\s+black\b|\b(?:start|open|begin)\w*\s+(?:the\s+video\s+)?(?:with|from)\b|\bintro\s+transition\b|\b(?:at|from)\s+the\s+(?:very\s+)?(?:start|beginning)\b/.test(text)
+  if (!atEnd && !atStart) return null
+  // Animating an item at the start or end is the animation handlers' job ("the video" here is the whole video).
+  if (mentionsElement(text.replace(/\b(?:the\s+)?(?:video|film|movie)\b/g, ' '))) return null
+  const transitionish = /\btransitions?\b|\bblack\b|\bwhite\b|\bfade\w*|\bdip\b|\bending\b|\boutro\b/.test(text) || transitionFromWords(text) != null
+  if (!transitionish) return null
+
+  const removing = /\b(?:remove|delete|no|without|turn off|drop|get rid of|clear)\b/.test(text)
+  const named = readTransitionType(text)
+  if (!named.type && named.unknown && !removing) { unknownTransition(state, named.unknown); return [] }
+  // "fade out" / "fade in" alone means a dissolve to or from black.
+  const type = named.type && named.type !== 'none' ? named.type : 'fade'
+  const settings = readTransitionSettings(text, type)
+
+  if (atEnd) {
+    if (removing) return [{ type: 'setEndTransition', transition: { type: 'none' } }]
+    return [{ type: 'setEndTransition', transition: { type, ...settings } }]
+  }
+  const first = sceneTarget(state, 1)
+  if (!first) return null
+  if (removing) return [{ type: 'setTransition', ...sceneRef(first), transition: { type: 'none', duration: 0 } }]
+  return [{ type: 'setTransition', ...sceneRef(first), transition: { type: type === 'morph' ? 'fade' : type, ...settings } }]
 }
 
 const background: Handler = (clause, state) => {
@@ -1104,6 +1194,6 @@ const modify: Handler = (clause, state) => {
 
 /** In priority order: the first handler that claims a clause wins. */
 export const HANDLERS: Handler[] = [
-  smart, captionsHandler, group, blocksHandler, layoutHandler, placeHandler, addScene, remove, duplicate, split, trim, reorder, transition, background, setDuration,
+  smart, captionsHandler, keyingHandler, group, blocksHandler, layoutHandler, placeHandler, addScene, videoEnds, remove, duplicate, split, trim, reorder, transition, background, setDuration,
   layer, connect, addElement, media, moveAnimation, sequence, animate, position, modify,
 ]

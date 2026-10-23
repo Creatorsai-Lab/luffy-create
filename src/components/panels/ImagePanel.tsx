@@ -6,6 +6,7 @@ import { PanelHeader, Row, Slider, NumberInput, AnimSection } from './TextPanel'
 import { cn } from '../../utils/cn'
 import { makeAnimation } from '../../utils/defaults'
 import BoxShadowControls from './BoxShadowControls'
+import KeyingControl from './KeyingControl'
 import BorderControls from './BorderControls'
 import MediaVignetteControls from './MediaVignetteControls'
 import MediaGrainControls from './MediaGrainControls'
@@ -94,6 +95,7 @@ export default function ImagePanel() {
 
         {el && (
           <>
+            <KeyingControl element={el} />
             <div className="flex flex-col gap-0.5 px-3 py-2">
 
               {/* ── Dimensions ──────────────────────────────────────── */}

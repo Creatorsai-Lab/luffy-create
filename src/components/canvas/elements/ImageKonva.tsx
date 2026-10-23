@@ -9,45 +9,39 @@ import { drawBoxShadow } from '../../../engine/boxShadow'
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
 import { drawMediaWithEffects, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
 import { decodeGif, getGifFrameAtTime, type GifData } from '../../../engine/gifDecoder'
+import { keyedFrame } from '../../../engine/keying'
 
 // ── Draw-function factories ──────────────────────────────────────────────────
 
-function makeImageDrawFns(img: HTMLImageElement, el: ImageElement): MediaDrawFns {
-  const cropX = (el.crop?.x ?? 0) * img.naturalWidth
-  const cropY = (el.crop?.y ?? 0) * img.naturalHeight
-  const cropW = (el.crop?.w ?? 1) * img.naturalWidth
-  const cropH = (el.crop?.h ?? 1) * img.naturalHeight
+/** Draws `source` cropped to el.crop — or its keyed copy when the image has a green screen / background removal. */
+function makeCropDrawFns(source: HTMLImageElement | HTMLCanvasElement, sourceW: number, sourceH: number, el: ImageElement, time: number): MediaDrawFns {
+  const cropX = (el.crop?.x ?? 0) * sourceW
+  const cropY = (el.crop?.y ?? 0) * sourceH
+  const cropW = (el.crop?.w ?? 1) * sourceW
+  const cropH = (el.crop?.h ?? 1) * sourceH
+  const keyed = sourceW ? keyedFrame(el.id, el.keying, source, sourceW, sourceH, { x: cropX, y: cropY, w: cropW, h: cropH }, time) : null
+  const image: CanvasImageSource = keyed ?? source
+  const sx = keyed ? 0 : cropX
+  const sy = keyed ? 0 : cropY
+  const sw = keyed ? keyed.width : cropW
+  const sh = keyed ? keyed.height : cropH
 
   return {
     drawBase: (ctx, dx = 0, dy = 0, dw = el.width, dh = el.height) => {
-      ctx.drawImage(img, cropX, cropY, cropW, cropH, dx, dy, dw, dh)
+      ctx.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh)
     },
     drawSlice: (ctx, sourceY, sourceH, destX, destY, destW, destH) => {
-      const sy = cropY + (sourceY / el.height) * cropH
-      const sh = (sourceH / el.height) * cropH
-      ctx.drawImage(img, cropX, sy, cropW, sh, destX, destY, destW, destH)
+      ctx.drawImage(image, sx, sy + (sourceY / el.height) * sh, sw, (sourceH / el.height) * sh, destX, destY, destW, destH)
     },
   }
 }
 
-function makeGifDrawFns(frameCanvas: HTMLCanvasElement, el: ImageElement): MediaDrawFns {
-  const fw = frameCanvas.width
-  const fh = frameCanvas.height
-  const cropX = (el.crop?.x ?? 0) * fw
-  const cropY = (el.crop?.y ?? 0) * fh
-  const cropW = (el.crop?.w ?? 1) * fw
-  const cropH = (el.crop?.h ?? 1) * fh
+function makeImageDrawFns(img: HTMLImageElement, el: ImageElement): MediaDrawFns {
+  return makeCropDrawFns(img, img.naturalWidth, img.naturalHeight, el, 0)
+}
 
-  return {
-    drawBase: (ctx, dx = 0, dy = 0, dw = el.width, dh = el.height) => {
-      ctx.drawImage(frameCanvas, cropX, cropY, cropW, cropH, dx, dy, dw, dh)
-    },
-    drawSlice: (ctx, sourceY, sourceH, destX, destY, destW, destH) => {
-      const sy = cropY + (sourceY / el.height) * cropH
-      const sh = (sourceH / el.height) * cropH
-      ctx.drawImage(frameCanvas, cropX, sy, cropW, sh, destX, destY, destW, destH)
-    },
-  }
+function makeGifDrawFns(frameCanvas: HTMLCanvasElement, el: ImageElement, time: number): MediaDrawFns {
+  return makeCropDrawFns(frameCanvas, frameCanvas.width, frameCanvas.height, el, time)
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -156,10 +150,10 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
   const getCurrentDrawFns = useCallback((): MediaDrawFns | null => {
     if (isGif) {
       const frame = getGifFrame()
-      return frame ? makeGifDrawFns(frame, el) : null
+      return frame ? makeGifDrawFns(frame, el, localTime) : null
     }
     return img ? makeImageDrawFns(img, el) : null
-  }, [isGif, getGifFrame, img, el])
+  }, [isGif, getGifFrame, img, el, localTime])
 
   /** Render the image (with effects) for the perspective warp, into `target` when given. */
   function buildPerspectiveSource(target?: HTMLCanvasElement) {
@@ -200,7 +194,7 @@ export default function ImageKonva({ el, konvaProps, textProgress = 1, wipeProgr
       el.vignetteAmount, el.vignetteSize, el.vignetteFade,
       el.grainColor, el.grainSize, el.grainOpacity, el.mediaEffects, el.mediaEffect,
       el.mediaEffectAxis, el.mediaEffectIntensity, el.mediaEffectSpeed,
-      el.mediaEffectHardness, el.mediaEffectBlend, el.mediaEffectSize,
+      el.mediaEffectHardness, el.mediaEffectBlend, el.mediaEffectSize, el.keying,
       !!el.perspectivePts, dynamicPerspective])
 
   // ── Determine if we have a renderable source ──────────────────────────────

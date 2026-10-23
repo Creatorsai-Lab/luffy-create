@@ -1,12 +1,14 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
-import type { Project, AudioElement, VideoElement } from '../types/editor'
+import type { Project, AudioElement, MediaKeying, VideoElement } from '../types/editor'
+import { prepareKeying } from './keying'
 import type Konva from 'konva'
-import { renderTransition } from './transitionRenderer'
+import { renderTransition, solidCanvas } from './transitionRenderer'
+import { warmUpShaders } from './transitions/glRenderer'
 import { toFileUrl } from '../utils/pathUtils'
 import { buildFfmpegFadeVolumeExpression } from '../utils/audioFade'
 import { buildFfmpegVolumeKeysFilter } from '../utils/volumeKeys'
-import { buildTransitionTimeline, getTransitionFrameState } from '../utils/transitionTiming'
+import { buildTransitionTimeline, getEffectiveTransitionDuration, getEndTransitionDuration, getTransitionFrameState } from '../utils/transitionTiming'
 import { nextFrame } from '../utils/nextFrame'
 
 export interface FFmpegExportOptions {
@@ -14,8 +16,10 @@ export interface FFmpegExportOptions {
   getStage: () => Konva.Stage | null
   onProgress: (pct: number, message: string) => void
   onLog?: (msg: string) => void
+  /** Shows the frame at `t` on the editor stage; during a cut it also shows the outgoing scene on its own stage. */
   renderFrame: (t: number) => Promise<void>
-  renderSceneFrame?: (sceneId: string, globalTime: number) => Promise<void>
+  /** The outgoing scene's stage during a cut (see EditorCanvas). */
+  getOutgoingStage?: () => Konva.Stage | null
   quality?: '720p' | '1080p'
 }
 
@@ -102,7 +106,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     onProgress,
     onLog,
     renderFrame,
-    renderSceneFrame,
+    getOutgoingStage,
     quality = '1080p',
   } = opts
 
@@ -114,6 +118,9 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
 
   onProgress(0, 'Initializing FFmpeg...')
   const ffmpeg = await loadFFmpeg(onLog)
+
+  // The AI cut-out model must be ready before the first frame is captured.
+  await prepareKeying(project.scenes.flatMap(scene => scene.elements as Array<{ keying?: MediaKeying }>))
 
   onProgress(5, 'Rendering frames...')
 
@@ -127,7 +134,9 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     willReadFrequently: false
   })!
 
-  const sceneTimeline = buildTransitionTimeline(project.scenes)
+  const sceneTimeline = buildTransitionTimeline(project.scenes, project.endTransition)
+  // Compile the shaders this video uses now, so the first transition frames don't stall.
+  warmUpShaders([...project.scenes.map(sc => sc.transition.type), ...(project.endTransition ? [project.endTransition.type] : [])])
 
   const fromCanvas = document.createElement('canvas')
   fromCanvas.width = w
@@ -139,8 +148,8 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
   toCanvas.height = h
   const toCtx = toCanvas.getContext('2d', { alpha: false })!
 
-  async function captureStageInto(ctx: CanvasRenderingContext2D) {
-    const stage = getStage()
+  async function captureStageInto(ctx: CanvasRenderingContext2D, from: Konva.Stage | null = getStage()) {
+    const stage = from
     if (!stage) throw new Error('Stage not available during export')
     stage.batchDraw()
     await nextFrame()
@@ -168,40 +177,32 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     const frameState = getTransitionFrameState(sceneTimeline, time)
     let transitionProgress = 0
 
-    if (frameState.kind === 'transition') {
-      if (!renderSceneFrame || frameState.transition.type === 'morph') {
-        // Morph is drawn by the editor canvas itself as a live in-between scene,
-        // so its frame is captured like a normal frame. Without scene-specific
-        // rendering other transitions also fall back to the plain frame.
-        await renderFrame(time)
-        await captureStageInto(compositeCtx)
-      } else {
-        const fromScene = project.scenes[frameState.fromSceneIndex]
-        const toScene = project.scenes[frameState.toSceneIndex]
-
-        // Hold the previous scene on its final stable frame while the entering
-        // scene advances from local time 0. This avoids jumping the entering
-        // scene forward during the transition and then resetting it at the cut.
-        await renderSceneFrame(fromScene.id, frameState.fromTime)
-        await captureStageInto(fromCtx)
-
-        await renderSceneFrame(toScene.id, frameState.toTime)
-        await captureStageInto(toCtx)
-
-        renderTransition({
-          ctx: compositeCtx,
-          width: w,
-          height: h,
-          progress: frameState.progress,
-          type: frameState.transition.type,
-          direction: frameState.transition.direction,
-          speed: frameState.transition.speed,
-          hardness: frameState.transition.hardness,
-          fromCanvas,
-          toCanvas
-        })
-        transitionProgress = frameState.progress
-      }
+    if (frameState.kind === 'transition' && frameState.transition.type !== 'morph') {
+      // The stage shows the playhead's scene; during a cut the editor also keeps the
+      // outgoing scene playing on its own stage. Both are captured at full size and
+      // blended; captions go on top, untouched by the transition.
+      await renderFrame(time)
+      const stage = getStage()
+      const subtitles = stage?.findOne('#subtitles') as Konva.Layer | undefined
+      subtitles?.hide()
+      await captureStageInto(toCtx)
+      subtitles?.show()
+      const outgoing = frameState.phase === 'cut' ? getOutgoingStage?.() ?? null : null
+      if (outgoing) await captureStageInto(fromCtx, outgoing)
+      const black = solidCanvas('#000000')
+      const main = toCanvas
+      renderTransition({
+        ctx: compositeCtx,
+        width: w,
+        height: h,
+        progress: frameState.progress,
+        transition: frameState.transition,
+        fromCanvas: frameState.phase === 'cut' ? (outgoing ? fromCanvas : main) : frameState.phase === 'intro' ? black : main,
+        toCanvas: frameState.phase === 'outro' ? black : main,
+        seed: ((frameState.toSceneIndex + 2) * 0.6180339887) % 1,
+      })
+      if (subtitles && stage) compositeCtx.drawImage(subtitles.toCanvas({ pixelRatio: 1 / stage.scaleX() }), 0, 0, w, h)
+      transitionProgress = frameState.progress
     } else {
       // Normal (non-transition) frame.
       await renderFrame(time)
@@ -276,8 +277,17 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     volumeKeys?: AudioElement['volumeKeys']
   }[] = []
 
+  // Clip sound follows the transitions: a clip that runs into a cut keeps playing
+  // into the next scene and fades out, a clip starting with a scene that has a
+  // transition fades in, and the fade-out at the end fades the last scene's clips.
+  const incomingFade = (index: number) => {
+    const entry = sceneTimeline[index]
+    return entry && entry.transition.type !== 'morph' ? getEffectiveTransitionDuration(entry) : 0
+  }
+  const endFade = getEndTransitionDuration(sceneTimeline)
+
   let audioElapsed = 0
-  for (const scene of project.scenes) {
+  for (const [sceneIndex, scene] of project.scenes.entries()) {
     for (const el of scene.elements) {
       if (el.type === 'audio') {
         const a = el as AudioElement
@@ -302,21 +312,38 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
       } else if (el.type === 'video') {
         const v = el as VideoElement
         if (!v.muted && (v.volume ?? 1) > 0) {
+          const rate = v.playbackRate ?? 1
+          const start = v.startTime ?? 0
+          let duration = v.duration ?? v.sourceDuration ?? 0
+          const timelineX = v.timelineX ?? 0
+          const runsToEnd = timelineX + duration >= scene.duration - 0.05
+          const fadeIn = timelineX <= 0.05 ? Math.min(incomingFade(sceneIndex), duration) : 0
+          let fadeOut = 0
+          const cut = sceneIndex < project.scenes.length - 1 ? incomingFade(sceneIndex + 1) : 0
+          if (runsToEnd && cut > 0) {
+            // Carry on into the footage after the trim point (as the picture does), fading out.
+            const left = v.loop ? cut : Math.max(0, ((v.sourceDuration ?? start + duration * rate) - (start + duration * rate)) / rate)
+            const extra = Math.min(cut, left)
+            duration += extra
+            fadeOut = Math.max(extra, Math.min(0.15, duration))
+          } else if (runsToEnd && sceneIndex === project.scenes.length - 1 && endFade > 0) {
+            fadeOut = Math.min(endFade, duration)
+          }
           audioClips.push({
             sourceKind: 'video',
             src:       v.src,
-            absStart:  audioElapsed + (v.timelineX ?? 0),
-            startTime: v.startTime ?? 0,
-            duration:  v.duration ?? v.sourceDuration ?? 0,
-            speed:     v.playbackRate ?? 1,
+            absStart:  audioElapsed + timelineX,
+            startTime: start,
+            duration,
+            speed:     rate,
             volume:    v.volume ?? 1,
             voice:     0,
             pitch:     0,
             bass:      0,
             saturation: 0,
-            fadeIn:    0,
+            fadeIn,
             fadeInVolume: 1,
-            fadeOut:   0,
+            fadeOut,
             fadeOutVolume: 0,
           })
         }

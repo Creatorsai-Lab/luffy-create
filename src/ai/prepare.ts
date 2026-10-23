@@ -1,9 +1,11 @@
 import { FONT_FAMILIES } from '../types/editor'
 import { getCaptionPreset } from '../subtitle/presets'
 import { normalizeVolumeKeys } from '../utils/volumeKeys'
+import { normalizeKeying } from '../utils/keying'
+import { isTransitionType, TRANSITION_DURATION } from '../engine/transitions/catalog'
 import { getBlock } from '../blocks/registry'
-import type { AnimationType, Background, EasingType, ShapeType, TransitionType } from '../types/editor'
-import type { AiAnimationSpec, AiEditorCommand, AiElementRef, AiPlan, AiPlanIssue, AiPreparedPlan, AiProjectContext, AiSceneRef } from './types'
+import type { AnimationType, Background, EasingType, ShapeType } from '../types/editor'
+import type { AiAnimationSpec, AiEditorCommand, AiElementRef, AiPlan, AiPlanIssue, AiPreparedPlan, AiProjectContext, AiSceneRef, AiTransitionSpec } from './types'
 import { normalizeColorValue as normalizeColor } from './parser/colors'
 
 const SHAPE_TYPES = new Set<ShapeType>([
@@ -12,9 +14,24 @@ const SHAPE_TYPES = new Set<ShapeType>([
   'circle-hand', 'square-hand', 'heart', 'rect-sketch',
 ])
 
-const TRANSITION_TYPES = new Set<TransitionType>([
-  'none', 'fade', 'slide', 'zoom', 'wipe', 'push', 'morph', 'flashBlur', 'flickerShake',
-])
+const DIRECTIONS = new Set(['left', 'right', 'up', 'down'])
+const EASINGS = new Set(['smooth', 'linear', 'snappy'])
+
+/** A transition with known type and settings in range, or null for an unknown type. */
+function normalizeTransition(tr: AiTransitionSpec): AiTransitionSpec | null {
+  if (!isTransitionType(tr.type)) return null
+  return {
+    type: tr.type,
+    duration: tr.type === 'none' ? clampOptional(tr.duration, 0, TRANSITION_DURATION.max) : clampOptional(tr.duration, TRANSITION_DURATION.min, TRANSITION_DURATION.max),
+    direction: tr.direction && DIRECTIONS.has(tr.direction) ? tr.direction : undefined,
+    speed: clampOptional(tr.speed, 0.25, 3),
+    hardness: clampOptional(tr.hardness, 0, 100),
+    intensity: clampOptional(tr.intensity, 0, 1),
+    softness: clampOptional(tr.softness, 0, 1),
+    color: tr.color ? normalizeColor(tr.color) : undefined,
+    easing: tr.easing && EASINGS.has(tr.easing) ? tr.easing : undefined,
+  }
+}
 const ANIMATION_TYPES = new Set<AnimationType>([
   'fadeIn', 'fadeOut', 'slideIn', 'slideOut', 'scaleIn', 'scaleOut', 'wipeIn', 'wipeOut', 'zoomIn', 'zoomOut',
   'typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'textFade',
@@ -194,18 +211,16 @@ function prepareCommand(
       }
 
     case 'setTransition': {
-      const type = TRANSITION_TYPES.has(command.transition.type) ? command.transition.type : 'fade'
-      return {
-        ...command,
-        sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues),
-        transition: {
-          ...command.transition,
-          type,
-          duration: clampOptional(command.transition.duration, 0, 5),
-          speed: clampOptional(command.transition.speed, 0.25, 3),
-          hardness: clampOptional(command.transition.hardness, 0, 100),
-        },
-      }
+      const transition = normalizeTransition(command.transition)
+      if (!transition) return drop(issues, index, `"${command.transition.type}" is not a transition the editor has.`)
+      return { ...command, sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues), transition }
+    }
+
+    case 'setEndTransition': {
+      const transition = normalizeTransition(command.transition)
+      if (!transition) return drop(issues, index, `"${command.transition.type}" is not a transition the editor has.`)
+      if (transition.type === 'morph') return drop(issues, index, 'Morph needs a next scene, so it cannot end the video.')
+      return { ...command, transition }
     }
 
     case 'removeScene':
@@ -415,6 +430,8 @@ function canResolveElement(command: AiElementRef, context: AiProjectContext, ali
   if (command.selected && context.selectedIds.length > 0) return true
   if (command.elementId && context.scenes.some(scene => scene.elements.some(el => el.id === command.elementId))) return true
   if (!command.elementName) return false
+  // A scene made earlier in the plan (e.g. a part left by a cut) holds copies that are found by name.
+  if (command.sceneAlias) return aliases.scenes.has(command.sceneAlias)
 
   const scene = command.sceneIndex
     ? context.scenes[Math.max(0, command.sceneIndex - 1)]
@@ -442,6 +459,8 @@ function normalizePatch(patch: Record<string, unknown>, context: AiProjectContex
       out[key] = value
     } else if (key === 'crop' && isRecord(value)) {
       out[key] = value
+    } else if (key === 'keying') {
+      out[key] = isRecord(value) ? normalizeKeying(value) : null
     }
   }
   return out

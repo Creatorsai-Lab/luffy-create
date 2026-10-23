@@ -8,7 +8,8 @@ import { isSmartStep } from '../types'
 import { detectBeats, snapDurationsToBeats } from './beats'
 import { mergeRanges, removeRanges, splitAt, type SceneInfo } from './cuts'
 import { findCuts } from './shots'
-import { detectSpeech, frameLoudness, silencesBetween, type TimeRange } from './speech'
+import { detectSpeech, frameLoudness, quietSnapper, silencesBetween, speechFromLoudness, type TimeRange } from './speech'
+import { clipWindow, cutCommands, DEFAULT_JUMP_CUT, describeCuts, FILLERS, jumpCutRanges, partsOfSource, type ClipPart, type CutRange, type Word } from './jumpcut'
 import { DEFAULT_DUCK_LEVEL, duckingKeys } from './duck'
 import { reframePath, type FaceSample } from './reframe'
 
@@ -26,8 +27,6 @@ export interface Expanded {
   /** One sentence per smart step, used as the plan summary. */
   notes: string[]
 }
-
-const FILLERS = new Set(['um', 'umm', 'uh', 'uhh', 'uhm', 'erm', 'er', 'err', 'ah', 'ahh', 'hmm', 'hm', 'mm', 'mhm'])
 
 export async function expandSmartSteps(
   steps: AiPlanStep[],
@@ -82,7 +81,7 @@ async function expandOne(
           // Whisper's word edges are approximate: move each cut to the quietest
           // moment nearby so it falls between words, not inside one.
           const audio = await media.decodeMono(video.src!)
-          const snap = audio ? quietSnapper(audio.samples, audio.sampleRate) : (t: number) => t
+          const snap = audio ? quietSnapper(frameLoudness(audio.samples, audio.sampleRate)) : (t: number) => t
           ranges = words
             .filter(w => FILLERS.has(w.text.toLowerCase().replace(/[^a-z]/g, '')))
             .map((w): TimeRange => [snap(w.start), snap(w.end)])
@@ -110,6 +109,46 @@ async function expandOne(
       // Local Whisper's word timings can be a few tenths of a second off.
       const caveat = fillers && count ? ' Word timings are approximate — play it back before keeping it.' : ''
       return { commands, note: count ? `Remove ${count} ${what} (${removed.toFixed(1)}s).${caveat}` : `No ${fillers ? 'filler words' : 'pauses'} to remove.` }
+    }
+
+    case 'jumpCut': {
+      const settings = { ...DEFAULT_JUMP_CUT, ...step.settings }
+      const parts: ClipPart[] = step.src
+        ? partsOfSource(context, step.src)
+        : scenesWithVideo(context, step.sceneIds, warn).map(({ scene, video }) => ({ ...clipWindow(video), scene: sceneInfo(scene), video }))
+      if (step.src && !parts.length) warn('That clip is no longer in the project.')
+      const sources = new Map<string, ClipPart[]>()
+      for (const part of parts) sources.set(part.video.src!, [...(sources.get(part.video.src!) ?? []), part])
+
+      const entries: Array<{ part: ClipPart; ranges: CutRange[] }> = []
+      const cutting = settings.pauses || settings.fillers || settings.retakes
+      for (const [src, list] of sources) {
+        const name = list[0].video.name
+        if (!cutting) { entries.push(...list.map(part => ({ part, ranges: [] }))); continue }
+        onProgress?.(`Listening to ${name}…`)
+        const audio = await media.decodeMono(src)
+        if (!audio) { warn(`Could not read the audio of ${name}.`); continue }
+        const db = frameLoudness(audio.samples, audio.sampleRate)
+        let speech: TimeRange[] | undefined
+        if (settings.pauses) {
+          speech = speechFromLoudness(db, { minSilence: settings.minPause, threshold: settings.threshold })
+          // With no speech at all, every second would count as a pause.
+          if (!speech.length) { warn(`No speech found in ${name}, so no pauses were cut.`); speech = undefined }
+        }
+        let words: Word[] | undefined
+        if (settings.fillers || settings.retakes) {
+          onProgress?.(`Transcribing ${name}…`)
+          words = await media.transcribeWords(src).catch(error => {
+            warn(error instanceof Error ? error.message : String(error))
+            return undefined
+          })
+        }
+        const snap = quietSnapper(db)
+        for (const part of list) entries.push({ part, ranges: jumpCutRanges({ speech, words, snap }, part, settings) })
+      }
+      const result = cutCommands(entries, settings, { canRemoveScene: context.scenes.length > 1, nextAlias })
+      const caveat = result.counts.filler || result.counts.retake ? ' Word timings are approximate — play it back before keeping it.' : ''
+      return { commands: result.commands, note: describeCuts(result) + caveat }
     }
 
     case 'splitShots': {
@@ -264,19 +303,6 @@ async function expandOne(
   }
 }
 
-/** Returns t moved to the quietest 10 ms frame within ±0.12 s. */
-function quietSnapper(samples: Float32Array, sampleRate: number) {
-  const loudness = frameLoudness(samples, sampleRate)
-  return (t: number) => {
-    const center = Math.round(t / 0.01)
-    let best = center
-    for (let i = Math.max(0, center - 12); i <= Math.min(loudness.length - 1, center + 12); i++) {
-      if (loudness[i] < loudness[best] - 0.5) best = i
-    }
-    return Math.round(best) / 100
-  }
-}
-
 function scenesWithVideo(context: AiProjectContext, sceneIds: string[] | undefined, warn: (m: string) => void) {
   const scenes = sceneIds ? context.scenes.filter(s => sceneIds.includes(s.id)) : context.scenes
   const out: Array<{ scene: AiSceneSummary; video: AiElementSummary }> = []
@@ -290,15 +316,6 @@ function scenesWithVideo(context: AiProjectContext, sceneIds: string[] | undefin
   }
   if (!out.length && !sceneIds) warn('There is no video clip in the project to analyse.')
   return out
-}
-
-/** The part of the source file a clip plays, and source → scene time. */
-function clipWindow(video: AiElementSummary) {
-  const from = video.startTime ?? 0
-  const rate = video.playbackRate || 1
-  const length = video.duration ?? Math.max(0, (video.sourceDuration ?? 0) - from) / rate
-  const offset = video.timelineX ?? 0
-  return { from, to: from + length * rate, toScene: (t: number) => offset + (t - from) / rate }
 }
 
 /** The part of the source file an audio clip plays, and source → scene time. */

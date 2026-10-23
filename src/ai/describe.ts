@@ -1,4 +1,5 @@
 import { getBlock } from '../blocks/registry'
+import { transitionDef } from '../engine/transitions/catalog'
 import type { AiEditorCommand, AiElementRef, AiSceneRef } from './types'
 
 /** One line per command for the plan preview, e.g. `Fade in "Hello" on Scene 2`. */
@@ -11,12 +12,21 @@ export function describeCommand(command: AiEditorCommand): string {
     case 'addAudioFromAsset': return `Add audio ${command.assetName ?? ''}${onScene(command)}`
     case 'setBackground': return `Set ${command.background.type === 'solid' ? command.background.color : command.background.type} background${onScene(command)}`
     case 'updateElement':
-    case 'styleElement': return `Change ${target(command)}: ${Object.entries(command.patch).map(([k, v]) => `${k} ${formatValue(v)}`).join(', ')}`
+    case 'styleElement': {
+      const { keying, punchIn, ...rest } = command.patch
+      const parts = Object.entries(rest).map(([k, v]) => `${k} ${formatValue(v)}`)
+      if ('keying' in command.patch) parts.push(describeKeying(keying))
+      if (typeof punchIn === 'number') parts.push(punchIn > 1 ? `punch in ${Math.round((punchIn - 1) * 100)}%` : 'no punch-in')
+      return `Change ${target(command)}: ${parts.join(', ')}`
+    }
     case 'applyMove': return `Move ${target(command)} ${command.direction}`
     case 'addScene': return `Add scene${command.name ? ` "${command.name}"` : ''}${command.duration ? ` (${command.duration}s)` : ''}`
     case 'setTransition': return command.transition.type === 'none'
       ? `Remove transition${onScene(command)}`
-      : `Set ${command.transition.type} transition${onScene(command)}`
+      : `Set ${transitionDef(command.transition.type).label} transition${onScene(command)}`
+    case 'setEndTransition': return command.transition.type === 'none'
+      ? 'Remove the fade-out at the end'
+      : `End the video with ${transitionDef(command.transition.type).label} to black`
     case 'generateStoryboard': return `Create ${command.scenes.length} storyboard scenes`
     case 'removeScene': return `Delete ${scene(command)}`
     case 'duplicateScene': return `Duplicate ${scene(command)}`
@@ -95,4 +105,11 @@ function formatValue(value: unknown) {
   if (typeof value === 'string') return value.length > 30 ? `"${value.slice(0, 30)}…"` : value.startsWith('#') ? value : `"${value}"`
   if (typeof value === 'number') return String(Math.round(value * 100) / 100)
   return String(value)
+}
+
+function describeKeying(keying: unknown) {
+  const k = keying as { mode?: string; color?: string; background?: string } | null | undefined
+  if (!k?.mode) return 'show the background again'
+  if (k.mode === 'chroma') return `remove green screen (${k.color ?? 'green'})`
+  return k.background === 'blur' ? 'blur the background (AI cut-out)' : k.background === 'color' ? 'replace the background (AI cut-out)' : 'remove the background (AI cut-out)'
 }

@@ -37,6 +37,14 @@ interface Props {
   sceneWidth?: number
   syncVideoToTime?: boolean
   videoPlaybackActive?: boolean
+  /** Transitions: the scene keeps playing past this length (its outgoing copy). */
+  sceneEnd?: number
+  /** Transitions: clip sound multiplier while scenes cross over. */
+  mediaVolume?: number
+  /** Transitions: key for a second copy of a clip (video pool / registry). */
+  mediaKey?: string
+  /** Hidden copies draw nothing while their media loads. */
+  quietLoading?: boolean
 }
 
 /**
@@ -49,7 +57,8 @@ interface Props {
 function sameProps(a: Props, b: Props) {
   return a.element === b.element && a.stageScale === b.stageScale &&
     a.localTime === b.localTime && a.sceneWidth === b.sceneWidth && a.syncVideoToTime === b.syncVideoToTime &&
-    a.videoPlaybackActive === b.videoPlaybackActive && sameAnim(a.animProps, b.animProps)
+    a.videoPlaybackActive === b.videoPlaybackActive && a.sceneEnd === b.sceneEnd && a.mediaVolume === b.mediaVolume &&
+    a.mediaKey === b.mediaKey && a.quietLoading === b.quietLoading && sameAnim(a.animProps, b.animProps)
 }
 
 function sameAnim(a: Props['animProps'], b: Props['animProps']) {
@@ -62,7 +71,7 @@ function sameAnim(a: Props['animProps'], b: Props['animProps']) {
 
 export default memo(CanvasElement, sameProps)
 
-function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, sceneWidth, syncVideoToTime = true, videoPlaybackActive = false }: Props) {
+function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, sceneWidth, syncVideoToTime = true, videoPlaybackActive = false, sceneEnd, mediaVolume, mediaKey, quietLoading }: Props) {
   const { activeTool, updateElement } = useEditorStore(useShallow(s => ({ activeTool: s.activeTool, updateElement: s.updateElement })))
   const interaction = getCanvasElementInteraction(activeTool, element.locked, element.type)
   const setCursor = (target: Konva.Node, state: 'canvas' | 'selected' | 'dragging', movable = interaction.draggable) => {
@@ -202,7 +211,7 @@ function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, s
       case 'chart':  return <ChartKonva  el={element} konvaProps={p} animProgress={animProps?.chartAnimProgress ?? 1} />
       case 'video': {
         const v = element as VideoElement
-        const inClip = getVideoClipState(v, localTime).visible
+        const inClip = getVideoClipState(v, localTime, { sceneEnd }).visible
         return (
           <VideoKonva
             el={v}
@@ -210,6 +219,10 @@ function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, s
             localTime={localTime}
             syncToTime={syncVideoToTime}
             playbackActive={videoPlaybackActive}
+            sceneEnd={sceneEnd}
+            volumeScale={mediaVolume}
+            mediaKey={mediaKey}
+            quietLoading={quietLoading}
           />
         )
       }

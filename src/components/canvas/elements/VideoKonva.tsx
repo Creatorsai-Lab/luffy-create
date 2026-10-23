@@ -3,7 +3,8 @@ import { Group, Rect, Shape } from 'react-konva'
 import type Konva from 'konva'
 import type { VideoElement } from '../../../types/editor'
 import { getVideoClipState } from '../../../utils/videoClip'
-import { cropAt } from '../../../utils/cropKeys'
+import { cropAt, punchedCrop } from '../../../utils/cropKeys'
+import { keyedFrame } from '../../../engine/keying'
 import { videoRegistry } from '../../../engine/videoRegistry'
 import { createVideoFor, isAtFrame, loadVideoAt, releaseVideo, seekVideo, takeWarmVideo } from '../../../engine/videoPreloader'
 import { buildCssFilter, applyCanvasAdjustments, drawGrain, drawVignette } from '../../../engine/imageFilters'
@@ -12,24 +13,29 @@ import { drawPerspectiveWarp, perspectiveHitFunc } from '../../../engine/perspec
 import { drawMediaBorder, drawPerspectiveQuadBorder } from '../../../engine/borderRenderer'
 import { drawMediaWithEffects, getMediaEffectClips, mediaEffectRequiresAnimation, type MediaDrawFns } from '../../../engine/mediaEffects'
 
-function makeVideoDrawFns(video: HTMLVideoElement, el: VideoElement, width: number, height: number): MediaDrawFns {
+function makeVideoDrawFns(video: HTMLVideoElement, el: VideoElement, width: number, height: number, key = el.id): MediaDrawFns {
   const vw = video.videoWidth || width
   const vh = video.videoHeight || height
-  // A reframed clip's crop moves with the frame actually on screen.
-  const crop = cropAt(el.crop, el.cropKeys, video.currentTime)
+  // A reframed clip's crop moves with the frame actually on screen; a jump-cut part may be punched in.
+  const crop = punchedCrop(cropAt(el.crop, el.cropKeys, video.currentTime), el.punchIn)
   const cropX = (crop?.x ?? 0) * vw
   const cropY = (crop?.y ?? 0) * vh
   const cropW = (crop?.w ?? 1) * vw
   const cropH = (crop?.h ?? 1) * vh
+  // Green screen / background removal: the cropped frame with its background keyed out.
+  const keyed = video.videoWidth ? keyedFrame(key, el.keying, video, vw, vh, { x: cropX, y: cropY, w: cropW, h: cropH }, video.currentTime) : null
+  const image: CanvasImageSource = keyed ?? video
+  const sx = keyed ? 0 : cropX
+  const sy = keyed ? 0 : cropY
+  const sw = keyed ? keyed.width : cropW
+  const sh = keyed ? keyed.height : cropH
 
   return {
     drawBase: (ctx, dx = 0, dy = 0, dw = width, dh = height) => {
-      ctx.drawImage(video, cropX, cropY, cropW, cropH, dx, dy, dw, dh)
+      ctx.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh)
     },
     drawSlice: (ctx, sourceY, sourceH, destX, destY, destW, destH) => {
-      const sy = cropY + (sourceY / height) * cropH
-      const sh = (sourceH / height) * cropH
-      ctx.drawImage(video, cropX, sy, cropW, sh, destX, destY, destW, destH)
+      ctx.drawImage(image, sx, sy + (sourceY / height) * sh, sw, (sourceH / height) * sh, destX, destY, destW, destH)
     },
   }
 }
@@ -40,9 +46,20 @@ interface Props {
   localTime?: number   // scene-local seconds — the video is seeked to this
   syncToTime?: boolean
   playbackActive?: boolean
+  /** The scene's length: past it the clip keeps playing (the outgoing scene of a transition). */
+  sceneEnd?: number
+  /** Multiplies the clip's volume (sound fading through a transition). */
+  volumeScale?: number
+  /** Pool / registry key when a second copy of the clip is on screen (default: the element id). */
+  mediaKey?: string
+  /** Draw nothing while loading instead of the dashed placeholder (hidden copies). */
+  quietLoading?: boolean
 }
 
-export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime = true, playbackActive = false }: Props) {
+export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime = true, playbackActive = false, sceneEnd, volumeScale = 1, mediaKey, quietLoading = false }: Props) {
+  const key = mediaKey ?? el.id
+  const sceneEndRef = useRef(sceneEnd)
+  sceneEndRef.current = sceneEnd
   const videoRef  = useRef<HTMLVideoElement | null>(null)
   const shapeRef  = useRef<Konva.Shape | null>(null)
   const rafRef    = useRef<number>(0)
@@ -64,7 +81,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
   // Source time this clip should show first — the trimmed in-point for a split
   // clip, not source time 0.
   const initialSourceTime = () => {
-    const clip = getVideoClipState(elRef.current, localTimeRef.current)
+    const clip = getVideoClipState(elRef.current, localTimeRef.current, { sceneEnd: sceneEndRef.current })
     return clip.visible ? clip.sourceTime : (elRef.current.startTime ?? 0)
   }
 
@@ -74,11 +91,11 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
   // stage never paints source time 0 before jumping to the trim point.
   useLayoutEffect(() => {
     let cancelled = false
-    const warm = takeWarmVideo(el.id, el.src)
+    const warm = takeWarmVideo(key, el.src)
     const video = warm?.video ?? createVideoFor(el)
     video.loop         = el.loop
     video.muted        = el.muted
-    video.volume       = el.volume
+    video.volume       = Math.max(0, Math.min(1, el.volume * volumeScale))
     video.playbackRate = el.playbackRate
 
     const onSeeked = () => redraw()
@@ -106,7 +123,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
       videoRef.current = null
       cancelAnimationFrame(rafRef.current)
       setLoaded(false)
-      releaseVideo(elRef.current, video)
+      releaseVideo(elRef.current, video, key)
     }
   }, [el.src])
 
@@ -114,19 +131,19 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
   useLayoutEffect(() => {
     const v = videoRef.current
     if (!loaded || !v) return
-    videoRegistry.register(el.id, v)
-    return () => { videoRegistry.unregister(el.id) }
-  }, [loaded, el.id])
+    videoRegistry.register(key, v)
+    return () => { videoRegistry.unregister(key) }
+  }, [loaded, key])
 
   // Sync mutable props without reloading
   useEffect(() => {
     const v = videoRef.current
     if (!v) return
-    v.volume        = el.volume
+    v.volume        = Math.max(0, Math.min(1, el.volume * volumeScale))
     v.playbackRate  = el.playbackRate
     v.loop          = el.loop
     v.muted         = el.muted
-  }, [el.volume, el.playbackRate, el.loop, el.muted])
+  }, [el.volume, el.playbackRate, el.loop, el.muted, volumeScale])
 
   // Drive per-frame redraws from the video's own play/pause/ended events
   useEffect(() => {
@@ -163,7 +180,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
     const v = videoRef.current
     if (!v || !loaded || !syncToTime) return
 
-    const clip = getVideoClipState(el, localTime)
+    const clip = getVideoClipState(el, localTime, { sceneEnd })
     if (!clip.visible) {
       if (!v.paused) v.pause()
       redraw()
@@ -192,12 +209,12 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
     } else {
       redraw()
     }
-  }, [localTime, loaded, syncToTime, playbackActive, el.loop, el.startTime, el.duration, el.timelineX, el.playbackRate, el.sourceDuration])
+  }, [localTime, loaded, syncToTime, playbackActive, sceneEnd, el.loop, el.startTime, el.duration, el.timelineX, el.playbackRate, el.sourceDuration])
 
   if (!loaded || !videoRef.current) {
     // During playback an unready clip draws nothing rather than flashing the
     // dashed edit-mode placeholder at the cut.
-    if (playbackActive) return <Group {...konvaProps} />
+    if (playbackActive || quietLoading) return <Group {...konvaProps} />
     return (
       <Group {...konvaProps}>
         <Rect
@@ -264,7 +281,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
             sourceCtx.clip()
           }
           sourceCtx.filter = buildCssFilter(el) || 'none'
-          drawMediaWithEffects(sourceCtx, el, w, h, localTime, makeVideoDrawFns(video, el, w, h))
+          drawMediaWithEffects(sourceCtx, el, w, h, localTime, makeVideoDrawFns(video, el, w, h, key))
           if (el.glass) {
             sourceCtx.filter = 'none'
             sourceCtx.fillStyle = 'rgba(255,255,255,0.18)'
@@ -332,7 +349,7 @@ export default function VideoKonva({ el, konvaProps, localTime = 0, syncToTime =
         raw.filter = filterStr
 
         // 3. Draw Video with shared media effects.
-        const drawFns = makeVideoDrawFns(video, el, w, h)
+        const drawFns = makeVideoDrawFns(video, el, w, h, key)
         if (mediaEffectRequiresAnimation(el)) {
           drawMediaWithEffects(raw, el, w, h, localTime, drawFns)
         } else {

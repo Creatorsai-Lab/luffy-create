@@ -135,11 +135,20 @@ export function getMorphScene(from: Scene, to: Scene, progress: number, fromTime
   const matches = matchElements(fromEls, toEls.filter(e => e.type !== 'audio'))
   const matchedFrom = new Set([...matches.values()].map(e => e.id))
 
-  // Old-only elements sit underneath and fade out.
+  // Old-only elements sit underneath and fade out. A video among them carries on
+  // from where the outgoing scene ended (the morph scene runs on the incoming
+  // scene's clock, which would otherwise restart it).
   const out: EditorElement[] = fromEls
     .filter(e => !matchedFrom.has(e.id))
     .sort((a, b) => a.zIndex - b.zIndex)
-    .map(e => { const b = bake(e, fromTime); return { ...b, opacity: b.opacity * (1 - p) } as EditorElement })
+    .map(e => {
+      const b = bake(e, fromTime)
+      if (b.type === 'video') {
+        const played = Math.max(0, from.duration - (b.timelineX ?? 0)) * (b.playbackRate || 1)
+        return { ...b, opacity: b.opacity * (1 - p), timelineX: 0, startTime: (b.startTime ?? 0) + played, duration: Math.max(0.1, to.duration) } as EditorElement
+      }
+      return { ...b, opacity: b.opacity * (1 - p) } as EditorElement
+    })
 
   for (const el of toEls) {
     if (el.type === 'audio' || !el.visible) { out.push({ ...el }); continue }
@@ -170,6 +179,7 @@ export function getMorphFrame(project: Project, time: number): { scene: Scene; l
   const state = getTransitionFrameState(timeline, time)
   if (state.kind !== 'transition' || state.transition.type !== 'morph') return null
 
+  if (state.phase !== 'cut') return null
   const fromEntry = timeline[state.fromSceneIndex]
   const toEntry = timeline[state.toSceneIndex]
   const from = project.scenes[state.fromSceneIndex]
@@ -177,9 +187,10 @@ export function getMorphFrame(project: Project, time: number): { scene: Scene; l
   return {
     scene: getMorphScene(
       from, to, easeInOutCubic(state.progress),
-      Math.max(0, state.fromTime - fromEntry.startTime),
+      // Elements are morphed from how the outgoing scene looked as it ended.
+      Math.min(state.fromLocalTime, fromEntry.duration),
       getEffectiveTransitionDuration(toEntry),
     ),
-    localTime: Math.max(0, state.toTime - toEntry.startTime),
+    localTime: state.toLocalTime,
   }
 }

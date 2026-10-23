@@ -11,3 +11,15 @@ export function registerStage(stage: Konva.Stage | null) {
 export function getStage(): Konva.Stage | null {
   return _stage
 }
+
+// The outgoing scene of a transition, drawn on its own hidden stage while the
+// main stage shows the scene the playhead is in (see EditorCanvas).
+let _outgoing: Konva.Stage | null = null
+
+export function registerOutgoingStage(stage: Konva.Stage | null) {
+  _outgoing = stage
+}
+
+export function getOutgoingStage(): Konva.Stage | null {
+  return _outgoing
+}

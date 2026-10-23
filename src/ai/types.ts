@@ -1,5 +1,6 @@
 import type { SubtitleStyle } from '../types/editor'
-import type { AlignType, AnimationTiming, AnimationType, Background, EasingType, SceneTransition, ShapeType, SlideDir, TransitionType } from '../types/editor'
+import type { JumpCutSettings } from './smart/jumpcut'
+import type { AlignType, AnimationTiming, AnimationType, Background, EasingType, ShapeType, SlideDir, TransitionEasing, TransitionType } from '../types/editor'
 
 /** A scene by id (preferred: stable while a plan adds/removes scenes), 1-based index, or alias of a scene created earlier in the plan. */
 export type AiSceneRef = {
@@ -39,6 +40,18 @@ export type AiAnimationSpec = {
 
 export type AiArrangeOrder = 'front' | 'back' | 'forward' | 'backward'
 
+export type AiTransitionSpec = {
+  type: TransitionType
+  duration?: number
+  direction?: SlideDir
+  speed?: number
+  hardness?: number
+  intensity?: number
+  softness?: number
+  color?: string
+  easing?: TransitionEasing
+}
+
 export type AiEditorCommand =
   | ({ type: 'addText'; text: string; name?: string; alias?: string; fontSize?: number; fontFamily?: string; fontWeight?: 'normal' | 'bold'; color?: string; align?: AlignType; animation?: AiAnimationSpec } & AiSceneRef & AiPoint & AiSize)
   | ({ type: 'addShape'; shapeType: ShapeType; name?: string; alias?: string; fill?: string; stroke?: string; strokeWidth?: number } & AiSceneRef & AiPoint & AiSize)
@@ -50,13 +63,10 @@ export type AiEditorCommand =
   | ({ type: 'styleElement'; patch: Record<string, unknown> } & AiElementRef)
   | ({ type: 'applyMove'; direction: 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'; speed?: number; delay?: number; moveOutside?: boolean } & AiElementRef)
   | ({ type: 'addScene'; name?: string; duration?: number; alias?: string; afterSceneId?: string })
-  | ({ type: 'setTransition'; transition: SceneTransition | {
-      type: TransitionType
-      duration?: number
-      direction?: SlideDir
-      speed?: number
-      hardness?: number
-    } } & AiSceneRef)
+  /** A scene's transition (it plays at the scene's start; on the first scene, from black). Missing settings take the transition's defaults. */
+  | ({ type: 'setTransition'; transition: AiTransitionSpec } & AiSceneRef)
+  /** The fade-out at the end of the video, to black; type 'none' removes it. */
+  | { type: 'setEndTransition'; transition: AiTransitionSpec }
   | ({ type: 'generateStoryboard'; scenes: Array<{ name?: string; duration?: number; title?: string; subtitle?: string; backgroundColor?: string }> })
   | ({ type: 'removeScene' } & AiSceneRef)
   | ({ type: 'duplicateScene'; alias?: string } & AiSceneRef)
@@ -126,6 +136,11 @@ export type AiCommandType = AiEditorCommand['type']
 export type AiSmartStep =
   | { type: 'removeSilences'; sceneIds?: string[]; minSilence?: number; padding?: number }
   | { type: 'removeFillers'; sceneIds?: string[] }
+  /**
+   * Jump cuts on talking clips (smart/jumpcut.ts): pauses, filler words and retakes, with optional
+   * punch-in zooms on every other part. `src`: every part of that file; otherwise each scene's main clip.
+   */
+  | { type: 'jumpCut'; sceneIds?: string[]; src?: string; settings?: Partial<JumpCutSettings> }
   | { type: 'cutToBeat'; beatsPerCut?: number }
   | { type: 'splitShots'; sceneIds?: string[] }
   /** Crop video clips to follow the speaker's face. `fill`: first make each clip fill the frame (e.g. landscape → 9:16). */
@@ -135,7 +150,7 @@ export type AiSmartStep =
 
 export type AiPlanStep = AiEditorCommand | AiSmartStep
 
-export const SMART_STEP_TYPES = new Set<AiSmartStep['type']>(['removeSilences', 'removeFillers', 'cutToBeat', 'splitShots', 'duckMusic', 'reframe'])
+export const SMART_STEP_TYPES = new Set<AiSmartStep['type']>(['removeSilences', 'removeFillers', 'jumpCut', 'cutToBeat', 'splitShots', 'duckMusic', 'reframe'])
 
 export function isSmartStep(step: AiPlanStep): step is AiSmartStep {
   return SMART_STEP_TYPES.has(step.type as AiSmartStep['type'])
@@ -203,6 +218,10 @@ export interface AiElementSummary {
   /** Video/image: the current crop (0–1 of the source); video: how many face-following crop keys it has. */
   crop?: { x: number; y: number; w: number; h: number }
   cropKeys?: number
+  /** Video: punch-in zoom from jump cuts (1.1 = 10%), when zoomed. */
+  punchIn?: number
+  /** Video/image: how its background is removed, if it is ('chroma' = green screen, 'person' = AI cut-out). */
+  keying?: 'chroma' | 'person'
   /** Audio: how many volume automation keys the clip has. */
   volumeKeys?: number
   groupId?: string

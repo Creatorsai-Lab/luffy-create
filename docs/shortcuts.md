@@ -107,6 +107,17 @@ The Monaco code editor supports all standard editor shortcuts:
 
 ---
 
+## Transcript Editing (Video panel → Jump cuts → Edit by transcript)
+
+| Action | Key |
+|---|---|
+| Jump the playhead to a word | Click the word |
+| Select words | Drag, or click then `Shift`+click |
+| Cut the selection / bring it back | `Delete` or `Backspace` (again to restore) |
+| Clear the selection | `Escape` |
+
+---
+
 ## Project Name Input
 
 | Action | Key |

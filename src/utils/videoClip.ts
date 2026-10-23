@@ -13,8 +13,13 @@ export function sourceVideoClipDuration(el: VideoElement): number {
   return Math.max(0.1, (source - start) / rate)
 }
 
-/** Map scene-local time to source-file seek position for a video clip. */
-export function getVideoClipState(el: VideoElement, sceneLocalTime: number): VideoClipState {
+/**
+ * Map scene-local time to source-file seek position for a video clip.
+ * With `sceneEnd`, the scene keeps playing past its end (the outgoing scene of
+ * a transition): a clip that runs to the end of the scene carries on into the
+ * footage after its trim point, or holds its last frame when there is none.
+ */
+export function getVideoClipState(el: VideoElement, sceneLocalTime: number, opts: { sceneEnd?: number } = {}): VideoClipState {
   const timelineX = el.timelineX ?? 0
   const rate = el.playbackRate ?? 1
   const startTime = el.startTime ?? 0
@@ -26,6 +31,14 @@ export function getVideoClipState(el: VideoElement, sceneLocalTime: number): Vid
   }
 
   const duration = el.duration ?? el.sourceDuration ?? 9999
+  if (clipLocal >= duration && opts.sceneEnd != null && timelineX + duration >= opts.sceneEnd - 0.05) {
+    const source = el.sourceDuration ?? Number.POSITIVE_INFINITY
+    const raw = startTime + clipLocal * rate
+    const sourceTime = el.loop
+      ? startTime + (clipLocal * rate) % Math.max(0.05, (Number.isFinite(source) ? source : duration * rate) - startTime)
+      : Math.max(startTime, Math.min(raw, source - 0.04))
+    return { visible: true, sourceTime, clipLocalTime: clipLocal }
+  }
   if (clipLocal < 0 || clipLocal >= duration) {
     return { visible: false, sourceTime: startTime, clipLocalTime: clipLocal }
   }

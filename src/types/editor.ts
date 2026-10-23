@@ -21,7 +21,13 @@ export type ArrowBendDirection = 'horizontal' | 'vertical'
 export type SlideDir      = 'left' | 'right' | 'up' | 'down'
 export type MoveDirection = 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
 export type MotionZoomPosition = 'center' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
-export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push' | 'morph' | 'flashBlur' | 'flickerShake'
+export type TransitionType =
+  | 'none' | 'fade' | 'dipBlack' | 'dipWhite' | 'push' | 'slide' | 'wipe' | 'zoom' | 'zoomOut' | 'iris'
+  | 'whip' | 'zoomBlur' | 'spin' | 'blurDissolve' | 'lightLeak' | 'filmBurn' | 'lumaFade' | 'flash'
+  | 'glitch' | 'pixelate' | 'stretch' | 'slices' | 'cube'
+  | 'morph' | 'flashBlur' | 'flickerShake'
+/** How a transition's progress speeds up and slows down. */
+export type TransitionEasing = 'smooth' | 'linear' | 'snappy'
 export type BgType        = 'solid' | 'gradient' | 'grid' | 'dots' | 'animated' | 'transparent'
 export type FontWeight    = 'thin' | 'normal' | 'semibold' | 'bold'
 export type SubtitleAnimationType = 'none' | 'wordPop' | 'wordRise' | 'karaokePulse' | 'smoothReveal' | 'fade' | 'slideUp' | 'pop'
@@ -34,7 +40,7 @@ export type MediaEffectTarget = 'wholeMedia' | 'centerSubject' | 'manualFocus'
 export type MediaZoomPosition = 'center' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
 export type ActiveTool    = 'select' | 'shape-rect' | 'shape-circle' | 'shape-triangle' | 'shape-star' | 'shape-pentagon' | 'shape-hexagon' | 'shape-octagon' | 'shape-diamond' | 'shape-oval' | 'shape-speechBubble' | 'shape-roundedSpeech' | 'shape-cone' | 'shape-cube' | 'shape-rect-hand' | 'shape-circle-hand' | 'shape-square-hand' | 'shape-heart' | 'shape-rect-sketch' | 'arrow' | 'code' | 'image' | 'chart' | 'video' | 'latex' | 'counter'
   | 'handDraw'
-export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'motion' | 'groupEffects' | 'blocks' | 'effects' | 'latex' | 'counter' | 'handDraw' | null
+export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'motion' | 'groupEffects' | 'blocks' | 'effects' | 'latex' | 'counter' | 'handDraw' | 'editBg' | null
 export type HandDrawTool = 'pen' | 'paint' | 'spray' | 'eraser'
 export type ShapeFillMode = 'solid' | 'linearGradient' | 'radialGradient'
 export type TextFillMode = 'solid' | 'linearGradient'
@@ -315,6 +321,31 @@ export interface CodeAnimationBlock {
   duration: number
 }
 
+/**
+ * Removing a video's or image's background. `chroma`: a colour (green/blue
+ * screen) becomes transparent. `person`: an on-device AI cut-out keeps the
+ * person and removes the rest. Whatever is behind the clip shows through,
+ * unless `background` replaces it (person mode).
+ */
+export interface MediaKeying {
+  mode: 'chroma' | 'person'
+  /** Chroma: the colour to remove. */
+  color?: string
+  /** Chroma: how far from the colour still counts as background, 0–1 (default 0.4). */
+  strength?: number
+  /** Chroma: width of the soft edge, 0–1 (default 0.1). */
+  softness?: number
+  /** Chroma: how much of the screen's colour cast is taken off the subject, 0–1 (default 0.3). */
+  spill?: number
+  /** Person: edge softness, 0–1 (default 0.3). */
+  feather?: number
+  /** Person: what replaces the removed background ('none' = see through). */
+  background?: 'none' | 'blur' | 'color'
+  backgroundColor?: string
+  /** Person: blur strength for background 'blur', 0–1 (default 0.5). */
+  backgroundBlur?: number
+}
+
 export interface ImageElement extends BaseElement, MediaEffectControls, MediaVignetteControls, MediaGrainControls {
   type: 'image'
   src: string
@@ -324,6 +355,8 @@ export interface ImageElement extends BaseElement, MediaEffectControls, MediaVig
   borderWidth: number
   lockRatio?: boolean
   crop?: { x: number; y: number; w: number; h: number }  // normalized 0-1
+  /** Green screen / background removal. */
+  keying?: MediaKeying
   // Basic
   brightness?: number   // 0-200, default 100
   contrast?: number     // 0-200, default 100
@@ -418,6 +451,10 @@ export interface VideoElement extends BaseElement, MediaEffectControls, MediaVig
   crop?: { x: number; y: number; w: number; h: number }
   /** A moving crop (auto-reframe): the crop's centre over time; its size stays `crop.w` × `crop.h`. */
   cropKeys?: CropKey[]
+  /** Punch-in zoom from jump cuts: the picture is scaled up by this much (1.1 = 10%) about the crop's centre. */
+  punchIn?: number
+  /** Green screen / background removal. */
+  keying?: MediaKeying
   volume: number
   playbackRate: number
   loop: boolean
@@ -604,9 +641,18 @@ export type Background = SolidBg | GradientBg | GridBg | DotsBg | AnimatedBg | I
 export interface SceneTransition {
   type: TransitionType
   duration: number
+  /** The edge the new scene comes from (push, slide, wipe, whip, …). */
   direction?: SlideDir
+  /** Flash Blur / Flicker Shake only. */
   speed?: number
   hardness?: number
+  /** Strength of blur, zoom, glitch, light … 0–1. */
+  intensity?: number
+  /** Edge softness of wipes, iris and luma fades, 0–1. */
+  softness?: number
+  /** Dip and flash colour. */
+  color?: string
+  easing?: TransitionEasing
 }
 
 export interface Scene {
@@ -753,6 +799,8 @@ export interface Project {
   assets: AssetMeta[]
   timeMarkers: TimeMarker[]
   subtitleTracks?: SubtitleTrack[]
+  /** Fade out at the end: the last scene goes to black over its final `duration` seconds. */
+  endTransition?: SceneTransition
   createdAt: number
   updatedAt: number
 }

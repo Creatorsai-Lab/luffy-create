@@ -130,10 +130,10 @@ export function prewarmVideo(el: VideoElement) {
  * in-point so a remount (scrubbing back, React StrictMode) starts on the
  * right frame instead of reloading.
  */
-export function releaseVideo(el: VideoElement, video: HTMLVideoElement) {
+export function releaseVideo(el: VideoElement, video: HTMLVideoElement, key = el.id) {
   video.pause()
   if (video.error || !video.src) { disposeVideo(video); return }
-  putInPool(el.id, makeEntry(el.src, video, seekVideo(video, el.startTime ?? 0)))
+  putInPool(key, makeEntry(el.src, video, seekVideo(video, el.startTime ?? 0)))
 }
 
 /** Hand ownership of a warm video to the caller (removes it from the pool). */
