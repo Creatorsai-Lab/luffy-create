@@ -1025,6 +1025,10 @@ function registerIpcHandlers() {
 
   ipcMain.handle('shell:open-path', (_e, path: string) => shell.openPath(path))
   ipcMain.handle('shell:show-item', (_e, path: string) => shell.showItemInFolder(path))
+  // Web links open in the user's browser — only http(s), never files or other schemes.
+  ipcMain.handle('shell:open-external', async (_e, url: string) => {
+    if (typeof url === 'string' && /^https?:\/\//i.test(url)) await shell.openExternal(url)
+  })
 
   // File system
   ipcMain.handle('fs:write-file', async (_e, path: string, data: Uint8Array) => {

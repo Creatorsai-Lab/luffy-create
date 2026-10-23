@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { WandSparkles, Check, Copy, Eye, Loader2, Send, Settings, Sparkles, Trash2, Undo2, X } from 'lucide-react'
+import { WandSparkles, Check, Copy, Eye, Loader2, Send, Settings2, Sparkles, Trash2, Undo2, X } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import {
   buildAiProjectContext,
@@ -218,7 +218,7 @@ export default function AISidebar() {
           className="flex-none text-white"
           title="AI settings"
         >
-          <Settings size={15} />
+          <Settings2 size={15} />
         </button>
       </div>
 
@@ -271,7 +271,7 @@ export default function AISidebar() {
           <div className="h-full flex items-center justify-center">
             <div className="text-center text-sm text-editor-text-secondary leading-relaxed px-2">
               <Sparkles size={18} className="mx-auto mb-2 text-editor-accent" />
-              Describe an edit to prepare scene commands.
+              Hey! What are you creating today? Use AI to complete it faster!
             </div>
           </div>
         )}

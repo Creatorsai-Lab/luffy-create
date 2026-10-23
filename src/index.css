@@ -104,3 +104,38 @@ input[type=color] { cursor: pointer; padding: 0; border: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
+
+/* ── Attention loops for call-to-action buttons (Settings) ───────────────────
+   .cta-shine: a light streak sweeps across every few seconds (stagger with --cta-delay).
+   .cta-glow: a soft ring pulses out in --cta-glow. .cta-nudge / .cta-heartbeat: icon loops. */
+.cta-shine { position: relative; overflow: hidden; isolation: isolate; }
+.cta-shine::after {
+  content: ''; position: absolute; inset: -20% auto -20% 0; width: 45%; z-index: -1; pointer-events: none;
+  background: linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.45) 50%, transparent 100%);
+  transform: translateX(-160%) skewX(-18deg);
+  animation: cta-shine 3.2s ease-in-out infinite; animation-delay: var(--cta-delay, 0s);
+}
+@keyframes cta-shine {
+  0%, 55% { transform: translateX(-160%) skewX(-18deg); }
+  85%, 100% { transform: translateX(320%) skewX(-18deg); }
+}
+.cta-glow { animation: cta-glow 2.4s ease-out infinite; animation-delay: var(--cta-delay, 0s); }
+@keyframes cta-glow {
+  0% { box-shadow: 0 0 0 0 var(--cta-glow, rgba(106, 50, 201, 0.55)); }
+  70%, 100% { box-shadow: 0 0 0 9px transparent; }
+}
+.cta-nudge { animation: cta-nudge 1.6s ease-in-out infinite; }
+@keyframes cta-nudge {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(2px, -2px); }
+}
+.cta-heartbeat { animation: cta-heartbeat 1.3s ease-in-out infinite; transform-origin: center; }
+@keyframes cta-heartbeat {
+  0%, 40%, 100% { transform: scale(1); }
+  12% { transform: scale(1.3); }
+  24% { transform: scale(1.05); }
+  32% { transform: scale(1.2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cta-shine::after, .cta-glow, .cta-nudge, .cta-heartbeat { animation: none; }
+}

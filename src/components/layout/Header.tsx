@@ -1,16 +1,18 @@
 import { useState } from 'react'
-import { Minus, Square, ChevronDown, X, BriefcaseBusiness, NotebookPen } from 'lucide-react'
+import { Minus, Square, ChevronDown, X, BriefcaseBusiness, NotebookPen, Settings } from 'lucide-react'
 import luffyLogo from '/images/luffy_create_logo.webp'
 import { useEditorStore } from '../../store/editorStore'
 import { cn } from '../../utils/cn'
 import ProjectsArchiveModal from '../modals/ProjectsArchiveModal'
 import PlannerModal from '../modals/PlannerModal'
+import SettingsModal from '../modals/SettingsModal'
 import { useShallow } from 'zustand/react/shallow'
 
 export default function Header() {
   const { project, isDirty } = useEditorStore(useShallow(s => ({ project: s.project, isDirty: s.isDirty })))
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [plannerOpen, setPlannerOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const minimize = () => window.api.win.minimize()
   const maximize = () => window.api.win.maximize()
@@ -53,6 +55,10 @@ export default function Header() {
         </div>
 
         <div className="nodrag flex items-center">
+          <button onClick={() => setSettingsOpen(true)} title="Settings: Luffy Create"
+            className={cn('flex items-center justify-center w-8 h-8 transition-colors', settingsOpen ? 'text-editor-accent' : 'text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover')}>
+            <Settings size={15} />
+          </button>
           <button onClick={minimize} className="flex items-center justify-center w-8 h-8 text-[#2cff00] hover:text-editor-text hover:bg-editor-hover transition-colors">
             <Minus size={12} />
           </button>
@@ -67,6 +73,7 @@ export default function Header() {
 
       {archiveOpen && <ProjectsArchiveModal onClose={() => setArchiveOpen(false)} />}
       {plannerOpen && <PlannerModal onClose={() => setPlannerOpen(false)} />}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </>
   )
 }

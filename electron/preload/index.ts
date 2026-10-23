@@ -62,7 +62,9 @@ const api = {
   shell: {
     openPath: (path: string) => ipcRenderer.invoke('shell:open-path', path),
     /** Opens the containing folder with the file selected. */
-    showItem: (path: string) => ipcRenderer.invoke('shell:show-item', path) as Promise<void>
+    showItem: (path: string) => ipcRenderer.invoke('shell:show-item', path) as Promise<void>,
+    /** Opens an http(s) link in the user's browser. */
+    openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url) as Promise<void>
   },
   ffmpeg: {
     getPaths: () => ipcRenderer.invoke('ffmpeg:get-paths') as Promise<{ coreJs: string; coreWasm: string }>
