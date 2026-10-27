@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, Download, CheckCircle, AlertCircle, Loader2, Settings, Image, Film } from 'lucide-react'
+import { X, Download, CheckCircle, AlertCircle, Loader2, Settings, Image, Film, FolderOpen, Play } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { exportToMP4WithFFmpeg, isFFmpegAvailable } from '../../engine/ffmpegExporter'
-import { getStage } from '../../engine/stageRegistry'
+import { getOutgoingStage, getStage } from '../../engine/stageRegistry'
+import { buildTransitionTimeline, getTransitionFrameState } from '../../utils/transitionTiming'
 import { videoRegistry } from '../../engine/videoRegistry'
 import { decodeGif } from '../../engine/gifDecoder'
 import type { ImageElement, Scene, VideoElement } from '../../types/editor'
 import { getVideoClipState } from '../../utils/videoClip'
 import { toast } from '../ui/Toast'
 import { sceneAtTime, sceneStartTime, sceneStartTimes } from '../../utils/sceneTiming'
+import { nextFrame } from '../../utils/nextFrame'
 import { useShallow } from 'zustand/react/shallow'
 
 type Phase = 'idle' | 'exporting' | 'done' | 'error'
@@ -23,7 +25,7 @@ function computeSnapshotLocalTime(scene: Scene): number {
   for (const el of scene.elements) {
     for (const anim of el.animations) {
       if (anim.timing === 'onEnter') {
-        const end = (anim.startTime ?? 0) + (anim.delay ?? 0) + (anim.duration ?? 0)
+        const end = (anim.delay ?? 0) + (anim.duration ?? 0)
         if (end > maxEnterEnd) maxEnterEnd = end
       }
     }
@@ -68,10 +70,11 @@ export default function ExportModal() {
     setPlayhead(globalTime)
     // Let React commit + the video-seek effect run.
     await new Promise(r => setTimeout(r, 0))
-    await new Promise(r => requestAnimationFrame(r))
+    await nextFrame()
     await waitForSceneGifs(sceneId)
-    await new Promise(r => requestAnimationFrame(r))
+    await nextFrame()
     if (sceneId) await waitForSceneVideos(sceneId, globalTime)
+    await waitForOutgoingVideos(globalTime)
     // Wait for any video elements to finish seeking to this frame, so the
     // captured stage shows the correct video frame (not a stale one).
     await waitForVideoSeeks()
@@ -101,6 +104,25 @@ export default function ExportModal() {
     }))).then(() => undefined)
   }
 
+  // During a cut the outgoing scene plays on its own stage (videos keyed `<id>@out`): wait for those too.
+  async function waitForOutgoingVideos(globalTime: number): Promise<void> {
+    if (!project) return
+    const state = getTransitionFrameState(buildTransitionTimeline(project.scenes, project.endTransition), globalTime)
+    if (state.kind !== 'transition' || state.phase !== 'cut' || state.transition.type === 'morph') return
+    const from = project.scenes[state.fromSceneIndex]
+    const videos = from.elements.filter((el): el is VideoElement =>
+      el.type === 'video' && el.visible && getVideoClipState(el, state.fromLocalTime, { sceneEnd: from.duration }).visible)
+    const deadline = performance.now() + 1500
+    while (performance.now() < deadline) {
+      const pending = !getOutgoingStage() || videos.some(el => {
+        const video = videoRegistry.get(`${el.id}@out`)
+        return !video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.seeking
+      })
+      if (!pending) return
+      await nextFrame()
+    }
+  }
+
   async function waitForSceneVideos(sceneId: string, globalTime: number): Promise<void> {
     if (!project) return
     const scene = project.scenes.find(sc => sc.id === sceneId)
@@ -120,57 +142,83 @@ export default function ExportModal() {
         return !video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.seeking
       })
       if (!pending) return
-      await new Promise(r => requestAnimationFrame(r))
+      await nextFrame()
     }
   }
 
   // ── Video export ─────────────────────────────────────────────────────────────
   async function startExport() {
     if (!project) return
+    // Ask where to save first, so the file is written by itself when rendering ends.
+    const path = await window.api.dialog.saveVideo(`${project.name}.mp4`)
+    if (!path) return
+    setSavePath(path)
+    blobRef.current = null
     cancelRef.current = false
     setPhase('exporting')
     setProgress(0)
     setLog('Initializing export...')
+    // Keeps rendering while the window is minimised or covered; progress shows on the taskbar.
+    await window.api.exportTask?.setBackground(true)
     try {
       const blob = await exportToMP4WithFFmpeg({
         project, getStage, quality,
-        onProgress: (pct, msg) => { if (!cancelRef.current) { setProgress(pct); setLog(msg) } },
+        onProgress: (pct, msg) => {
+          if (cancelRef.current) return
+          setProgress(pct)
+          setLog(msg)
+          window.api.exportTask?.progress(pct / 100)
+        },
         onLog: (msg) => console.log('[Export]', msg),
-        renderSceneFrame: async (sceneId, globalTime) => { await ensureFrameRendered(sceneId, globalTime) },
+        getOutgoingStage,
         renderFrame: async (t) => { await ensureFrameRendered(sceneAtTime(project.scenes, t)?.scene.id ?? null, t) }
       })
       if (cancelRef.current) return
       blobRef.current = blob
-      setPhase('done')
-      setLog('Export complete!')
+      setLog('Saving file...')
+      if (await writeVideo(path)) {
+        blobRef.current = null // written to disk; don't keep a second copy in memory
+        setPhase('done')
+        setLog('Export complete!')
+      } else {
+        setPhase('error')
+        setLog(`Could not save to ${path}. Use Save As to pick another place.`)
+      }
+      window.api.exportTask?.finished()
     } catch (err) {
       if (cancelRef.current) return
       setPhase('error')
       setLog(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      void window.api.exportTask?.setBackground(false)
     }
   }
 
-  async function handleSaveVideo() {
+  async function writeVideo(path: string) {
+    if (!blobRef.current) return false
+    try {
+      await window.api.fs.writeFile(path, new Uint8Array(await blobRef.current.arrayBuffer()))
+      toast.success('Video saved')
+      return true
+    } catch {
+      toast.error('Failed to save video file')
+      return false
+    }
+  }
+
+  // Only needed when the automatic save failed: the rendered video is still in memory.
+  async function handleSaveAs() {
     if (!blobRef.current || !project) return
     const path = await window.api.dialog.saveVideo(`${project.name}.mp4`)
     if (!path) return
     setSavePath(path)
     setLog('Saving file...')
-    const buffer = new Uint8Array(await blobRef.current.arrayBuffer())
-    try {
-      await window.api.fs.writeFile(path, buffer)
-      setLog('File saved successfully!')
-      toast.success('Video saved successfully')
-    } catch {
-      setLog('Failed to save file')
-      setPhase('error')
-      toast.error('Failed to save video file')
-    }
-  }
-
-  async function handleOpenFolder() {
-    if (savePath) {
-      await window.api.shell.openPath(savePath.replace(/[\\/][^\\/]+$/, ''))
+    if (await writeVideo(path)) {
+      blobRef.current = null
+      setPhase('done')
+      setLog('Export complete!')
+    } else {
+      setLog(`Could not save to ${path}. Use Save As to pick another place.`)
     }
   }
 
@@ -195,7 +243,7 @@ export default function ExportModal() {
       // For a transparent background, hide the checkerboard so PNG/WebP keep real alpha.
       const transparent = scene.background.type === 'transparent'
       const bgNode = transparent ? stage.findOne('.bg') : null
-      if (bgNode) { bgNode.visible(false); stage.batchDraw(); await new Promise(r => requestAnimationFrame(r)) }
+      if (bgNode) { bgNode.visible(false); stage.batchDraw(); await nextFrame() }
 
       const mimeType = imgFormat === 'webp' ? 'image/webp' : 'image/png'
       const dataUrl = stage.toDataURL({ mimeType, quality: 0.95, pixelRatio: 1 })
@@ -233,8 +281,11 @@ export default function ExportModal() {
   const fps = project.fps
   const total = project.scenes.reduce((s, sc) => s + sc.duration, 0)
   const frames = Math.ceil(total * fps)
-  const exportW = quality === '720p' ? Math.round(project.width * 720 / project.height) : Math.min(project.width, 1920)
-  const exportH = quality === '720p' ? 720 : Math.min(project.height, 1080)
+  // The short side becomes 720, or at most 1080 (as the exporter scales it), rounded to even pixels.
+  const shortSide = Math.min(project.width, project.height)
+  const scale = (quality === '720p' ? 720 : Math.min(shortSide, 1080)) / shortSide
+  const exportW = Math.round(project.width * scale / 2) * 2
+  const exportH = Math.round(project.height * scale / 2) * 2
   const estimatedSizeMB = Math.round((exportW * exportH * fps * total * 0.10) / (1024 * 1024))
 
   return (
@@ -354,8 +405,16 @@ export default function ExportModal() {
 
               {phase === 'exporting' && (
                 <p className="text-ms text-[#f2f2f2] bg-editor-elevated-highlight rounded px-3 py-2">
-                  Do not interact with the canvas during export — frames are being captured in sequence.
+                  Do not edit the canvas during export. You can minimise Luffy or use other apps —
+                  the video is saved automatically when it finishes.
                 </p>
+              )}
+
+              {phase !== 'idle' && savePath && (
+                <div className="bg-editor-elevated-highlight rounded px-3 py-2 min-w-0">
+                  <div className="label mb-1">{phase === 'done' ? 'Saved to' : 'Saving to'}</div>
+                  <div className="text-ms text-editor-text break-all">{savePath}</div>
+                </div>
               )}
             </>
           )}
@@ -454,21 +513,28 @@ export default function ExportModal() {
           )}
           {tab === 'video' && phase === 'done' && (
             <>
-              {savePath && (
-                <button onClick={handleOpenFolder} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
-                  Open Folder
-                </button>
-              )}
-              <button onClick={handleSaveVideo} className="flex items-center gap-1.5 text-ms px-4 py-1.5 rounded bg-green-600 text-white hover:bg-green-500 transition-colors">
-                <Download size={12} /> Save File
-              </button>
               <button onClick={handleClose} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
                 Close
               </button>
+              {savePath && (
+                <button onClick={() => window.api.shell.openPath(savePath)} className="flex items-center gap-1.5 text-ms px-3 py-1.5 rounded text-editor-text hover:bg-editor-hover transition-colors">
+                  <Play size={12} /> Play
+                </button>
+              )}
+              {savePath && (
+                <button onClick={() => window.api.shell.showItem(savePath)} className="flex items-center gap-1.5 text-ms px-4 py-1.5 rounded bg-green-600 text-white hover:bg-green-500 transition-colors">
+                  <FolderOpen size={12} /> Show in Folder
+                </button>
+              )}
             </>
           )}
           {tab === 'video' && phase === 'error' && (
             <>
+              {blobRef.current && (
+                <button onClick={handleSaveAs} className="flex items-center gap-1.5 text-ms px-4 py-1.5 rounded bg-green-600 text-white hover:bg-green-500 transition-colors">
+                  <Download size={12} /> Save As…
+                </button>
+              )}
               <button onClick={() => setPhase('idle')} className="text-ms px-3 py-1.5 rounded text-editor-text-secondary hover:text-editor-text hover:bg-editor-hover transition-colors">
                 Try Again
               </button>

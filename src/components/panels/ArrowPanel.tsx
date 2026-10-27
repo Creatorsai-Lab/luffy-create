@@ -1,13 +1,15 @@
 import { useEffect } from 'react'
 import { ArrowRight, PenLine, Zap } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
-import type { ArrowElement, ArrowHeadType, ArrowBendDirection, AnimationType } from '../../types/editor'
+import type { ArrowElement, ArrowHeadStyle, ArrowHeadType, ArrowBendDirection, AnimationType } from '../../types/editor'
+import { ARROW_HEAD_STYLES } from '../../engine/arrowHeads'
 import { PanelHeader, Row, ColorInput, Slider, NumberInput, AnimSection } from './TextPanel'
 import { makeAnimation, makeCenteredArrow } from '../../utils/defaults'
 import { cn } from '../../utils/cn'
 import { isMotionAnimation } from '../../utils/moveAnimation'
 import { isLoopAnimation } from '../../utils/animationTypes'
 import { useShallow } from 'zustand/react/shallow'
+import { ArrowAttachments } from './ArrowConnections'
 
 const HEADS: { label: string; value: ArrowHeadType }[] = [
   { label: 'None', value: 'none' },
@@ -121,6 +123,8 @@ export default function ArrowPanel() {
         </button>
       </div>
 
+      {el && <ArrowAttachments arrow={el} />}
+
       {/* Properties */}
       {el && (
         <div className="flex flex-col px-3 py-2 gap-0.5">
@@ -138,6 +142,23 @@ export default function ArrowPanel() {
               ))}
             </div>
           </Row>
+
+          {el.arrowHead !== 'none' && (
+            <Row label="Head Style">
+              <div className="grid grid-cols-7 gap-1">
+                {ARROW_HEAD_STYLES.map(style => (
+                  <button key={style} title={HEAD_STYLE_LABELS[style]} onClick={() => upd({ headStyle: style })}
+                    className={cn('flex h-7 items-center justify-center rounded border transition-colors',
+                      (el.headStyle ?? 'triangle') === style
+                        ? 'bg-editor-accent-dim border-editor-accent text-editor-accent'
+                        : 'bg-editor-elevated-highlight border-editor-border text-[#f2f2f2] hover:text-editor-text'
+                    )}>
+                    <HeadStyleIcon style={style} />
+                  </button>
+                ))}
+              </div>
+            </Row>
+          )}
 
           <Row label="Head Size">
             <div className="flex gap-2">
@@ -282,3 +303,27 @@ export default function ArrowPanel() {
   )
 }
 
+
+const HEAD_STYLE_LABELS: Record<ArrowHeadStyle, string> = {
+  triangle: 'Triangle', open: 'Open', circle: 'Dot', ring: 'Ring', diamond: 'Diamond', square: 'Square', bar: 'Bar',
+}
+
+/** A short line ending in the head style, for the style buttons. */
+function HeadStyleIcon({ style }: { style: ArrowHeadStyle }) {
+  const head = {
+    triangle: <path d="M18 9 L12 5.5 L12 12.5 Z" fill="currentColor" />,
+    open: <path d="M12.5 5.5 L18 9 L12.5 12.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />,
+    circle: <circle cx="15" cy="9" r="3" fill="currentColor" />,
+    ring: <circle cx="15" cy="9" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.4" />,
+    diamond: <path d="M18 9 L15 5.8 L12 9 L15 12.2 Z" fill="currentColor" />,
+    square: <rect x="12" y="6" width="6" height="6" fill="currentColor" />,
+    bar: <path d="M18 5 L18 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />,
+  }[style]
+  const lineEnd = style === 'ring' ? 12.4 : style === 'bar' || style === 'open' ? 17 : 13
+  return (
+    <svg width="20" height="18" viewBox="0 0 20 18" aria-hidden>
+      <path d={`M2 9 L${lineEnd} 9`} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      {head}
+    </svg>
+  )
+}

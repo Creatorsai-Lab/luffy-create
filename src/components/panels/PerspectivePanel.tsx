@@ -1,50 +1,75 @@
 import { Focus, RotateCcw } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { EditorElement, PerspectiveControls } from '../../types/editor'
-import { makePerspectiveControls, makePerspectivePts, makePerspectivePtsFromControls } from '../../engine/perspectiveUtils'
+import { makePerspectiveControls, makePerspectivePts, makePerspectivePtsFromControls, type PerspectivePts } from '../../engine/perspectiveUtils'
+import { elementsBox, groupPerspectivePts, selectedWholeGroup, toGroupPerspective } from '../../utils/groups'
 import { PanelHeader, Row, Slider } from './TextPanel'
 import { useShallow } from 'zustand/react/shallow'
 
 type CornerKey = 'tl' | 'tr' | 'br' | 'bl'
 type Axis = 0 | 1
 
+/**
+ * The perspective "target": one element, or a whole group (an add-on, any
+ * group) treated as one plane. Both use the same sliders and corner fields.
+ */
+interface Target {
+  name: string
+  width: number
+  height: number
+  pts?: PerspectivePts
+  controls?: PerspectiveControls
+  set(pts: PerspectivePts | undefined, controls?: PerspectiveControls): void
+}
+
 export default function PerspectivePanel() {
-  const { getSelectedEls, updateElement } = useEditorStore(useShallow(s => ({ getSelectedEls: s.getSelectedEls, updateElement: s.updateElement, project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds })))
+  const { getSelectedEls, updateElement, setGroupPerspective, project, currentSceneId, selectedIds } = useEditorStore(useShallow(s => ({ getSelectedEls: s.getSelectedEls, updateElement: s.updateElement, setGroupPerspective: s.setGroupPerspective, project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds })))
   const selected = getSelectedEls()
   const selectedEl = selected[0]
-  const el = selected.find(e => e.type !== 'arrow' && e.type !== 'audio')
+  const scene = project?.scenes.find(sc => sc.id === currentSceneId)
+  const groupId = scene ? selectedWholeGroup(scene, selectedIds) : null
+  const group = groupId ? scene!.groups![groupId] : undefined
+  const single = groupId ? undefined : selected.find(e => e.type !== 'arrow' && e.type !== 'audio')
+
+  let target: Target | null = null
+  if (group && scene) {
+    const box = elementsBox(scene.elements.filter(e => e.groupId === group.id && e.type !== 'audio'))
+    target = {
+      name: `${group.smart ? '✦ ' : ''}${group.name} (whole ${group.smart ? 'add-on' : 'group'})`,
+      width: box.width, height: box.height,
+      pts: group.perspective ? groupPerspectivePts(group.perspective, box) : undefined,
+      controls: group.perspective?.controls,
+      set: (pts, controls) => setGroupPerspective(group.id, pts ? toGroupPerspective(pts, box, controls) : null),
+    }
+  } else if (single) {
+    target = {
+      name: single.name, width: single.width, height: single.height,
+      pts: single.perspectivePts, controls: single.perspectiveControls,
+      set: (pts, controls) => updateElement(single.id, { perspectivePts: pts, perspectiveControls: controls } as Partial<EditorElement>),
+    }
+  }
+  const el = target
   const unsupported = selectedEl && !el
 
   function reset() {
-    if (!el) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    updateElement(el.id, { perspectivePts: undefined, perspectiveControls: undefined } as any)
+    el?.set(undefined)
   }
 
-  function controlsFor(target: EditorElement): PerspectiveControls {
-    return { ...makePerspectiveControls(), ...(target.perspectiveControls ?? {}) }
+  function controlsFor(target: Target): PerspectiveControls {
+    return { ...makePerspectiveControls(), ...(target.controls ?? {}) }
   }
 
-  function setControls(target: EditorElement, patch: Partial<PerspectiveControls>) {
-    if (target.type === 'arrow' || target.type === 'audio') return
+  function setControls(target: Target, patch: Partial<PerspectiveControls>) {
     const nextControls = { ...controlsFor(target), ...patch }
-    const nextPts = makePerspectivePtsFromControls(target.width, target.height, nextControls)
-    updateElement(target.id, {
-      perspectivePts: nextPts,
-      perspectiveControls: nextControls,
-    } as Partial<EditorElement>)
+    target.set(makePerspectivePtsFromControls(target.width, target.height, nextControls), nextControls)
   }
 
-  function resetControls(target: EditorElement) {
-    updateElement(target.id, {
-      perspectivePts: undefined,
-      perspectiveControls: undefined,
-    } as Partial<EditorElement>)
+  function resetControls(target: Target) {
+    target.set(undefined)
   }
 
-  function setCorner(target: EditorElement, corner: CornerKey, axis: Axis, value: number) {
-    if (target.type === 'arrow' || target.type === 'audio') return
-    const base = target.perspectivePts ?? makePerspectivePts(target.width, target.height)
+  function setCorner(target: Target, corner: CornerKey, axis: Axis, value: number) {
+    const base = target.pts ?? makePerspectivePts(target.width, target.height)
     const next = {
       tl: [...base.tl] as [number, number],
       tr: [...base.tr] as [number, number],
@@ -52,8 +77,7 @@ export default function PerspectivePanel() {
       bl: [...base.bl] as [number, number],
     }
     next[corner][axis] = value
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    updateElement(target.id, { perspectivePts: next, perspectiveControls: undefined } as any)
+    target.set(next)
   }
 
   return (
@@ -62,7 +86,7 @@ export default function PerspectivePanel() {
 
       <div className="px-3 py-3 flex flex-col gap-3">
         <p className="text-[10px] text-[#f2f2f2] leading-relaxed">
-          Drag orange corner handles for individual corners. Drag red edge handles to move a full side. The fields below use the element's local pixels.
+          Drag orange corner handles for individual corners. Drag red edge handles to move a full side. The fields below use the element's local pixels. Select a whole group or add-on to tilt it as one plane.
         </p>
 
         {!selectedEl && (
@@ -73,7 +97,7 @@ export default function PerspectivePanel() {
 
         {unsupported && (
           <p className="text-xs text-[#d9d9d9] text-center py-4">
-            Perspective works on every visual element except arrows.
+            Perspective works on every visual element except arrows — or select a whole group or add-on to tilt it as one.
           </p>
         )}
 
@@ -83,7 +107,7 @@ export default function PerspectivePanel() {
               Selected item: <span className="text-editor-text">{el.name}</span>
             </div>
 
-            {el.perspectivePts && (
+            {el.pts && (
               <div className="text-[10px] text-editor-accent bg-editor-accent-dim rounded px-2 py-1">
                 Perspective active
               </div>
@@ -167,7 +191,7 @@ export default function PerspectivePanel() {
 
             <div className="grid grid-cols-2 gap-2">
               {(['tl', 'tr', 'br', 'bl'] as CornerKey[]).map(corner => {
-                const pts = el.perspectivePts ?? makePerspectivePts(el.width, el.height)
+                const pts = el.pts ?? makePerspectivePts(el.width, el.height)
                 return (
                   <div key={corner} className="rounded border border-editor-border bg-editor-elevated-highlight px-2 py-1.5">
                     <div className="text-[10px] uppercase text-editor-text-secondary mb-1">
@@ -198,7 +222,7 @@ export default function PerspectivePanel() {
 
             <button
               onClick={reset}
-              disabled={!el.perspectivePts}
+              disabled={!el.pts}
               className="text-xs px-3 py-1.5 bg-editor-elevated-highlight border border-editor-border rounded text-[#f2f2f2] hover:text-editor-text transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Reset Perspective

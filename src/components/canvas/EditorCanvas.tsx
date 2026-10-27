@@ -1,30 +1,28 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react'
-import { Stage, Layer, Shape, Transformer, Circle, Path } from 'react-konva'
+import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react'
+import { Stage, Layer, Shape, Transformer, Circle, Path, Label, Tag, Text, Line } from 'react-konva'
 import type Konva from 'konva'
-import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowUpToLine, ArrowDownToLine } from 'lucide-react'
+import { Clipboard, Copy, Trash2, ImageIcon, Play, Pause, Check, X, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter, ArrowUpToLine, ArrowDownToLine, Group, Ungroup, BoxSelect, Lock, Unlock } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
+import HighlightOverlay from './HighlightOverlay'
+import { elementsBox, expandToGroups, groupPerspectivePts, selectedWholeGroup, toGroupPerspective, warpedGroups } from '../../utils/groups'
+import GroupPerspective from './GroupPerspective'
+import LockedMark from './LockedMark'
+import { toast } from '../ui/Toast'
+import { useCanvasStore } from '../../store/canvasStore'
 import { getAnimatedProps } from '../../engine/animator'
-import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
-import { isDirectionalTransition } from '../../engine/directionalTransitions'
-import {
-  buildTransitionTimeline,
-  getEffectiveTransitionDuration,
-  getTransitionFrameState,
-  getTransitionPreviewKey,
-  getUpcomingTransitionEntry,
-} from '../../utils/transitionTiming'
+import { buildTransitionTimeline, getTransitionFrameState, getUpcomingTransitionEntry } from '../../utils/transitionTiming'
 import { drawBackground } from '../../engine/backgroundRenderer'
-import { registerStage } from '../../engine/stageRegistry'
+import { registerOutgoingStage, registerStage } from '../../engine/stageRegistry'
 import { videoRegistry } from '../../engine/videoRegistry'
 import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
 import { getMorphFrame } from '../../engine/morph'
 import { makeShape, makeArrow, makeChart, makeHandDrawLayer } from '../../utils/defaults'
-import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke, SlideDir, TransitionType } from '../../types/editor'
+import type { ActivePanel, Background, ImageBg, ImageElement, VideoElement, ShapeType, EditorElement, HandDrawElement, HandDrawStroke } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
 import { getVideoClipState } from '../../utils/videoClip'
 import { getCanvasCursor, shouldShowSelectionHandles } from '../../utils/canvasInteraction'
 import CanvasElement from './CanvasElement'
-import PerspectiveHandles from './PerspectiveHandles'
+import PerspectiveHandles, { QuadHandles } from './PerspectiveHandles'
 import CanvasGrid from './CanvasGrid'
 import CanvasGuides from './CanvasGuides'
 import CanvasSafeArea from './CanvasSafeArea'
@@ -33,11 +31,9 @@ import ContextMenu from '../ui/ContextMenu'
 import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
 import { sceneStartTime } from '../../utils/sceneTiming'
 import { useShallow } from 'zustand/react/shallow'
-import {
-  captureStageToCanvas,
-  refreshStageSnapshot,
-  rememberRecentSnapshot,
-} from './captureStageToCanvas'
+import SceneStage from './SceneStage'
+import SubjectPickOverlay from './SubjectPickOverlay'
+import { blendVolumes, captureLayers, drawBlend, type BlendState } from './transitionComposite'
 
 const IMAGE_BG_ADJUSTMENT_KEYS: (keyof ImageBg)[] = [
   'opacity',
@@ -72,12 +68,12 @@ export default function EditorCanvas() {
   const trRef        = useRef<Konva.Transformer | null>(null)
   const animFrameRef = useRef<number>(0)
   const bgShapeRef   = useRef<Konva.Shape | null>(null)
-  const transitionCanvasRef = useRef<HTMLCanvasElement>(null)
-  const transitionToCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const transitionFrameRef = useRef<number>(0)
-  const transitionSnapshotsRef = useRef(new Map<string, string>())
-  const transitionCanvasSnapshotsRef = useRef(new Map<string, HTMLCanvasElement>())
-  const transitionFinalSnapshotsRef = useRef(new Set<string>())
+  // Transitions: the main stage's picture layers, the outgoing scene's hidden stage, and the blend layer.
+  const bgLayerRef = useRef<Konva.Layer | null>(null)
+  const elementsLayerRef = useRef<Konva.Layer | null>(null)
+  const blendLayerRef = useRef<Konva.Layer | null>(null)
+  const outgoingStageRef = useRef<Konva.Stage | null>(null)
+  const blendScratchRef = useRef<{ main: HTMLCanvasElement; other: HTMLCanvasElement } | null>(null)
 
   // Computed display size (project coords → screen pixels)
   const [scale,    setScale]    = useState(1)
@@ -93,6 +89,8 @@ export default function EditorCanvas() {
   const drawingLayerIdRef = useRef<string | null>(null)
   const drawingBaseStrokesRef = useRef<HandDrawStroke[]>([])
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; elementId: string } | null>(null)
+  /** The item pressed last — what Ctrl+arrow moves inside a selected group. */
+  const lastPressedIdRef = useRef<string | null>(null)
   const [localPlayingIds, setLocalPlayingIds] = useState<Set<string>>(new Set())
   const [cropState, setCropState] = useState<{ elId: string; pendingCrop: { x: number; y: number; w: number; h: number } } | null>(null)
   const [cropDrag, setCropDrag] = useState<{ handle: string; startX: number; startY: number; startCrop: { x: number; y: number; w: number; h: number } } | null>(null)
@@ -100,46 +98,18 @@ export default function EditorCanvas() {
   const clipboardRef  = useRef<EditorElement[]>([])
   const clipboardSourceSceneRef = useRef<string | null>(null)
 
-  // ── Live transition overlay ───────────────────────────────────────────────────
-  const [transOverlay, setTransOverlay] = useState<{
-    snap?: string
-    fromSceneId: string
-    type: TransitionType
-    direction?: SlideDir
-    speed?: number
-    hardness?: number
-    toSceneId: string
-    transitionStart: number
-    duration: number
-  } | null>(null)
-  const transitionKeyRef = useRef<string | null>(null)
-
   const {
     project, currentSceneId, selectedIds,
     playhead, isPlaying, exportOpen, activeTool, activePanel, pendingChartType, handDrawSettings,
     cropElementId, setCropElement,
     addElement, selectElement, deselectAll,
     removeElement, updateElement, setBackground, setActiveTool, setActivePanel, openCodeModal,
-    undo, redo, duplicateElement,
+    undo, redo,
     bringForward, sendBackward, bringToFront, sendToBack,
-  } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds, playhead: s.playhead, isPlaying: s.isPlaying, exportOpen: s.exportOpen, activeTool: s.activeTool, activePanel: s.activePanel, pendingChartType: s.pendingChartType, handDrawSettings: s.handDrawSettings, cropElementId: s.cropElementId, setCropElement: s.setCropElement, addElement: s.addElement, selectElement: s.selectElement, deselectAll: s.deselectAll, removeElement: s.removeElement, updateElement: s.updateElement, setBackground: s.setBackground, setActiveTool: s.setActiveTool, setActivePanel: s.setActivePanel, openCodeModal: s.openCodeModal, undo: s.undo, redo: s.redo, duplicateElement: s.duplicateElement, bringForward: s.bringForward, sendBackward: s.sendBackward, bringToFront: s.bringToFront, sendToBack: s.sendToBack })))
+  } = useEditorStore(useShallow(s => ({ project: s.project, currentSceneId: s.currentSceneId, selectedIds: s.selectedIds, playhead: s.playhead, isPlaying: s.isPlaying, exportOpen: s.exportOpen, activeTool: s.activeTool, activePanel: s.activePanel, pendingChartType: s.pendingChartType, handDrawSettings: s.handDrawSettings, cropElementId: s.cropElementId, setCropElement: s.setCropElement, addElement: s.addElement, selectElement: s.selectElement, deselectAll: s.deselectAll, removeElement: s.removeElement, updateElement: s.updateElement, setBackground: s.setBackground, setActiveTool: s.setActiveTool, setActivePanel: s.setActivePanel, openCodeModal: s.openCodeModal, undo: s.undo, redo: s.redo, bringForward: s.bringForward, sendBackward: s.sendBackward, bringToFront: s.bringToFront, sendToBack: s.sendToBack })))
+  const showHighlights = useCanvasStore(s => s.showHighlights)
 
   const currentScene = project?.scenes.find(s => s.id === currentSceneId) ?? null
-
-  const rememberTransitionSnapshot = useCallback((sceneId: string, snap: string) => {
-    const removed = rememberRecentSnapshot(transitionSnapshotsRef.current, sceneId, snap)
-    removed.forEach(id => transitionFinalSnapshotsRef.current.delete(id))
-  }, [])
-
-  const captureTransitionCanvas = useCallback((sceneId: string, stage: Konva.Stage) => {
-    return refreshStageSnapshot(
-      transitionCanvasSnapshotsRef.current,
-      sceneId,
-      stage,
-      canvasW,
-      canvasH,
-    )
-  }, [canvasH, canvasW])
 
   const setStageRef = useCallback((stage: Konva.Stage | null) => {
     stageRef.current = stage
@@ -155,7 +125,7 @@ export default function EditorCanvas() {
   // ── Auto-select sidebar panel based on selected element ──────────────────────
   useEffect(() => {
     if (selectedIds.length === 0) return
-    const stickyPanels: ActivePanel[] = ['perspective', 'motion', 'handDraw', 'effects']
+    const stickyPanels: ActivePanel[] = ['perspective', 'motion', 'handDraw', 'effects', 'groupEffects', 'blocks', 'editBg']
     if (stickyPanels.includes(activePanel)) return
     
     const scene = project?.scenes.find(s => s.id === currentSceneId)
@@ -180,7 +150,10 @@ export default function EditorCanvas() {
       handDraw: 'handDraw',
     }
     
-    const homePanel = ELEMENT_PANEL[firstSelected.type]
+    // A whole smart group selected → its settings; one part (Ctrl-click) → that part's panel.
+    const smartGroup = firstSelected.groupId && scene.groups?.[firstSelected.groupId]?.smart
+      && scene.elements.filter(e => e.groupId === firstSelected.groupId).every(e => selectedIds.includes(e.id))
+    const homePanel = smartGroup ? 'blocks' : ELEMENT_PANEL[firstSelected.type]
     if (homePanel && activePanel !== homePanel) {
       setActivePanel(homePanel)
     }
@@ -233,14 +206,15 @@ export default function EditorCanvas() {
     return () => cancelAnimationFrame(animFrameRef.current)
   }, [currentScene?.background.type])
 
+  // ── Let go of the old selection at once ──────────────────────────────────────
+  // (pressElement attaches the new one right after; the effect below keeps it in sync.)
+  useEffect(() => useEditorStore.subscribe(s => s.selectedIds, () => { trRef.current?.nodes([]) }), [])
+
   // ── Sync Transformer to selected nodes ────────────────────────────────────────
   useEffect(() => {
     const sync = () => {
       if (!trRef.current || !stageRef.current) return
-      const nodes = selectedIds
-        .filter(id => currentScene?.elements.find(el => el.id === id)?.type !== 'handDraw')
-        .map(id => stageRef.current!.findOne(`#${id}`))
-        .filter((n): n is Konva.Node => !!n && !!n.getStage?.())
+      const nodes = transformerNodes(selectedIds)
       // Runs every frame during playback (an element can re-mount mid-play);
       // only re-attach and redraw when the selected nodes actually changed.
       const attached = trRef.current.nodes()
@@ -278,39 +252,65 @@ export default function EditorCanvas() {
         return // IMPORTANT: Return after redo to prevent other handlers
       }
       
-      // Copy: Ctrl+C
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        const scene = project?.scenes.find(s => s.id === currentSceneId)
+      const mod = e.ctrlKey || e.metaKey
+      const key = e.key.toLowerCase()
+      const scene = project?.scenes.find(s => s.id === currentSceneId)
+      const selectedEls = () => selectedIds
+        .map(id => scene?.elements.find(el => el.id === id))
+        .filter((el): el is EditorElement => el != null)
+      const { insertCopies, groupElements, ungroupElements } = useEditorStore.getState()
+      // Locked items are protected from delete/cut; say so instead of silently ignoring.
+      const unlockedSelection = () => {
+        const ids = selectedIds.filter(id => !scene?.elements.find(el => el.id === id)?.locked)
+        if (ids.length < selectedIds.length) toast.info('Locked items were kept — unlock them first (right-click → Unlock).')
+        return ids
+      }
+
+      // Group: Ctrl+G, Ungroup: Ctrl+Shift+G
+      if (mod && key === 'g') {
+        e.preventDefault()
+        if (e.shiftKey) ungroupElements(selectedIds)
+        else groupElements(selectedIds)
+        return
+      }
+
+      // Select all: Ctrl+A — every unlocked item on this scene
+      if (mod && key === 'a') {
+        e.preventDefault()
+        useEditorStore.setState({ selectedIds: (scene?.elements ?? []).filter(el => !el.locked && el.type !== 'audio').map(el => el.id) })
+        return
+      }
+
+      // Copy: Ctrl+C, Cut: Ctrl+X
+      if (mod && (key === 'c' || key === 'x')) {
         if (scene && selectedIds.length > 0) {
-          clipboardRef.current = selectedIds
-            .map(id => scene.elements.find(el => el.id === id))
-            .filter((el): el is EditorElement => el != null)
-            .map(el => JSON.parse(JSON.stringify(el)))
+          clipboardRef.current = selectedEls().map(el => JSON.parse(JSON.stringify(el)))
           clipboardSourceSceneRef.current = currentSceneId ?? null
+          if (key === 'x') {
+            e.preventDefault()
+            const toCut = unlockedSelection()
+            deselectAll()
+            toCut.forEach(id => removeElement(id))
+          }
         }
         return
       }
 
+      // Duplicate: Ctrl+D — copies next to the originals, without touching the clipboard
+      if (mod && key === 'd') {
+        e.preventDefault()
+        insertCopies(selectedEls(), { offset: 20 })
+        return
+      }
+
       // Paste: Ctrl+V
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+      if (mod && key === 'v') {
         if (clipboardRef.current.length > 0) {
           e.preventDefault()
           // Only offset position when pasting into the SAME scene (to avoid overlap).
           // When pasting across scenes, preserve exact original coordinates.
           const isSameScene = clipboardSourceSceneRef.current === currentSceneId
-          const offset = isSameScene ? 20 : 0
-          clipboardRef.current.forEach(el => {
-            const clone: EditorElement = { ...JSON.parse(JSON.stringify(el)), id: crypto.randomUUID() }
-            // A copy pasted into another scene is "the same object" for Morph.
-            if (!isSameScene) clone.morphKey = el.morphKey ?? el.id
-            clone.x += offset
-            clone.y += offset
-            // Arrows render from absolute endpoints — shift those too
-            if (clone.type === 'arrow') {
-              clone.x1 += offset; clone.y1 += offset; clone.x2 += offset; clone.y2 += offset
-            }
-            addElement(clone)
-          })
+          insertCopies(clipboardRef.current, { offset: isSameScene ? 20 : 0, sourceSceneId: clipboardSourceSceneRef.current })
         }
         return
       }
@@ -319,7 +319,7 @@ export default function EditorCanvas() {
       // used, so the timeline's handler (delete clip / scene) skips it.
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0 && !e.defaultPrevented) {
         e.preventDefault()
-        const toDelete = [...selectedIds]
+        const toDelete = unlockedSelection()
         deselectAll()
         toDelete.forEach(id => removeElement(id))
       }
@@ -328,21 +328,18 @@ export default function EditorCanvas() {
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
         if (selectedIds.length === 0) return  // let the timeline scrub instead
         e.preventDefault()
-        // Ctrl = fastest, Shift = fast, plain = normal (canvas is HD-sized so steps are large)
-        const step = (e.ctrlKey || e.metaKey) ? 100 : e.shiftKey ? 40 : 12
+        // Shift = 40 px, Alt = 100 px, plain = 12 px (canvas is HD-sized so steps are large).
+        // Groups move as one; Ctrl moves only the item pressed last.
+        const step = e.altKey ? 100 : e.shiftKey ? 40 : 12
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
         const dy = e.key === 'ArrowUp'   ? -step : e.key === 'ArrowDown'  ? step : 0
         const scene = project?.scenes.find(s => s.id === currentSceneId)
         if (!scene) return
-        for (const id of selectedIds) {
-          const el = scene.elements.find(x => x.id === id)
-          if (!el || el.locked) continue
-          if (el.type === 'arrow') {
-            updateElement(id, { x1: el.x1 + dx, y1: el.y1 + dy, x2: el.x2 + dx, y2: el.y2 + dy })
-          } else {
-            updateElement(id, { x: el.x + dx, y: el.y + dy })
-          }
-        }
+        const only = lastPressedIdRef.current
+        const moving = (e.ctrlKey || e.metaKey)
+          ? (only && selectedIds.includes(only) ? [only] : selectedIds)
+          : expandToGroups(scene, selectedIds)
+        moveElements(moving, dx, dy)
         return
       }
 
@@ -402,223 +399,6 @@ export default function EditorCanvas() {
   useEffect(() => {
     if (project && isPlaying) prewarmUpcomingVideos(project, playhead)
   }, [project, isPlaying, playhead])
-
-  useEffect(() => {
-    transitionSnapshotsRef.current.clear()
-    transitionCanvasSnapshotsRef.current.clear()
-    transitionFinalSnapshotsRef.current.clear()
-  }, [project?.id])
-
-  useEffect(() => {
-    const valid = new Set(project?.scenes.map(scene => scene.id) ?? [])
-    for (const id of transitionSnapshotsRef.current.keys()) {
-      if (!valid.has(id)) transitionSnapshotsRef.current.delete(id)
-    }
-    for (const id of transitionCanvasSnapshotsRef.current.keys()) {
-      if (!valid.has(id)) transitionCanvasSnapshotsRef.current.delete(id)
-    }
-    for (const id of transitionFinalSnapshotsRef.current) {
-      if (!valid.has(id)) transitionFinalSnapshotsRef.current.delete(id)
-    }
-    if (!isPlaying && currentSceneId) {
-      transitionSnapshotsRef.current.delete(currentSceneId)
-      transitionCanvasSnapshotsRef.current.delete(currentSceneId)
-      transitionFinalSnapshotsRef.current.delete(currentSceneId)
-    }
-  }, [currentSceneId, isPlaying, project?.scenes])
-
-  useEffect(() => {
-    if (isPlaying || !stageRef.current || !currentSceneId) return
-    rememberTransitionSnapshot(
-      currentSceneId,
-      stageRef.current.toDataURL({ pixelRatio: 1 }),
-    )
-    captureTransitionCanvas(currentSceneId, stageRef.current)
-    transitionFinalSnapshotsRef.current.delete(currentSceneId)
-  }, [captureTransitionCanvas, currentSceneId, isPlaying, rememberTransitionSnapshot])
-
-  useEffect(() => {
-    if (!isPlaying || !stageRef.current || !currentSceneId) return
-    const stage = stageRef.current
-    const sceneId = currentSceneId
-    const frame = requestAnimationFrame(() => captureTransitionCanvas(sceneId, stage))
-    return () => cancelAnimationFrame(frame)
-  }, [captureTransitionCanvas, currentSceneId, isPlaying])
-
-  // Resolve the same transition window used by Preview and export. Capture the
-  // outgoing scene once just before its boundary so the incoming scene can play.
-  useEffect(() => {
-    if (!project || !isPlaying) {
-      if (transitionKeyRef.current) {
-        transitionKeyRef.current = null
-        setTransOverlay(null)
-      }
-      return
-    }
-    const timeline = buildTransitionTimeline(project.scenes)
-    const frameState = getTransitionFrameState(timeline, playhead)
-    const stage = stageRef.current
-    const upcoming = getUpcomingTransitionEntry(timeline, playhead, 0.1)
-
-    // Repaint the same bounded Canvas throughout the lead window. This keeps
-    // animated/video outgoing frames current without allocating per tick.
-    if (upcoming && isDirectionalTransition(upcoming.transition.type) && stage) {
-      const from = timeline[upcoming.sceneIndex - 1]
-      if (from && currentSceneId === from.sceneId) {
-        captureTransitionCanvas(from.sceneId, stage)
-      }
-    }
-
-    // Morph is rendered as a live in-between scene (see getMorphFrame below),
-    // not as a snapshot overlay.
-    if (frameState.kind === 'transition' && frameState.transition.type === 'morph') {
-      if (transitionKeyRef.current) {
-        transitionKeyRef.current = null
-        setTransOverlay(null)
-      }
-      return
-    }
-
-    if (frameState.kind === 'transition') {
-      const to = timeline[frameState.toSceneIndex]
-      const key = getTransitionPreviewKey(frameState.fromSceneId, to)
-      if (transitionKeyRef.current !== key && stage) {
-        const directional = isDirectionalTransition(frameState.transition.type)
-        if (directional) {
-          let fromCanvas = transitionCanvasSnapshotsRef.current.get(frameState.fromSceneId)
-          if (!fromCanvas && currentSceneId === frameState.fromSceneId) {
-            fromCanvas = captureTransitionCanvas(frameState.fromSceneId, stage)
-          }
-          if (!fromCanvas) {
-            transitionKeyRef.current = null
-            setTransOverlay(null)
-            return
-          }
-        } else {
-          let snap = transitionSnapshotsRef.current.get(frameState.fromSceneId)
-          if (!snap && currentSceneId === frameState.fromSceneId) {
-            snap = stage.toDataURL({ pixelRatio: 1 })
-            rememberTransitionSnapshot(frameState.fromSceneId, snap)
-          }
-          if (!snap) {
-            transitionKeyRef.current = null
-            setTransOverlay(null)
-            return
-          }
-        }
-        transitionKeyRef.current = key
-        setTransOverlay({
-          snap: directional
-            ? undefined
-            : transitionSnapshotsRef.current.get(frameState.fromSceneId),
-          fromSceneId: frameState.fromSceneId,
-          type: frameState.transition.type,
-          direction: frameState.transition.direction,
-          speed: frameState.transition.speed,
-          hardness: frameState.transition.hardness,
-          toSceneId: frameState.toSceneId,
-          transitionStart: to.startTime,
-          duration: getEffectiveTransitionDuration(to),
-        })
-      }
-      return
-    }
-
-    const current = timeline[frameState.sceneIndex]
-    const next = timeline[frameState.sceneIndex + 1]
-    if (!stage) return
-    // Fallback "from" snapshot for an upcoming fade-style transition. toDataURL
-    // is a synchronous full-frame encode, so skip it at plain cuts (e.g. a
-    // split video scene) where it would stall the first frame of the scene.
-    const nextUsesSnapshot = !!next && next.transition.type !== 'none' &&
-      next.transition.type !== 'morph' && !isDirectionalTransition(next.transition.type)
-    if (nextUsesSnapshot && !transitionSnapshotsRef.current.has(current.sceneId)) {
-      rememberTransitionSnapshot(
-        current.sceneId,
-        stage.toDataURL({ pixelRatio: 1 }),
-      )
-    }
-
-    if (upcoming && isDirectionalTransition(upcoming.transition.type)) {
-      const key = getTransitionPreviewKey(current.sceneId, upcoming)
-      if (transitionKeyRef.current !== key &&
-          transitionCanvasSnapshotsRef.current.has(current.sceneId)) {
-        transitionKeyRef.current = key
-        setTransOverlay({
-          fromSceneId: current.sceneId,
-          type: upcoming.transition.type,
-          direction: upcoming.transition.direction,
-          speed: upcoming.transition.speed,
-          hardness: upcoming.transition.hardness,
-          toSceneId: upcoming.sceneId,
-          transitionStart: upcoming.startTime,
-          duration: getEffectiveTransitionDuration(upcoming),
-        })
-      }
-      return
-    }
-
-    if (transitionKeyRef.current) {
-      transitionKeyRef.current = null
-      setTransOverlay(null)
-    }
-
-    if (!next || next.transition.type === 'none' || next.transition.type === 'morph') return
-    const captureLead = Math.min(0.05, getEffectiveTransitionDuration(next))
-    if (playhead >= current.endTime - captureLead && playhead < current.endTime) {
-      if (!transitionFinalSnapshotsRef.current.has(current.sceneId)) {
-        rememberTransitionSnapshot(
-          current.sceneId,
-          stage.toDataURL({ pixelRatio: 1 }),
-        )
-        transitionFinalSnapshotsRef.current.add(current.sceneId)
-      }
-    }
-  }, [
-    captureTransitionCanvas, currentSceneId, isPlaying, playhead, project,
-    rememberTransitionSnapshot,
-  ])
-
-  const drawDirectionalPreview = useCallback(() => {
-    if (!transOverlay || !isDirectionalTransition(transOverlay.type)) return
-    const canvas = transitionCanvasRef.current
-    const from = transitionCanvasSnapshotsRef.current.get(transOverlay.fromSceneId)
-    const stage = stageRef.current
-    if (!canvas || !from || !stage) return
-    if (canvas.width !== canvasW) canvas.width = canvasW
-    if (canvas.height !== canvasH) canvas.height = canvasH
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const toCanvas = transitionToCanvasRef.current ?? document.createElement('canvas')
-    transitionToCanvasRef.current = toCanvas
-    renderTransition({
-      ctx,
-      width: canvasW,
-      height: canvasH,
-      progress: (playhead - transOverlay.transitionStart) / transOverlay.duration,
-      type: transOverlay.type,
-      direction: transOverlay.direction,
-      speed: transOverlay.speed,
-      hardness: transOverlay.hardness,
-      fromCanvas: from,
-      toCanvas: captureStageToCanvas(stage, toCanvas, canvasW, canvasH),
-    })
-  }, [canvasH, canvasW, playhead, transOverlay])
-  const drawDirectionalPreviewRef = useRef(drawDirectionalPreview)
-  drawDirectionalPreviewRef.current = drawDirectionalPreview
-
-  useEffect(() => {
-    if (!transOverlay || !isDirectionalTransition(transOverlay.type)) return
-    // One continuous loop while the overlay is active. A one-shot rAF that the
-    // effect cancels and reschedules on every playhead render never fires during
-    // playback (store updates re-render synchronously inside the frame).
-    const loop = () => {
-      drawDirectionalPreviewRef.current()
-      transitionFrameRef.current = requestAnimationFrame(loop)
-    }
-    transitionFrameRef.current = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(transitionFrameRef.current)
-  }, [transOverlay])
 
   // ── Crop mode: initialize pendingCrop from store trigger ──────────────────────
   useEffect(() => {
@@ -704,9 +484,11 @@ export default function EditorCanvas() {
       }
     }
 
+    // A hand-set crop replaces any face-following (auto-reframe) crop.
     updateElement(cropState.elId, {
       x: newX, y: newY, width: newW, height: newH,
       crop: finalCrop,
+      cropKeys: undefined,
     } as Partial<EditorElement>)
     setCropElement(null); setCropState(null)
   }
@@ -735,6 +517,59 @@ export default function EditorCanvas() {
     return ''
   }
 
+  /** Moves items by (dx, dy) — arrows by both ends; locked items stay. */
+  function moveElements(ids: string[], dx: number, dy: number) {
+    const scene = useEditorStore.getState().project?.scenes.find(sc => sc.id === useEditorStore.getState().currentSceneId)
+    for (const id of ids) {
+      const el = scene?.elements.find(x => x.id === id)
+      if (!el || el.locked) continue
+      if (el.type === 'arrow') updateElement(id, { x1: el.x1 + dx, y1: el.y1 + dy, x2: el.x2 + dx, y2: el.y2 + dy })
+      else updateElement(id, { x: el.x + dx, y: el.y + dy })
+    }
+  }
+
+  /** Canvas nodes the transformer handles for these ids (locked items get an outline + lock badge instead). */
+  function transformerNodes(ids: string[]) {
+    const stage = stageRef.current
+    if (!stage || !ids.length) return []
+    const scene = useEditorStore.getState().project?.scenes.find(sc => sc.id === useEditorStore.getState().currentSceneId)
+    const byId = new Map(scene?.elements.map(el => [el.id, el]))
+    const wanted = new Set(ids.filter(id => {
+      const el = byId.get(id)
+      // Members of a group drawn in perspective are only a hidden source; the warped picture stands for them.
+      const warped = el?.groupId && scene?.groups?.[el.groupId]?.perspective
+      return el && el.type !== 'handDraw' && !el.locked && !warped
+    }))
+    if (!wanted.size) return []
+    // One walk over the canvas; the first node with each id (as findOne did).
+    const found = new Map<string, Konva.Node>()
+    stage.find((node: Konva.Node) => {
+      const id = node.id()
+      if (id && wanted.has(id) && !found.has(id)) found.set(id, node)
+      return false
+    })
+    return ids.map(id => found.get(id)).filter((n): n is Konva.Node => !!n && !!n.getStage?.())
+  }
+
+  /**
+   * Mouse-down on an item. Plain press: select it with its group — unless the
+   * selection already holds it (and its whole group), so dragging moves the whole
+   * selection. Shift: add/remove it (with its group). Ctrl/Alt: just this item.
+   */
+  function pressElement(id: string, multi: boolean, member: boolean) {
+    lastPressedIdRef.current = id
+    const store = useEditorStore.getState()
+    const scene = store.project?.scenes.find(sc => sc.id === store.currentSceneId)
+    const el = scene?.elements.find(x => x.id === id)
+    const group = el?.groupId ? scene!.elements.filter(x => x.groupId === el.groupId).map(x => x.id) : [id]
+    const selected = new Set(store.selectedIds)
+    if (multi || member) store.selectElement(id, multi, { member })
+    else if (!group.every(x => selected.has(x))) store.selectElement(id, false)
+    // Attach the new selection right away: a drag can start 3 px later, before
+    // React re-renders, and must already carry the whole group.
+    trRef.current?.nodes(transformerNodes(useEditorStore.getState().selectedIds))
+  }
+
   function handleStageContextMenu(e: Konva.KonvaEventObject<MouseEvent>) {
     e.evt.preventDefault()
 
@@ -754,6 +589,7 @@ export default function EditorCanvas() {
     setContextMenu({ x: e.evt.clientX, y: e.evt.clientY, elementId: id })
   }
   function handleStageClick(e: Konva.KonvaEventObject<MouseEvent>) {
+    if (e.evt.button !== 0) return
     if (suppressStageClickRef.current) { suppressStageClickRef.current = false; return }
     if (cropState) { exitCropMode(); return }
     if (!currentScene) return
@@ -942,6 +778,57 @@ export default function EditorCanvas() {
     raw.restore()
   }
 
+  // ── Transitions ─────────────────────────────────────────────────────────────
+  // The playhead's scene is always on the main stage. During a transition the
+  // outgoing scene of a cut plays on a hidden stage, and the blend layer draws
+  // both through the transition (intros and outros blend with black). The same
+  // happens paused, so scrubbing shows the transition too. Export composes the
+  // two stages itself at full resolution.
+  const transitionTimeline = useMemo(
+    () => (project ? buildTransitionTimeline(project.scenes, project.endTransition) : null),
+    [project?.scenes, project?.endTransition],
+  )
+  const transitionState = transitionTimeline?.length ? getTransitionFrameState(transitionTimeline, playhead) : null
+  const morphActive = (isPlaying || exportOpen) && transitionState?.kind === 'transition' && transitionState.transition.type === 'morph'
+  const blend: BlendState | null = transitionState?.kind === 'transition' && !morphActive && transitionState.transition.type !== 'morph' &&
+    (transitionState.phase === 'outro' ? transitionState.fromSceneId : transitionState.toSceneId) === currentSceneId
+    ? transitionState : null
+  const blendRef = useRef<BlendState | null>(null)
+  blendRef.current = blend
+  const blendActive = Boolean(blend) && !exportOpen
+
+  // Redraw the blend every frame while it shows (both scenes may be playing).
+  useEffect(() => {
+    if (!blendActive) return
+    let frame = 0
+    const loop = () => {
+      blendLayerRef.current?.batchDraw()
+      frame = requestAnimationFrame(loop)
+    }
+    frame = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(frame)
+  }, [blendActive])
+
+  const drawBlendLayer = useCallback((ctx: Konva.Context) => {
+    const state = blendRef.current
+    const bg = bgLayerRef.current
+    const els = elementsLayerRef.current
+    if (!state || !bg || !els) return
+    const scratch = blendScratchRef.current ??= { main: document.createElement('canvas'), other: document.createElement('canvas') }
+    const outgoing = outgoingStageRef.current
+    // Until the outgoing scene's stage is up, show the scene as it is.
+    if (state.phase === 'cut' && !outgoing) return
+    const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
+    drawBlend(raw, raw.canvas.width, raw.canvas.height, state,
+      captureLayers([bg, els], scratch.main),
+      outgoing ? captureLayers(outgoing.getLayers(), scratch.other) : null)
+  }, [])
+
+  const setOutgoingStage = useCallback((stage: Konva.Stage | null) => {
+    outgoingStageRef.current = stage
+    registerOutgoingStage(stage)
+  }, [])
+
   // ── Render ─────────────────────────────────────────────────────────────────────
 
   if (!project || !currentScene) {
@@ -952,26 +839,27 @@ export default function EditorCanvas() {
     )
   }
 
-  // A directional transition is pre-armed before its boundary. Keep rendering
-  // the outgoing scene until the incoming scene actually begins.
-  const transitionStarted = !!transOverlay && playhead >= transOverlay.transitionStart
-  const activeSceneId = transitionStarted ? transOverlay.toSceneId : currentSceneId
   // During a Morph (playback or export frames) render the live in-between scene.
   // Paused editing always shows the real scene so it stays editable.
-  const morphFrame = isPlaying || exportOpen ? getMorphFrame(project, playhead) : null
-  const activeScene   = morphFrame?.scene ?? project.scenes.find(s => s.id === activeSceneId) ?? currentScene
+  const morphFrame = morphActive ? getMorphFrame(project, playhead) : null
+  const activeScene = morphFrame?.scene ?? currentScene
+  const localTime = morphFrame ? morphFrame.localTime : currentSceneId ? playhead - sceneStartTime(project.scenes, currentSceneId) : 0
 
-  // Compute scene-local time for animations
-  let localTime = 0
-  if (morphFrame) {
-    localTime = morphFrame.localTime
-  } else if (transitionStarted && transOverlay) {
-    localTime = Math.max(0, playhead - transOverlay.transitionStart)
-  } else if (currentSceneId) {
-    localTime = playhead - sceneStartTime(project.scenes, currentSceneId)
-  }
+  // Clip sound crosses over: the outgoing scene fades out as the incoming one fades in.
+  const volumes = blend ? blendVolumes(blend) : null
+  const mainVolume = blend ? (blend.phase === 'outro' ? volumes!.from : volumes!.to) : 1
+  // The outgoing copy of a cut. While playing it starts a little before the cut (muted),
+  // so its videos are ready and it simply carries on when the main stage moves to the next scene.
+  const upcoming = !blend && isPlaying && transitionTimeline ? getUpcomingTransitionEntry(transitionTimeline, playhead, 0.6) : null
+  const outgoing = blend?.phase === 'cut'
+    ? { scene: project.scenes[blend.fromSceneIndex], localTime: blend.fromLocalTime, volume: volumes!.from }
+    : upcoming && upcoming.transition.type !== 'morph' && transitionTimeline
+      ? { scene: project.scenes[upcoming.sceneIndex - 1], localTime: playhead - transitionTimeline[upcoming.sceneIndex - 1].startTime, volume: 0 }
+      : null
 
   const sortedEls = [...(activeScene ?? currentScene).elements].sort((a, b) => a.zIndex - b.zIndex)
+  const selectedSet = new Set(selectedIds)
+  const sceneElementById = new Map((currentScene?.elements ?? []).map(el => [el.id, el]))
 
   // Lock aspect ratio in transformer when single image/video has lockRatio enabled
   const keepRatioInTransform = (() => {
@@ -1017,7 +905,7 @@ export default function EditorCanvas() {
           onContextMenu={handleStageContextMenu}
         >
           {/* Background */}
-          <Layer>
+          <Layer ref={bgLayerRef}>
             <BackgroundShape
               ref={bgShapeRef}
               bg={(activeScene ?? currentScene).background}
@@ -1032,8 +920,13 @@ export default function EditorCanvas() {
           </Layer>
 
           {/* Elements */}
-          <Layer>
-            {sortedEls.filter(el => el.visible).map(el => {
+          <Layer ref={elementsLayerRef}>
+            {(() => {
+              // A group drawn in perspective renders once, as one warped picture, where its lowest member sits.
+              const scene = activeScene ?? currentScene
+              const warped = warpedGroups(scene)
+              const drawnGroups = new Set<string>()
+              const renderElement = (el: EditorElement) => {
               const animProps = getAnimatedProps(el, localTime)
               // Always apply animations: during playback OR when a playhead position is explicitly set
               // (which happens during export frame rendering)
@@ -1043,8 +936,8 @@ export default function EditorCanvas() {
                   key={el.id}
                   element={el}
                   animProps={shouldApplyAnim ? animProps : null}
-                  isSelected={selectedIds.includes(el.id)}
-                  onSelect={multi => { if (!el.locked) selectElement(el.id, multi) }}
+                  isSelected={selectedSet.has(el.id)}
+                  onSelect={(multi, member) => pressElement(el.id, multi, member)}
                   onDblClick={() => {
                     if (el.type === 'code') openCodeModal(el.id)
                     else if (el.type === 'image' || el.type === 'video') setCropElement(el.id)
@@ -1054,11 +947,53 @@ export default function EditorCanvas() {
                   sceneWidth={project?.width}
                   syncVideoToTime={!localPlayingIds.has(el.id) && (isPlaying || playhead > 0)}
                   videoPlaybackActive={isPlaying}
+                  mediaVolume={mainVolume}
+                  globalTime={playhead}
+                  sceneDuration={(activeScene ?? currentScene).duration}
                 />
               )
-            })}
+              }
+              return sortedEls.filter(el => el.visible).map(el => {
+                const members = el.groupId ? warped.get(el.groupId) : undefined
+                if (!members) return renderElement(el)
+                if (drawnGroups.has(el.groupId!)) return null
+                drawnGroups.add(el.groupId!)
+                const box = elementsBox(members)
+                return (
+                  <GroupPerspective
+                    key={`group-perspective-${el.groupId}`}
+                    box={box}
+                    pts={groupPerspectivePts(scene.groups![el.groupId!].perspective!, box)}
+                    nodeId={members[0].id}
+                    draggable={activeTool === 'select' && !members.some(m => m.locked)}
+                    onPress={shift => pressElement(members[0].id, shift, false)}
+                    onMoved={(dx, dy) => moveElements(members.map(m => m.id), dx, dy)}
+                  >
+                    {members.map(renderElement)}
+                  </GroupPerspective>
+                )
+              })
+            })()}
+          </Layer>
+
+          {/* A transition in progress: the outgoing and incoming scenes drawn together over the scene. */}
+          {blendActive && (
+            <Layer ref={blendLayerRef} listening={false}>
+              <Shape sceneFunc={drawBlendLayer} listening={false} />
+            </Layer>
+          )}
+
+          {/* Captions sit above transitions — they belong to the timeline, not to a scene. */}
+          <Layer id="subtitles" listening={false}>
             <SubtitleOverlay project={project} time={playhead} />
           </Layer>
+
+          {/* Highlights: where every item is (editor only — never in an export) */}
+          {showHighlights && !exportOpen && (
+            <Layer listening={false}>
+              <HighlightOverlay elements={(activeScene ?? currentScene).elements} />
+            </Layer>
+          )}
 
           {/* Transformer + perspective handles + arrow preview */}
           <Layer>
@@ -1066,13 +1001,9 @@ export default function EditorCanvas() {
               ref={trRef}
               visible={shouldShowSelectionHandles(activeTool) && activePanel !== 'perspective' && !cropState}
               rotateEnabled
-              enabledAnchors={['top-left','top-center','top-right','middle-right','bottom-right','bottom-center','bottom-left','middle-left']}
+              enabledAnchors={TRANSFORM_ANCHORS}
               keepRatio={keepRatioInTransform}
-              boundBoxFunc={(_old, box) => ({
-                ...box,
-                width:  Math.max(10, box.width),
-                height: Math.max(10, box.height)
-              })}
+              boundBoxFunc={minTransformBox}
               anchorSize={5}
               anchorFill="#6a32c9"
               anchorStroke="#f3e7e7"
@@ -1082,31 +1013,59 @@ export default function EditorCanvas() {
               borderStrokeWidth={2}
               rotateAnchorOffset={15}
               rotateLineVisible={false}
-              rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
+              rotationSnaps={ROTATION_SNAPS}
               rotateAnchorCursor="grab"
-              anchorStyleFunc={(anchor) => {
-                // Rotation anchor drawn as a rotate icon: accent disc + clockwise arrow.
-                if (anchor.hasName('rotater')) {
-                  const size = 18
-                  anchor.width(size)
-                  anchor.height(size)
-                  anchor.offsetX(size / 2)
-                  anchor.offsetY(size / 2)
-                  anchor.sceneFunc(ctx => drawRotateIcon(
-                    (ctx as unknown as { _context: CanvasRenderingContext2D })._context, size,
-                  ))
-                  anchor.hitFunc((ctx, shape) => {
-                    ctx.beginPath()
-                    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
-                    ctx.closePath()
-                    ctx.fillStrokeShape(shape)
-                  })
-                }
-              }}
+              anchorStyleFunc={styleTransformAnchor}
             />
 
-            {activePanel === 'perspective' && selectedIds.length === 1 && (() => {
-              const perspEl = currentScene?.elements.find(e => e.id === selectedIds[0])
+            {/* Selected locked items: dashed outline + lock badge (no resize handles) */}
+            {!exportOpen && selectedIds.map(id => {
+              const el = sceneElementById.get(id)
+              if (!el?.locked) return null
+              const box = elementsBox([el])
+              return <LockedMark key={id} box={box} scale={scale} color={SELECTION_COLOR} />
+            })}
+
+            {/* Name tag above a selected group */}
+            {!exportOpen && (() => {
+              const els = selectedIds.map(id => sceneElementById.get(id)).filter((el): el is EditorElement => el != null)
+              const groupId = els[0]?.groupId
+              const group = groupId ? currentScene?.groups?.[groupId] : undefined
+              if (!group || !els.every(el => el.groupId === groupId)) return null
+              const box = elementsBox(els)
+              const size = 12 / scale
+              return (
+                <Label x={box.x} y={box.y - size * 2.2} listening={false}>
+                  <Tag fill={SELECTION_COLOR} opacity={0.35} cornerRadius={3 / scale} />
+                  <Text text={`${group.smart ? '✦ ' : ''}${group.name}`} fontSize={size} padding={size * 0.35} fill="#ffffff" opacity={0.5} fontStyle="bold" />
+                </Label>
+              )
+            })()}
+
+            {/* A selected group in perspective: its quad is the selection outline. */}
+            {!exportOpen && activePanel !== 'perspective' && currentScene && (() => {
+              const groupId = selectedWholeGroup(currentScene, selectedIds)
+              const group = groupId ? currentScene.groups?.[groupId] : undefined
+              if (!groupId || !group?.perspective) return null
+              const box = elementsBox(currentScene.elements.filter(el => el.groupId === groupId && el.type !== 'audio'))
+              const { tl, tr, br, bl } = groupPerspectivePts(group.perspective, box)
+              return <Line x={box.x} y={box.y} points={[...tl, ...tr, ...br, ...bl]} closed stroke={SELECTION_COLOR} strokeWidth={1.5 / scale} listening={false} />
+            })()}
+
+            {activePanel === 'perspective' && currentScene && (() => {
+              // A whole group (e.g. an add-on) gets one set of handles for the group as a plane.
+              const groupId = selectedWholeGroup(currentScene, selectedIds)
+              if (groupId) {
+                const group = currentScene.groups![groupId]
+                const box = elementsBox(currentScene.elements.filter(el => el.groupId === groupId && el.type !== 'audio'))
+                return (
+                  <QuadHandles x={box.x} y={box.y} width={box.width} height={box.height}
+                    pts={group.perspective ? groupPerspectivePts(group.perspective, box) : undefined}
+                    onChange={pts => useEditorStore.getState().setGroupPerspective(groupId, toGroupPerspective(pts, box))} />
+                )
+              }
+              if (selectedIds.length !== 1) return null
+              const perspEl = currentScene.elements.find(e => e.id === selectedIds[0])
               return perspEl ? <PerspectiveHandles el={perspEl} /> : null
             })()}
 
@@ -1139,6 +1098,8 @@ export default function EditorCanvas() {
           </Layer>
         </Stage>
 
+        <SubjectPickOverlay getStage={() => stageRef.current} />
+
         {activePanel === 'motion' && cursorCoord && (
           <div
             style={{
@@ -1163,67 +1124,27 @@ export default function EditorCanvas() {
         )}
       </div>
 
-      {transOverlay && isDirectionalTransition(transOverlay.type) && (
-        <canvas
-          ref={transitionCanvasRef}
+      {/* The outgoing scene of a transition, drawn off screen for the blend layer and export. */}
+      {outgoing && (
+        <SceneStage
+          key={outgoing.scene.id}
+          refSetter={setOutgoingStage}
+          project={project}
+          scene={outgoing.scene}
+          localTime={outgoing.localTime}
+          globalTime={playhead}
           width={canvasW}
           height={canvasH}
-          style={{
-            position: 'absolute',
-            left: offsetX, top: offsetY,
-            width: canvasW, height: canvasH,
-            pointerEvents: 'none',
-            zIndex: 40,
-          }}
+          scale={scale}
+          isPlaying={isPlaying}
+          keepPlaying
+          mediaVolume={outgoing.volume}
+          mediaKeySuffix="@out"
+          quietLoading
+          subtitles={false}
+          style={{ position: 'absolute', left: offsetX, top: offsetY, width: canvasW, height: canvasH, visibility: 'hidden' }}
         />
       )}
-
-      {/* Existing transitions keep their lightweight HTML preview path. */}
-      {transOverlay && !isDirectionalTransition(transOverlay.type) && (() => {
-        const rawP = Math.min(1, Math.max(0, (playhead - transOverlay.transitionStart) / transOverlay.duration))
-        const p = easeInOutCubic(rawP)
-        const dir = transOverlay.direction
-        // The overlay is the OLD (FROM) scene sitting on top; the NEW scene renders
-        // beneath. So we animate the OLD scene's EXIT. `dir` = edge the NEW scene
-        // enters from, therefore the OLD scene leaves toward the OPPOSITE edge.
-        let overlayStyle: React.CSSProperties = {}
-        switch (transOverlay.type) {
-          case 'fade':
-            overlayStyle = { opacity: 1 - p }
-            break
-          case 'slide':
-          case 'push':
-            // old exits opposite to where the new enters
-            if (dir === 'right') overlayStyle = { transform: `translateX(-${p * 100}%)` }
-            else if (dir === 'left') overlayStyle = { transform: `translateX(${p * 100}%)` }
-            else if (dir === 'down') overlayStyle = { transform: `translateY(-${p * 100}%)` }
-            else if (dir === 'up') overlayStyle = { transform: `translateY(${p * 100}%)` }
-            else overlayStyle = { transform: `translateX(-${p * 100}%)` }
-            break
-          case 'zoom':
-            overlayStyle = { opacity: 1 - p, transform: `scale(${1 + p * 0.035})`, transformOrigin: 'center center' }
-            break
-          case 'wipe':
-            if (dir === 'right') overlayStyle = { clipPath: `inset(0 0 0 ${p * 100}%)` }
-            else if (dir === 'left') overlayStyle = { clipPath: `inset(0 ${p * 100}% 0 0)` }
-            else if (dir === 'down') overlayStyle = { clipPath: `inset(${p * 100}% 0 0 0)` }
-            else overlayStyle = { clipPath: `inset(0 0 ${p * 100}% 0)` }
-            break
-        }
-        return (
-          <img
-            src={transOverlay.snap ?? ''}
-            style={{
-              position: 'absolute',
-              left: offsetX, top: offsetY,
-              width: canvasW, height: canvasH,
-              pointerEvents: 'none',
-              zIndex: 40,
-              ...overlayStyle,
-            }}
-          />
-        )
-      })()}
 
       {/* Crop overlay — HTML, not Konva, excluded from export */}
       {cropState && (() => {
@@ -1337,6 +1258,7 @@ export default function EditorCanvas() {
           ? currentScene?.elements.find(e => e.id === contextMenu.elementId) ?? null
           : null
         const isImage = ctxEl?.type === 'image'
+        const ctxGroupId = ctxEl?.groupId && currentScene?.elements.some(el => el.id !== ctxEl.id && el.groupId === ctxEl.groupId) ? ctxEl.groupId : undefined
 
         // Center the right-clicked element on the canvas using its mid-point.
         const center = (axis: 'h' | 'v') => {
@@ -1379,8 +1301,37 @@ export default function EditorCanvas() {
               {
                 label: 'Duplicate',
                 icon: <Copy size={14} />,
+                shortcut: 'Ctrl+D',
                 onClick: () => {
-                  selectedIds.forEach(id => duplicateElement(id))
+                  const els = selectedIds.map(id => currentScene?.elements.find(el => el.id === id)).filter((el): el is EditorElement => el != null)
+                  useEditorStore.getState().insertCopies(els, { offset: 20 })
+                  setContextMenu(null)
+                }
+              },
+              ...(selectedIds.length >= 2 && !(ctxGroupId && selectedIds.every(id => currentScene?.elements.find(el => el.id === id)?.groupId === ctxGroupId)) ? [{
+                label: 'Group',
+                icon: <Group size={14} />,
+                shortcut: 'Ctrl+G',
+                onClick: () => { useEditorStore.getState().groupElements(selectedIds); setContextMenu(null) },
+              }] : []),
+              ...(ctxGroupId ? [
+                {
+                  label: `Ungroup "${currentScene?.groups?.[ctxGroupId]?.name ?? 'group'}"`,
+                  icon: <Ungroup size={14} />,
+                  shortcut: 'Ctrl+Shift+G',
+                  onClick: () => { useEditorStore.getState().ungroupElements([contextMenu!.elementId]); setContextMenu(null) },
+                },
+                {
+                  label: 'Select whole group',
+                  icon: <BoxSelect size={14} />,
+                  onClick: () => { selectElement(contextMenu!.elementId, false); setContextMenu(null) },
+                },
+              ] : []),
+              {
+                label: ctxEl?.locked ? 'Unlock' : (ctxGroupId ? 'Lock group' : 'Lock'),
+                icon: ctxEl?.locked ? <Unlock size={14} /> : <Lock size={14} />,
+                onClick: () => {
+                  if (ctxEl) useEditorStore.getState().setLocked(ctxEl.locked ? [ctxEl.id] : selectedIds, !ctxEl.locked)
                   setContextMenu(null)
                 }
               },
@@ -1474,6 +1425,32 @@ export default function EditorCanvas() {
 
 /** Selection outline color; the rotate icon uses it too. */
 const SELECTION_COLOR = '#d44747'
+
+// Transformer settings, made once. (Konva re-measures every selected item when one of
+// these changes — a new array or function on each render made big selections crawl.)
+const TRANSFORM_ANCHORS = ['top-left', 'top-center', 'top-right', 'middle-right', 'bottom-right', 'bottom-center', 'bottom-left', 'middle-left']
+const ROTATION_SNAPS = [0, 45, 90, 135, 180, 225, 270, 315]
+
+function minTransformBox(_old: { x: number; y: number; width: number; height: number; rotation: number }, box: { x: number; y: number; width: number; height: number; rotation: number }) {
+  return { ...box, width: Math.max(10, box.width), height: Math.max(10, box.height) }
+}
+
+/** The rotation anchor drawn as a rotate icon: accent disc + clockwise arrow. */
+function styleTransformAnchor(anchor: Konva.Rect) {
+  if (!anchor.hasName('rotater')) return
+  const size = 18
+  anchor.width(size)
+  anchor.height(size)
+  anchor.offsetX(size / 2)
+  anchor.offsetY(size / 2)
+  anchor.sceneFunc(ctx => drawRotateIcon((ctx as unknown as { _context: CanvasRenderingContext2D })._context, size))
+  anchor.hitFunc((ctx, shape) => {
+    ctx.beginPath()
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
+    ctx.closePath()
+    ctx.fillStrokeShape(shape)
+  })
+}
 
 function drawRotateIcon(ctx: CanvasRenderingContext2D, size: number) {
   const c = size / 2

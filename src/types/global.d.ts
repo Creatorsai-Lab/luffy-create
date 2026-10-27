@@ -37,6 +37,19 @@ export interface PythonStatus {
   stderr?: string
 }
 
+/** Background-removal model packs (see electron/main/cutoutModels.ts). */
+export type CutoutPack = 'cutout' | 'select'
+
+/** A background-removal request (see electron/main/cutoutWorker.ts). */
+export type CutoutRunRequest =
+  | { type: 'segment'; rgba: Uint8Array }
+  | { type: 'samEncode'; key: string; rgb: Uint8Array; width: number; height: number }
+  | { type: 'samDecode'; key: string; x: number; y: number; width: number; height: number }
+
+export type CutoutRunResponse =
+  | { ok: true; mask?: Uint8Array; width?: number; height?: number }
+  | { ok: false; error: string }
+
 /** The one-time Python runtime download (see electron/main/pythonRuntimePack.ts). */
 export interface PythonRuntimeStatus {
   state: 'unavailable' | 'not-installed' | 'downloading' | 'installed'
@@ -127,6 +140,14 @@ declare global {
         onBeforeClose: (callback: () => void) => () => void
         closeReady:    () => void
       }
+      filmstrip: {
+        load: (videoPath: string, grid: number) => Promise<{ grid: number; frames: Record<string, string> }>
+        save: (videoPath: string, data: { grid: number; frames: Record<string, string> }) => Promise<void>
+      }
+      planner: {
+        load: () => Promise<import('../planner/types').PlannerData>
+        save: (data: import('../planner/types').PlannerData) => Promise<void>
+      }
       projects: {
         list:   ()                         => Promise<ProjectRecord[]>
         create: (name: string)             => Promise<ProjectRecord>
@@ -144,15 +165,31 @@ declare global {
         saveVideo: (defaultName: string)                                => Promise<string | null>
         saveImage: (defaultName: string)                                => Promise<string | null>
       }
+      exportTask?: {
+        setBackground: (active: boolean) => Promise<void>
+        progress: (fraction: number) => void
+        finished: () => void
+      }
       fs: {
         writeFile: (path: string, data: Uint8Array) => Promise<void>
         getPathForFile: (file: File) => string
       }
       shell: {
         openPath: (path: string) => Promise<string>
+        showItem: (path: string) => Promise<void>
+        openExternal: (url: string) => Promise<void>
       }
       ffmpeg: {
         getPaths: () => Promise<{ coreJs: string; coreWasm: string }>
+      }
+      cutout: {
+        status: () => Promise<Record<CutoutPack, { installed: boolean; downloading: boolean; bytes: number }>>
+        install: (pack: CutoutPack) => Promise<void>
+        cancel: (pack: CutoutPack) => Promise<void>
+        run: (request: CutoutRunRequest) => Promise<CutoutRunResponse>
+        cacheRead: (key: string) => Promise<Uint8Array | null>
+        cacheWrite: (key: string, data: Uint8Array) => Promise<void>
+        onProgress: (listener: (progress: { pack: CutoutPack; phase: 'download' | 'finished'; receivedBytes: number; totalBytes: number }) => void) => () => void
       }
       python: {
         check: () => Promise<PythonStatus>
@@ -180,6 +217,8 @@ declare global {
         transcribeAudio: (payload: {
           sourcePath: string
           language?: string
+          /** Word-level cues that keep filler words ("um", "uh"). */
+          words?: boolean
         }) => Promise<SubtitleTranscriptionResult>
         translationStatus: (direction: SubtitleTranslationDirection) => Promise<SubtitleTranslationPackStatus>
         installTranslation: (direction: SubtitleTranslationDirection) => Promise<SubtitleTranslationPackStatus>

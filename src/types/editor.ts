@@ -15,11 +15,19 @@ export type TextEffectType = 'glow' | 'hollow'
 export type EasingType    = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'bounce'
 export type AlignType     = 'left' | 'center' | 'right'
 export type ArrowHeadType = 'none' | 'end' | 'start' | 'both'
+/** The shape of an arrow's head(s); 'triangle' is the classic filled point. */
+export type ArrowHeadStyle = 'triangle' | 'open' | 'circle' | 'ring' | 'diamond' | 'square' | 'bar'
 export type ArrowBendDirection = 'horizontal' | 'vertical'
 export type SlideDir      = 'left' | 'right' | 'up' | 'down'
 export type MoveDirection = 'left' | 'right' | 'top' | 'bottom' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
 export type MotionZoomPosition = 'center' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
-export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'wipe' | 'push' | 'morph' | 'flashBlur' | 'flickerShake'
+export type TransitionType =
+  | 'none' | 'fade' | 'dipBlack' | 'dipWhite' | 'push' | 'slide' | 'wipe' | 'zoom' | 'zoomOut' | 'iris'
+  | 'whip' | 'zoomBlur' | 'spin' | 'blurDissolve' | 'lightLeak' | 'filmBurn' | 'lumaFade' | 'flash'
+  | 'glitch' | 'pixelate' | 'stretch' | 'slices' | 'cube'
+  | 'morph' | 'flashBlur' | 'flickerShake'
+/** How a transition's progress speeds up and slows down. */
+export type TransitionEasing = 'smooth' | 'linear' | 'snappy'
 export type BgType        = 'solid' | 'gradient' | 'grid' | 'dots' | 'animated' | 'transparent'
 export type FontWeight    = 'thin' | 'normal' | 'semibold' | 'bold'
 export type SubtitleAnimationType = 'none' | 'wordPop' | 'wordRise' | 'karaokePulse' | 'smoothReveal' | 'fade' | 'slideUp' | 'pop'
@@ -32,7 +40,7 @@ export type MediaEffectTarget = 'wholeMedia' | 'centerSubject' | 'manualFocus'
 export type MediaZoomPosition = 'center' | 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
 export type ActiveTool    = 'select' | 'shape-rect' | 'shape-circle' | 'shape-triangle' | 'shape-star' | 'shape-pentagon' | 'shape-hexagon' | 'shape-octagon' | 'shape-diamond' | 'shape-oval' | 'shape-speechBubble' | 'shape-roundedSpeech' | 'shape-cone' | 'shape-cube' | 'shape-rect-hand' | 'shape-circle-hand' | 'shape-square-hand' | 'shape-heart' | 'shape-rect-sketch' | 'arrow' | 'code' | 'image' | 'chart' | 'video' | 'latex' | 'counter'
   | 'handDraw'
-export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'motion' | 'effects' | 'latex' | 'counter' | 'handDraw' | null
+export type ActivePanel   = 'text' | 'shapes' | 'arrows' | 'code' | 'table' | 'upload' | 'audio' | 'video' | 'icons' | 'textAnimations' | 'shapeAnimations' | 'arrowAnimations' | 'textEffects' | 'background' | 'layers' | 'transitions' | 'charts' | 'perspective' | 'motion' | 'groupEffects' | 'blocks' | 'effects' | 'latex' | 'counter' | 'handDraw' | 'editBg' | null
 export type HandDrawTool = 'pen' | 'paint' | 'spray' | 'eraser'
 export type ShapeFillMode = 'solid' | 'linearGradient' | 'radialGradient'
 export type TextFillMode = 'solid' | 'linearGradient'
@@ -88,8 +96,60 @@ export interface MediaEffectClip extends MediaEffectSettings {
 }
 
 export interface MediaEffectControls extends MediaEffectSettings {
+  /** The effect stack. When missing, the older fields below are read and converted (src/engine/fx/stack.ts). */
+  fx?: MediaFx[]
+  /** Older single effect / timed effects — read only when `fx` is missing. */
   mediaEffect?: MediaEffectType
   mediaEffects?: MediaEffectClip[]
+}
+
+/** Every effect in the effects engine (src/engine/fx). */
+export type FxType =
+  // Body (AI person mask, on this computer)
+  | 'neonOutline' | 'aura' | 'spotlight' | 'echo'
+  // Retro & texture
+  | 'vhs' | 'film8mm' | 'oldFilm' | 'dust' | 'paper' | 'halftone' | 'grain'
+  // Glitch
+  | 'glitch' | 'rgbSplit' | 'crt' | 'signalLoss'
+  // Warp
+  | 'wave' | 'swirl' | 'bulge' | 'ripple' | 'kaleidoscope' | 'heatHaze'
+  // Light
+  | 'glow' | 'halation' | 'lightLeak' | 'lightSweep' | 'godRays' | 'lensFlare' | 'defocus' | 'vignette'
+  // Energy
+  | 'phonk' | 'strobe' | 'zoomPulse' | 'shake' | 'flash' | 'flicker'
+  // Motion
+  | 'float' | 'wiggle' | 'drift' | 'kenBurnsIn' | 'kenBurnsOut'
+  // Weather
+  | 'rain' | 'snow'
+  // Colour look (one per clip)
+  | 'look'
+
+/**
+ * One effect on a video or image. Times are the clip's own seconds (for an
+ * image, its scene's): it runs from `start` to `end` (the clip's end when
+ * missing), fading in and out, and loops while it runs.
+ */
+export interface MediaFx {
+  id: string
+  type: FxType
+  start: number
+  end?: number
+  fadeIn?: number
+  fadeOut?: number
+  /** Strength, 0–1. */
+  intensity: number
+  /** Effect-specific settings (see the catalogue in src/engine/fx/catalog.ts). */
+  params?: Record<string, number | string | boolean>
+  /** Hit on the music's beats (energy effects). */
+  beatSync?: boolean
+  /** Hidden without removing it. */
+  off?: boolean
+}
+
+/** A speed curve: speed (multiplying the clip's speed) over the clip's footage, 0 = its first frame, 1 = its last. */
+export interface SpeedCurve {
+  preset: string
+  points: Array<{ x: number; speed: number }>
 }
 
 export interface MediaVignetteControls {
@@ -112,10 +172,15 @@ export interface ElementAnimation {
   id: string
   type: AnimationType
   timing: AnimationTiming  // onEnter, onExit, or loop
-  startTime: number   // seconds from scene start
   duration: number    // seconds
-  delay: number       // seconds
+  /** When the animation starts, in seconds from the scene start. */
+  delay: number
   easing: EasingType
+  /**
+   * Loops only: play once every `repeatEvery` seconds instead of back to back
+   * (e.g. a 0.4 s pulse every 3 s). Unset = continuous loop.
+   */
+  repeatEvery?: number
   params?: {
     direction?: SlideDir
     distance?: number
@@ -165,7 +230,10 @@ export interface BaseElement {
   borderAnimationSpeed?: number
   perspectivePts?: { tl: [number, number]; tr: [number, number]; br: [number, number]; bl: [number, number] }
   perspectiveControls?: PerspectiveControls
-  groupId?: string   // elements sharing a groupId move together when group-locked
+  /** Members of a group share its id (see Scene.groups); clicking one selects all. */
+  groupId?: string
+  /** Stable part name inside a smart block ("neuron-1-3"), so a rebuild keeps ids. */
+  blockKey?: string
   /** Lineage id shared by copies of one element across scenes (duplicate scene, paste) — lets Morph match them. */
   morphKey?: string
 }
@@ -250,6 +318,8 @@ export interface ArrowElement extends BaseElement {
   stroke: string
   strokeWidth: number
   arrowHead: ArrowHeadType
+  /** Default triangle. */
+  headStyle?: ArrowHeadStyle
   dashed: boolean
   dotted: boolean
   pointerLength: number
@@ -259,6 +329,17 @@ export interface ArrowElement extends BaseElement {
   bendCount?: number
   bendDirection?: ArrowBendDirection
   bendCurve?: number
+  /** Attached ends follow their element (src/utils/connectors.ts); unset = a free point. */
+  startAttach?: ArrowAttachment
+  endAttach?: ArrowAttachment
+}
+
+/** Where an attached arrow end sits: 'auto' faces the other end. */
+export type ConnectorAnchor = 'auto' | 'top' | 'right' | 'bottom' | 'left' | 'center'
+
+export interface ArrowAttachment {
+  elementId: string
+  anchor?: ConnectorAnchor
 }
 
 export interface CodeElement extends BaseElement {
@@ -268,6 +349,14 @@ export interface CodeElement extends BaseElement {
   fontSize: number
   showLineNumbers: boolean
   bgColor?: string
+  /** Default 6. */
+  cornerRadius?: number
+  /** 0 / undefined = no border. */
+  borderWidth?: number
+  borderColor?: string
+  /** Shown centred in the top bar when `showTitle` is on (max 6 words). */
+  showTitle?: boolean
+  title?: string
   fitSceneWidth?: boolean
   wrapLines?: boolean
   codeAnimation?: 'none' | 'characters' | 'lines' | 'blocks'
@@ -284,6 +373,43 @@ export interface CodeAnimationBlock {
   duration: number
 }
 
+/**
+ * Removing a video's or image's background. `chroma`: a colour (green/blue
+ * screen) becomes transparent. `person`: an on-device AI cut-out keeps the
+ * person and removes the rest. Whatever is behind the clip shows through,
+ * unless `background` replaces it (person mode).
+ */
+export interface MediaKeying {
+  mode: 'chroma' | 'person'
+  /** Chroma: the colour to remove. */
+  color?: string
+  /** Chroma: how far from the colour still counts as background, 0–1 (default 0.4). */
+  strength?: number
+  /** Chroma: width of the soft edge, 0–1 (default 0.1). */
+  softness?: number
+  /** Chroma: how much of the screen's colour cast is taken off the subject, 0–1 (default 0.3). */
+  spill?: number
+  /** Person: edge softness, 0–1 (default 0.3). */
+  feather?: number
+  /** Person: what replaces the removed background ('none' = see through). */
+  background?: 'none' | 'blur' | 'color'
+  backgroundColor?: string
+  /** Person: blur strength for background 'blur', 0–1 (default 0.5). */
+  backgroundBlur?: number
+  /**
+   * Person (AI cut-out): clicked people or objects to keep or remove. x, y are
+   * 0–1 of the source picture; t is the video time of the frame clicked.
+   */
+  picks?: KeyingPick[]
+}
+
+export interface KeyingPick {
+  x: number
+  y: number
+  keep: boolean
+  t?: number
+}
+
 export interface ImageElement extends BaseElement, MediaEffectControls, MediaVignetteControls, MediaGrainControls {
   type: 'image'
   src: string
@@ -293,6 +419,8 @@ export interface ImageElement extends BaseElement, MediaEffectControls, MediaVig
   borderWidth: number
   lockRatio?: boolean
   crop?: { x: number; y: number; w: number; h: number }  // normalized 0-1
+  /** Green screen / background removal. */
+  keying?: MediaKeying
   // Basic
   brightness?: number   // 0-200, default 100
   contrast?: number     // 0-200, default 100
@@ -385,6 +513,16 @@ export interface VideoElement extends BaseElement, MediaEffectControls, MediaVig
   borderWidth: number
   lockRatio?: boolean
   crop?: { x: number; y: number; w: number; h: number }
+  /** A moving crop (auto-reframe): the crop's centre over time; its size stays `crop.w` × `crop.h`. */
+  cropKeys?: CropKey[]
+  /** Punch-in zoom from jump cuts: the picture is scaled up by this much (1.1 = 10%) about the crop's centre. */
+  punchIn?: number
+  /** Speed ramp over the clip (velocity edits); `playbackRate` still scales it. */
+  speedCurve?: SpeedCurve
+  /** A freeze frame: at `at` seconds into the clip the picture holds for `hold` seconds, then carries on. */
+  freeze?: { at: number; hold: number }
+  /** Green screen / background removal. */
+  keying?: MediaKeying
   volume: number
   playbackRate: number
   loop: boolean
@@ -432,6 +570,9 @@ export interface LatexElement extends BaseElement {
   color: string
   fontSize: number    // scale factor for the rendered equation
   fontFamily?: string // applied to \text{} runs where possible
+  /** Draw the equation at its natural size inside the box (shrunk only to fit, never stretched). Set by blocks. */
+  fitContent?: boolean
+  contentAlign?: 'left' | 'center'
 }
 
 export interface CounterElement extends BaseElement {
@@ -487,6 +628,19 @@ export interface HandDrawElement extends BaseElement {
   strokes: HandDrawStroke[]
 }
 
+/** Where a moving crop is centred (0–1 of the source frame) at `t` seconds into the source file. */
+export interface CropKey {
+  t: number
+  cx: number
+  cy: number
+}
+
+/** A volume automation point: gain `v` (0–2) at `t` seconds into the source file. */
+export interface VolumeKey {
+  t: number
+  v: number
+}
+
 export interface AudioMarker {
   id: string
   offset: number  // seconds from clip start (audio.x)
@@ -511,6 +665,8 @@ export interface AudioElement extends BaseElement {
   loop: boolean
   track: 'background' | 'voiceover'
   markers?: AudioMarker[]
+  /** Volume automation (e.g. ducking under speech), on top of volume and fades. */
+  volumeKeys?: VolumeKey[]
   lane?: number      // explicit vertical lane in the timeline (manual override)
 }
 
@@ -553,9 +709,18 @@ export type Background = SolidBg | GradientBg | GridBg | DotsBg | AnimatedBg | I
 export interface SceneTransition {
   type: TransitionType
   duration: number
+  /** The edge the new scene comes from (push, slide, wipe, whip, …). */
   direction?: SlideDir
+  /** Flash Blur / Flicker Shake only. */
   speed?: number
   hardness?: number
+  /** Strength of blur, zoom, glitch, light … 0–1. */
+  intensity?: number
+  /** Edge softness of wipes, iris and luma fades, 0–1. */
+  softness?: number
+  /** Dip and flash colour. */
+  color?: string
+  easing?: TransitionEasing
 }
 
 export interface Scene {
@@ -565,6 +730,36 @@ export interface Scene {
   background: Background
   elements: EditorElement[]
   transition: SceneTransition
+  /** Groups on this scene by id; members carry the id in `groupId`. */
+  groups?: Record<string, SceneGroup>
+}
+
+export interface SceneGroup {
+  id: string
+  name: string
+  /** Set when the group was built by a smart block and can be rebuilt from new settings. */
+  smart?: SmartGroupInfo
+  /** The whole group drawn in perspective, as one plane (see GroupPerspective). */
+  perspective?: GroupPerspective
+}
+
+/**
+ * Corners as fractions of the group's bounding box (0,0 = its top-left, 1,1 = bottom-right),
+ * so the warp keeps its shape when the group moves, grows or is rebuilt.
+ */
+export interface GroupPerspective {
+  pts: { tl: [number, number]; tr: [number, number]; br: [number, number]; bl: [number, number] }
+  controls?: PerspectiveControls
+}
+
+export interface SmartGroupInfo {
+  blockId: string
+  params: Record<string, unknown>
+  /**
+   * Top-left of the block as built. The difference to the members' current
+   * top-left is how far the user moved it, kept when it is rebuilt.
+   */
+  origin: { x: number; y: number }
 }
 
 // ─── Project ──────────────────────────────────────────────────────────────────
@@ -639,6 +834,16 @@ export interface SubtitleStyle {
   animation?: SubtitleAnimationType
   captionLook?: SubtitleCaptionLook
   warpIntensity?: number
+  /** Show the words in capitals. */
+  uppercase?: boolean
+  /** Outline around the letters (px; 0 = none). */
+  strokeColor?: string
+  strokeWidth?: number
+  /** Colour of the word being spoken (karaoke) or popping in; unset = same as the text. */
+  activeColor?: string
+  /** Box behind each row (opacity 0 = none). */
+  boxColor?: string
+  boxOpacity?: number
 }
 
 export interface SubtitleTrack {
@@ -662,6 +867,8 @@ export interface Project {
   assets: AssetMeta[]
   timeMarkers: TimeMarker[]
   subtitleTracks?: SubtitleTrack[]
+  /** Fade out at the end: the last scene goes to black over its final `duration` seconds. */
+  endTransition?: SceneTransition
   createdAt: number
   updatedAt: number
 }

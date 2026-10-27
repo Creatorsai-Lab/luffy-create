@@ -7,7 +7,6 @@
     <filter id="glow" x="-30%" y="-40%" width="170%" height="180%">
       <feGaussianBlur stdDeviation="8" result="blur"/>
       <feMerge>
-        <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>

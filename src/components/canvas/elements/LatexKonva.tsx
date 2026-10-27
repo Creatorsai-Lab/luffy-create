@@ -13,6 +13,7 @@ interface Props {
 
 export default function LatexKonva({ el, konvaProps, textProgress = 1, wipeProgress = 1, wipeDir }: Props) {
   const [img, setImg] = useState<HTMLImageElement | null>(null)
+  const [natural, setNatural] = useState<{ width: number; height: number } | null>(null)
   const [error, setError] = useState(false)
 
   useEffect(() => {
@@ -21,6 +22,7 @@ export default function LatexKonva({ el, konvaProps, textProgress = 1, wipeProgr
       if (cancelled) return
       if (!r) { setImg(null); setError(true); return }
       setError(false)
+      setNatural({ width: r.width, height: r.height })
       const image = new window.Image()
       image.onload = () => { if (!cancelled) setImg(image) }
       image.onerror = () => { if (!cancelled) setError(true) }
@@ -40,23 +42,30 @@ export default function LatexKonva({ el, konvaProps, textProgress = 1, wipeProgr
     return <Rect {...konvaProps} width={el.width} height={el.height} fill="transparent" />
   }
 
-  const image = <KonvaImage image={img} width={el.width} height={el.height} />
+  // Where the equation is drawn inside the box: the whole box (classic), or —
+  // with `fitContent` (blocks) — its natural size, shrunk only to fit, never stretched.
+  let dx = 0, dy = 0, dw = el.width, dh = el.height
+  if (el.fitContent && natural) {
+    const scale = Math.min(1, el.width / natural.width, el.height / natural.height)
+    dw = natural.width * scale
+    dh = natural.height * scale
+    dx = el.contentAlign === 'left' ? 0 : (el.width - dw) / 2
+    dy = (el.height - dh) / 2
+  }
+  const image = <KonvaImage image={img} x={dx} y={dy} width={dw} height={dh} />
+  // An invisible rect keeps the whole box clickable and selectable.
+  const hitBox = <Rect width={el.width} height={el.height} fill="transparent" />
 
-  // Directional wipe reveal (wipeIn / wipeOut)
+  // Directional wipe reveal (wipeIn / wipeOut): the clip grows from the entering edge.
   if (wipeDir && wipeProgress < 1) {
-    // Wipe animation: the clip rectangle grows from the starting edge
-    // Direction indicates which side the wipe "enters" from
-    // left: wipe enters from left (clip starts at x=0, grows right)
-    // right: wipe enters from right (clip starts at x=width*(1-progress), grows left)
-    // up: wipe enters from top (clip starts at y=0, grows down)
-    // down: wipe enters from bottom (clip starts at y=height*(1-progress), grows up)
-    const clipX = wipeDir === 'left' ? el.width * (1 - wipeProgress) : 0
-    const clipY = wipeDir === 'up'   ? el.height * (1 - wipeProgress) : 0
-    const clipW = (wipeDir === 'left' || wipeDir === 'right') ? el.width * wipeProgress : el.width
-    const clipH = (wipeDir === 'up'   || wipeDir === 'down')  ? el.height * wipeProgress : el.height
+    const clipX = dx + (wipeDir === 'left' ? dw * (1 - wipeProgress) : 0)
+    const clipY = dy + (wipeDir === 'up' ? dh * (1 - wipeProgress) : 0)
+    const clipW = (wipeDir === 'left' || wipeDir === 'right') ? dw * wipeProgress : dw
+    const clipH = (wipeDir === 'up' || wipeDir === 'down') ? dh * wipeProgress : dh
     return (
-      <Group {...konvaProps} clipX={clipX} clipY={clipY} clipWidth={Math.max(0, clipW)} clipHeight={Math.max(0, clipH)}>
-        {image}
+      <Group {...konvaProps}>
+        {hitBox}
+        <Group clipX={clipX} clipY={clipY} clipWidth={Math.max(0, clipW)} clipHeight={Math.max(0, clipH)}>{image}</Group>
       </Group>
     )
   }
@@ -64,11 +73,12 @@ export default function LatexKonva({ el, konvaProps, textProgress = 1, wipeProgr
   // Typewriter / draw-style reveal → left-to-right wipe of the equation image
   if (textProgress < 1) {
     return (
-      <Group {...konvaProps} clipX={0} clipY={0} clipWidth={Math.max(0, el.width * textProgress)} clipHeight={el.height}>
-        {image}
+      <Group {...konvaProps}>
+        {hitBox}
+        <Group clipX={dx} clipY={dy} clipWidth={Math.max(0, dw * textProgress)} clipHeight={dh}>{image}</Group>
       </Group>
     )
   }
 
-  return <KonvaImage {...konvaProps} image={img} width={el.width} height={el.height} />
+  return <Group {...konvaProps}>{hitBox}{image}</Group>
 }

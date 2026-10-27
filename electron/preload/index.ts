@@ -23,6 +23,14 @@ const api = {
     },
     closeReady: () => ipcRenderer.send('app:close-ready'),
   },
+  filmstrip: {
+    load: (videoPath: string, grid: number)    => ipcRenderer.invoke('filmstrip:load', videoPath, grid),
+    save: (videoPath: string, data: unknown)   => ipcRenderer.invoke('filmstrip:save', videoPath, data),
+  },
+  planner: {
+    load: ()              => ipcRenderer.invoke('planner:load'),
+    save: (data: unknown) => ipcRenderer.invoke('planner:save', data),
+  },
   projects: {
     list:   ()                         => ipcRenderer.invoke('projects:list'),
     create: (name: string)             => ipcRenderer.invoke('projects:create', name),
@@ -40,16 +48,39 @@ const api = {
     saveVideo: (defaultName: string)                                => ipcRenderer.invoke('dialog:save-video', defaultName),
     saveImage: (defaultName: string)                                => ipcRenderer.invoke('dialog:save-image', defaultName)
   },
+  exportTask: {
+    /** Keep rendering at full speed while the window is minimised or covered. */
+    setBackground: (active: boolean) => ipcRenderer.invoke('export:background', active) as Promise<void>,
+    progress: (fraction: number) => ipcRenderer.send('export:progress', fraction),
+    finished: () => ipcRenderer.send('export:finished'),
+  },
   fs: {
     writeFile: (path: string, data: Uint8Array) => ipcRenderer.invoke('fs:write-file', path, data),
     // Electron 32 removed File.path — resolve a dropped File's absolute path here.
     getPathForFile: (file: File) => webUtils.getPathForFile(file)
   },
   shell: {
-    openPath: (path: string) => ipcRenderer.invoke('shell:open-path', path)
+    openPath: (path: string) => ipcRenderer.invoke('shell:open-path', path),
+    /** Opens the containing folder with the file selected. */
+    showItem: (path: string) => ipcRenderer.invoke('shell:show-item', path) as Promise<void>,
+    /** Opens an http(s) link in the user's browser. */
+    openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url) as Promise<void>
   },
   ffmpeg: {
     getPaths: () => ipcRenderer.invoke('ffmpeg:get-paths') as Promise<{ coreJs: string; coreWasm: string }>
+  },
+  cutout: {
+    status: () => ipcRenderer.invoke('cutout:status'),
+    install: (pack: 'cutout' | 'select') => ipcRenderer.invoke('cutout:install', pack),
+    cancel: (pack: 'cutout' | 'select') => ipcRenderer.invoke('cutout:cancel', pack),
+    run: (request: Record<string, unknown>) => ipcRenderer.invoke('cutout:run', request),
+    cacheRead: (key: string) => ipcRenderer.invoke('cutout:cache-read', key),
+    cacheWrite: (key: string, data: Uint8Array) => ipcRenderer.invoke('cutout:cache-write', key, data),
+    onProgress: (listener: (progress: { pack: 'cutout' | 'select'; phase: 'download' | 'finished'; receivedBytes: number; totalBytes: number }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: Parameters<typeof listener>[0]) => listener(progress)
+      ipcRenderer.on('cutout:progress', handler)
+      return () => ipcRenderer.removeListener('cutout:progress', handler)
+    }
   },
   python: {
     check: () => ipcRenderer.invoke('python:check'),
@@ -78,7 +109,7 @@ const api = {
     }
   },
   subtitle: {
-    transcribeAudio: (payload: { sourcePath: string; language?: string }) => ipcRenderer.invoke('subtitle:transcribe-audio', payload),
+    transcribeAudio: (payload: { sourcePath: string; language?: string; words?: boolean }) => ipcRenderer.invoke('subtitle:transcribe-audio', payload),
     translationStatus: (direction: SubtitleTranslationDirection) =>
       ipcRenderer.invoke('subtitle:translation-status', direction) as Promise<SubtitleTranslationPackStatus>,
     installTranslation: (direction: SubtitleTranslationDirection) =>

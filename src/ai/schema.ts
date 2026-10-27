@@ -1,6 +1,7 @@
-import type { AiEditorCommand, AiPlan } from './types'
+import type { AiCommandType, AiEditorCommand, AiPlan } from './types'
 
-const COMMAND_TYPES = new Set([
+/** Contract for any planner that is not the built-in parser (e.g. a future model). */
+const COMMAND_TYPES = new Set<AiCommandType>([
   'addText',
   'addShape',
   'addImageFromAsset',
@@ -12,7 +13,34 @@ const COMMAND_TYPES = new Set([
   'applyMove',
   'addScene',
   'setTransition',
+  'setEndTransition',
+  'addEffect',
+  'removeEffects',
+  'setSpeedCurve',
+  'freezeFrame',
   'generateStoryboard',
+  'removeScene',
+  'duplicateScene',
+  'splitScene',
+  'moveScene',
+  'setSceneDuration',
+  'removeElement',
+  'duplicateElement',
+  'arrangeElement',
+  'alignElement',
+  'addAnimation',
+  'removeAnimations',
+  'animateSequence',
+  'connectElements',
+  'groupElements',
+  'ungroupElements',
+  'insertBlock',
+  'updateBlock',
+  'setVolumeKeys',
+  'arrangeMedia',
+  'setCaptionStyle',
+  'placeMedia',
+  'setCropTrack',
 ])
 
 export const AI_PLAN_JSON_SCHEMA = {
@@ -55,19 +83,38 @@ export function validateAiPlan(value: unknown): AiPlan {
 
 function validateCommand(value: unknown): AiEditorCommand {
   if (!isRecord(value)) throw new Error('Command must be an object.')
-  if (typeof value.type !== 'string' || !COMMAND_TYPES.has(value.type)) {
+  if (typeof value.type !== 'string' || !COMMAND_TYPES.has(value.type as AiCommandType)) {
     throw new Error('Command type is not allowed.')
   }
-  if (value.type === 'addText' && typeof value.text !== 'string') throw new Error('addText requires text.')
-  if (value.type === 'addShape' && typeof value.shapeType !== 'string') throw new Error('addShape requires shapeType.')
-  if (value.type === 'setBackground' && !isRecord(value.background)) throw new Error('setBackground requires background.')
-  if ((value.type === 'updateElement' || value.type === 'styleElement') && !isRecord(value.patch)) {
-    throw new Error(`${value.type} requires patch.`)
-  }
-  if (value.type === 'applyMove' && typeof value.direction !== 'string') throw new Error('applyMove requires direction.')
-  if (value.type === 'setTransition' && !isRecord(value.transition)) throw new Error('setTransition requires transition.')
-  if (value.type === 'generateStoryboard' && !Array.isArray(value.scenes)) {
-    throw new Error('generateStoryboard requires scenes.')
+  const need = (ok: boolean, message: string) => { if (!ok) throw new Error(message) }
+  switch (value.type) {
+    case 'addText': need(typeof value.text === 'string', 'addText requires text.'); break
+    case 'addShape': need(typeof value.shapeType === 'string', 'addShape requires shapeType.'); break
+    case 'setBackground': need(isRecord(value.background), 'setBackground requires background.'); break
+    case 'updateElement':
+    case 'styleElement': need(isRecord(value.patch), `${value.type} requires patch.`); break
+    case 'applyMove': need(typeof value.direction === 'string', 'applyMove requires direction.'); break
+    case 'setTransition': need(isRecord(value.transition), 'setTransition requires transition.'); break
+    case 'setEndTransition': need(isRecord(value.transition), 'setEndTransition requires transition.'); break
+    case 'addEffect': need(typeof value.effect === 'string', 'addEffect requires effect.'); break
+    case 'setSpeedCurve': need(typeof value.preset === 'string', 'setSpeedCurve requires preset.'); break
+    case 'freezeFrame': need(typeof value.at === 'number' && typeof value.hold === 'number', 'freezeFrame requires at and hold.'); break
+    case 'generateStoryboard': need(Array.isArray(value.scenes), 'generateStoryboard requires scenes.'); break
+    case 'splitScene': need(typeof value.at === 'number', 'splitScene requires at.'); break
+    case 'moveScene': need(typeof value.toIndex === 'number', 'moveScene requires toIndex.'); break
+    case 'setSceneDuration': need(typeof value.duration === 'number', 'setSceneDuration requires duration.'); break
+    case 'arrangeElement': need(typeof value.order === 'string', 'arrangeElement requires order.'); break
+    case 'addAnimation': need(isRecord(value.animation), 'addAnimation requires animation.'); break
+    case 'groupElements':
+    case 'ungroupElements': need(Array.isArray(value.targets) && value.targets.length > 0, `${value.type} requires targets.`); break
+    case 'insertBlock': need(typeof value.blockId === 'string', 'insertBlock requires blockId.'); break
+    case 'updateBlock': need(typeof value.groupId === 'string' && isRecord(value.params), 'updateBlock requires groupId and params.'); break
+    case 'connectElements': need(Array.isArray(value.from) && value.from.length > 0, 'connectElements requires from.'); break
+    case 'setCropTrack': need(Array.isArray(value.keys), 'setCropTrack requires keys.'); break
+    case 'placeMedia': need(typeof value.region === 'object' && value.region !== null, 'placeMedia requires region.'); break
+    case 'arrangeMedia': need(Array.isArray(value.targets) && value.targets.length > 0 && typeof value.layout === 'string', 'arrangeMedia requires targets and layout.'); break
+    case 'setVolumeKeys': need(Array.isArray(value.keys), 'setVolumeKeys requires keys.'); break
+    case 'animateSequence': need(Array.isArray(value.waves) && value.waves.length > 0, 'animateSequence requires waves.'); break
   }
   return value as AiEditorCommand
 }

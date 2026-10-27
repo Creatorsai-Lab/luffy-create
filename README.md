@@ -6,26 +6,14 @@
 
 **Luffy Create** is a **_free_** and **_open source_** AI _video editing, video creation, image editing_ and _graphic designing_ web **app**.
 
-[![Release](https://img.shields.io/github/v/release/Creatorsai-Lab/luffy-create?label=download&style=flat-square)](https://github.com/Creatorsai-Lab/luffy-create/releases/latest)
+[![Release](https://img.shields.io/github/v/release/Creatorsai-Lab/luffy-create?label=download&style=flat-square)](https://luffy-create.pages.dev/)
 [![License](https://img.shields.io/github/license/Creatorsai-Lab/luffy-create?style=flat-square)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/Creatorsai-Lab/luffy-create/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)]()
 
-<div align="center">
+<a href="https://luffy-create.pages.dev/#hero">
 <img src="https://raw.githubusercontent.com/Creatorsai-Lab/luffy-create/main/live-website/public/assets/images/download_btns.svg" width="100%" alt="Download Luffy Created per OS" />
+</a>
 
-</div>
-
-<table style="width: 100%; border-collapse: collapse; border: 1px solid #cccccc;">
-    <tr>
-     
-      <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
-        <a href="https://creatorsai-lab.github.io/luffy-create/blog/luff-create-best-free-ai-video-editor.html"style="text-decoration: none;">✉ Blogs </a>
-      </td>
-      <td style="border: 1px solid #cccccc; padding: 12px; text-align: center;">
-        <a href="https://github.com/Creatorsai-Lab/luffy-create/tree/main/docs#readme" style="text-decoration: none;">🗐 User Guide</a>
-      </td>
-    </tr>
-</table>
 </div>
 
 Luffy Create has been built with the principle of providing a lightweight and fast editing experience. **Goal:** Our aim is to make 'Luffy Create' the best editing app for **_animations, transitions, and effects_**.

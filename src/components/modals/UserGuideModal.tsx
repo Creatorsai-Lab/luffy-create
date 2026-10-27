@@ -80,20 +80,18 @@ const SECTIONS: Section[] = [
     ),
   },
   {
-    id: 'whats-new', title: "What's New in 1.4", icon: <Rocket size={15} />,
+    id: 'whats-new', title: "What's New in 1.5", icon: <Rocket size={15} />,
     content: (
       <>
         <ul className="list-disc pl-5">
-          <LI><strong>Real Morph transition</strong> — objects that exist in both scenes glide, resize and change color into their new place. See Transitions.</LI>
-          <LI><strong>Media effects</strong> for images and video — stackable, timed effects such as zoom, light sweep, glitch, rain and snow, plus grain and vignette. See Effects.</LI>
-          <LI><strong>Flash Blur and Flicker Shake</strong> transitions with direction, speed and hardness.</LI>
-          <LI><strong>Bilingual, offline captions</strong> — Hindi transcription, optional offline English↔Hindi translation and bilingual SRT export. See Captions.</LI>
-          <LI><strong>Perspective on every element</strong> except arrows, with true perspective and no seam lines.</LI>
-          <LI><strong>One-click inserts</strong> for Text, Arrow and Table, plus a <strong>Draw Arrow</strong> mode.</LI>
-          <LI><strong>New animations:</strong> Outline Reveal and Bounce Words for text, Color Pulse, and character / line / block typing for code.</LI>
-          <LI><strong>Audio stays put</strong> when you split, resize, reorder, duplicate or delete scenes, and the waveform now shows true peaks.</LI>
-          <LI><strong>Smooth cuts</strong> on split or trimmed video in the editor, Preview and export.</LI>
-          <LI>Layer ordering shortcuts and right-click commands, a redesigned rotate handle, and alphabetical menu tools.</LI>
+          <LI><strong>AI Agent: type the edit</strong> — "remove the pauses and punch in", "neon outline on me, phonk on the beat", "slow-mo start". See the plan first; <code>/undo #N</code> reverts any AI edit. See AI Agent.</LI>
+          <LI><strong>Jump cuts and edit by transcript</strong> — cut pauses, filler words and retakes, or delete words in the transcript. <strong>Auto reframe</strong> follows the face for 9:16. See Video.</LI>
+          <LI><strong>22 GPU transitions</strong> — whip pan, zoom blur, light leak, film burn, glitch, cube… with an intro from black and an ending fade. See Transitions.</LI>
+          <LI><strong>43 effects in 9 groups</strong> — neon outline on a person, VHS, glitch, warp, light leaks, phonk on the beat, colour looks — plus <strong>speed ramps</strong> and <strong>freeze frames</strong>. See Effects.</LI>
+          <LI><strong>Edit BG</strong> — remove, blur or colour the background in one click; the <strong>precise cut-out</strong> works on people, cars and products, and you can click to keep or remove a person or object.</LI>
+          <LI><strong>Add-ons</strong> — neural network, flowchart, code walkthrough, equation reveal, title card, lower third, hook/CTA. See Add-ons.</LI>
+          <LI><strong>Connectors and Group Effects</strong> — arrows that stay attached; animate items in waves.</LI>
+          <LI><strong>Content Planner</strong> for ideas and scripts, <strong>Settings</strong> with About and feedback, and 9:16 export at full 1080×1920.</LI>
         </ul>
       </>
     ),
@@ -105,20 +103,23 @@ const SECTIONS: Section[] = [
         <H>Tools</H>
         <Table head={['Tool', 'What it does']} rows={[
           ['Free Cursor', 'Back to plain selection: clears the active tool, deselects and closes the Options panel.'],
-          ['Arrow', 'Click to add an arrow in the scene center. In its panel, “+ Add Arrow” adds another; “Draw Arrow” lets you drag one on the canvas (crosshair cursor, Esc cancels). Heads, dashes, curve, bends, colors.'],
+          ['Add-ons', 'Ready-made smart pieces — Title card, Lower third, Hook / CTA, Neural network, Flowchart, Equation reveal, Code walkthrough. Add one, then change its settings; it rebuilds in place and fits 16:9 or 9:16. In the AI Agent, name one with a slash command such as /neural-network.'],
+          ['Arrow', 'Click to add an arrow in the scene center. In its panel, “+ Add Arrow” adds another; “Draw Arrow” lets you drag one on the canvas (crosshair cursor, Esc cancels). Heads (triangle, open, dot, ring, diamond, square or bar, at either or both ends), dashes, curve, bends, colors. Under Connections, attach either end to an item so the arrow follows it.'],
           ['Audio', 'Upload music, voiceover and sound effects; add them to the timeline or drag them onto the audio track.'],
           ['Background', 'Solid, gradient, grid, dots, animated, transparent or image background for the current scene.'],
           ['Charts', 'Bar, line, area, points, pie and doughnut charts with editable data, axes and styling.'],
           ['Code', 'Monaco code editor with syntax highlighting, line numbers and typing animations.'],
           ['Counter', 'Animated counter that counts as numbers, English words or Hindi words, with range, speed, loop and text styling.'],
-          ['Effects', 'Timed media effects, grain and vignette for the selected image or video.'],
+          ['Edit BG', 'Remove, blur or replace the background of a video or image in one click (AI cut-out on this computer — people, cars, products; click to choose who stays), or remove a green screen. Applies to every part of a clip that was cut into parts.'],
+          ['Effects', 'Stackable effects for the selected image or video: body (AI), retro, glitch, warp, light, energy, motion, weather and colour looks — timed, and on the beat.'],
           ['Hand Draw', 'Freehand drawing with Pen, Paint, Spray and Eraser.'],
           ['Icons', 'Searchable icon library; color and stroke width.'],
           ['Images', 'Upload PNG/JPG/WebP/GIF; crop, adjustments, borders, shadows, perspective, effects.'],
           ['LaTeX', 'Equations rendered as crisp graphics; color, size, animations.'],
           ['Layers', 'All elements of the scene: show/hide, lock, bring forward/back, delete, Shift+drag to reorder.'],
           ['Motion', 'Move an element along a direction or to coordinates, or Zoom In / Zoom Out toward a corner or the center.'],
-          ['Perspective', 'Tilt, skew and corner-warp any visual element except arrows.'],
+          ['Group Effects', 'For several selected items: Animate them one after another (stagger, waves, repeat) or Connect them with arrows that stay attached (chain, column to column, hub).'],
+          ['Perspective', 'Tilt, skew and corner-warp any visual element except arrows — or a whole group or add-on as one plane.'],
           ['Python Sandbox', 'Generate charts and math animations with Python (Matplotlib, Manim).'],
           ['Shapes', 'Rectangle, circle, oval, polygons, star, diamond, heart, speech bubbles, 3D cube/cone, hand-drawn and sketch boxes.'],
           ['Subtitle', 'Automatic captions, caption styles and translation.'],
@@ -126,14 +127,15 @@ const SECTIONS: Section[] = [
           ['Text', 'Click to add a text box in the scene center; “+ Add Text” in its panel adds more. Fonts, gradient fill, stroke, shadow, background box, Glow and Hollow effects.'],
           ['Transitions', 'Choose how the current scene enters from the previous one.'],
           ['User Guide', 'This guide — available even before a project is open.'],
-          ['Video', 'Upload MP4/WebM/MOV; trim, speed, volume, loop, crop, color grading, effects.'],
+          ['Video', 'Upload MP4/WebM/MOV; trim, speed ramps, freeze frames, volume, loop, crop, effects.'],
         ]} />
         <H>Editing an element</H>
-        <P>Select it, then use the right Options panel. Nudge with the arrow keys: <Kbd>Arrow</Kbd> moves 12 px, <Kbd>Shift</Kbd> 40 px, <Kbd>Ctrl</Kbd> 100 px. Rotate with the round rotate icon above the selection; it snaps to 45° angles when you get close.</P>
+        <P>Select it, then use the right Options panel. Nudge with the arrow keys: <Kbd>Arrow</Kbd> moves 12 px, <Kbd>Shift</Kbd> 40 px, <Kbd>Alt</Kbd> 100 px; a group moves as one, <Kbd>Ctrl</Kbd>+arrow moves only the item you clicked. Rotate with the round rotate icon above the selection; it snaps to 45° angles when you get close.</P>
         <P>Right-click an element for Copy, Duplicate, Bring Forward, Send Backward, Bring to Front, Send to Back, Center Horizontally, Center Vertically and Delete. Images also offer Set Background (Cover / Fill).</P>
         <P>Pasting into the same scene offsets the copy by 20 px. Pasting into a different scene keeps the exact position and links the copy to the original, so a Morph transition between those scenes moves it.</P>
         <H>Perspective</H>
         <P>Open Perspective with an element selected. Use X-Axis Tilt, Y-Axis Tilt, Skew X, Skew Y and Depth for quick results, or drag the orange corner handles and red edge handles on the canvas for full control. Corner fields set exact positions in the element's own pixels. Reset removes the warp. Perspective is true perspective: straight lines stay straight, text keeps all its styling, and the click area follows the warped shape.</P>
+        <P>Select a <strong>whole group or add-on</strong> (click one of its parts) and the same sliders and handles tilt it as <strong>one plane</strong> — a neural network or a flowchart leans back like a single panel, and its animations keep playing on the tilted plane. Drag the tilted picture to move the group; arrow keys move it too. The tilt follows the group when it is rebuilt with new settings or copied. Reset makes it flat again.</P>
         <H>Property panels are the power layer</H>
         <P>Every element has its own controls. Text can use fonts, gradient fills, text backgrounds, shadows, outlines, effects and several animations. Shapes can use solid or gradient fills, borders, shadows, inner shadows, perspective and animated borders. Images and videos can be cropped, rounded, color-adjusted, bordered, shadowed, warped and given media effects. Small property changes often make the difference between a rough slide and a polished frame.</P>
         <P>When a scene feels crowded, use the Layers panel to hide experiments, lock finished objects and reorder what appears above or below.</P>
@@ -144,15 +146,25 @@ const SECTIONS: Section[] = [
     id: 'animations', title: 'Animations', icon: <Sparkles size={15} />,
     content: (
       <>
-        <P>Every element has three animation slots. Add as many as you like per slot and set type, start, duration, delay, easing and, where relevant, direction and distance. Click a slider's value to type an exact number.</P>
+        <P>Every element has three animation slots. Add as many as you like per slot and set type, duration, delay (when it starts), easing and, where relevant, direction and distance. Click a slider's value to type an exact number.</P>
         <H>1 · On Enter</H>
         <P>Plays once when the element appears: Fade In, Slide In, Scale In, Wipe In. Text adds Typewriter (chars / words), Bounce Words and Outline Reveal In. Shapes add Spin In. Arrows use Draw On, Direction Slide and Zoom In. Code adds Character typing, Line typing and Block reveal.</P>
         <H>2 · Loop</H>
-        <P>Repeats while the element is visible, after its enter animations finish: Pulse, Bounce, Rotate, Fade Loop. Text adds Color Pulse; shapes and arrows add Flow (marching dashes).</P>
+        <P>Repeats while the element is visible, after its enter animations finish: Pulse, Bounce, Rotate, Fade Loop, Color Pulse (a colour flash — text, shapes and arrows). Shapes and arrows add Flow (marching dashes). Set <strong>Repeat every</strong> to play a loop once every few seconds instead of non-stop (for example a 0.4 s pulse every 3 s).</P>
         <H>3 · On Exit</H>
         <P>Plays once as the element leaves: Fade Out, Slide Out, Scale Out, Wipe Out. Text adds Outline Reveal Out; arrows use Draw Off and Zoom Out.</P>
         <H>Motion</H>
         <P>The Motion tool adds movement that is not an entrance or exit: <strong>Move</strong> slides an element by direction or to exact center coordinates (it can travel outside the scene), and <strong>Zoom In / Zoom Out</strong> scale toward the center or a corner.</P>
+        <H>Stagger (many items, one after another)</H>
+        <P>Shift-click several items and open <strong>Group Effects</strong>. It applies one animation to all of them, each a step later than the last: choose the order (left → right, top → bottom, …), the step, and <strong>Rows / columns together</strong> to animate a whole column at once — like one layer of a neural network. Loop animations can <strong>repeat the wave</strong>. <strong>After last</strong> starts the new wave when the scene's other animations end, so you can chain waves (a forward pass, then a backward pass).</P>
+        <H>Groups and locking</H>
+        <P>Select several items and press <Kbd>Ctrl+G</Kbd> (or right-click → Group). Clicking any member then selects the whole group, so it moves (drag or arrow keys), resizes and copies as one; <Kbd>Ctrl</Kbd>+click or <Kbd>Ctrl</Kbd>+drag picks a single member, and the Layers panel always selects single items (members show a coloured group tag). Right-click → Ungroup (<Kbd>Ctrl+Shift+G</Kbd>), Select whole group, or Lock — locking one member locks the group. A locked item can't be moved, resized or deleted; clicking it shows a lock badge, and right-click still works (Unlock, copy, layer order). Copies of a group become a new group, with connectors wired to the copies.</P>
+        <P>Some groups are <strong>smart groups</strong> (✦), built by an add-on from the <strong>Add-ons</strong> menu: they remember their settings and rebuild in place when a setting changes, keeping where you moved them.</P>
+        <H>Add-ons</H>
+        <P>Open <strong>Add-ons</strong> and click <strong>Add</strong> on a <strong>Title card</strong> (chapter or section break), <strong>Lower third</strong> (name and role of the speaker) or <strong>Hook / CTA</strong> (bold text that pops in word by word, with highlighted words). Selecting a placed add-on shows its settings — text, style, colours, font, size and timing; every change rebuilds it in place and it always fits the frame, landscape or vertical. Move it anywhere: the rebuild keeps your position. <strong>Detach</strong> turns it into ordinary items you can edit one by one.</P>
+        <P>For explainers: <strong>Neural network</strong> — type the neurons per layer ("3, 4, 4, 2"), any number of layers; big layers are drawn compactly with "⋮" and their size in the label; choose full or sparse connections and a forward or forward-and-backward pass that pulses through the layers. <strong>Flowchart / pipeline</strong> — type the steps ("Collect → Clean → Train"); a step ending in "?" becomes a decision; extra links such as "4&gt;2 retry" add branches and loops (drawn as arcs); steps reveal one by one and can carry a pulse. <strong>Equation reveal</strong> — one LaTeX step per line, stacked as a derivation or replacing the last, with the newest step marked. <strong>Code walkthrough</strong> — paste code, then list steps as "1-3: Load the data"; the lines are highlighted in turn with the note beside (16:9) or below (9:16) the code, optionally after the code types itself in.</P>
+        <H>Connectors</H>
+        <P>In <strong>Group Effects → Connect</strong>, link the selected items with arrows whose ends stay attached: <strong>Chain</strong> (each to the next, in the order you selected them), <strong>Columns</strong> (every item to every item in the next column — a network layer in one click) or <strong>Hub</strong> (the first to all others). <strong>Select all similar</strong> picks, say, every circle on the scene at once. Attached arrows follow their items when you move or resize them; dragging an arrow itself releases it. A single arrow's ends can be attached or released in its own panel.</P>
         <H>Easing</H>
         <P>Linear, Ease In, Ease Out, Ease In-Out and Bounce control the acceleration of the motion.</P>
         <H>Combining animations</H>
@@ -165,20 +177,27 @@ const SECTIONS: Section[] = [
     id: 'effects', title: 'Effects', icon: <Wand2 size={15} />,
     content: (
       <>
-        <P>Select an image or video and open <strong>Effects</strong>. Effects are cards you can stack; each one runs between its own <strong>Start At</strong> and <strong>End At</strong> times (in seconds from the scene start).</P>
-        <Table head={['Effect', 'What it does']} rows={[
-          ['Subtle Hover / Wiggle / Doodle Drift', 'Gentle floating or hand-made movement.'],
-          ['Shake / Vibration Distort', 'Camera shake and vibrating distortion.'],
-          ['Zoom In / Zoom Out', 'Slow zoom toward the center or a chosen corner.'],
-          ['God Rays / Light Sweep / Light Flicker', 'Light beams, a sweeping highlight, or flickering light.'],
-          ['Glitch', 'Digital glitch bursts.'],
-          ['Rain / Snow', 'Weather particles over the media.'],
+        <P>Select an image or video and open <strong>Effects</strong> (or <strong>Open Effects</strong> in its panel). Pick a group, <strong>hover</strong> an effect to watch it on your own clip in the preview box, and click to add it. Effects stack — they play top to bottom, and the same effect can be added twice. They run on the GPU, in the editor, Preview and export alike.</P>
+        <Table head={['Group', 'Effects']} rows={[
+          ['Body (AI)', 'Neon outline, Aura glow, Spotlight, Echo trail — they find the person in the picture (on this computer, the same AI as background removal) and draw around or behind them.'],
+          ['Retro & Texture', 'VHS, 8mm film, Old film, Dust & scratches, Paper texture, Halftone comic, Film grain.'],
+          ['Glitch', 'Digital glitch, RGB split, CRT screen, Signal loss.'],
+          ['Warp', 'Wave, Swirl, Bulge, Ripple, Kaleidoscope, Heat haze.'],
+          ['Light', 'Glow, Halation, Light leaks, Light sweep, God rays, Lens flare, Defocus, Vignette.'],
+          ['Energy', 'Phonk, Strobe, Zoom pulse, Handheld shake, Flash, Light flicker — punchy effects for edits to music.'],
+          ['Motion', 'Float, Wiggle, Drift, Ken Burns in / out — move the picture or the whole item.'],
+          ['Weather', 'Rain, Snow.'],
+          ['Colour look', 'One grade per clip: Cinematic, Teal & orange, Warm, Cool, Vintage, Faded film, Bleach bypass, Vivid, Cyberpunk, Sunset, Monochrome, Noir.'],
         ]} />
-        <P>Depending on the effect, a card offers Intensity, Speed, Direction, Color and Color Opacity, Zoom Position, and a Target: Whole Media, Center Subject, or Manual Focus with Focus X / Focus Y.</P>
-        <H>Grain and vignette</H>
-        <P>Grain adds film texture (color, size, hardness). Vignette darkens or tints the edges (color, size, fade, hardness). Both work on images and videos.</P>
-        <H>Video-only looks</H>
-        <P>The Video panel also has color grading presets, legacy video effects and frame shapes (circle, triangle).</P>
+        <P>Open a card under <strong>On this clip</strong> to set its <strong>Strength</strong>, its own settings (colour, size, direction…) and <strong>Speed</strong>. The eye hides an effect without removing it; × removes it. <strong>Surprise me</strong> swaps the clip's effects for a random colour look plus two effects from different groups — click again for another.</P>
+        <H>On the beat</H>
+        <P>Effects marked ♪ can <strong>Sync to the music's beat</strong>: the flash, punch, glitch or glow hits on every beat of the project's background music (found automatically; 120 BPM when there is no music). Phonk is always on the beat.</P>
+        <H>Timing</H>
+        <P>An effect runs for <strong>the whole clip</strong>, or untick it and set <strong>From</strong> / <strong>To</strong> (seconds into the clip) with optional <strong>Fade in</strong> / <strong>Fade out</strong>. Timed effects show as coloured bars under the clip in the timeline — drag a bar to move it, drag an end to resize it. Splitting a clip keeps each effect where it was in the footage.</P>
+        <H>Clips cut into parts</H>
+        <P>When a clip was cut into parts (by jump cuts or splits), <strong>All parts of this clip</strong> applies effects to every part at once; untick it to change just this part.</P>
+        <H>Speed ramps and freeze frames</H>
+        <P>Speed ramps live in the Video panel — see Video → Speed ramp.</P>
       </>
     ),
   },
@@ -205,22 +224,21 @@ const SECTIONS: Section[] = [
     id: 'transitions', title: 'Transitions', icon: <Shuffle size={15} />,
     content: (
       <>
-        <P>A transition plays at the <strong>start</strong> of a scene, leading in from the previous scene. Set it in the Transitions tool, or right-click a scene in the timeline → Edit Transition. Duration is 0.1–2 seconds.</P>
-        <Table head={['Transition', 'Effect']} rows={[
-          ['None', 'Hard cut.'],
-          ['Fade', 'Cross-fade from the previous scene.'],
-          ['Push', 'The new scene pushes the old one out (direction).'],
-          ['Zoom', 'The new scene eases in with a gentle zoom.'],
-          ['Wipe', 'A soft-edged reveal (direction).'],
-          ['Morph', 'Matching objects move, resize and recolor into their new place.'],
-          ['Flash Blur', 'A directional blur through a white flash (direction, speed, hardness).'],
-          ['Flicker Shake', 'Rapid flicker between the scenes with a shake (direction, speed, hardness).'],
+        <P>A transition plays over the <strong>start</strong> of a scene, leading in from the scene before. On the <strong>first scene</strong> it is an intro from black, and the last scene has an <strong>Ending</strong> section to fade the video out to black. Open the Transitions tool (or click the coloured bar over a scene in the timeline). Hover a transition to see it in the preview box; pick it to use it. Length is 0.1–3 seconds.</P>
+        <Table head={['Group', 'Transitions']} rows={[
+          ['Basic', 'Dissolve, Dip to black, Dip to white, Push, Slide, Wipe, Zoom in, Zoom out, Iris.'],
+          ['Cinematic', 'Whip pan, Zoom blur, Spin, Blur dissolve, Light leak, Film burn, Luma fade, Flash.'],
+          ['Energy', 'Glitch, Pixelate, Stretch, Slices, Flash Blur, Flicker Shake.'],
+          ['3D', 'Cube.'],
+          ['Smart', 'Morph — matching objects move, resize and recolour into their new place.'],
         ]} />
+        <P>Each transition shows only the settings it has: <strong>New scene comes in</strong> (from the left, right, top or bottom), <strong>Strength</strong> (blur, zoom, glitch, light), <strong>Edge softness</strong> (wipe, iris, luma fade), <strong>Colour</strong> (dips and flash) and <strong>Motion</strong> — Smooth eases in and out, Snappy rushes through the middle (good for whips and glitches), Linear is even. <strong>Play here</strong> plays the transition on the canvas; <strong>Apply to all cuts</strong> uses it between every pair of scenes.</P>
+        <P>During a transition the outgoing scene keeps playing — a video carries on into the footage after its trim point (or holds its last frame) — and its sound fades out as the new scene's fades in. Transitions look the same on the canvas (also while paused or scrubbing), in Preview and in the exported video; captions stay on top, untouched.</P>
         <H>Using Morph</H>
         <P>Morph works like PowerPoint Morph. Duplicate a scene (or copy elements into the next scene), then move, resize or recolor things in the copy and give the copy a Morph transition. Objects are matched across the two scenes — copies are linked automatically, and otherwise elements of the same type with the same content (same text, image or shape type) are paired. Unmatched objects fade out or in. If matched text changes its wording, the old and new text cross-fade while the box moves.</P>
         <P>Morph plays in timeline playback, Preview and export. While paused, the editor shows the real scene so it stays editable.</P>
         <H>When to use transitions</H>
-        <P>Use transitions to separate ideas, not to decorate every cut. Fade suits calm narration, Push suits step-by-step movement, Wipe reveals before/after comparisons, Morph explains change, and Flash Blur / Flicker Shake give energetic social-style cuts. Each transition has a fixed color on its timeline marker.</P>
+        <P>Use transitions to separate ideas, not to decorate every cut. Dissolve and dips suit calm narration, Push and Slide suit step-by-step movement, Wipe and Luma fade reveal before/after comparisons, Morph explains change, Whip pan, Zoom blur and Glitch give energetic social-style cuts, and Light leak or Film burn add a filmic mood. Each transition has a fixed colour on its timeline bar.</P>
       </>
     ),
   },
@@ -268,9 +286,12 @@ const SECTIONS: Section[] = [
           ['Duration', 'How long the clip plays on the timeline.'],
           ['Playback Speed', 'Speed audio up or down to match the scene.'],
           ['Fade In / Fade Out', 'Smoothly enter or leave music, ambience and voice.'],
-          ['Fade Volume', 'Target fade level — useful for ducking music under speech.'],
+          ['Fade Volume', 'Target fade level at the start or end of the clip.'],
+          ['Duck under voice', 'Music dips while the video or a voiceover talks and comes back up in the pauses. Pick the volume while talking and the fade, then click Duck under voice; the curve shows on the clip in the timeline.'],
           ['Markers', 'Timing marks for beats, voice cues and edit points.'],
         ]} />
+        <H>Ducking</H>
+        <P>Select the music clip and use <strong>Duck under voice</strong> in its panel (or ask the AI Agent: "duck the music"). The editor listens to every unmuted video clip and voiceover, finds where someone talks, and lowers the music there — it stays down through short pauses so it doesn't pump. Run it again after you change the edit; <strong>Remove</strong> takes it off. The preview and the exported MP4 sound the same.</P>
         <H>Audio effects</H>
         <P>Voice, pitch, bass and saturation. Pitch changes the tone without changing timing, so pitched clips stay in sync with the timeline. The editor preview of pitch is an approximation; the exported MP4 uses the full-quality version.</P>
         <H>Timeline workflow</H>
@@ -295,10 +316,24 @@ const SECTIONS: Section[] = [
           ['Loop', 'Repeat short clips and background motion.'],
           ['Crop', 'Double-click the video, adjust the frame, press Enter to apply or Escape to cancel.'],
         ]} />
+        <H>Speed ramp (velocity)</H>
+        <P>The <strong>Speed ramp</strong> section changes the speed during the clip: <strong>Slow-mo start</strong>, <strong>Montage</strong> (fast, a slow moment, fast again), <strong>Hero</strong> (a dramatic slow-motion middle), <strong>Bullet</strong>, <strong>Flash in</strong>, <strong>Flash out</strong> and <strong>Jump</strong>. Then shape it on the curve: drag a point up or down (0.1× to 10×), double-click to add one, right-click to remove one. The clip plays the same footage, so it gets longer or shorter — and when it ended with its scene, the scene follows. The sound follows the speed and keeps its pitch. The timeline shows the ramp's name on the clip.</P>
+        <H>Freeze frame</H>
+        <P>Put the playhead on a moment and click <strong>Freeze at the playhead</strong>: the picture holds there for the <strong>Hold</strong> time (silent), then the clip carries on. One freeze per clip; split the clip for more.</P>
+        <H>Split screen and placing clips</H>
+        <P>Select two or more clips and open <strong>Group Effects → Layout</strong> for <strong>Side by side</strong>, <strong>Stacked</strong> (best for 9:16) or <strong>Grid</strong>. To put clips anywhere else, tell the AI Agent where: "make video 1 full screen and video 2 bottom right at 400x300", "put this video in the upper half and this one in the lower half", "fit the whole video in the top third". It works out the exact pixels from the scene size (the upper half of 1080×1920 is 1080×960). Clips are cropped to fill their area, centred on what they showed — never stretched unless you say "stretch"; say "fit" or "without cropping" to see the whole clip.</P>
+        <H>Auto reframe (follow the face)</H>
+        <P>Select a video and use <strong>Auto reframe</strong> at the top of its panel. <strong>Fill frame</strong> makes the clip cover the whole frame — e.g. landscape footage in a 9:16 video — and moves the crop to keep the speaker's face in shot; <strong>In place</strong> keeps the clip's size and position and only moves the crop (useful in a split screen). <strong>Steady</strong> holds one framing per shot, <strong>Auto</strong> stays still while the speaker sits still and pans smoothly when they move, <strong>Follow</strong> always follows. Shot changes cut instead of panning. Faces are found on your computer — nothing is uploaded. <strong>Stop following</strong> or a new hand-made crop turns it off.</P>
+        <H>Jump cuts</H>
+        <P>Select a talking clip and open <strong>Jump cuts</strong> at the top of its panel. Turn on what to cut — <strong>Pauses</strong>, <strong>Filler words</strong> ("um", "uh") and <strong>Retakes</strong> (a sentence you started again: the earlier tries go, the last take stays) — and every cut shows on the timeline as a striped block before anything changes: red pauses, amber fillers, violet retakes. <strong>Shortest pause to cut</strong> and <strong>Breath kept by each cut</strong> set how tight it gets; <strong>Silence level</strong> is worked out from the clip (Auto) or set by hand for noisy rooms. <strong>Punch-in zoom</strong> zooms every other part in a little (10% by default) so the cuts look intentional. <strong>Apply</strong> cuts the clip into scenes as one numbered AI edit — undo it with Ctrl+Z or /undo #N. If the clip was already cut, every part of it is included. Fillers and retakes need a transcript from local Whisper (once per clip, then remembered); pauses don't.</P>
+        <H>Edit by transcript</H>
+        <P><strong>Jump cuts → Edit by transcript</strong> shows the clip's words in the properties panel. Click a word to jump the playhead there (the word being spoken is highlighted). Drag or Shift+click to select words, then <Kbd>Delete</Kbd> to cut them — they stay visible, struck through, and <Kbd>Delete</Kbd> again brings them back. Filler words are coloured and pauses show as chips you can cut the same way; <strong>Cut N fillers</strong> / <strong>Cut N pauses</strong> do them all at once. Cuts show on the timeline until you <strong>Apply</strong>.</P>
+        <H>Remove background</H>
+        <P><strong>Edit BG</strong> in the left menu gives one-click <strong>Remove background</strong>, <strong>Blur background</strong>, <strong>Colour background</strong>, <strong>Green screen</strong> and <strong>Original</strong> for the selected video or image (or lists the scene's videos and images to pick from), then the fine-tune settings. When a clip was cut into parts (e.g. by jump cuts), the change goes to <strong>all parts</strong> unless you untick it. Videos and images also have <strong>Remove background</strong> in their panel. <strong>Green screen</strong> removes a colour: the colour is found from the picture's edges when you turn it on, or use <strong>Pick</strong> and click the screen anywhere on the canvas. <strong>Strength</strong> sets how many shades of the screen go, <strong>Edge softness</strong> softens the outline and <strong>Spill removal</strong> takes the green cast off hair and edges. <strong>AI cut-out</strong> keeps the subject and removes the rest without a green screen, on this computer. A quick person cut-out works straight away; <strong>Download</strong> the <strong>precise cut-out</strong> once (44 MB) for clean edges on people, cars, products and groups. Photos are done in a moment; a video is processed in the background (the panel shows the %), smoothed so edges don't flicker and remembered, so it is only done once. <strong>Choose what stays</strong>: <strong>Keep</strong> and click a person or object on the canvas to keep only it, or <strong>Remove</strong> and click to take one out (a one-time 45 MB download the first time); on a video, click on any frame and the subject is followed through the clip. <strong>Clear</strong> starts again. <strong>Edge feather</strong> softens the outline, and the background can be removed, <strong>blurred</strong> (portrait look) or replaced with a <strong>colour</strong>. Whatever is behind the clip shows through; <strong>Put behind</strong> places a project image or video right behind it, filling its box. It shows in Preview and export.</P>
         <H>Cutting video</H>
         <P>To remove a middle section, split the scene (or the clip) at the start of the unwanted part, split again at its end, and delete the middle. Playback continues smoothly from the new trim point in the editor, Preview and export.</P>
         <H>Styling</H>
-        <P>Brightness, contrast, saturation, blur, temperature, tint, vibrance, color grading presets, frame shapes, perspective, corner radius, borders (including gradient and animated), box shadow, inner shadow, grain, vignette and timed media effects.</P>
+        <P>Brightness, contrast, saturation, blur, temperature, tint, vibrance, frame shapes, perspective, corner radius, borders (including gradient and animated), box shadow, inner shadow — and everything in Effects (colour looks, grain, vignette, glitch…) via <strong>Open Effects</strong>.</P>
       </>
     ),
   },
@@ -313,7 +348,7 @@ const SECTIONS: Section[] = [
           <LI>Optionally paste the script; it is distributed across the detected speech timings for accurate wording.</LI>
         </ul>
         <H>Caption style</H>
-        <P>Font, size, weight, solid or gradient color, width and position. Animations: None, Word Pop, Word Rise, Karaoke Pulse, Smooth Reveal. Looks: Normal, Bulge Warp, Inflate Warp.</P>
+        <P>Start from a <strong>preset</strong> — <strong>Bold</strong> (big capitals, black outline, the spoken word in yellow), <strong>Karaoke</strong> (words light up as they are spoken), <strong>Boxed</strong> (text on a dark box), <strong>Minimal</strong> or <strong>Pop</strong> — then fine-tune: font, size, weight, solid or gradient color, capitals, outline, spoken-word colour, box, width and position. Animations: None, Word Pop, Word Rise, Karaoke Pulse (spread over each caption), Smooth Reveal. Looks: Normal, Bulge Warp, Inflate Warp. Presets size themselves to the frame, so they suit 16:9 and 9:16.</P>
         <H>Translation (English ↔ Hindi)</H>
         <ul className="list-disc pl-5">
           <LI>Install the translation model once (Install Model); after that it works fully offline. Remove Model frees the space.</LI>
@@ -333,10 +368,14 @@ const SECTIONS: Section[] = [
         <H>Editing</H>
         <Table head={['Action', 'Keys']} rows={[
           ['Undo / Redo', 'Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y)'],
-          ['Copy / Paste', 'Ctrl+C / Ctrl+V (same scene: 20 px offset; other scene: same position)'],
+          ['Copy / Cut / Paste', 'Ctrl+C / Ctrl+X / Ctrl+V (same scene: 20 px offset; other scene: same position)'],
+          ['Select all on the scene', 'Ctrl+A'],
+          ['Duplicate selection', 'Ctrl+D (connected items stay connected)'],
+          ['Group / Ungroup', 'Ctrl+G / Ctrl+Shift+G'],
+          ['One item inside a group', 'Ctrl+click / Ctrl+drag / Ctrl+arrow keys'],
           ['Delete selected element', 'Delete / Backspace'],
           ['Deselect, cancel the active tool or Draw Arrow', 'Escape'],
-          ['Move element', 'Arrow keys — 12 px; Shift 40 px; Ctrl 100 px'],
+          ['Move element', 'Arrow keys — 12 px; Shift 40 px; Alt 100 px (groups move as one)'],
         ]} />
         <H>Layer order</H>
         <Table head={['Action', 'Keys']} rows={[
@@ -362,6 +401,9 @@ const SECTIONS: Section[] = [
           ['Type an exact slider value', 'Click the value, then Enter to apply or Escape to cancel'],
           ['Rename project', 'Click the name, then Enter to save or Escape to cancel'],
           ['Code editor', 'Standard editor keys: Ctrl+/ comment, Ctrl+F find, Shift+Alt+F format, Alt+↑/↓ move line'],
+          ['AI prompt: / or @ list', '↑ / ↓ to move, Enter or Tab to pick, Escape to close'],
+          ['Transcript: select words', 'Drag, or click then Shift+click'],
+          ['Transcript: cut / restore the selection', 'Delete / Backspace (again to restore); Escape clears the selection'],
         ]} />
         <P>Tip: Space, the arrow keys and Home/End make repeated review fast. Combine arrow nudging with the right-click Center commands and the layer shortcuts for clean alignment.</P>
       </>
@@ -388,21 +430,53 @@ const SECTIONS: Section[] = [
     id: 'ai-agent', title: 'AI Agent', icon: <BrainCircuit size={15} />,
     content: (
       <>
-        <P>The AI Agent prepares scene edits as structured commands. It is best for focused changes such as adding elements, styling selected items, changing backgrounds, applying move animations, and setting transitions.</P>
-        <P>The local planner handles common edits instantly, while a configured model planner can understand richer creative instructions. Use the agent for repetitive setup, fast scene building, and precise edits where you can describe the target scene, element, size, color, and timing.</P>
+        <P>The AI Agent turns plain-English requests into editor commands. It runs entirely on your computer — no account or internet needed — and always shows the plan before anything changes.</P>
+        <P>One request can hold several steps ("add a title 'Intro' at the top and make it fade in, then split scene 2 at 3s"). Refer to items by kind ("the title", "the red circle", "the music"), by name, by their text in quotes, or as "it" for what the previous step created.</P>
+        <H>Add-ons and media in a prompt</H>
+        <P>Type <strong>/</strong> to pick an add-on (/title-card, /lower-third, /hook, /neural-network, /flowchart, /equation, /code-walkthrough) and <strong>@</strong> to pick a media file. A short list opens as you type: <Kbd>↑</Kbd> <Kbd>↓</Kbd> move through it, <Kbd>Enter</Kbd> or <Kbd>Tab</Kbd> picks, <Kbd>Esc</Kbd> closes it. Commands and mentions show in colour so you can see they were understood — e.g. "add /neural-network in scene 4 with 4 seconds delay", "add a step 'Test' to /flowchart". Every prompt you sent has a copy button under it.</P>
+        <H>Planner</H>
+        <P>The <strong>Planner</strong> button in the title bar, next to the project name, opens your notes and ideas — video ideas, scripts, shot lists, to-dos. They belong to the app, not to a project, so every project sees the same Planner. Each plan is a card with its title and the start of its note; click a card to open it in full, or <strong>New plan</strong> to start one. Pin a plan to keep it first, give it a colour, search by any words. Everything saves as you type (on this computer, with a backup of the last version).</P>
         <H>Better prompts</H>
         <ul className="list-disc pl-5">
           <LI>Mention the scene number when the edit belongs to a specific scene.</LI>
           <LI>Select an item first when using words like "this" or "selected".</LI>
           <LI>Give exact values for size, color, speed, delay, or duration when they matter.</LI>
-          <LI>Review the pending plan before clicking Apply. Use Undo to roll back an applied AI plan.</LI>
+          <LI>Review the pending plan before clicking Apply. <strong>Preview</strong> (between Apply and Cancel) shows each scene the plan changes, before and after, without applying anything.</LI>
+          <LI>Every applied plan gets a number (<strong>#1</strong>, <strong>#2</strong>, …) with an <strong>Undo</strong> button. Type <strong>/history</strong> to list this project's AI edits (the start of each prompt, its time and its number), then <strong>/undo #2</strong> to undo one — after "/undo " the list offers your edits. "undo #2" and "undo the last AI edit" work too. Undoing an older edit keeps everything done after it — anything you changed since stays as it is, and the agent tells you. Ctrl+Z brings an undone edit back.</LI>
         </ul>
         <H>Examples</H>
         <Table head={['Request', 'What it should do']} rows={[
-          ['Add a 500x500 purple square on scene 2', 'Create a square on Scene 2 and clamp values if needed.'],
-          ['Set scene 3 background to black', 'Apply a solid black background to Scene 3.'],
-          ['Move the selected item to the right with speed 400 and delay 1.2 seconds', 'Add a move animation to the selected element.'],
-          ['Set a fade transition on scene 4 with duration 0.8 seconds', 'Update Scene 4 transition settings.'],
+          ['Split scene 2 at 3s / split here / split scene 3 into 3 parts', 'Cut scenes at a time, at the playhead, or into equal parts.'],
+          ['Delete scenes 2-4 / duplicate scene 1 / swap scene 1 and 3', 'Remove, copy and reorder scenes.'],
+          ['Make all scenes 3s long / extend scene 1 by 2s', 'Change scene durations.'],
+          ['Use wipe transitions between all scenes', 'Set the transition on every scene after the first.'],
+          ['Add whip pan transitions between all scenes / add a strong zoom blur transition to scene 2', 'Any of the transitions by name, with strength, direction and length.'],
+          ['Fade in from black at the start / fade out to black at the end', 'An intro on the first scene and a fade-out after the last one.'],
+          ['Make the background dark blue', 'Solid, gradient ("from purple to pink") or transparent backgrounds.'],
+          ["Add a title 'Intro' at the top and make it fade in", 'Add text, place it, then animate it.'],
+          ['Add a red circle with a white border in the bottom right', 'Add shapes with fill, border and position.'],
+          ['Make the title bigger / make the red circle blue / center it', 'Resize, recolor and place existing items.'],
+          ['Mute the video / set the music volume to 30% / speed up the video 2x', 'Change clip sound and speed.'],
+          ['Trim the first 2 seconds of the video / fade in the music over 2s', 'Trim clips and fade audio.'],
+          ['Move the selected item to the right with speed 400', 'Add a move animation.'],
+          ['Remove silences / tighten the pauses', 'Listen to each video clip and cut out the quiet parts.'],
+          ['Remove filler words', 'Cut "um", "uh" and "hmm" found by local Whisper. Play it back — word timings are approximate.'],
+          ['Remove the retakes / cut out the false starts', 'Cut sentences you started again, keeping the last take.'],
+          ['Add jump cuts with punch-in zooms / zoom in 15% on every other cut', 'Cut the pauses and zoom every other part in.'],
+          ['Remove the green screen / key out the blue screen on the video', 'Make the screen colour transparent.'],
+          ['Remove the background from my video / blur my background / bring the background back', 'AI cut-out of the subject, a blurred or coloured background, or the original again.'],
+          ['Cut to the beat', 'Move scene ends onto the beat of the background music.'],
+          ['Split the video into shots', 'Make a new scene at every camera cut.'],
+          ["Add a lower third for 'Adya' 'ML engineer' on the right", 'Add an add-on; then "make the lower third red" or "change its role to \'Founder\'".'],
+          ["Add a hook 'Stop scrolling, this changes everything' highlighting 'everything'", 'Word-by-word hook text with the highlighted word in colour.'],
+          ['Duck the music to 20% / lower the music when I talk', 'Lower the music wherever someone talks.'],
+          ['Split screen / put the videos side by side', 'Tile videos and images, cropped to fill.'],
+          ['Make video 1 full screen and video 2 bottom right at 400x300', 'Put each clip in an exact area of the frame.'],
+          ['Reframe the video for vertical / follow the speaker\'s face', 'Crop the clip to keep the face in frame as it moves.'],
+          ['Add a neural network with layers 3, 5, 5, 2 and a forward and backward pass', 'Then "make the network seven layers with 12 neurons in the middle" or "add a hidden layer to the network".'],
+          ["Add a flowchart: collect data -> clean -> train -> deploy", 'Then "add a step \'Test\' after \'Train\' in the flowchart" or "make the flowchart vertical".'],
+          ['Put this video in the upper half and this one in the lower half', 'Areas from the scene size: halves, thirds, quarters, corners, "top 60%", "at x 100 y 200".'],
+          ['Hormozi style captions / make the captions yellow with a black outline', 'Apply a caption preset or change the caption look.'],
         ]} />
         <P>Full guide: <DocLink path="docs/ai_agent.md">docs/ai_agent.md</DocLink></P>
       </>

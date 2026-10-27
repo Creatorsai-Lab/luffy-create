@@ -50,7 +50,7 @@ export default function PerspectiveCapture({ el, konvaProps, children }: {
 }
 
 /** Rasterize `node`'s content at `ctx`'s pixel density; returns the canvas and the local rect it covers. */
-function captureNode(node: Konva.Group, w: number, h: number, ctx: CanvasRenderingContext2D) {
+export function captureNode(node: Konva.Group, w: number, h: number, ctx: CanvasRenderingContext2D) {
   const content = node.getClientRect({ relativeTo: node })
   // Include overflow (text past its box, glow, shadow), but at most one box size per side.
   const lx0 = Math.max(content.x, -w), ly0 = Math.max(content.y, -h)

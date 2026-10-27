@@ -10,7 +10,7 @@ module.exports = {
           'elevated-highlight':'#1e1e1e',
           border:       '#3a3a3a',
           'border-strong': '#404040',
-          'text-secondary': '#737373',
+          'text-secondary': '#bdbcc0',
           text:         '#e5e5e5',
           accent:       '#6a32c9',
           'accent-hover': '#6028c0',

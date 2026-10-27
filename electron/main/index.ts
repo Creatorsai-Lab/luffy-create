@@ -1,7 +1,17 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, protocol } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, protocol, powerSaveBlocker } from 'electron'
 
 // Suppress GPU shader-cache permission errors on Windows
 app.commandLine.appendSwitch('disable-gpu-shader-cache')
+
+// Export renders every frame in the page. Without these, Chromium lowers the
+// renderer's priority and throttles its timers and frames once the window is
+// minimised or covered, and a long export crawls (or stops) until it is back
+// in front. The editor does little work while idle, so this costs nothing then.
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-background-timer-throttling')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+// …and keep video decoders alive in the background, or every export seek restarts one.
+app.commandLine.appendSwitch('disable-background-media-suspend')
 
 // Must be called before app.whenReady().
 // - localasset: serves user media + ffmpeg core to the renderer
@@ -26,6 +36,9 @@ import type { Dirent } from 'fs'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { Readable } from 'stream'
 import { inferUploadAssetKind, makeAssetUploadName, randomAssetHash } from './assetNaming'
+import { createPlannerStore } from './planner'
+import { createFilmstripCache } from './filmstripCache'
+import { createTranscriptCache } from './transcriptCache'
 import {
   createTranslationPackManager,
   type TranslationDirection,
@@ -34,6 +47,9 @@ import {
 } from './subtitleTranslationPack'
 import { createSubtitleTranslationService, type SubtitleTranslateRequest } from './subtitleTranslationService'
 import { createPythonRuntimeManager, readRuntimeManifest, type PythonRuntimeCatalog, type PythonRuntimeProgress } from './pythonRuntimePack'
+import { createCutoutModels, type CutoutPack, type CutoutProgress } from './cutoutModels'
+import { createCutoutService } from './cutoutService'
+import type { CutoutRequest } from './cutoutWorker'
 
 const USER_DATA   = app.getPath('userData')
 const PROJECTS_DIR = join(USER_DATA, 'projects')
@@ -228,6 +244,8 @@ interface PythonRunRequest {
 interface SubtitleTranscribeRequest {
   sourcePath: string
   language?: string
+  /** Word-level cues that keep filler words. */
+  words?: boolean
 }
 
 interface SubtitleTranscribeCue {
@@ -440,6 +458,16 @@ const pythonRuntime = createPythonRuntimeManager({
   },
 })
 const PYTHON_RUNTIME_MISSING = 'The Python runtime is not installed yet. Download it once from the Python Sandbox window.'
+
+// Background removal: models downloaded on first use; the CPU engine ships per platform in resources/onnxruntime.
+const cutoutModels = createCutoutModels({ root: join(USER_DATA, 'models', 'cutout'), fetch: devLocalFetch('cutout') })
+const cutout = createCutoutService({
+  workerPath: join(__dirname, 'cutoutWorker.js'),
+  ortPath: is.dev ? join(process.cwd(), 'node_modules', 'onnxruntime-node') : join(process.resourcesPath, 'onnxruntime', 'node_modules', 'onnxruntime-node'),
+  modelDir: join(USER_DATA, 'models', 'cutout'),
+  cacheDir: join(USER_DATA, 'cutout-cache'),
+})
+app.on('before-quit', () => cutout.stop())
 
 const translationPacks = createTranslationPackManager({
   root: join(USER_DATA, 'translation-models'),
@@ -705,10 +733,19 @@ async function resolveNativeFfmpeg() {
   return python ? pythonImageioFfmpegPath(python) : null
 }
 
+// Word timings (jump cuts, transcript editing) are kept so a clip is transcribed once.
+const transcripts = createTranscriptCache(join(USER_DATA, 'transcripts'), writeFileAtomic)
+
 async function transcribeAudioWithLocalWhisper(req: SubtitleTranscribeRequest) {
   if (!req.sourcePath) throw new Error('No audio file was provided for transcription.')
   const info = await stat(req.sourcePath)
   if (!info.isFile()) throw new Error('Selected audio source is not a file.')
+
+  const variant = `words:${req.language?.trim() || 'auto'}`
+  if (req.words) {
+    const cached = await transcripts.load(req.sourcePath, variant)
+    if (cached) return { source: 'whisper.cpp', text: cached.map(cue => cue.text).join(' ').trim(), cues: cached }
+  }
 
   const cli = resolveWhisperCli()
   const model = resolveWhisperModel(req.language)
@@ -758,6 +795,9 @@ async function transcribeAudioWithLocalWhisper(req: SubtitleTranscribeRequest) {
     ]
     const language = req.language?.trim()
     if (language) whisperArgs.push('-l', language)
+    // One segment per word. Whisper normally drops "um"/"uh"; a prompt written
+    // in that style makes it keep them (used by the AI "remove filler words").
+    if (req.words) whisperArgs.push('-ml', '1', '-sow', '--prompt', 'Umm, let me think like, hmm... Okay, here is what I am, like, thinking. Uh, so, erm.')
 
     const result = await runProcess(cli, whisperArgs, { cwd: jobDir, timeoutMs: 900_000 })
     if (result.code !== 0) {
@@ -769,6 +809,7 @@ async function transcribeAudioWithLocalWhisper(req: SubtitleTranscribeRequest) {
 
     const payload = JSON.parse(await readFile(outputJson, 'utf-8'))
     const cues = coerceWhisperJson(payload)
+    if (req.words) await transcripts.save(req.sourcePath, variant, cues).catch(() => {})
     return {
       source: 'whisper.cpp',
       text: cues.map(cue => cue.text).join(' ').trim(),
@@ -869,6 +910,17 @@ function registerIpcHandlers() {
   })
 
   // Projects CRUD
+  // The Planner: the app's own notes, shared by every project.
+  const planner = createPlannerStore(join(USER_DATA, 'planner'), writeFileAtomic)
+  ipcMain.handle('planner:load', () => planner.load())
+  ipcMain.handle('planner:save', (_, data: unknown) => planner.save(data))
+
+  // Timeline video thumbnails, kept so a reopened project shows them at once.
+  // Not under userData/cache: on Windows that is Chromium's own Cache folder, which it clears at start.
+  const filmstrips = createFilmstripCache(join(USER_DATA, 'thumbnails', 'filmstrips'), writeFileAtomic)
+  ipcMain.handle('filmstrip:load', (_, videoPath: string, grid: number) => filmstrips.load(String(videoPath), Number(grid)))
+  ipcMain.handle('filmstrip:save', (_, videoPath: string, data: unknown) => filmstrips.save(String(videoPath), data as never))
+
   ipcMain.handle('projects:list', () => readIndex())
 
   ipcMain.handle('projects:create', async (_, name: string) => {
@@ -985,10 +1037,57 @@ function registerIpcHandlers() {
   })
 
   ipcMain.handle('shell:open-path', (_e, path: string) => shell.openPath(path))
+  ipcMain.handle('shell:show-item', (_e, path: string) => shell.showItemInFolder(path))
+  // Web links open in the user's browser — only http(s), never files or other schemes.
+  ipcMain.handle('shell:open-external', async (_e, url: string) => {
+    if (typeof url === 'string' && /^https?:\/\//i.test(url)) await shell.openExternal(url)
+  })
+
+  // Background removal
+  ipcMain.handle('cutout:status', () => cutoutModels.status())
+  ipcMain.handle('cutout:install', async (event, pack: CutoutPack) => {
+    if (pack !== 'cutout' && pack !== 'select') throw new Error('Unknown model')
+    const send = (progress: CutoutProgress) => {
+      if (!event.sender.isDestroyed()) event.sender.send('cutout:progress', progress)
+    }
+    await cutoutModels.install(pack, send)
+  })
+  ipcMain.handle('cutout:cancel', (_e, pack: CutoutPack) => cutoutModels.cancel(pack))
+  ipcMain.handle('cutout:run', async (_e, req: Omit<CutoutRequest, 'id'>) => {
+    const pack: CutoutPack = req.type === 'segment' ? 'cutout' : 'select'
+    if (!cutoutModels.installed(pack)) return { ok: false, error: 'The background-removal model is not downloaded yet.' }
+    return cutout.run(req as Parameters<typeof cutout.run>[0])
+  })
+  ipcMain.handle('cutout:cache-read', (_e, key: string) => cutout.cacheRead(key))
+  ipcMain.handle('cutout:cache-write', (_e, key: string, data: Uint8Array) => cutout.cacheWrite(key, data))
 
   // File system
   ipcMain.handle('fs:write-file', async (_e, path: string, data: Uint8Array) => {
     await writeFile(path, Buffer.from(data))
+  })
+
+  // Export renders frames in the page, which Chromium throttles (and stops
+  // drawing) while the window is minimised or covered. During an export: no
+  // throttling, no system sleep, and progress on the taskbar button.
+  let exportSleepBlocker: number | null = null
+  ipcMain.handle('export:background', (event, active: boolean) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    event.sender.setBackgroundThrottling(!active)
+    if (active && exportSleepBlocker == null) exportSleepBlocker = powerSaveBlocker.start('prevent-app-suspension')
+    if (!active && exportSleepBlocker != null) {
+      powerSaveBlocker.stop(exportSleepBlocker)
+      exportSleepBlocker = null
+    }
+    win?.setProgressBar(active ? 0 : -1)
+  })
+  ipcMain.on('export:progress', (event, fraction: number) => {
+    BrowserWindow.fromWebContents(event.sender)?.setProgressBar(Math.max(0, Math.min(1, fraction)))
+  })
+  ipcMain.on('export:finished', event => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win.isFocused()) return
+    win.flashFrame(true)
+    win.once('focus', () => win.flashFrame(false))
   })
 
   // FFmpeg core — return absolute file paths so renderer can fetch via localasset://

@@ -1,5 +1,5 @@
 export { buildAiProjectContext } from './context'
 export { executeAiPlan } from './executor'
-export { planAiEdit } from './planner'
+export { planAiEdit, planSmartSteps } from './planner'
 export { prepareAiPlan } from './prepare'
 export type { AiCommandResult, AiEditorCommand, AiPlan, AiPlanIssue, AiPlanResult, AiPreparedPlan, AiProjectContext } from './types'

@@ -23,6 +23,9 @@ export interface CanvasSettings {
 
   // Safe area
   showSafeArea: boolean
+
+  // Highlight every item on the scene (editor only)
+  showHighlights: boolean
   safeAreaMargin: number
 
   // Canvas zoom and pan
@@ -60,6 +63,7 @@ interface CanvasActions {
 
   // Safe area
   setShowSafeArea: (show: boolean) => void
+  setShowHighlights: (show: boolean) => void
   setSafeAreaMargin: (margin: number) => void
 
   // Canvas zoom and pan
@@ -92,6 +96,7 @@ const DEFAULT_SETTINGS: CanvasSettings = {
   smartGuideColor: '#6366f1',
 
   showSafeArea: false,
+  showHighlights: false,
   safeAreaMargin: 50,
 
   canvasZoom: 1,
@@ -144,6 +149,7 @@ export const useCanvasStore = create<CanvasSettings & CanvasActions>((set, get) 
 
   // ── Safe Area ──────────────────────────────────────────────────────────────
   setShowSafeArea: (show) => set({ showSafeArea: show }),
+  setShowHighlights: (show) => set({ showHighlights: show }),
   setSafeAreaMargin: (margin) => set({ safeAreaMargin: Math.max(0, margin) }),
 
   // ── Canvas Zoom & Pan ──────────────────────────────────────────────────────

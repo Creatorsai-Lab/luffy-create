@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CAPTION_PRESETS, matchingCaptionPreset } from './presets'
 import { X, Captions, Wand2, Plus, Trash2, Download, Mic, FileText, Languages, CheckSquare, Square } from 'lucide-react'
 import { useEditorStore } from '../store/editorStore'
 import { FONT_FAMILIES } from '../types/editor'
@@ -253,9 +254,9 @@ export default function SubtitleModal() {
   const canExportTranslation = track.cues.some(cue => cue.translations?.[exportTarget]?.text.trim())
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#171717]/80 backdrop-blur-xs"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) setSubtitleOpen(false) }}>
-      <div className="bg-editor-panel border border-editor-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
+      <div className="bg-editor-panel border border-editor-border rounded-2xl flex flex-col overflow-hidden"
         style={{ width: '92vw', height: '90vh' }}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-editor-border flex-none">
           <div className="flex items-center gap-2">
@@ -449,6 +450,22 @@ export default function SubtitleModal() {
 
             <SubtitleStylePreview style={style} />
 
+            <SectionLabel>Presets</SectionLabel>
+            <div className="grid grid-cols-3 gap-1.5 mb-1">
+              {CAPTION_PRESETS.map(preset => {
+                const frame = { width: project?.width ?? 1920, height: project?.height ?? 1080 }
+                const active = matchingCaptionPreset(style, frame)?.id === preset.id
+                return (
+                  <button key={preset.id} title={preset.description} onClick={() => patchStyle(preset.style(frame))}
+                    className={`px-2 py-1.5 rounded text-xs border transition-colors ${active ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated-highlight text-editor-text border-editor-border hover:bg-editor-hover'}`}>
+                    {preset.label}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[10px] text-editor-text-secondary mb-2">A preset sets the look; fine-tune it below. Click Save style to keep it.</p>
+            <div className="border-t border-editor-border my-3" />
+
             <SectionLabel>Position &amp; animation</SectionLabel>
             <StyleRow label="Position X">
               <Slider value={style.positionX} min={0} max={100} step={1}
@@ -584,6 +601,42 @@ export default function SubtitleModal() {
                   </>
                 )}
               </>
+            )}
+
+            <StyleRow label="Capitals">
+              <button onClick={() => patchStyle({ uppercase: !style.uppercase })}
+                className={`px-2 py-1 rounded text-xs border transition-colors ${style.uppercase ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated-highlight text-editor-text border-editor-border hover:bg-editor-hover'}`}>
+                {style.uppercase ? 'ALL CAPS' : 'As written'}
+              </button>
+            </StyleRow>
+            <StyleRow label="Outline">
+              <Slider value={style.strokeWidth ?? 0} min={0} max={20} step={1}
+                onChange={strokeWidth => patchStyle({ strokeWidth })} display={`${style.strokeWidth ?? 0}px`} />
+            </StyleRow>
+            {(style.strokeWidth ?? 0) > 0 && (
+              <StyleRow label="Outline color">
+                <ColorInput value={style.strokeColor ?? '#000000'} onChange={strokeColor => patchStyle({ strokeColor })} />
+              </StyleRow>
+            )}
+            <StyleRow label="Spoken word">
+              <button onClick={() => patchStyle({ activeColor: style.activeColor ? undefined : '#facc15' })}
+                className={`px-2 py-1 rounded text-xs border transition-colors ${style.activeColor ? 'bg-editor-accent text-white border-editor-accent' : 'bg-editor-elevated-highlight text-editor-text border-editor-border hover:bg-editor-hover'}`}>
+                {style.activeColor ? 'Coloured' : 'Off'}
+              </button>
+            </StyleRow>
+            {style.activeColor && (
+              <StyleRow label="Spoken color">
+                <ColorInput value={style.activeColor} onChange={activeColor => patchStyle({ activeColor })} />
+              </StyleRow>
+            )}
+            <StyleRow label="Box opacity">
+              <Slider value={Math.round((style.boxOpacity ?? 0) * 100)} min={0} max={100} step={1}
+                onChange={value => patchStyle({ boxOpacity: value / 100 })} display={`${Math.round((style.boxOpacity ?? 0) * 100)}%`} />
+            </StyleRow>
+            {(style.boxOpacity ?? 0) > 0 && (
+              <StyleRow label="Box color">
+                <ColorInput value={style.boxColor ?? '#000000'} onChange={boxColor => patchStyle({ boxColor })} />
+              </StyleRow>
             )}
 
             <div className="border-t border-editor-border my-3" />

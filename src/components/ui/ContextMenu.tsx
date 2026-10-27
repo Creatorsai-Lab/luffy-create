@@ -6,6 +6,8 @@ export interface ContextMenuItem {
   icon?: React.ReactNode
   onClick: () => void
   dangerous?: boolean // red color for delete/danger actions
+  /** Keyboard shortcut shown on the right, e.g. "Ctrl+G". */
+  shortcut?: string
 }
 
 interface ContextMenuProps {
@@ -81,7 +83,8 @@ export default function ContextMenu({ visible, x, y, items, onClose }: ContextMe
           )}
         >
           {item.icon && <span className="flex-shrink-0">{item.icon}</span>}
-          <span>{item.label}</span>
+          <span className="flex-1">{item.label}</span>
+          {item.shortcut && <span className="pl-4 text-[11px] text-editor-text-secondary">{item.shortcut}</span>}
         </button>
       ))}
     </div>

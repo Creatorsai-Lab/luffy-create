@@ -1,5 +1,7 @@
 import type Konva from 'konva'
+import { memo } from 'react'
 import { useEditorStore } from '../../store/editorStore'
+import { isAttachedTo } from '../../utils/connectors'
 import type { EditorElement, VideoElement } from '../../types/editor'
 import type { AnimatedProps } from '../../engine/animator'
 import { getVideoClipState } from '../../utils/videoClip'
@@ -27,16 +29,59 @@ interface Props {
   element:    EditorElement
   animProps:  ReturnType<typeof import('../../engine/animator').getAnimatedProps> | null
   isSelected: boolean
-  onSelect:   (multi: boolean) => void
+  /** On press: multi = Shift (add/remove), member = Ctrl/Alt (just this item, even inside a group). */
+  onSelect:   (multi: boolean, member: boolean) => void
   onDblClick: () => void
   stageScale: number
   localTime?: number   // scene-local seconds — drives video seeking
   sceneWidth?: number
   syncVideoToTime?: boolean
   videoPlaybackActive?: boolean
+  /** Transitions: the scene keeps playing past this length (its outgoing copy). */
+  sceneEnd?: number
+  /** Transitions: clip sound multiplier while scenes cross over. */
+  mediaVolume?: number
+  /** Transitions: key for a second copy of a clip (video pool / registry). */
+  mediaKey?: string
+  /** Hidden copies draw nothing while their media loads. */
+  quietLoading?: boolean
+  /** Timeline seconds (beat-synced effects). */
+  globalTime?: number
+  /** The scene's length (how long an image's effects run without an end). */
+  sceneDuration?: number
 }
 
-export default function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, sceneWidth, syncVideoToTime = true, videoPlaybackActive = false }: Props) {
+/**
+ * Re-renders only when what it draws changes: the element, its animation state,
+ * zoom, time or video sync. Selection and the click handlers are left out on
+ * purpose — nothing drawn depends on them, and the handlers read the store when
+ * called. (Re-rendering 1,500 arrows on every selection change was what made
+ * big add-ons slow.)
+ */
+function sameProps(a: Props, b: Props) {
+  return a.element === b.element && a.stageScale === b.stageScale &&
+    a.localTime === b.localTime && a.sceneWidth === b.sceneWidth && a.syncVideoToTime === b.syncVideoToTime &&
+    a.videoPlaybackActive === b.videoPlaybackActive && a.sceneEnd === b.sceneEnd && a.mediaVolume === b.mediaVolume &&
+    a.mediaKey === b.mediaKey && a.quietLoading === b.quietLoading && a.sceneDuration === b.sceneDuration &&
+    (a.globalTime === b.globalTime || !hasBeatEffects(a.element)) && sameAnim(a.animProps, b.animProps)
+}
+
+function sameAnim(a: Props['animProps'], b: Props['animProps']) {
+  if (a === b) return true
+  if (!a || !b) return false
+  const ka = Object.keys(a)
+  if (ka.length !== Object.keys(b).length) return false
+  return ka.every(k => (a as unknown as Record<string, unknown>)[k] === (b as unknown as Record<string, unknown>)[k])
+}
+
+/** Media whose look follows the music's beats must redraw as the timeline moves. */
+function hasBeatEffects(el: EditorElement) {
+  return (el.type === 'video' || el.type === 'image') && Boolean(el.fx?.some(fx => fx.beatSync || fx.type === 'phonk'))
+}
+
+export default memo(CanvasElement, sameProps)
+
+function CanvasElement({ element, animProps, isSelected, onSelect, onDblClick, stageScale, localTime = 0, sceneWidth, syncVideoToTime = true, videoPlaybackActive = false, sceneEnd, mediaVolume, mediaKey, quietLoading, globalTime = 0, sceneDuration = 0 }: Props) {
   const { activeTool, updateElement } = useEditorStore(useShallow(s => ({ activeTool: s.activeTool, updateElement: s.updateElement })))
   const interaction = getCanvasElementInteraction(activeTool, element.locked, element.type)
   const setCursor = (target: Konva.Node, state: 'canvas' | 'selected' | 'dragging', movable = interaction.draggable) => {
@@ -74,15 +119,27 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
     rotation: animProps?.rotation ?? element.rotation,
     draggable: interaction.draggable,
     listening: interaction.listening,
-    onClick:  (e: Konva.KonvaEventObject<MouseEvent>) => {
-      onSelect(e.evt.shiftKey)
+    // Select on press (left button only), before a drag can start, so dragging a
+    // group member drags the whole group. Right-click keeps the selection.
+    onMouseDown: (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (e.evt.button !== 0) return
+      onSelect(e.evt.shiftKey, e.evt.ctrlKey || e.evt.metaKey || e.evt.altKey)
       setCursor(e.target, 'selected')
     },
     onMouseEnter: (e: Konva.KonvaEventObject<MouseEvent>) => {
-      if (isSelected) setCursor(e.target, 'selected')
+      if (useEditorStore.getState().selectedIds.includes(element.id)) setCursor(e.target, 'selected')
     },
     onMouseLeave: (e: Konva.KonvaEventObject<MouseEvent>) => setCursor(e.target, 'canvas', false),
     onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => setCursor(e.target, 'dragging'),
+    // Arrows attached to this element follow it while it is dragged, not only on drop.
+    onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => {
+      if (element.type === 'arrow') return
+      const { project, currentSceneId } = useEditorStore.getState()
+      const scene = project?.scenes.find(sc => sc.id === currentSceneId)
+      if (scene?.elements.some(other => isAttachedTo(other, element.id))) {
+        updateElement(element.id, { x: e.target.x(), y: e.target.y() })
+      }
+    },
     onDblClick,
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
       if (element.type === 'arrow') {
@@ -155,15 +212,16 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
   const content = (p: Record<string, unknown>) => {
     switch (element.type) {
       case 'text':   return <TextKonva   el={element} konvaProps={p} textProgress={animProps?.textProgress ?? 1} textMode={animProps?.textMode} wipeProgress={wipeProgress} wipeDir={wipeDir} textColor={animProps?.textColor} />
-      case 'shape':  return <ShapeKonva  el={element} konvaProps={p} wipeProgress={wipeProgress} wipeDir={wipeDir} dashOffset={animProps?.dashOffset ?? 0} localTime={localTime} />
-      case 'arrow':  return <ArrowKonva  el={element} konvaProps={p} pathProgress={animProps?.textProgress ?? 1} dashOffset={animProps?.dashOffset ?? 0} />
+      // A colour pulse ("flash") recolours a shape's fill and an arrow's line.
+      case 'shape':  return <ShapeKonva  el={animProps?.textColor ? { ...element, fill: animProps.textColor } : element} konvaProps={p} wipeProgress={wipeProgress} wipeDir={wipeDir} dashOffset={animProps?.dashOffset ?? 0} localTime={localTime} />
+      case 'arrow':  return <ArrowKonva  el={animProps?.textColor ? { ...element, stroke: animProps.textColor, arrowHeadColor: animProps.textColor } : element} konvaProps={p} pathProgress={animProps?.textProgress ?? 1} dashOffset={animProps?.dashOffset ?? 0} />
       case 'code':   return <CodeKonva   el={element} konvaProps={p} localTime={localTime} sceneWidth={sceneWidth} />
-      case 'image':  return <ImageKonva  el={element} konvaProps={p} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} localTime={localTime} />
+      case 'image':  return <ImageKonva  el={element} konvaProps={p} textProgress={animProps?.textProgress ?? 1} wipeProgress={wipeProgress} wipeDir={wipeDir} localTime={localTime} globalTime={globalTime} sceneDuration={sceneDuration} mediaKey={mediaKey} />
       case 'table':  return <TableKonva  el={element} konvaProps={p} wipeProgress={wipeProgress} wipeDir={wipeDir} />
       case 'chart':  return <ChartKonva  el={element} konvaProps={p} animProgress={animProps?.chartAnimProgress ?? 1} />
       case 'video': {
         const v = element as VideoElement
-        const inClip = getVideoClipState(v, localTime).visible
+        const inClip = getVideoClipState(v, localTime, { sceneEnd }).visible
         return (
           <VideoKonva
             el={v}
@@ -171,6 +229,14 @@ export default function CanvasElement({ element, animProps, isSelected, onSelect
             localTime={localTime}
             syncToTime={syncVideoToTime}
             playbackActive={videoPlaybackActive}
+            sceneEnd={sceneEnd}
+            volumeScale={mediaVolume}
+            mediaKey={mediaKey}
+            quietLoading={quietLoading}
+            globalTime={globalTime}
+            sceneDuration={sceneDuration}
+            wipeProgress={wipeProgress}
+            wipeDir={wipeDir}
           />
         )
       }

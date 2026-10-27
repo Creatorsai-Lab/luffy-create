@@ -1,4 +1,9 @@
 import { useRef, useEffect } from 'react'
+import ReframeControl from './ReframeControl'
+import JumpCutControl from './JumpCutControl'
+import SpeedControl from './SpeedControl'
+import { effectStack } from '../../engine/fx/stack'
+import KeyingControl from './KeyingControl'
 import { Film, Lock, Unlock, Scissors, X } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { VideoElement, AnimationType } from '../../types/editor'
@@ -8,9 +13,7 @@ import { makeAnimation } from '../../utils/defaults'
 import { sourceVideoClipDuration } from '../../utils/videoClip'
 import BoxShadowControls, { InnerShadowControls } from './BoxShadowControls'
 import BorderControls from './BorderControls'
-import MediaVignetteControls from './MediaVignetteControls'
 import { isMotionAnimation } from '../../utils/moveAnimation'
-import MediaGrainControls from './MediaGrainControls'
 import { isLoopAnimation } from '../../utils/animationTypes'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -97,6 +100,10 @@ export default function VideoPanel() {
 
         {el && (
           <>
+            <JumpCutControl element={el} />
+            <KeyingControl element={el} />
+            <ReframeControl element={el} />
+
             {/* ── Dimensions ──────────────────────────────────────── */}
             <div className="px-3 py-2 border-b border-editor-border flex flex-col gap-0.5">
               <span className="text-xs font-medium text-editor-text block mb-1">Dimensions</span>
@@ -149,6 +156,8 @@ export default function VideoPanel() {
               <BoxShadowControls value={el.boxShadow} onChange={boxShadow => upd({ boxShadow })} />
               <InnerShadowControls value={el.innerShadow} onChange={innerShadow => upd({ innerShadow })} />
             </div>
+
+            <SpeedControl element={el} scene={scene} />
 
             {/* ── Playback ─────────────────────────────────────────── */}
             <div className="px-3 py-2 border-b border-editor-border flex flex-col gap-0.5">
@@ -273,68 +282,19 @@ export default function VideoPanel() {
                 <Slider value={el.blur ?? 0} min={0} max={20} step={0.5}
                   onChange={v => upd({ blur: v })} display={`${el.blur ?? 0}px`} />
               </Row>
-              <MediaVignetteControls value={el} onChange={upd} />
-              <MediaGrainControls value={el} onChange={upd} />
             </div>
 
-            {/* ── Cinematic & Effects ─────────────────────────────── */}
-            <div className="px-3 py-2 border-b border-editor-border flex flex-col gap-0.5">
-              <span className="text-xs font-medium text-editor-text block mb-1">Cinematic & Effects</span>
-              
-              {/* Color Grading Preset */}
-              <Row label="Color Grade">
-                <select
-                  value={el.colorGrading ?? 'none'}
-                  onChange={e => upd({ colorGrading: e.target.value as any })}
-                  className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
-                >
-                  <option value="none">Normal (None)</option>
-                  <option value="warm">Warm Preset</option>
-                  <option value="cool">Cool Preset</option>
-                  <option value="vintage">Vintage Sepia</option>
-                  <option value="cyberpunk">Cyberpunk Neon</option>
-                  <option value="cinematic">Cinematic Teal & Orange</option>
-                  <option value="monochrome">Grayscale (B&W)</option>
-                  <option value="noir">Noir High-Contrast</option>
-                  <option value="sunset">Sunset Glow</option>
-                </select>
-              </Row>
-
-              {/* Video Effects */}
-              <Row label="Video Effect">
-                <select
-                  value={el.videoEffect ?? 'none'}
-                  onChange={e => {
-                    const videoEffect = e.target.value as VideoElement['videoEffect']
-                    upd(videoEffect === 'shake' || videoEffect === 'distortion'
-                      ? { videoEffect, mediaEffect: 'none', mediaEffects: undefined }
-                      : { videoEffect })
-                  }}
-                  className="w-full bg-editor-elevated-highlight border border-editor-border rounded text-xs text-editor-text px-2 py-1"
-                >
-                  <option value="none">No Effect</option>
-                  <option value="lensBlur">Lens & Blur</option>
-                  <option value="distortion">Wave Distortion</option>
-                  <option value="shake">Camera Shake</option>
-                  <option value="comic">Comic Effects</option>
-                  <option value="retro">Retro Scanlines</option>
-                  <option value="flash">Strobe Flash</option>
-                </select>
-              </Row>
-
-              {/* Effect Intensity */}
-              {el.videoEffect && el.videoEffect !== 'none' && (
-                <Row label="Intensity">
-                  <Slider
-                    value={el.videoEffectIntensity ?? 0.5}
-                    min={0.1}
-                    max={1.0}
-                    step={0.05}
-                    onChange={v => upd({ videoEffectIntensity: v })}
-                    display={`${Math.round((el.videoEffectIntensity ?? 0.5) * 100)}%`}
-                  />
-                </Row>
-              )}
+            {/* ── Effects & frame ──────────────────────────────────── */}
+            <div className="px-3 py-2 border-b border-editor-border flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-editor-text">Effects</span>
+                <span className="text-[10px] text-editor-text-secondary">{effectStack(el).length} on this clip</span>
+                <button type="button" onClick={() => useEditorStore.getState().setActivePanel('effects')}
+                  className="ml-auto rounded border border-editor-border bg-editor-elevated-highlight px-2 py-0.5 text-[11px] text-editor-text hover:border-editor-accent">
+                  Open Effects
+                </button>
+              </div>
+              <p className="text-[10px] leading-relaxed text-editor-text-secondary">Colour looks, film grain, vignette, glitch, retro, neon, light and more are in the Effects panel.</p>
 
               {/* Framing / Masking */}
               <Row label="Frame mask">

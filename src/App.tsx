@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState, Component } from 'react'
+import { usePlannerStore } from './planner/plannerStore'
 import type { ErrorInfo, ReactNode } from 'react'
 import { useEditorStore } from './store/editorStore'
 import { makeProject } from './utils/defaults'
@@ -138,6 +139,11 @@ export default function App() {
       if (useEditorStore.getState().isDirty) await saveCurrentProject()
     } catch (e) {
       console.error('Save on close failed', e)
+    }
+    try {
+      await usePlannerStore.getState().flush()
+    } catch (e) {
+      console.error('Planner save on close failed', e)
     } finally {
       window.api.app.closeReady()
     }

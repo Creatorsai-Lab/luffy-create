@@ -1,6 +1,14 @@
 import { FONT_FAMILIES } from '../types/editor'
-import type { AnimationType, Background, EasingType, ShapeType, TransitionType } from '../types/editor'
-import type { AiAnimationSpec, AiEditorCommand, AiPlan, AiPlanIssue, AiPreparedPlan, AiProjectContext } from './types'
+import { getCaptionPreset } from '../subtitle/presets'
+import { normalizeVolumeKeys } from '../utils/volumeKeys'
+import { normalizeKeying } from '../utils/keying'
+import { isTransitionType, TRANSITION_DURATION } from '../engine/transitions/catalog'
+import { isFxType } from '../engine/fx/catalog'
+import { SPEED_PRESETS } from '../utils/speedCurve'
+import { getBlock } from '../blocks/registry'
+import type { AnimationType, Background, EasingType, ShapeType } from '../types/editor'
+import type { AiAnimationSpec, AiEditorCommand, AiElementRef, AiPlan, AiPlanIssue, AiPreparedPlan, AiProjectContext, AiSceneRef, AiTransitionSpec } from './types'
+import { normalizeColorValue as normalizeColor } from './parser/colors'
 
 const SHAPE_TYPES = new Set<ShapeType>([
   'rect', 'circle', 'triangle', 'star', 'pentagon', 'hexagon', 'octagon', 'diamond',
@@ -8,30 +16,51 @@ const SHAPE_TYPES = new Set<ShapeType>([
   'circle-hand', 'square-hand', 'heart', 'rect-sketch',
 ])
 
-const TRANSITION_TYPES = new Set<TransitionType>([
-  'none', 'fade', 'slide', 'zoom', 'wipe', 'push', 'morph', 'flashBlur', 'flickerShake',
+const DIRECTIONS = new Set(['left', 'right', 'up', 'down'])
+const EASINGS = new Set(['smooth', 'linear', 'snappy'])
+
+/** A transition with known type and settings in range, or null for an unknown type. */
+function normalizeTransition(tr: AiTransitionSpec): AiTransitionSpec | null {
+  if (!isTransitionType(tr.type)) return null
+  return {
+    type: tr.type,
+    duration: tr.type === 'none' ? clampOptional(tr.duration, 0, TRANSITION_DURATION.max) : clampOptional(tr.duration, TRANSITION_DURATION.min, TRANSITION_DURATION.max),
+    direction: tr.direction && DIRECTIONS.has(tr.direction) ? tr.direction : undefined,
+    speed: clampOptional(tr.speed, 0.25, 3),
+    hardness: clampOptional(tr.hardness, 0, 100),
+    intensity: clampOptional(tr.intensity, 0, 1),
+    softness: clampOptional(tr.softness, 0, 1),
+    color: tr.color ? normalizeColor(tr.color) : undefined,
+    easing: tr.easing && EASINGS.has(tr.easing) ? tr.easing : undefined,
+  }
+}
+const ANIMATION_TYPES = new Set<AnimationType>([
+  'fadeIn', 'fadeOut', 'slideIn', 'slideOut', 'scaleIn', 'scaleOut', 'wipeIn', 'wipeOut', 'zoomIn', 'zoomOut',
+  'typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'textFade',
+  'pulse', 'bounceLoop', 'rotateLoop', 'fadeLoop', 'colorPulse',
 ])
-const ANIMATION_TYPES = new Set<AnimationType>(['fadeIn', 'fadeOut', 'slideIn', 'slideOut', 'scaleIn', 'scaleOut', 'wipeIn', 'wipeOut', 'typewriter', 'typewriterChars', 'typewriterWords', 'textBounceIn', 'textFade'])
 const MOVE_DIRECTIONS = new Set(['left', 'right', 'top', 'bottom', 'topLeft', 'topRight', 'bottomRight', 'bottomLeft'])
-const COLOR_NAMES: Record<string, string> = {
-  black: '#111111',
-  white: '#ffffff',
-  red: '#ef4444',
-  green: '#22c55e',
-  blue: '#3b82f6',
-  yellow: '#f59e0b',
-  purple: '#8b5cf6',
-  pink: '#ec4899',
-  orange: '#f97316',
+
+/** Aliases defined by earlier commands in the plan ("it" = the element a previous command added). */
+interface Aliases {
+  scenes: Set<string>
+  elements: Set<string>
 }
 
 export function prepareAiPlan(plan: AiPlan, context: AiProjectContext): AiPreparedPlan {
   const issues: AiPlanIssue[] = []
   const commands: AiEditorCommand[] = []
+  const aliases: Aliases = { scenes: new Set(), elements: new Set() }
 
   plan.commands.forEach((command, index) => {
-    const prepared = prepareCommand(command, context, index, issues)
-    if (prepared) commands.push(prepared)
+    const prepared = prepareCommand(command, context, index, issues, aliases)
+    if (!prepared) return
+    commands.push(prepared)
+    if ('alias' in prepared && prepared.alias) {
+      const isScene = prepared.type === 'addScene' || prepared.type === 'duplicateScene' || prepared.type === 'splitScene'
+      if (isScene) aliases.scenes.add(prepared.alias)
+      else aliases.elements.add(prepared.alias)
+    }
   })
 
   return {
@@ -48,8 +77,12 @@ function prepareCommand(
   command: AiEditorCommand,
   context: AiProjectContext,
   index: number,
-  issues: AiPlanIssue[]
+  issues: AiPlanIssue[],
+  aliases: Aliases
 ): AiEditorCommand | null {
+  if (!sceneResolvable(command as AiSceneRef, context, aliases)) {
+    return drop(issues, index, `${command.type} removed because its scene could not be found.`)
+  }
   switch (command.type) {
     case 'addText':
       return {
@@ -147,7 +180,7 @@ function prepareCommand(
 
     case 'updateElement':
     case 'styleElement':
-      if (!canResolveElement(command, context)) {
+      if (!canResolveElement(command, context, aliases)) {
         issues.push({ level: 'error', commandIndex: index, message: `${command.type} removed because no target element could be resolved.` })
         return null
       }
@@ -158,7 +191,7 @@ function prepareCommand(
       }
 
     case 'applyMove':
-      if (!canResolveElement(command, context)) {
+      if (!canResolveElement(command, context, aliases)) {
         issues.push({ level: 'error', commandIndex: index, message: 'Move command removed because no target element could be resolved.' })
         return null
       }
@@ -176,21 +209,200 @@ function prepareCommand(
         ...command,
         name: command.name?.slice(0, 80),
         duration: clampOptional(command.duration, 0.5, 120),
+        afterSceneId: command.afterSceneId && context.scenes.some(s => s.id === command.afterSceneId) ? command.afterSceneId : undefined,
       }
 
     case 'setTransition': {
-      const type = TRANSITION_TYPES.has(command.transition.type) ? command.transition.type : 'fade'
+      const transition = normalizeTransition(command.transition)
+      if (!transition) return drop(issues, index, `"${command.transition.type}" is not a transition the editor has.`)
+      return { ...command, sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues), transition }
+    }
+
+    case 'addEffect': {
+      if (!isFxType(command.effect)) return drop(issues, index, `"${command.effect}" is not an effect the editor has.`)
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'addEffect removed because no video or image could be resolved.')
+      const params = Object.fromEntries(Object.entries(command.params ?? {})
+        .filter(([, v]) => typeof v === 'boolean' || typeof v === 'string' || (typeof v === 'number' && Number.isFinite(v)))
+        .map(([k, v]) => [k, typeof v === 'string' && /colou?r/i.test(k) ? normalizeColor(v) ?? v : v]))
       return {
         ...command,
         sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues),
-        transition: {
-          ...command.transition,
-          type,
-          duration: clampOptional(command.transition.duration, 0, 5),
-          speed: clampOptional(command.transition.speed, 0.25, 3),
-          hardness: clampOptional(command.transition.hardness, 0, 100),
-        },
+        params,
+        intensity: clampOptional(command.intensity, 0, 1),
+        start: clampOptional(command.start, 0, 3600),
+        end: clampOptional(command.end, 0, 3600),
       }
+    }
+
+    case 'removeEffects':
+      if (command.effect && !isFxType(command.effect)) return drop(issues, index, `"${command.effect}" is not an effect the editor has.`)
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'removeEffects removed because no video or image could be resolved.')
+      return { ...command, sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues) }
+
+    case 'setSpeedCurve':
+      if (command.preset !== 'none' && !SPEED_PRESETS.some(p => p.id === command.preset)) return drop(issues, index, `"${command.preset}" is not a speed ramp the editor has.`)
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'setSpeedCurve removed because no video could be resolved.')
+      return { ...command, sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues) }
+
+    case 'freezeFrame':
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'freezeFrame removed because no video could be resolved.')
+      return {
+        ...command,
+        sceneIndex: normalizeSceneIndex(command.sceneIndex, context, index, issues),
+        at: Math.max(0, Number.isFinite(command.at) ? command.at : 0),
+        hold: Math.max(0, Math.min(10, Number.isFinite(command.hold) ? command.hold : 1)),
+      }
+
+    case 'setEndTransition': {
+      const transition = normalizeTransition(command.transition)
+      if (!transition) return drop(issues, index, `"${command.transition.type}" is not a transition the editor has.`)
+      if (transition.type === 'morph') return drop(issues, index, 'Morph needs a next scene, so it cannot end the video.')
+      return { ...command, transition }
+    }
+
+    case 'removeScene':
+    case 'duplicateScene':
+      return command
+
+    case 'splitScene':
+      return Number.isFinite(command.at) && command.at > 0
+        ? { ...command, at: clamp(command.at, 0.1, 3600) }
+        : drop(issues, index, 'Split removed because the time is invalid.')
+
+    case 'moveScene':
+      return Number.isFinite(command.toIndex)
+        ? { ...command, toIndex: clamp(Math.round(command.toIndex), 1, context.project.sceneCount + 20) }
+        : drop(issues, index, 'Move removed because the position is invalid.')
+
+    case 'setSceneDuration':
+      return Number.isFinite(command.duration)
+        ? { ...command, duration: clamp(command.duration, 0.5, 600) }
+        : drop(issues, index, 'Duration change removed because the value is invalid.')
+
+    case 'removeElement':
+    case 'duplicateElement':
+    case 'arrangeElement':
+    case 'alignElement':
+    case 'removeAnimations':
+      return canResolveElement(command, context, aliases)
+        ? command
+        : drop(issues, index, `${command.type} removed because no target element could be resolved.`)
+
+    case 'groupElements':
+    case 'ungroupElements': {
+      const targets = command.targets.filter(t => canResolveElement(t, context, aliases))
+      if (command.type === 'groupElements' && targets.length < 2) return drop(issues, index, 'Group removed: a group needs at least two items.')
+      if (!targets.length) return drop(issues, index, 'Ungroup removed: nothing to ungroup.')
+      return { ...command, targets, ...(command.type === 'groupElements' ? { name: command.name?.slice(0, 60) } : {}) }
+    }
+
+    case 'setCaptionStyle': {
+      if (command.preset && !getCaptionPreset(command.preset)) return drop(issues, index, `There is no "${command.preset}" caption style.`)
+      const style = command.style ? { ...command.style } : undefined
+      if (style) {
+        for (const key of ['color', 'strokeColor', 'activeColor', 'boxColor'] as const) {
+          if (style[key] !== undefined) style[key] = normalizeColor(style[key])
+        }
+        if (style.fontSize !== undefined) style.fontSize = clamp(style.fontSize, 12, 200)
+        if (style.strokeWidth !== undefined) style.strokeWidth = clamp(style.strokeWidth, 0, 30)
+        if (style.boxOpacity !== undefined) style.boxOpacity = clamp(style.boxOpacity, 0, 1)
+        if (style.positionY !== undefined) style.positionY = clamp(style.positionY, 0, 100)
+      }
+      if (!command.preset && !style && command.enabled === undefined) return drop(issues, index, 'Caption change removed: nothing to change.')
+      if (!context.captions?.cues) issues.push({ level: 'warning', commandIndex: index, message: 'There are no captions yet — the style is saved and used when you generate them (Captions).' })
+      return { ...command, style }
+    }
+
+    case 'arrangeMedia': {
+      const targets = command.targets.filter(t => canResolveElement(t, context, aliases))
+      if (!targets.length) return drop(issues, index, 'Layout removed: no video or image could be found.')
+      if (!['split', 'sideBySide', 'stacked', 'grid'].includes(command.layout)) return drop(issues, index, `There is no "${command.layout}" layout.`)
+      return { ...command, targets, gap: clampOptional(command.gap, 0, 200) }
+    }
+
+    case 'setCropTrack': {
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'Reframe removed: the video could not be found.')
+      const unit = (v: number) => clamp(Number.isFinite(v) ? v : 0.5, 0, 1)
+      const keys = command.keys
+        .filter(k => Number.isFinite(k.t))
+        .map(k => ({ t: Math.max(0, k.t), cx: unit(k.cx), cy: unit(k.cy) }))
+        .sort((a, b) => a.t - b.t)
+        .slice(0, 5000)
+      const c = command.crop
+      const crop = c && [c.x, c.y, c.w, c.h].every(Number.isFinite)
+        ? { w: clamp(c.w, 0.01, 1), h: clamp(c.h, 0.01, 1), x: clamp(c.x, 0, 1 - clamp(c.w, 0.01, 1)), y: clamp(c.y, 0, 1 - clamp(c.h, 0.01, 1)) }
+        : undefined
+      return { ...command, keys, crop }
+    }
+
+    case 'placeMedia': {
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'Placement removed: the video or image could not be found.')
+      const r = command.region
+      const W = context.project.width
+      const H = context.project.height
+      if (![r?.x, r?.y, r?.width, r?.height].every(Number.isFinite) || r.width <= 0 || r.height <= 0) return drop(issues, index, 'Placement removed: the area is invalid.')
+      return {
+        ...command,
+        region: { x: clamp(r.x, -W, W * 2), y: clamp(r.y, -H, H * 2), width: clamp(r.width, 1, W * 3), height: clamp(r.height, 1, H * 3) },
+        width: clampOptional(command.width, 1, W * 3),
+        height: clampOptional(command.height, 1, H * 3),
+        fit: command.fit === 'contain' || command.fit === 'stretch' ? command.fit : 'cover',
+      }
+    }
+
+    case 'setVolumeKeys': {
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'Volume change removed because the audio clip could not be found.')
+      const keys = normalizeVolumeKeys(command.keys).slice(0, 4000)
+      return { ...command, keys }
+    }
+
+    case 'insertBlock':
+      return getBlock(command.blockId) ? command : drop(issues, index, `There is no "${command.blockId}" add-on.`)
+
+    case 'updateBlock': {
+      const known = context.scenes.some(scene => scene.groups?.some(g => g.id === command.groupId && g.blockId))
+      return known ? command : drop(issues, index, 'That group is not an add-on, so it has no settings to change.')
+    }
+
+    case 'connectElements': {
+      const from = command.from.filter(t => canResolveElement(t, context, aliases))
+      const to = command.to?.filter(t => canResolveElement(t, context, aliases))
+      if (!from.length || (command.to && !to?.length) || (!command.to && from.length < 2)) {
+        return drop(issues, index, 'Connection removed because there was nothing to connect.')
+      }
+      return { ...command, from, to, color: normalizeColor(command.color), width: clampOptional(command.width, 1, 40) }
+    }
+
+    case 'animateSequence': {
+      const waves = command.waves.flatMap(wave => {
+        const targets = wave.targets.filter(t => canResolveElement(t, context, aliases))
+        const animation = normalizeAnimation(wave.animation)
+        if (!targets.length || !animation) {
+          issues.push({ level: 'warning', commandIndex: index, message: `A ${wave.animation.type} wave was skipped: ${animation ? 'none of its items could be found' : 'that animation is not supported'}.` })
+          return []
+        }
+        return [{
+          ...wave,
+          targets,
+          animation: { ...animation, color: normalizeColor(wave.animation.color) },
+          step: clampOptional(wave.step, 0, 10),
+          gapBefore: clampOptional(wave.gapBefore, 0, 30),
+        }]
+      })
+      if (!waves.length) return drop(issues, index, 'Sequence removed because none of its items could be found.')
+      return {
+        ...command,
+        waves,
+        start: command.start === 'afterLast' ? 'afterLast' : clampOptional(command.start, 0, 600),
+        repeat: typeof command.repeat === 'number' ? clamp(command.repeat, 0.1, 600) : Boolean(command.repeat),
+        repeatGap: clampOptional(command.repeatGap, 0, 30),
+      }
+    }
+
+    case 'addAnimation': {
+      if (!canResolveElement(command, context, aliases)) return drop(issues, index, 'Animation removed because no target element could be resolved.')
+      const animation = normalizeAnimation(command.animation)
+      return animation ? { ...command, animation } : drop(issues, index, `Animation "${command.animation.type}" is not supported.`)
     }
 
     case 'generateStoryboard':
@@ -239,10 +451,24 @@ function cleanAssetName(value?: string) {
   return value?.trim().replace(/^[`'"]?@?/, '').replace(/[`'"]$/, '').toLowerCase()
 }
 
-function canResolveElement(command: { elementId?: string; elementName?: string; selected?: boolean; sceneIndex?: number; sceneId?: string }, context: AiProjectContext) {
+function drop(issues: AiPlanIssue[], commandIndex: number, message: string): null {
+  issues.push({ level: 'error', commandIndex, message })
+  return null
+}
+
+function sceneResolvable(ref: AiSceneRef, context: AiProjectContext, aliases: Aliases) {
+  if (ref.sceneAlias) return aliases.scenes.has(ref.sceneAlias) || ref.sceneAlias === 'newScene'
+  if (ref.sceneId) return context.scenes.some(scene => scene.id === ref.sceneId)
+  return true
+}
+
+function canResolveElement(command: AiElementRef, context: AiProjectContext, aliases: Aliases) {
+  if (command.elementAlias) return aliases.elements.has(command.elementAlias)
   if (command.selected && context.selectedIds.length > 0) return true
   if (command.elementId && context.scenes.some(scene => scene.elements.some(el => el.id === command.elementId))) return true
   if (!command.elementName) return false
+  // A scene made earlier in the plan (e.g. a part left by a cut) holds copies that are found by name.
+  if (command.sceneAlias) return aliases.scenes.has(command.sceneAlias)
 
   const scene = command.sceneIndex
     ? context.scenes[Math.max(0, command.sceneIndex - 1)]
@@ -270,6 +496,8 @@ function normalizePatch(patch: Record<string, unknown>, context: AiProjectContex
       out[key] = value
     } else if (key === 'crop' && isRecord(value)) {
       out[key] = value
+    } else if (key === 'keying') {
+      out[key] = isRecord(value) ? normalizeKeying(value) : null
     }
   }
   return out
@@ -296,20 +524,13 @@ function normalizeBackground(background: Background): Background {
   return background
 }
 
-function normalizeColor(value?: string) {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (/^#[0-9a-f]{3}([0-9a-f]{3})?([0-9a-f]{2})?$/i.test(trimmed)) return trimmed
-  return COLOR_NAMES[trimmed.toLowerCase()]
-}
-
 function normalizeFontFamily(value?: string) {
   if (!value) return undefined
   const normalized = value.trim().toLowerCase()
   return FONT_FAMILIES.find(font => font.toLowerCase() === normalized)
 }
 
-function normalizeAnimation(animation?: AiAnimationSpec) {
+function normalizeAnimation(animation?: AiAnimationSpec): AiAnimationSpec | undefined {
   if (!animation || !ANIMATION_TYPES.has(animation.type)) return undefined
   const easing: EasingType = animation.easing === 'linear' || animation.easing === 'easeIn' || animation.easing === 'easeInOut' || animation.easing === 'bounce'
     ? animation.easing
@@ -319,6 +540,8 @@ function normalizeAnimation(animation?: AiAnimationSpec) {
     duration: clampOptional(animation.duration, 0.05, 60),
     delay: clampOptional(animation.delay, 0, 60),
     easing,
+    timing: animation.timing === 'onExit' || animation.timing === 'loop' ? animation.timing : 'onEnter',
+    direction: animation.direction,
   }
 }
 

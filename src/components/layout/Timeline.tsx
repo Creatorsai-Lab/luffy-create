@@ -1,5 +1,7 @@
 import { useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
-import { Plus, Play, Pause, SkipBack, ZoomIn, ZoomOut, ArrowLeftRight, Music, Trash2, Copy, Scissors, Split, X, Volume2, Bookmark, Shuffle, Film, Repeat } from 'lucide-react'
+import { coarseToFine, requestFrames } from '../../utils/filmstripCache'
+import VolumeEnvelope from './VolumeEnvelope'
+import { Plus, Play, Pause, SkipBack, ZoomIn, ZoomOut, ArrowLeftRight, Music, Trash2, Copy, Scissors, Split, X, Volume2, Bookmark, Shuffle, Film, Repeat, Gauge } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { cn } from '../../utils/cn'
 import { toFileUrl } from '../../utils/pathUtils'
@@ -9,11 +11,16 @@ import Tooltip from '../ui/Tooltip'
 import ContextMenu from '../ui/ContextMenu'
 import type { AssetMeta, AudioElement, VideoElement } from '../../types/editor'
 import { maxVideoClipDuration } from '../../utils/videoClip'
-import { TRANS_COLOR } from '../../utils/transitions'
 import { makeAudio } from '../../utils/defaults'
 import { AUDIO_ASSET_DRAG_TYPE } from '../../utils/dragPayloads'
 import { clampAudioDuration, readAudioMetadataDuration, remainingTimelineDuration, resolveStoredAudioDuration } from '../../utils/audioMetadata'
 import { findElementScene, sceneAtTime, sceneStartTimes } from '../../utils/sceneTiming'
+import { CUT_COLORS, CUT_LABELS, useCutPreview } from '../../store/cutPreviewStore'
+import { buildTransitionTimeline, getEffectiveTransitionDuration, getEndTransitionDuration } from '../../utils/transitionTiming'
+import { transitionDef } from '../../engine/transitions/catalog'
+import { effectStack, stackPatch } from '../../engine/fx/stack'
+import { fxDef } from '../../engine/fx/catalog'
+import { footageSpan, SPEED_PRESETS } from '../../utils/speedCurve'
 import { useShallow } from 'zustand/react/shallow'
 import {
   applyAudioEffects,
@@ -1083,7 +1090,7 @@ export default function Timeline() {
                     src={video.src}
                     startTime={video.startTime ?? 0}
                     clipDuration={clipDur}
-                    speed={video.playbackRate ?? 1}
+                    speed={video.speedCurve || video.freeze ? footageSpan(video) / Math.max(0.1, clipDur) : video.playbackRate ?? 1}
                     clipWidthPx={Math.max(widthPx, 40)}
                     trackH={heightPx}
                     loop={video.loop ?? false}
@@ -1093,12 +1100,18 @@ export default function Timeline() {
                     <span className="text-[9px] text-white/90 truncate ml-1 font-medium drop-shadow">
                       {(video.playbackRate ?? 1) !== 1 ? `${video.playbackRate}× ` : ''}{clipDur.toFixed(1)}s
                     </span>
+                    {(video.speedCurve || video.freeze) && (
+                      <span className="ml-1 flex items-center gap-0.5 rounded bg-sky-500/80 px-1 text-[9px] text-white" title="Speed ramp / freeze frame">
+                        <Gauge size={8} />{video.speedCurve ? SPEED_PRESETS.find(sp => sp.id === video.speedCurve!.preset)?.label ?? 'Custom' : ''}{video.freeze ? ' ❄' : ''}
+                      </span>
+                    )}
                     {video.loop && (
                       <span className="ml-auto flex items-center gap-0.5 rounded bg-black/80 px-1 py-0.5 text-[10px] uppercase tracking-normal text-white/85">
                         <Repeat size={9} /> loop
                       </span>
                     )}
                   </div>
+                  <FxBars video={video} pxPerSec={PX_PER_SEC} />
                   <div
                     className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 z-10"
                     onMouseDown={e => handleVideoResizeMouseDown(e, video, 'start')}
@@ -1181,36 +1194,50 @@ export default function Timeline() {
             })}
           </div>
 
-          {/* Transition blocks — straddle scene boundaries */}
-          {project.scenes.map((sc, index) => {
-            if (index === 0) return null
-            if (!sc.transition || sc.transition.type === 'none') return null
-            const startPx = sceneStarts[sc.id] * PX_PER_SEC
-            const color   = TRANS_COLOR[sc.transition.type] ?? '#6366f1'
-            const BLOCK_W = 20
-            const BLOCK_H = 20
-            const BLOCK_TOP = SCENE_TOP + 2 + Math.round(((SCENE_HEIGHT - 4) - BLOCK_H) / 2)
-            return (
-              <div
-                key={`trans-${sc.id}`}
-                className="absolute z-20 flex items-center justify-center rounded select-none pointer-events-none"
-                style={{
-                  left: startPx - BLOCK_W / 2,
-                  top: BLOCK_TOP,
-                  width: BLOCK_W,
-                  height: BLOCK_H,
-                  background: color + '66',
-                  border: `1.5px solid ${color}`,
-                  boxShadow: '0 1px 6px rgba(0,0,0,0.45)',
-                  borderRadius: 5,
-                  backdropFilter: 'blur(1px)',
-                }}
-                title={`${sc.transition.type} · ${sc.transition.duration}s`}
-              >
-                <Shuffle size={9} color="white" strokeWidth={2.5} />
-              </div>
-            )
-          })}
+          {/* Transitions — a bar over the stretch each one plays (the start of its scene; the end for the fade-out) */}
+          {(() => {
+            const timeline = buildTransitionTimeline(project.scenes, project.endTransition)
+            const bars = timeline.flatMap(entry => {
+              const d = getEffectiveTransitionDuration(entry)
+              return d > 0 ? [{ key: entry.sceneId, sceneId: entry.sceneId, start: entry.startTime, duration: d, transition: entry.transition, ending: false }] : []
+            })
+            const endD = getEndTransitionDuration(timeline)
+            const last = timeline[timeline.length - 1]
+            if (endD > 0 && last && project.endTransition) {
+              bars.push({ key: 'end', sceneId: last.sceneId, start: last.endTime - endD, duration: endD, transition: project.endTransition, ending: true })
+            }
+            return bars.map(bar => {
+              const def = transitionDef(bar.transition.type)
+              const width = Math.max(14, bar.duration * PX_PER_SEC)
+              const what = bar.ending ? `Fade out: ${def.label}` : bar.start === 0 ? `Intro: ${def.label}` : def.label
+              return (
+                <div
+                  key={`trans-${bar.key}`}
+                  className="absolute z-20 flex items-center gap-1 overflow-hidden rounded-sm px-1 select-none cursor-pointer hover:brightness-125"
+                  style={{
+                    left: bar.start * PX_PER_SEC,
+                    top: SCENE_TOP + 3,
+                    width,
+                    height: 14,
+                    background: `linear-gradient(90deg, ${def.color}aa, ${def.color}44)`,
+                    border: `1px solid ${def.color}`,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.45)',
+                  }}
+                  title={`${what} · ${bar.duration.toFixed(1)}s — click to edit`}
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => {
+                    e.stopPropagation()
+                    const state = useEditorStore.getState()
+                    state.setCurrentScene(bar.sceneId)
+                    state.setActivePanel('transitions')
+                  }}
+                >
+                  <Shuffle size={9} color="white" strokeWidth={2.5} className="flex-none" />
+                  {width > 46 && <span className="truncate text-[9px] font-medium text-white drop-shadow">{what}</span>}
+                </div>
+              )
+            })
+          })()}
 
           {/* Audio tracks — lane-packed so non-overlapping clips share a row */}
           <div
@@ -1322,6 +1349,10 @@ export default function Timeline() {
                       trackH={TRACK_HEIGHT - 4}
                     />
 
+                    {(audio.volumeKeys?.length ?? 0) > 0 && (
+                      <VolumeEnvelope audio={audio} clipDuration={audioDur} widthPx={audioWidthPx} heightPx={TRACK_HEIGHT - 4} />
+                    )}
+
                     {audio.fadeIn > 0 && (
                       <div
                         className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-yellow-400/40 to-transparent rounded-l pointer-events-none"
@@ -1388,6 +1419,9 @@ export default function Timeline() {
               )
             })
           )}
+          {/* Cuts waiting to be applied (jump cuts, transcript edits) */}
+          <CutPreviewLayer sceneStarts={sceneStarts} pxPerSec={PX_PER_SEC} top={RULER_HEIGHT} height={SCENE_TOP + SCENE_HEIGHT - RULER_HEIGHT} />
+
           {/* Playhead */}
           <div
             className="absolute top-0 bottom-0 z-30"
@@ -1595,6 +1629,86 @@ export default function Timeline() {
 
 // ── Video clip filmstrip (timeline thumbnail) ─────────────────────────────────
 
+const FX_BAR_COLOR: Record<string, string> = {
+  body: '#22d3ee', retro: '#f59e0b', glitch: '#ec4899', warp: '#8b5cf6', light: '#fde047',
+  energy: '#ef4444', motion: '#22c55e', weather: '#60a5fa', look: '#f97316',
+}
+
+/** A clip's effects as thin bars along its bottom: drag to move, drag an end to change when it starts or stops. */
+function FxBars({ video, pxPerSec }: { video: VideoElement; pxPerSec: number }) {
+  const stack = effectStack(video).filter(fx => !fx.off)
+  if (!stack.length) return null
+  const length = video.duration ?? 0
+  const drag = (index: number, mode: 'move' | 'start' | 'end') => (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const startX = e.clientX
+    const all = effectStack(video)
+    const fx = stack[index]
+    const from = Math.max(0, fx.start)
+    const to = fx.end ?? length
+    const move = (ev: MouseEvent) => {
+      const dt = (ev.clientX - startX) / pxPerSec
+      let start = from
+      let end = to
+      if (mode === 'move') { const d = Math.max(-from, Math.min(length - to, dt)); start = from + d; end = to + d }
+      if (mode === 'start') start = Math.max(0, Math.min(to - 0.1, from + dt))
+      if (mode === 'end') end = Math.max(from + 0.1, Math.min(length, to + dt))
+      const next = all.map(item => (item.id === fx.id ? { ...item, start, end: end >= length - 0.01 && mode !== 'end' && fx.end == null ? undefined : end } : item))
+      useEditorStore.getState().updateElement(video.id, stackPatch(video, next))
+    }
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-10" style={{ height: Math.min(3, stack.length) * 5 }}>
+      {stack.slice(0, 3).map((fx, i) => {
+        const def = fxDef(fx.type)
+        const start = Math.max(0, fx.start)
+        const end = Math.min(length, fx.end ?? length)
+        if (end <= start) return null
+        return (
+          <div key={fx.id} className="group absolute cursor-grab rounded-sm" title={`${def.label} ${start.toFixed(1)}–${end.toFixed(1)}s — drag to move, drag an end to resize`}
+            style={{ left: start * pxPerSec, width: Math.max(4, (end - start) * pxPerSec), bottom: i * 5, height: 4, background: FX_BAR_COLOR[def.group] }}
+            onMouseDown={drag(i, 'move')}>
+            <div className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/70" onMouseDown={drag(i, 'start')} />
+            <div className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/70" onMouseDown={drag(i, 'end')} />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Cuts a panel is previewing: tinted, striped stretches over the video track and scenes. */
+function CutPreviewLayer({ sceneStarts, pxPerSec, top, height }: { sceneStarts: Record<string, number>; pxPerSec: number; top: number; height: number }) {
+  const cuts = useCutPreview(s => s.cuts)
+  if (!cuts.length) return null
+  return (
+    <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top, height }}>
+      {cuts.map((cut, i) => {
+        const start = sceneStarts[cut.sceneId]
+        if (start == null) return null
+        const color = CUT_COLORS[cut.kind]
+        return (
+          <div
+            key={i}
+            className="absolute top-0 bottom-0 rounded-sm"
+            title={`${CUT_LABELS[cut.kind]} — ${(cut.to - cut.from).toFixed(2)}s`}
+            style={{
+              left: (start + cut.from) * pxPerSec,
+              width: Math.max(2, (cut.to - cut.from) * pxPerSec),
+              background: `repeating-linear-gradient(135deg, ${color}66 0 4px, ${color}2e 4px 8px)`,
+              boxShadow: `inset 0 0 0 1px ${color}`,
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
 function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, trackH, loop }: {
   src: string
   startTime: number
@@ -1604,156 +1718,63 @@ function VideoClipFilmstrip({ src, startTime, clipDuration, speed, clipWidthPx, 
   trackH: number
   loop: boolean
 }) {
-  const [stripUrl, setStripUrl] = useState<string | null>(null)
-  const [failed, setFailed] = useState(false)
-  const stripUrlRef = useRef<string | null>(null)
-
-  // Release the last strip's blob URL when the clip unmounts.
-  useEffect(() => () => { if (stripUrlRef.current) URL.revokeObjectURL(stripUrlRef.current) }, [])
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const frameW = 68
+  const gap = 2
+  const safeTrackH = Math.max(20, Math.round(trackH))
+  const visibleWidth = Math.max(40, Math.round(clipWidthPx))
+  const frameCount = Math.max(1, Math.min(48, Math.ceil(visibleWidth / frameW)))
+  const canvasW = frameCount * frameW + Math.max(0, frameCount - 1) * gap
 
   useEffect(() => {
-    let cancelled = false
-    const video = document.createElement('video')
-    const canvas = document.createElement('canvas')
-    const frameW = 68
-    const gap = 2
-    const safeTrackH = Math.max(20, Math.round(trackH))
-    const visibleWidth = Math.max(40, Math.round(clipWidthPx))
-    const frameCount = Math.max(1, Math.min(48, Math.ceil(visibleWidth / frameW)))
-    const canvasW = frameCount * frameW + Math.max(0, frameCount - 1) * gap
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = Math.round(canvasW * dpr)
+    canvas.height = Math.round(safeTrackH * dpr)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-    setFailed(false)
-
-    canvas.width = canvasW
-    canvas.height = safeTrackH
-    const ctx = canvas.getContext('2d')
-    if (!ctx) {
-      setFailed(true)
-      return () => {}
+    // Placeholder slots; each fills in as its frame arrives (cached frames at once).
+    ctx.fillStyle = '#111018'
+    ctx.fillRect(0, 0, canvasW, safeTrackH)
+    for (let i = 0; i < frameCount; i++) {
+      ctx.fillStyle = 'rgba(56,60,68,0.85)'
+      ctx.fillRect(i * (frameW + gap), 0, frameW, safeTrackH)
     }
 
-    video.crossOrigin = 'anonymous'
-    video.muted = true
-    video.preload = 'metadata'
-
-    const seekTo = (time: number) => new Promise<void>((resolve, reject) => {
-      const cleanup = () => {
-        video.removeEventListener('seeked', onSeeked)
-        video.removeEventListener('error', onError)
-      }
-      const onSeeked = () => { cleanup(); resolve() }
-      const onError = () => { cleanup(); reject(new Error('Video frame seek failed')) }
-      video.addEventListener('seeked', onSeeked, { once: true })
-      video.addEventListener('error', onError, { once: true })
-      video.currentTime = time
+    // Source time shown in each slot (looping clips wrap around the source).
+    const sourceSpan = Math.max(0.05, clipDuration * Math.max(speed, 0.01))
+    const times = Array.from({ length: frameCount }, (_, i) => {
+      const offset = frameCount === 1 ? 0 : (sourceSpan * i) / (frameCount - 1)
+      return startTime + offset
     })
-
-    const drawCoverFrame = (x: number) => {
-      const vw = video.videoWidth || frameW
-      const vh = video.videoHeight || safeTrackH
-      const scale = Math.max(frameW / vw, safeTrackH / vh)
-      const dw = vw * scale
-      const dh = vh * scale
-      const dx = x + (frameW - dw) / 2
-      const dy = (safeTrackH - dh) / 2
-      ctx.drawImage(video, dx, dy, dw, dh)
+    const drawSlot = (i: number, image: CanvasImageSource & { width: number; height: number }) => {
+      const x = i * (frameW + gap)
+      const iw = (image as HTMLImageElement).naturalWidth || image.width || frameW
+      const ih = (image as HTMLImageElement).naturalHeight || image.height || safeTrackH
+      const scale = Math.max(frameW / iw, safeTrackH / ih)
+      const dw = iw * scale
+      const dh = ih * scale
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(x, 0, frameW, safeTrackH)
+      ctx.clip()
+      ctx.drawImage(image, x + (frameW - dw) / 2, (safeTrackH - dh) / 2, dw, dh)
+      ctx.restore()
     }
 
-    const render = async () => {
-      try {
-        await new Promise<void>((resolve, reject) => {
-          const onLoaded = () => { cleanup(); resolve() }
-          const onError = () => { cleanup(); reject(new Error('Video metadata failed')) }
-          const cleanup = () => {
-            video.removeEventListener('loadedmetadata', onLoaded)
-            video.removeEventListener('loadeddata', onLoaded)
-            video.removeEventListener('error', onError)
-          }
-          video.addEventListener('loadedmetadata', onLoaded, { once: true })
-          video.addEventListener('loadeddata', onLoaded, { once: true })
-          video.addEventListener('error', onError, { once: true })
-          if (video.readyState >= 1) onLoaded()
-        })
-
-        const duration = Number.isFinite(video.duration) && video.duration > 0
-          ? video.duration
-          : startTime + clipDuration * speed
-        const maxTime = Math.max(0, duration - 0.05)
-        const sourceStart = Math.max(0, Math.min(startTime, maxTime))
-        const sourceSpan = Math.max(0.05, duration - sourceStart)
-        const clipSourceSpan = Math.max(0.05, clipDuration * Math.max(speed, 0.01))
-
-        ctx.fillStyle = '#111018'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-        for (let i = 0; i < frameCount; i++) {
-          if (cancelled) return
-          const ratio = frameCount === 1 ? 0 : i / (frameCount - 1)
-          const rawOffset = clipSourceSpan * ratio
-          const sourceTime = loop
-            ? Math.min(maxTime, sourceStart + (rawOffset % sourceSpan))
-            : Math.min(maxTime, sourceStart + rawOffset)
-          await seekTo(sourceTime)
-          if (cancelled) return
-          const x = i * (frameW + gap)
-          drawCoverFrame(x)
-          if (gap > 0 && i < frameCount - 1) {
-            ctx.fillStyle = 'rgba(7,7,10,0.92)'
-            ctx.fillRect(x + frameW, 0, gap, safeTrackH)
-          }
-          if (loop && sourceSpan > 0 && rawOffset >= sourceSpan) {
-            ctx.fillStyle = 'rgba(255,255,255,0.5)'
-            ctx.fillRect(x, 0, 1, safeTrackH)
-          }
-        }
-
-        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.76))
-        if (!blob || cancelled) return
-        // Swap in the new strip, then release the one it replaces.
-        const url = URL.createObjectURL(blob)
-        if (stripUrlRef.current) URL.revokeObjectURL(stripUrlRef.current)
-        stripUrlRef.current = url
-        setStripUrl(url)
-      } catch {
-        if (!cancelled) setFailed(true)
-      }
-    }
-
-    // Zooming or trim-dragging changes the inputs many times a second: decode
-    // once they settle instead of re-seeking up to 48 frames on every step.
-    const start = setTimeout(() => {
-      video.src = toFileUrl(src)
-      render()
-    }, 200)
-
-    return () => {
-      cancelled = true
-      clearTimeout(start)
-      video.pause()
-      video.removeAttribute('src')
-    }
-  }, [src, startTime, clipDuration, speed, clipWidthPx, trackH, loop])
-
-  if (stripUrl) {
-    return (
-      <img
-        src={stripUrl}
-        className="absolute inset-0 w-full h-full pointer-events-none object-cover"
-        style={{ opacity: 0.95, imageRendering: 'auto' }}
-      />
-    )
-  }
+    // Ends and middle first, so the strip reads as complete early. Zooming or trim-dragging
+    // re-asks many times a second: cached frames come back at once, and frames nobody
+    // wants any more are dropped before they are decoded.
+    const order = coarseToFine(frameCount)
+    return requestFrames(src, order.map(i => times[i]), (k, image) => drawSlot(order[k], image), loop ? { loopFrom: startTime } : undefined)
+  }, [src, startTime, clipDuration, speed, frameCount, canvasW, safeTrackH, loop])
 
   return (
-    <div
-      className="absolute inset-0 pointer-events-none"
-      style={{
-        background: failed
-          ? 'linear-gradient(135deg, rgba(39,43,48,0.88), rgba(16,18,22,0.94))'
-          : 'repeating-linear-gradient(90deg, rgba(38,42,48,0.9) 0 54px, rgba(68,74,84,0.72) 54px 56px)',
-        opacity: 0.9,
-      }}
-    />
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <canvas ref={canvasRef} style={{ width: canvasW, height: safeTrackH, opacity: 0.95 }} />
+    </div>
   )
 }
 

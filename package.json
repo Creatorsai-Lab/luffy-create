@@ -1,6 +1,6 @@
 {
   "name": "luffy-create",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Free open-source AI video editor with timeline control",
   "private": true,
   "author": "Creators AI Lab",
@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
     "preflight": "node scripts/preflight.mjs",
     "build:translation-pack": "node scripts/build-translation-pack.mjs",
-    "test": "node scripts/releaseVersion.test.mjs && tsx scripts/previewLayout.test.ts && tsx scripts/sceneEdits.test.ts && tsx scripts/perspective.test.ts && tsx scripts/projectSave.test.ts && tsx scripts/pythonRuntimePack.test.ts",
+    "test": "node scripts/releaseVersion.test.mjs && tsx scripts/previewLayout.test.ts && tsx scripts/sceneEdits.test.ts && tsx scripts/perspective.test.ts && tsx scripts/projectSave.test.ts && tsx scripts/pythonRuntimePack.test.ts && tsx scripts/stagger.test.ts && tsx scripts/connectors.test.ts && tsx scripts/arrowHeads.test.ts && tsx scripts/groups.test.ts && tsx scripts/blocks.test.ts && tsx scripts/mediaLayout.test.ts && tsx scripts/planner.test.ts && tsx scripts/filmstrip.test.ts && tsx scripts/transcriptCache.test.ts && tsx scripts/transitions.test.ts && tsx scripts/effects.test.ts && tsx scripts/cutout.test.ts && tsx src/ai/tests/promptTokens.test.ts && tsx src/ai/tests/parser.test.ts && tsx src/ai/tests/executor.test.ts && tsx src/ai/tests/smart.test.ts && tsx src/ai/tests/jumpcut.test.ts && tsx src/ai/tests/editLog.test.ts",
     "verify:translation-pack": "node scripts/verify-translation-pack.mjs",
     "preview": "electron-vite preview",
     "prepare-python-sandbox": "node scripts/prepare-python-sandbox.mjs",
@@ -51,6 +51,7 @@
     "@fontsource/quicksand": "^5.2.10",
     "@fontsource/roboto": "^5.2.10",
     "@fontsource/shadows-into-light": "^5.2.8",
+    "@mediapipe/tasks-vision": "1.0.1",
     "@monaco-editor/react": "^4.6.0",
     "@types/node": "^22.7.4",
     "@types/react": "^18.3.3",
@@ -67,6 +68,7 @@
     "konva": "^9.3.6",
     "lucide-react": "^0.439.0",
     "mathjax-full": "^3.2.1",
+    "onnxruntime-node": "1.22.0",
     "postcss": "^8.4.47",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -122,12 +124,39 @@
           "install_pack.py",
           "model-catalog.json"
         ]
+      },
+      {
+        "from": "node_modules/onnxruntime-node",
+        "to": "onnxruntime/node_modules/onnxruntime-node",
+        "filter": [
+          "package.json",
+          "dist/**/*.js"
+        ]
+      },
+      {
+        "from": "node_modules/onnxruntime-common",
+        "to": "onnxruntime/node_modules/onnxruntime-common",
+        "filter": [
+          "package.json",
+          "dist/cjs/package.json",
+          "dist/cjs/**/*.js"
+        ]
       }
     ],
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",
-      "artifactName": "Luffy-Create-Windows-Setup-${version}.${ext}"
+      "artifactName": "Luffy-Create-Windows-Setup-${version}.${ext}",
+      "extraResources": [
+        {
+          "from": "node_modules/onnxruntime-node/bin/napi-v6/win32/${arch}",
+          "to": "onnxruntime/node_modules/onnxruntime-node/bin/napi-v6/win32/${arch}",
+          "filter": [
+            "onnxruntime.dll",
+            "onnxruntime_binding.node"
+          ]
+        }
+      ]
     },
     "nsis": {
       "installerIcon": "build/icon.ico",
@@ -137,13 +166,33 @@
     "mac": {
       "target": "dmg",
       "icon": "build/icon.icns",
-      "artifactName": "Luffy-Create-macOS-${version}-${arch}.${ext}"
+      "artifactName": "Luffy-Create-macOS-${version}-${arch}.${ext}",
+      "extraResources": [
+        {
+          "from": "node_modules/onnxruntime-node/bin/napi-v6/darwin/${arch}",
+          "to": "onnxruntime/node_modules/onnxruntime-node/bin/napi-v6/darwin/${arch}",
+          "filter": [
+            "libonnxruntime.*.dylib",
+            "onnxruntime_binding.node"
+          ]
+        }
+      ]
     },
     "linux": {
       "target": "AppImage",
       "icon": "build/icon.png",
       "category": "Graphics",
-      "artifactName": "Luffy-Create-Linux-${version}-${arch}.${ext}"
+      "artifactName": "Luffy-Create-Linux-${version}-${arch}.${ext}",
+      "extraResources": [
+        {
+          "from": "node_modules/onnxruntime-node/bin/napi-v6/linux/${arch}",
+          "to": "onnxruntime/node_modules/onnxruntime-node/bin/napi-v6/linux/${arch}",
+          "filter": [
+            "libonnxruntime.so.1",
+            "onnxruntime_binding.node"
+          ]
+        }
+      ]
     },
     "publish": [
       {

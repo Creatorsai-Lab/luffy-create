@@ -1,0 +1,329 @@
+// Smart edits: speech/silence detection, beat tracking and shot cuts on
+// synthetic signals, then whole prompts expanded with fake media and applied
+// to the real store.
+import assert from 'node:assert/strict'
+import { useEditorStore } from '../../store/editorStore'
+import type { VideoElement } from '../../types/editor'
+import { buildAiProjectContext, executeAiPlan, planAiEdit, prepareAiPlan } from '..'
+import { detectBeats, snapDurationsToBeats } from '../smart/beats'
+import type { SmartMedia } from '../smart/expand'
+import { findCuts } from '../smart/shots'
+import { detectSpeech, silencesBetween } from '../smart/speech'
+import { duckingKeys } from '../smart/duck'
+import { reframePath, trackMainFace, type FaceSample } from '../smart/reframe'
+import { cropAt } from '../../utils/cropKeys'
+import { buildFfmpegVolumeKeysFilter, volumeKeyGain } from '../../utils/volumeKeys'
+import type { AudioElement } from '../../types/editor'
+import { loadFixture } from './fixture'
+
+;(globalThis as { window?: unknown }).window ??= { api: {} }
+
+const SR = 16000
+const near = (actual: number, expected: number, tolerance: number, label: string) =>
+  assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: ${actual} is not within ${tolerance} of ${expected}`)
+
+/** Quiet noise with "speech" (a 220 Hz tone with short gaps between words) in the given ranges. */
+function speechSignal(seconds: number, speech: Array<[number, number]>) {
+  const out = new Float32Array(Math.round(seconds * SR))
+  let seed = 7
+  for (let i = 0; i < out.length; i++) {
+    seed = (seed * 16807) % 2147483647
+    const t = i / SR
+    const talking = speech.some(([a, b]) => t >= a && t < b) && (t * 1000) % 300 > 60 // 60 ms gap every 300 ms
+    out[i] = (seed / 2147483647 - 0.5) * 0.002 + (talking ? 0.3 * Math.sin(2 * Math.PI * 220 * t) : 0)
+  }
+  return out
+}
+
+/** Decaying noise clicks every `period` seconds starting at `offset`. */
+function clickTrack(seconds: number, period: number, offset: number) {
+  const out = new Float32Array(Math.round(seconds * SR))
+  let seed = 3
+  for (let beat = offset; beat < seconds; beat += period) {
+    const start = Math.round(beat * SR)
+    for (let i = 0; i < 0.05 * SR && start + i < out.length; i++) {
+      seed = (seed * 16807) % 2147483647
+      out[start + i] += (seed / 2147483647 - 0.5) * Math.exp(-i / (0.01 * SR))
+    }
+  }
+  return out
+}
+
+function fakeMedia(over: Partial<SmartMedia>): SmartMedia {
+  return {
+    decodeMono: async () => null,
+    detectShotChanges: async () => [],
+    transcribeWords: async () => [],
+    detectFaces: async () => ({ aspect: 16 / 9, samples: [] }),
+    ...over,
+  }
+}
+
+async function apply(prompt: string, media: SmartMedia) {
+  const context = buildAiProjectContext()!
+  const planned = await planAiEdit(prompt, context, { media })
+  const prepared = prepareAiPlan(planned.plan, context)
+  const results = executeAiPlan(prepared.plan)
+  assert.deepEqual(results.filter(r => !r.ok).map(r => r.message), [], 'failed commands')
+  return { planned, issues: [...(planned.issues ?? []), ...prepared.issues] }
+}
+
+const project = () => useEditorStore.getState().project!
+
+/** A face (0.1 × 0.2 of the frame) centred at cx(t), cy, sampled 4× a second; `gone` returns true where nobody is on screen. */
+function faceTrack(seconds: number, cx: (t: number) => number, opts: { cy?: number; jitter?: number; gone?: (t: number) => boolean; extra?: (t: number) => FaceSample['faces'] } = {}): FaceSample[] {
+  const out: FaceSample[] = []
+  let seed = 11
+  const noise = () => { seed = (seed * 16807) % 2147483647; return (seed / 2147483647 - 0.5) * (opts.jitter ?? 0) }
+  for (let t = 0; t <= seconds + 1e-9; t += 0.25) {
+    const faces = opts.gone?.(t) ? [] : [{ x: cx(t) - 0.05 + noise(), y: (opts.cy ?? 0.4) - 0.1 + noise(), w: 0.1, h: 0.2, score: 0.9 }]
+    out.push({ t: Math.round(t * 100) / 100, faces: [...faces, ...(opts.extra?.(t) ?? [])] })
+  }
+  return out
+}
+
+const tests: Array<[string, () => void | Promise<void>]> = [
+  ['speech detection finds talking and ignores gaps between words', () => {
+    const regions = detectSpeech(speechSignal(8, [[1, 3], [4.5, 5.5], [5.8, 6.8]]), SR, { minSilence: 0.5 })
+    assert.equal(regions.length, 2, JSON.stringify(regions))
+    near(regions[0][0], 1, 0.05, 'first start'); near(regions[0][1], 3, 0.06, 'first end')
+    near(regions[1][0], 4.5, 0.05, 'second start'); near(regions[1][1], 6.8, 0.06, 'second end')
+  }],
+  ['pure silence has no speech', () => {
+    assert.deepEqual(detectSpeech(new Float32Array(SR * 3), SR), [])
+  }],
+  ['silences between speech', () => {
+    assert.deepEqual(silencesBetween([[1, 3], [4.5, 6.8]], 0, 8, 0.6), [[0, 1], [3, 4.5], [6.8, 8]])
+    assert.deepEqual(silencesBetween([[1, 3], [3.4, 6]], 0, 6, 0.6), [[0, 1]])
+  }],
+  ['beat tracking on a 120 BPM click track', () => {
+    const grid = detectBeats(clickTrack(20, 0.5, 0.23), SR)!
+    near(grid.bpm, 120, 1.5, 'bpm')
+    const first = grid.beats.find(b => b > 1)!
+    near(((first - 0.23) % 0.5 + 0.5) % 0.5 > 0.25 ? ((first - 0.23) % 0.5) - 0.5 : (first - 0.23) % 0.5, 0, 0.03, 'phase')
+  }],
+  ['beat tracking on a 90 BPM click track', () => {
+    near(detectBeats(clickTrack(20, 60 / 90, 0.1), SR)!.bpm, 90, 1.5, 'bpm')
+  }],
+  ['scene boundaries snap to beats', () => {
+    const beats = Array.from({ length: 40 }, (_, i) => i * 0.5)
+    assert.deepEqual(snapDurationsToBeats([1.9, 2.2, 1.1], beats), [2, 2, 1])
+    assert.deepEqual(snapDurationsToBeats([1.9, 2.2, 1.1], beats, { beatsPerCut: 4 }), [2, 2, 2])
+  }],
+  ['shot cuts are sudden changes, not slow drift', () => {
+    const times = Array.from({ length: 60 }, (_, i) => i * 0.25)
+    const diffs = times.map((_, i) => (i === 10 || i === 30 ? 0.6 : i === 11 ? 0.55 : i >= 40 && i < 50 ? 0.15 : 0.02))
+    assert.deepEqual(findCuts(diffs, times), [10, 30])
+  }],
+
+  ['"remove silences" cuts the pause out of a clip', async () => {
+    const f = loadFixture()
+    // clip.mp4 plays source 0–4 s on scene 2; talking at 0.5–1.5 and 2.5–3.5.
+    const audio = speechSignal(10, [[0.5, 1.5], [2.5, 3.5]])
+    const { planned } = await apply('remove silences', fakeMedia({ decodeMono: async () => ({ samples: audio, sampleRate: SR }) }))
+    assert.match(planned.plan.summary, /Remove 1 pause/)
+    const scenes = project().scenes
+    assert.equal(scenes.length, 5)
+    assert.equal(scenes[1].id, f.scenes[1].id)
+    near(scenes[1].duration, 1.65, 0.05, 'first part')
+    near(scenes[2].duration, 1.65, 0.05, 'second part')
+    const rest = scenes[2].elements.find(e => e.type === 'video') as VideoElement
+    near(rest.startTime ?? 0, 2.35, 0.05, 'second part resumes after the pause')
+  }],
+  ['"remove filler words" cuts each filler', async () => {
+    loadFixture()
+    const words = [
+      { start: 0.2, end: 0.6, text: 'So,' }, { start: 1.0, end: 1.3, text: 'um,' }, { start: 1.3, end: 2.0, text: 'today' },
+      { start: 2.0, end: 2.4, text: 'E-R-M,' }, { start: 2.4, end: 3.0, text: 'cutting.' },
+    ]
+    const { planned } = await apply('remove filler words', fakeMedia({ transcribeWords: async () => words }))
+    assert.match(planned.plan.summary, /Remove 2 filler words \(0\.7s\)/)
+    const parts = project().scenes.slice(1, 4).map(s => Math.round(s.duration * 100) / 100)
+    assert.deepEqual(parts, [1, 0.7, 1.6])
+  }],
+  ['"cut to the beat" snaps scene ends under the music', async () => {
+    loadFixture()
+    // song.mp3 plays 0–12 s from the start of the project; beats at 0.2 + k·0.5.
+    const { planned } = await apply('cut to the beat', fakeMedia({ decodeMono: async () => ({ samples: clickTrack(30, 0.5, 0.2), sampleRate: SR }) }))
+    assert.match(planned.plan.summary, /to the beat \(120/)
+    // Boundaries at 5 and 9 move to beats 5.2 and 9.2; the ones past the music stay.
+    // Beats are found to the nearest 10 ms analysis frame.
+    const durations = project().scenes.map(s => s.duration)
+    ;[5.2, 4, 5.8, 3].forEach((expected, i) => near(durations[i], expected, 0.03, `scene ${i + 1}`))
+  }],
+  ['"split into shots" splits at each change', async () => {
+    loadFixture()
+    await apply('split the video into shots', fakeMedia({ detectShotChanges: async () => [1.2, 2.8] }))
+    assert.deepEqual(project().scenes.slice(1, 4).map(s => Math.round(s.duration * 100) / 100), [1.2, 1.6, 1.2])
+  }],
+  ['ducking keys dip under speech, hold through short pauses and follow trim and speed', () => {
+    const clip = { absStart: 10, duration: 20, startTime: 0, speed: 1 }
+    const keys = duckingKeys([[12, 14], [14.5, 16], [22, 23]], clip, { level: 0.2, fade: 0.3, hold: 0.6 })
+    // 12–16 is one dip (the 0.5 s pause is held), 22–23 another.
+    assert.deepEqual(keys, [
+      { t: 1.7, v: 1 }, { t: 2, v: 0.2 }, { t: 6, v: 0.2 }, { t: 6.3, v: 1 },
+      { t: 11.7, v: 1 }, { t: 12, v: 0.2 }, { t: 13, v: 0.2 }, { t: 13.3, v: 1 },
+    ])
+    near(volumeKeyGain(keys, 1), 1, 1e-9, 'before')
+    near(volumeKeyGain(keys, 1.85), 0.6, 1e-9, 'half way down')
+    near(volumeKeyGain(keys, 4), 0.2, 1e-9, 'while talking')
+    near(volumeKeyGain(keys, 9), 1, 1e-9, 'in a long pause')
+    // A trimmed, sped-up clip: keys land at the right source seconds.
+    const fast = duckingKeys([[12, 14]], { absStart: 10, duration: 10, startTime: 5, speed: 2 }, { level: 0.5, fade: 0.25 })
+    assert.deepEqual(fast.map(k => k.t), [8.5, 9, 13, 13.5])
+    // Speech outside the clip changes nothing.
+    assert.deepEqual(duckingKeys([[1, 3], [40, 41]], clip), [])
+  }],
+  ['the FFmpeg volume filter follows the keys in clip time', () => {
+    assert.equal(buildFfmpegVolumeKeysFilter([], { duration: 5 }), null)
+    assert.equal(buildFfmpegVolumeKeysFilter([{ t: 1, v: 1 }, { t: 3, v: 1 }], { duration: 5 }), null)
+    const filter = buildFfmpegVolumeKeysFilter([{ t: 4, v: 1 }, { t: 6, v: 0.5 }], { startTime: 2, speed: 2, duration: 5 })!
+    // Source 4 s and 6 s are clip seconds 1 and 2.
+    assert.match(filter, /^volume='lt\(t\\,1\)\*1\+gte\(t\\,1\)\*lt\(t\\,2\)\*\(1\+\(-0\.5\)\*\(t-1\)\)\+gte\(t\\,2\)\*0\.5':eval=frame$/)
+    // Keys far outside the clip are left out.
+    const many = buildFfmpegVolumeKeysFilter([{ t: 0, v: 1 }, { t: 1, v: 0.3 }, { t: 50, v: 0.3 }, { t: 51, v: 1 }, { t: 90, v: 1 }], { duration: 10 })!
+    assert.ok(!many.includes('90'), many)
+  }],
+  ['"duck the music" lowers the song while the video talks, and undoes in one step', async () => {
+    const f = loadFixture()
+    const media = fakeMedia({
+      decodeMono: async path => path === 'clip.mp4'
+        ? { samples: speechSignal(10, [[1, 2.5]]), sampleRate: SR }
+        : { samples: new Float32Array(SR * 10), sampleRate: SR },
+    })
+    const { planned, issues } = await apply('duck the music to 20%', media)
+    assert.deepEqual(issues.map(i => i.message), [])
+    assert.match(planned.plan.summary, /Duck song\.mp3 to 20%/)
+    const music = () => project().scenes[0].elements.find(el => el.id === f.el.music.id) as AudioElement
+    const keys = music().volumeKeys!
+    assert.equal(keys.length, 4, JSON.stringify(keys))
+    // The clip talks at 1–2.5 s of its file; scene 2 starts at 5 s, so the song dips around 6–7.5 s.
+    near(keys[1].t, 6, 0.06, 'dip starts')
+    near(keys[2].t, 7.5, 0.06, 'dip ends')
+    near(volumeKeyGain(keys, 6.8), 0.2, 1e-6, 'gain while talking')
+    near(volumeKeyGain(keys, 3), 1, 1e-6, 'gain before')
+    useEditorStore.getState().undo()
+    assert.equal(music().volumeKeys, undefined)
+  }],
+  ['"remove the ducking" clears the keys', async () => {
+    const f = loadFixture()
+    useEditorStore.getState().updateElement(f.el.music.id, { volumeKeys: [{ t: 1, v: 0.2 }] } as Partial<AudioElement>)
+    await apply('remove the ducking', fakeMedia({}))
+    assert.equal((project().scenes[0].elements.find(el => el.id === f.el.music.id) as AudioElement).volumeKeys, undefined)
+  }],
+  ['ducking with no voice explains why', async () => {
+    const f = loadFixture()
+    useEditorStore.getState().updateElement(f.el.video.id, { muted: true } as Partial<VideoElement>)
+    useEditorStore.getState().removeElement(f.el.voice.id)
+    const { issues } = await apply('lower the music when I talk', fakeMedia({}))
+    assert.ok(issues.some(i => /no voice to duck under/.test(i.message)), JSON.stringify(issues))
+  }],
+  ['reframe holds still on a speaker who barely moves', () => {
+    const path = reframePath(faceTrack(10, () => 0.62, { jitter: 0.01 }), { cropW: 0.3164, cropH: 1 })!
+    assert.equal(path.moving, false)
+    assert.equal(path.keys.length, 2, JSON.stringify(path.keys))
+    near(path.keys[0].cx, 0.62, 0.01, 'centred on the face')
+    assert.equal(path.coverage, 1)
+  }],
+  ['reframe follows a speaker walking across the frame, smoothly and close', () => {
+    const cropW = 0.3164
+    const walk = (t: number) => 0.25 + (0.5 * t) / 12
+    const samples = faceTrack(12, walk, { jitter: 0.004 })
+    const path = reframePath(samples, { cropW, cropH: 1 })!
+    assert.equal(path.moving, true)
+    for (const { t } of samples) {
+      const crop = cropAt({ x: 0, y: 0, w: cropW, h: 1 }, path.keys, t)!
+      const face = walk(t)
+      assert.ok(face - 0.05 >= crop.x - 0.01 && face + 0.05 <= crop.x + crop.w + 0.01, `face stays in the crop at ${t}s`)
+    }
+    // No back-and-forth: the crop only moves one way.
+    const xs = path.keys.map(k => k.cx)
+    assert.ok(xs.every((x, i) => i === 0 || x >= xs[i - 1] - 0.003), JSON.stringify(xs))
+    assert.ok(path.keys.length < samples.length, 'keys are simplified')
+  }],
+  ['reframe cuts with the shot instead of panning across', () => {
+    const path = reframePath(faceTrack(10, t => (t < 5 ? 0.25 : 0.75)), { cropW: 0.3164, cropH: 1 })!
+    assert.equal(path.cuts, 1)
+    const before = cropAt({ x: 0, y: 0, w: 0.3164, h: 1 }, path.keys, 4.9)!
+    const after = cropAt({ x: 0, y: 0, w: 0.3164, h: 1 }, path.keys, 5.0)!
+    near(before.x + before.w / 2, 0.25, 0.01, 'first shot')
+    near(after.x + after.w / 2, 0.75, 0.01, 'second shot, right away')
+  }],
+  ['reframe keeps the last framing where the face is lost, and sticks with the main speaker', () => {
+    const lost = reframePath(faceTrack(8, () => 0.6, { gone: t => t > 3 && t < 5 }), { cropW: 0.3164, cropH: 1 })!
+    near(lost.coverage, 26 / 33, 0.01, 'coverage (7 of 33 samples lost)')
+    near(cropAt({ x: 0, y: 0, w: 0.3164, h: 1 }, lost.keys, 4)!.x + 0.1582, 0.6, 0.01, 'holds while lost')
+    // A smaller face passing by does not steal the framing.
+    const crowd = trackMainFace(faceTrack(4, () => 0.3, { extra: t => (t > 1 ? [{ x: 0.75, y: 0.35, w: 0.06, h: 0.12, score: 0.95 }] : []) }))
+    assert.ok(crowd.every(p => p && Math.abs(p.cx - 0.3) < 0.01))
+    // Vertical room: the face sits a little above the middle of the crop.
+    const tall = reframePath(faceTrack(4, () => 0.5, { cy: 0.5 }), { cropW: 1, cropH: 0.5 })!
+    near(tall.keys[0].cy, 0.55, 0.001, 'head room')
+    assert.equal(reframePath(faceTrack(4, () => 0.5, { gone: () => true }), { cropW: 0.3, cropH: 1 }), null)
+  }],
+  ['"reframe the video for vertical" fills a 9:16 frame and follows the face, then undoes', async () => {
+    const f = loadFixture()
+    useEditorStore.setState(s => ({ project: { ...s.project!, width: 1080, height: 1920 } }))
+    f.goTo(2)
+    let asked: [number, number] | null = null
+    const media = fakeMedia({
+      detectFaces: async (_path, from, to) => {
+        asked = [from, to]
+        return { aspect: 16 / 9, samples: faceTrack(4, t => 0.3 + t * 0.1) }
+      },
+    })
+    const { planned, issues } = await apply('reframe the video for vertical', media)
+    assert.deepEqual(issues.map(i => i.message), [])
+    assert.deepEqual(asked, [0, 4], 'only the part of the file the clip plays')
+    assert.match(planned.plan.summary, /Reframe clip\.mp4 to fill the frame: the face is in 100% of it/)
+    const video = () => project().scenes[1].elements.find(e => e.id === f.el.video.id) as VideoElement
+    const v = video()
+    assert.deepEqual([v.x, v.y, v.width, v.height], [0, 0, 1080, 1920])
+    near(v.crop!.w, (1080 / 1920) / (16 / 9), 0.0001, 'crop width for 9:16 out of 16:9')
+    assert.equal(v.crop!.h, 1)
+    assert.ok(v.cropKeys!.length >= 2)
+    near(cropAt(v.crop, v.cropKeys, 0)!.x + v.crop!.w / 2, 0.3, 0.02, 'starts on the face')
+    useEditorStore.getState().undo()
+    assert.deepEqual([video().width, video().cropKeys], [640, undefined])
+  }],
+  ['a clip that already shows its whole picture explains there is nothing to follow', async () => {
+    loadFixture()
+    useEditorStore.setState(s => ({ currentSceneId: s.project!.scenes[1].id }))
+    const { issues } = await apply('follow the face in the video', fakeMedia({ detectFaces: async () => ({ aspect: 16 / 9, samples: faceTrack(2, () => 0.5) }) }))
+    assert.ok(issues.some(i => /no room to follow the face/.test(i.message)), JSON.stringify(issues))
+  }],
+  ['"stop following the face" removes the moving crop', async () => {
+    const f = loadFixture()
+    useEditorStore.getState().updateElement(f.el.video.id, { crop: { x: 0.3, y: 0, w: 0.4, h: 1 }, cropKeys: [{ t: 0, cx: 0.5, cy: 0.5 }, { t: 2, cx: 0.6, cy: 0.5 }] } as Partial<VideoElement>)
+    useEditorStore.setState(s => ({ currentSceneId: s.project!.scenes[1].id }))
+    await apply('stop following the face', fakeMedia({}))
+    const v = project().scenes[1].elements.find(e => e.id === f.el.video.id) as VideoElement
+    assert.equal(v.cropKeys, undefined)
+    assert.deepEqual(v.crop, { x: 0.3, y: 0, w: 0.4, h: 1 }, 'the crop stays where it is')
+  }],
+  ['no speech means no cuts', async () => {
+    loadFixture()
+    const { issues } = await apply('remove silences', fakeMedia({ decodeMono: async () => ({ samples: new Float32Array(SR * 10), sampleRate: SR }) }))
+    assert.equal(project().scenes.length, 4)
+    assert.ok(issues.some(i => /No speech found/.test(i.message)))
+  }],
+]
+
+async function main() {
+  let failed = 0
+  for (const [name, test] of tests) {
+    try {
+      await test()
+    } catch (error) {
+      failed++
+      console.error(`✘ ${name}\n  ${(error as Error).message.split('\n').slice(0, 6).join('\n  ')}`)
+    }
+  }
+  if (failed) {
+    console.error(`\n${failed}/${tests.length} smart tests failed`)
+    process.exit(1)
+  }
+  console.log(`ai smart tests passed (${tests.length})`)
+}
+
+main().catch(error => { console.error(error); process.exit(1) })

@@ -17,9 +17,13 @@ import IconEditPanel from '../panels/IconEditPanel'
 import PerspectivePanel from '../panels/PerspectivePanel'
 import VideoUploadPanel from '../panels/VideoUploadPanel'
 import VideoPanel from '../panels/VideoPanel'
+import EditBgPanel from '../panels/EditBgPanel'
+import TranscriptPanel, { useTranscriptView } from '../panels/TranscriptPanel'
 import LatexPanel from '../panels/LatexPanel'
 import CounterPanel from '../panels/CounterPanel'
 import MotionPanel from '../panels/MotionPanel'
+import GroupEffectsPanel from '../panels/GroupEffectsPanel'
+import BlocksPanel from '../panels/BlocksPanel'
 import HandDrawPanel from '../panels/HandDrawPanel'
 import MediaEffectsPanel from '../panels/MediaEffectsPanel'
 import type { ActivePanel } from '../../types/editor'
@@ -48,11 +52,15 @@ export default function OptionsSidebar() {
 
   const selected = project ? getSelectedEls() : []
   const firstEl  = selected[0]
+  const transcriptSrc = useTranscriptView(s => s.src)
 
   function renderPanel() {
     if (!project) {
       return <HintPanel text="Open or create a project to start editing." />
     }
+
+    // Transcript editing stays open while the selection changes (e.g. clicking words seeks the canvas).
+    if (transcriptSrc) return <TranscriptPanel />
 
     // Auto-show element panel when element selected and no panel active, OR when
     // the active panel is the element's natural home panel (e.g. image selected + upload open).
@@ -60,6 +68,7 @@ export default function OptionsSidebar() {
       if (activePanel === 'effects') {
         return <MediaEffectsPanel />
       }
+      if (activePanel === 'editBg') return <EditBgPanel />
 
       const home = ELEMENT_PANEL[firstEl.type]
       if (!activePanel || activePanel === home) {
@@ -97,7 +106,10 @@ export default function OptionsSidebar() {
       case 'transitions':  return <TransitionPanel />
       case 'perspective':  return <PerspectivePanel />
       case 'motion':       return <MotionPanel />
+      case 'groupEffects': return <GroupEffectsPanel />
+      case 'blocks':       return <BlocksPanel />
       case 'effects':      return <MediaEffectsPanel />
+      case 'editBg':       return <EditBgPanel />
       default:
         return <HintPanel text="Menu Options Panel (select to see)" />
     }

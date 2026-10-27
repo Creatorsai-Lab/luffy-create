@@ -2,6 +2,34 @@
 
 All notable changes to Luffy Create. Download installers from [GitHub Releases](https://github.com/Creatorsai-Lab/luffy-create/releases).
 
+## 1.5.0
+
+Type the edit: an AI Agent that edits from plain words, plus cinematic transitions, 43 effects, speed ramps, precise background removal, jump cuts and add-ons. All on your computer, fast on low-end PCs. Full notes: [docs/releases/v1.5.0.md](docs/releases/v1.5.0.md).
+
+### New
+
+- **AI Agent** — plain-language edits with a plan preview, `/history` and `/undo #N`, `@` media and `/` add-ons; smart edits that remove silences, filler words and retakes, cut to the beat, split into shots and duck music.
+- **Jump-cut studio and edit by transcript** — cut pauses, fillers and retakes (with punch-in zooms), or delete words in the transcript; local Whisper.
+- **Auto reframe** — landscape to 9:16 following the speaker's face; split-screen layouts and caption presets.
+- **22 GPU transitions** (whip pan, zoom blur, light leak, film burn, glitch, cube…), intro from black and an ending fade; the outgoing scene keeps playing and the sound crossfades.
+- **43 effects in 9 groups** — neon outline and aura on a person, VHS, 8mm, glitch, warp, light leaks, phonk, rain, snow and 12 colour looks; timed, stackable, on the beat.
+- **Speed ramps and freeze frames** — 7 presets or a custom curve; sound follows the speed with its pitch kept.
+- **Edit BG and precise background removal** — remove, blur or colour the background in one click; a one-time 44 MB precise cut-out for people, cars, products and groups; click to keep or remove a person or object (45 MB, once), followed through video.
+- **Add-ons** — neural network, flowchart, code walkthrough, equation reveal, title card, lower third, hook/CTA; editable by prompt and in perspective.
+- **Connectors, Group Effects, groups and locking** — attached arrows, wave animations, Ctrl+G.
+- **Content Planner**, Settings with About and feedback.
+
+### Improved
+
+- Export asks where to save first and keeps full speed when minimised; faster timeline rendering and fewer re-renders.
+- Old projects' grading, grain, vignette and media effects open in the new effects system.
+
+### Fixed
+
+- 9:16 projects exported at 608×1080 instead of 1080×1920.
+- Sound of speed-ramped clips drifted ahead of the picture in export.
+- Transitions now match between editor, Preview and export (push, wipe direction, zoom).
+
 ## 1.4.0
 
 The biggest update since launch: new media effects and transitions, bilingual offline captions, a real Morph transition, perspective on every element, and a much more reliable timeline.

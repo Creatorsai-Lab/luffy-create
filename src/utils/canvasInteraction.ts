@@ -1,8 +1,10 @@
 import type { ActiveTool, ElementType } from '../types/editor'
 
 export function getCanvasElementInteraction(activeTool: ActiveTool, locked: boolean, type: ElementType) {
-  const listening = activeTool === 'select' && !locked
-  return { listening, draggable: listening && type !== 'handDraw' }
+  // Locked items still take clicks (to select them, see the lock and right-click
+  // → Unlock) but can't be dragged or resized.
+  const listening = activeTool === 'select'
+  return { listening, draggable: listening && !locked && type !== 'handDraw' }
 }
 
 export function getCanvasCursor(

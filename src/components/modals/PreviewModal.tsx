@@ -1,19 +1,12 @@
-import { useRef, useEffect, useCallback, useState, type CSSProperties } from 'react'
-import { Stage, Layer, Shape } from 'react-konva'
+import { useRef, useEffect, useState } from 'react'
 import type Konva from 'konva'
 import { X, Play, Pause, SkipBack } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
-import { getAnimatedProps } from '../../engine/animator'
-import { drawBackground } from '../../engine/backgroundRenderer'
-import { easeInOutCubic, renderTransition } from '../../engine/transitionRenderer'
-import { isDirectionalTransition } from '../../engine/directionalTransitions'
-import { buildTransitionTimeline, getTransitionFrameState } from '../../utils/transitionTiming'
-import CanvasElement from '../canvas/CanvasElement'
-import { captureStageToCanvas } from '../canvas/captureStageToCanvas'
-import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
-import type { Background, AudioElement, VideoElement, ImageBg, Scene, Project, SlideDir, TransitionType } from '../../types/editor'
+import { buildTransitionTimeline, getTransitionFrameState, type TransitionTimeline } from '../../utils/transitionTiming'
+import SceneStage from '../canvas/SceneStage'
+import { blendVolumes, captureLayers, drawBlend, type BlendState } from '../canvas/transitionComposite'
+import type { AudioElement, Scene, Project } from '../../types/editor'
 import { toFileUrl } from '../../utils/pathUtils'
-import { getVideoClipState } from '../../utils/videoClip'
 import { prewarmUpcomingVideos } from '../../engine/videoPreloader'
 import { getMorphFrame } from '../../engine/morph'
 import { fitPreviewToViewport } from '../../utils/previewLayout'
@@ -141,7 +134,7 @@ export default function PreviewModal() {
 
   if (!project) return null
 
-  const timeline = buildTransitionTimeline(project.scenes)
+  const timeline = buildTransitionTimeline(project.scenes, project.endTransition)
   const frameState = getTransitionFrameState(timeline, playhead)
 
   return (
@@ -206,6 +199,9 @@ export default function PreviewModal() {
   )
 }
 
+/** Seconds before a cut that the next scene's stage is mounted, so its videos are ready. */
+const LEAD = 0.6
+
 function PreviewFrame({
   project,
   frameState,
@@ -218,341 +214,101 @@ function PreviewFrame({
 }: {
   project: Project
   frameState: ReturnType<typeof getTransitionFrameState>
-  timeline: ReturnType<typeof buildTransitionTimeline>
+  timeline: TransitionTimeline
   width: number
   height: number
   scale: number
   playhead: number
   isPlaying: boolean
 }) {
-  if (frameState.kind === 'scene') {
-    const scene = project.scenes[frameState.sceneIndex]
-    return (
-      <PreviewSceneStage
-        project={project}
-        scene={scene}
-        localTime={frameState.sceneTime}
-        globalTime={playhead}
-        width={width}
-        height={height}
-        scale={scale}
-        isPlaying={isPlaying}
-        style={{ position: 'absolute', inset: 0 }}
-      />
-    )
-  }
+  const stagesRef = useRef(new Map<string, Konva.Stage>())
 
-  const morph = frameState.transition.type === 'morph' ? getMorphFrame(project, playhead) : null
+  const morph = frameState.kind === 'transition' && frameState.transition.type === 'morph' ? getMorphFrame(project, playhead) : null
   if (morph) {
     return (
-      <PreviewSceneStage
-        project={project}
-        scene={morph.scene}
-        localTime={morph.localTime}
-        globalTime={playhead}
-        width={width}
-        height={height}
-        scale={scale}
-        isPlaying={isPlaying}
-        style={{ position: 'absolute', inset: 0 }}
-      />
+      <SceneStage project={project} scene={morph.scene} localTime={morph.localTime} globalTime={playhead}
+        width={width} height={height} scale={scale} isPlaying={isPlaying} style={{ position: 'absolute', inset: 0 }} />
     )
   }
 
-  const fromScene = project.scenes[frameState.fromSceneIndex]
-  const toScene = project.scenes[frameState.toSceneIndex]
-  const fromLocalTime = Math.max(0, frameState.fromTime - timeline[frameState.fromSceneIndex].startTime)
-  const toLocalTime = Math.max(0, frameState.toTime - timeline[frameState.toSceneIndex].startTime)
-
-  if (isDirectionalTransition(frameState.transition.type)) {
-    return (
-      <DirectionalTransitionPreview
-        project={project}
-        fromScene={fromScene}
-        toScene={toScene}
-        fromLocalTime={fromLocalTime}
-        toLocalTime={toLocalTime}
-        fromGlobalTime={frameState.fromTime}
-        toGlobalTime={frameState.toTime}
-        progress={frameState.progress}
-        transition={frameState.transition}
-        width={width}
-        height={height}
-        scale={scale}
-        isPlaying={isPlaying}
-      />
-    )
+  const blend = frameState.kind === 'transition' ? frameState : null
+  const volumes = blend ? blendVolumes(blend) : null
+  // The scenes on stage, keyed by scene so a scene keeps its stage (and its playing videos) across a cut.
+  const stages: Array<{ scene: Scene; localTime: number; playing: boolean; volume: number; visible: boolean }> = []
+  if (frameState.kind === 'scene') {
+    const scene = project.scenes[frameState.sceneIndex]
+    stages.push({ scene, localTime: frameState.sceneTime, playing: isPlaying, volume: 1, visible: true })
+    const next = timeline[frameState.sceneIndex + 1]
+    const current = timeline[frameState.sceneIndex]
+    if (isPlaying && next && next.transition.type !== 'none' && next.transition.type !== 'morph' && current.endTime - playhead < LEAD) {
+      stages.push({ scene: project.scenes[next.sceneIndex], localTime: 0, playing: false, volume: 0, visible: false })
+    }
+  } else if (blend) {
+    if (blend.fromSceneIndex >= 0) stages.push({ scene: project.scenes[blend.fromSceneIndex], localTime: blend.fromLocalTime, playing: isPlaying, volume: volumes!.from, visible: false })
+    if (blend.toSceneIndex >= 0) stages.push({ scene: project.scenes[blend.toSceneIndex], localTime: blend.toLocalTime, playing: isPlaying, volume: volumes!.to, visible: false })
   }
-
-  const p = easeInOutCubic(frameState.progress)
-  const styles = transitionLayerStyles(frameState.transition.type, frameState.transition.direction, p)
 
   return (
     <>
-      <PreviewSceneStage
-        project={project}
-        scene={fromScene}
-        localTime={fromLocalTime}
-        globalTime={frameState.fromTime}
-        width={width}
-        height={height}
-        scale={scale}
-        isPlaying={false}
-        style={{ position: 'absolute', inset: 0, zIndex: 1, ...styles.from }}
-      />
-      <PreviewSceneStage
-        project={project}
-        scene={toScene}
-        localTime={toLocalTime}
-        globalTime={frameState.toTime}
-        width={width}
-        height={height}
-        scale={scale}
-        isPlaying={isPlaying}
-        style={{ position: 'absolute', inset: 0, zIndex: 2, ...styles.to }}
-      />
+      {stages.map(({ scene, localTime, playing, volume, visible }) => (
+        <SceneStage
+          key={scene.id}
+          refSetter={stage => { if (stage) stagesRef.current.set(scene.id, stage); else stagesRef.current.delete(scene.id) }}
+          project={project}
+          scene={scene}
+          localTime={localTime}
+          globalTime={playhead}
+          width={width}
+          height={height}
+          scale={scale}
+          isPlaying={playing}
+          keepPlaying
+          mediaVolume={volume}
+          quietLoading={!visible}
+          style={{ position: 'absolute', inset: 0, opacity: visible ? 1 : 0 }}
+        />
+      ))}
+      {blend && <BlendCanvas state={blend} stages={stagesRef} width={width} height={height} />}
     </>
   )
 }
 
-function DirectionalTransitionPreview({
-  project,
-  fromScene,
-  toScene,
-  fromLocalTime,
-  toLocalTime,
-  fromGlobalTime,
-  toGlobalTime,
-  progress,
-  transition,
-  width,
-  height,
-  scale,
-  isPlaying,
-}: {
-  project: Project
-  fromScene: Scene
-  toScene: Scene
-  fromLocalTime: number
-  toLocalTime: number
-  fromGlobalTime: number
-  toGlobalTime: number
-  progress: number
-  transition: Scene['transition']
+/** The transition frame, redrawn every animation frame from the live stages. */
+function BlendCanvas({ state, stages, width, height }: {
+  state: BlendState
+  stages: React.MutableRefObject<Map<string, Konva.Stage>>
   width: number
   height: number
-  scale: number
-  isPlaying: boolean
 }) {
-  const [fromStage, setFromStage] = useState<Konva.Stage | null>(null)
-  const [toStage, setToStage] = useState<Konva.Stage | null>(null)
   const canvas = useRef<HTMLCanvasElement | null>(null)
-  const fromCapture = useRef<HTMLCanvasElement | null>(null)
-  const toCapture = useRef<HTMLCanvasElement | null>(null)
-  const frame = useRef(0)
-
-  const draw = useCallback(() => {
-    const ctx = canvas.current?.getContext('2d')
-    if (!ctx || !fromStage || !toStage ||
-        !isDirectionalTransition(transition.type)) return
-    const fromCanvas = fromCapture.current ?? document.createElement('canvas')
-    const toCanvas = toCapture.current ?? document.createElement('canvas')
-    fromCapture.current = fromCanvas
-    toCapture.current = toCanvas
-    renderTransition({
-      ctx,
-      width,
-      height,
-      progress,
-      type: transition.type,
-      direction: transition.direction,
-      speed: transition.speed,
-      hardness: transition.hardness,
-      fromCanvas: captureStageToCanvas(fromStage, fromCanvas, width, height),
-      toCanvas: captureStageToCanvas(toStage, toCanvas, width, height),
-    })
-  }, [fromStage, height, progress, toStage, transition, width])
-
-  const drawLatest = useRef(draw)
-  drawLatest.current = draw
-
-  // One continuous loop for the life of the transition. A one-shot rAF that is
-  // cancelled and rescheduled on every render/layer redraw never fires while
-  // playback re-renders each frame — the transition then never paints.
-  useEffect(() => {
-    const loop = () => {
-      drawLatest.current()
-      frame.current = requestAnimationFrame(loop)
-    }
-    frame.current = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(frame.current)
-  }, [])
-
-  return (
-    <>
-      <PreviewSceneStage
-        refSetter={setFromStage}
-        project={project}
-        scene={fromScene}
-        localTime={fromLocalTime}
-        globalTime={fromGlobalTime}
-        width={width}
-        height={height}
-        scale={scale}
-        isPlaying={false}
-        style={{ position: 'absolute', inset: 0, zIndex: 1 }}
-      />
-      <PreviewSceneStage
-        refSetter={setToStage}
-        project={project}
-        scene={toScene}
-        localTime={toLocalTime}
-        globalTime={toGlobalTime}
-        width={width}
-        height={height}
-        scale={scale}
-        isPlaying={isPlaying}
-        style={{ position: 'absolute', inset: 0, zIndex: 0, opacity: 0 }}
-      />
-      <canvas
-        ref={canvas}
-        width={width}
-        height={height}
-        style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}
-      />
-    </>
-  )
-}
-
-function transitionLayerStyles(
-  type: TransitionType,
-  direction: SlideDir | undefined,
-  p: number
-): { from: CSSProperties; to: CSSProperties } {
-  const dir = direction ?? 'left'
-  const pct = (n: number) => `${n}%`
-
-  switch (type) {
-    case 'slide':
-    case 'push': {
-      let from: CSSProperties = {}
-      let to: CSSProperties = {}
-      if (dir === 'right') {
-        from = { transform: `translateX(${pct(-p * 100)})` }
-        to = { transform: `translateX(${pct((1 - p) * 100)})` }
-      } else if (dir === 'left') {
-        from = { transform: `translateX(${pct(p * 100)})` }
-        to = { transform: `translateX(${pct(-(1 - p) * 100)})` }
-      } else if (dir === 'down') {
-        from = { transform: `translateY(${pct(-p * 100)})` }
-        to = { transform: `translateY(${pct((1 - p) * 100)})` }
-      } else {
-        from = { transform: `translateY(${pct(p * 100)})` }
-        to = { transform: `translateY(${pct(-(1 - p) * 100)})` }
-      }
-      return { from, to }
-    }
-
-    case 'wipe': {
-      const to: CSSProperties =
-        dir === 'right' ? { clipPath: `inset(0 0 0 ${(1 - p) * 100}%)` } :
-        dir === 'left'  ? { clipPath: `inset(0 ${(1 - p) * 100}% 0 0)` } :
-        dir === 'down'  ? { clipPath: `inset(${(1 - p) * 100}% 0 0 0)` } :
-                          { clipPath: `inset(0 0 ${(1 - p) * 100}% 0)` }
-      return { from: {}, to }
-    }
-
-    case 'zoom':
-      return {
-        from: {},
-        to: {
-          opacity: p,
-          transform: `scale(${0.985 + p * 0.015})`,
-          transformOrigin: 'center center',
-        },
-      }
-
-    case 'fade':
-    default:
-      return { from: {}, to: { opacity: p } }
-  }
-}
-
-function PreviewSceneStage({
-  refSetter,
-  project,
-  scene,
-  localTime,
-  globalTime,
-  width,
-  height,
-  scale,
-  isPlaying,
-  style,
-}: {
-  refSetter?: (stage: Konva.Stage | null) => void
-  project: Project
-  scene: Scene
-  localTime: number
-  globalTime: number
-  width: number
-  height: number
-  scale: number
-  isPlaying: boolean
-  style?: CSSProperties
-}) {
-  const sorted = [...scene.elements].sort((a, b) => a.zIndex - b.zIndex)
-
-  return (
-    <div style={{ width: '100%', height: '100%', pointerEvents: 'none', ...style }}>
-      <Stage ref={refSetter} width={width} height={height} scaleX={scale} scaleY={scale}>
-        <Layer>
-          <BgShape bg={scene.background} w={project.width} h={project.height} time={globalTime} />
-        </Layer>
-        <Layer>
-          {sorted.filter(e => {
-            if (!e.visible) return false
-            if (e.type === 'video') return getVideoClipState(e as VideoElement, localTime).visible
-            return true
-          }).map(el => (
-            <CanvasElement
-              key={el.id}
-              element={el}
-              animProps={getAnimatedProps(el, localTime)}
-              isSelected={false}
-              onSelect={() => { }}
-              onDblClick={() => { }}
-              stageScale={scale}
-              localTime={localTime}
-              sceneWidth={project.width}
-              syncVideoToTime
-              videoPlaybackActive={isPlaying}
-            />
-          ))}
-          <SubtitleOverlay project={project} time={globalTime} />
-        </Layer>
-      </Stage>
-    </div>
-  )
-}
-
-function BgShape({ bg, w, h, time }: { bg: Background; w: number; h: number; time: number }) {
-  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null)
-  const bgSrc = bg.type === 'image' ? (bg as ImageBg).src : ''
+  const scratch = useRef({ main: document.createElement('canvas'), other: document.createElement('canvas') })
+  const latest = useRef(state)
+  latest.current = state
+  const dpr = window.devicePixelRatio || 1
+  const W = Math.round(width * dpr)
+  const H = Math.round(height * dpr)
 
   useEffect(() => {
-    if (!bgSrc) { setBgImage(null); return }
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => setBgImage(img)
-    img.onerror = () => setBgImage(null)
-    img.src = toFileUrl(bgSrc)
-  }, [bgSrc])
+    let frame = 0
+    const draw = () => {
+      const ctx = canvas.current?.getContext('2d')
+      const s = latest.current
+      const mainId = s.phase === 'outro' ? s.fromSceneId : s.toSceneId
+      const main = mainId ? stages.current.get(mainId) : undefined
+      const other = s.phase === 'cut' && s.fromSceneId ? stages.current.get(s.fromSceneId) : undefined
+      if (ctx && main) {
+        drawBlend(ctx, W, H, s,
+          captureLayers(main.getLayers(), scratch.current.main),
+          other ? captureLayers(other.getLayers(), scratch.current.other) : null)
+      }
+      frame = requestAnimationFrame(draw)
+    }
+    frame = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(frame)
+  }, [stages, W, H])
 
-  const sceneFunc = useCallback((ctx: Konva.Context) => {
-    const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
-    drawBackground(raw, bg, w, h, time, bgImage)
-  }, [bg, w, h, time, bgImage])
-
-  return <Shape width={w} height={h} sceneFunc={sceneFunc} listening={false} />
+  return (
+    <canvas ref={canvas} width={W} height={H}
+      style={{ position: 'absolute', inset: 0, width, height, zIndex: 2, pointerEvents: 'none' }} />
+  )
 }

@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { CODE_HEADER_H, CODE_LINE_NUM_W, CODE_PADDING, codeLineHeight } from '../../../utils/codeLayout'
 import { Shape, Group } from 'react-konva'
 import type Konva from 'konva'
 import type { CodeElement } from '../../../types/editor'
@@ -91,9 +92,17 @@ function tokenizeLine(line: string, lang: string): Token[] {
   return tokens
 }
 
-const PADDING     = 12
-const LINE_NUM_W  = 28
-const HEADER_H    = 35
+const PADDING     = CODE_PADDING
+const LINE_NUM_W  = CODE_LINE_NUM_W
+const HEADER_H    = CODE_HEADER_H
+export const CODE_TITLE_MAX_WORDS = 6
+
+/** First `CODE_TITLE_MAX_WORDS` words of a title. */
+export function limitCodeTitle(title: string) {
+  const words = title.split(/\s+/).filter(Boolean)
+  if (words.length <= CODE_TITLE_MAX_WORDS) return title.replace(/^\s+/, '')
+  return words.slice(0, CODE_TITLE_MAX_WORDS).join(' ')
+}
 
 interface VisibleLine {
   number: number
@@ -178,39 +187,61 @@ function wrapCodeLine(line: string, maxWidth: number, ctx: CanvasRenderingContex
 
 export default function CodeKonva({ el, konvaProps, localTime = 0, sceneWidth }: Props) {
   const lines = getVisibleLines(el, localTime)
-  const lineH = el.fontSize * 1.65
+  const lineH = codeLineHeight(el.fontSize)
   const numW  = el.showLineNumbers ? LINE_NUM_W : 0
-  const bgColor = (el as CodeElement & { bgColor?: string }).bgColor ?? '#0d1117'
+  const bgColor = el.bgColor ?? '#0d1117'
   const width = el.fitSceneWidth && sceneWidth ? sceneWidth : el.width
 
   const sceneFunc = useCallback((ctx: Konva.Context, shape: Konva.Shape) => {
     const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
     const w = width, h = el.height
+    const radius = Math.max(0, Math.min(el.cornerRadius ?? 6, w / 2, h / 2))
+    const borderWidth = Math.max(0, el.borderWidth ?? 0)
 
     raw.save()
 
-    // ── Background ────────────────────────────────────────────────────────
+    // ── Background: one colour for the whole block ───────────────────────
     raw.fillStyle = bgColor
-    if (raw.roundRect) {
+    raw.beginPath()
+    if (raw.roundRect) raw.roundRect(0, 0, w, h, radius)
+    else raw.rect(0, 0, w, h)
+    raw.fill()
+
+    if (borderWidth > 0) {
+      const inset = borderWidth / 2
+      raw.strokeStyle = el.borderColor ?? '#30363d'
+      raw.lineWidth = borderWidth
       raw.beginPath()
-      raw.roundRect(0, 0, w, h, 6)
-      raw.fill()
-    } else {
-      raw.fillRect(0, 0, w, h)
+      if (raw.roundRect) raw.roundRect(inset, inset, w - borderWidth, h - borderWidth, Math.max(0, radius - inset))
+      else raw.rect(inset, inset, w - borderWidth, h - borderWidth)
+      raw.stroke()
     }
 
-    // ── Header ───────────────────────────────────────────────────────────
-    raw.fillStyle = 'rgba(0, 5, 14, 0.35)'
-    raw.fillRect(0, 0, w, HEADER_H)
-
-    // Traffic-light dots
+    // ── Top bar: window dots and an optional centred title ───────────────
+    // Dots move inward as the corners get rounder, so the first one is never clipped.
+    const dotsX = Math.max(22, radius * 0.7 + 10)
     const dots = ['#ff5f57', '#febc2e', '#28c840']
     dots.forEach((color, i) => {
       raw.fillStyle = color
       raw.beginPath()
-      raw.arc(20 + i * 16, HEADER_H / 2, 4.5, 0, Math.PI * 2)
+      raw.arc(dotsX + i * 16, HEADER_H / 2, 4.5, 0, Math.PI * 2)
       raw.fill()
     })
+
+    const title = el.showTitle ? limitCodeTitle(el.title ?? '').trim() : ''
+    if (title) {
+      // Keep clear of the dots on both sides so the title stays centred.
+      const maxWidth = Math.max(0, w - 2 * (dotsX + 32 + 16))
+      raw.font = `600 ${Math.max(8, el.fontSize - 4)}px Inter, 'Segoe UI', sans-serif`
+      raw.fillStyle = '#c9d1d9'
+      raw.textAlign = 'center'
+      raw.textBaseline = 'middle'
+      let text = title
+      while (text.length > 1 && raw.measureText(text).width > maxWidth) text = text.slice(0, -2) + '…'
+      if (maxWidth > 0) raw.fillText(text, w / 2, HEADER_H / 2 + 1)
+      raw.textAlign = 'left'
+      raw.textBaseline = 'alphabetic'
+    }
 
     // ── Separator line ───────────────────────────────────────────────────
     raw.strokeStyle = 'rgba(255,255,255,0.08)'
@@ -220,10 +251,8 @@ export default function CodeKonva({ el, konvaProps, localTime = 0, sceneWidth }:
     raw.lineTo(w, HEADER_H)
     raw.stroke()
 
-    // ── Line number gutter ───────────────────────────────────────────────
+    // ── Line number gutter (a divider only, same background) ─────────────
     if (el.showLineNumbers) {
-      raw.fillStyle = 'rgba(0,0,0,0.2)'
-      raw.fillRect(PADDING, HEADER_H, numW + 6, h - HEADER_H)
       raw.strokeStyle = 'rgba(255,255,255,0.06)'
       raw.lineWidth = 1
       raw.beginPath()

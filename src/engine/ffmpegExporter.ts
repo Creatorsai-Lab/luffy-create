@@ -1,19 +1,27 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
-import type { Project, AudioElement, VideoElement } from '../types/editor'
+import type { Project, AudioElement, MediaKeying, VideoElement } from '../types/editor'
+import { prepareKeying } from './keying'
 import type Konva from 'konva'
-import { renderTransition } from './transitionRenderer'
+import { renderTransition, solidCanvas } from './transitionRenderer'
+import { warmUpShaders } from './transitions/glRenderer'
+import { soundPieces } from '../utils/speedCurve'
+import { prepareFx } from './fx/render'
 import { toFileUrl } from '../utils/pathUtils'
 import { buildFfmpegFadeVolumeExpression } from '../utils/audioFade'
-import { buildTransitionTimeline, getTransitionFrameState } from '../utils/transitionTiming'
+import { buildFfmpegVolumeKeysFilter } from '../utils/volumeKeys'
+import { buildTransitionTimeline, getEffectiveTransitionDuration, getEndTransitionDuration, getTransitionFrameState } from '../utils/transitionTiming'
+import { nextFrame } from '../utils/nextFrame'
 
 export interface FFmpegExportOptions {
   project: Project
   getStage: () => Konva.Stage | null
   onProgress: (pct: number, message: string) => void
   onLog?: (msg: string) => void
+  /** Shows the frame at `t` on the editor stage; during a cut it also shows the outgoing scene on its own stage. */
   renderFrame: (t: number) => Promise<void>
-  renderSceneFrame?: (sceneId: string, globalTime: number) => Promise<void>
+  /** The outgoing scene's stage during a cut (see EditorCanvas). */
+  getOutgoingStage?: () => Konva.Stage | null
   quality?: '720p' | '1080p'
 }
 
@@ -25,6 +33,8 @@ let ffmpegLoaded = false
 // load() pending forever. Cap it so the UI surfaces an error instead of hanging.
 const FFMPEG_LOAD_TIMEOUT_MS = 30_000
 const FALLBACK_EXPORT_AUDIO_GAIN = 4.0
+/** Footage seconds of spare sound either side of a speed-curve sound piece (see the pieces filter). */
+const SOUND_PIECE_MARGIN = 0.2
 
 async function deleteIfExists(ffmpeg: FFmpeg, path: string) {
   try { await ffmpeg.deleteFile(path) } catch {}
@@ -100,7 +110,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     onProgress,
     onLog,
     renderFrame,
-    renderSceneFrame,
+    getOutgoingStage,
     quality = '1080p',
   } = opts
 
@@ -112,6 +122,13 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
 
   onProgress(0, 'Initializing FFmpeg...')
   const ffmpeg = await loadFFmpeg(onLog)
+
+  // Effects: shaders compiled, music beats found, the cut-out model loaded before the first frame.
+  await prepareFx(project)
+  // The AI cut-out must be ready before the first frame is captured — precise masks included.
+  await prepareKeying(project.scenes.flatMap(scene => scene.elements as Array<{ keying?: MediaKeying }>), {
+    onProgress: message => onProgress(2, message),
+  })
 
   onProgress(5, 'Rendering frames...')
 
@@ -125,7 +142,9 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     willReadFrequently: false
   })!
 
-  const sceneTimeline = buildTransitionTimeline(project.scenes)
+  const sceneTimeline = buildTransitionTimeline(project.scenes, project.endTransition)
+  // Compile the shaders this video uses now, so the first transition frames don't stall.
+  warmUpShaders([...project.scenes.map(sc => sc.transition.type), ...(project.endTransition ? [project.endTransition.type] : [])])
 
   const fromCanvas = document.createElement('canvas')
   fromCanvas.width = w
@@ -137,11 +156,11 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
   toCanvas.height = h
   const toCtx = toCanvas.getContext('2d', { alpha: false })!
 
-  async function captureStageInto(ctx: CanvasRenderingContext2D) {
-    const stage = getStage()
+  async function captureStageInto(ctx: CanvasRenderingContext2D, from: Konva.Stage | null = getStage()) {
+    const stage = from
     if (!stage) throw new Error('Stage not available during export')
     stage.batchDraw()
-    await new Promise(r => requestAnimationFrame(r))
+    await nextFrame()
     // pixelRatio = 1/scaleX captures at the project's native resolution (e.g. 1920×1080)
     // regardless of how the stage is scaled to fit the screen
     const c = stage.toCanvas({ pixelRatio: 1 / stage.scaleX() })
@@ -149,11 +168,14 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     ctx.drawImage(c, 0, 0, w, h)
   }
 
-  async function canvasToJpegBytes(canvas: HTMLCanvasElement, q: number): Promise<Uint8Array> {
-    const blob = await new Promise<Blob>((resolve) => {
-      canvas.toBlob(b => resolve(b!), 'image/jpeg', q)
-    })
-    return new Uint8Array(await blob.arrayBuffer())
+  // toDataURL encodes right away. toBlob encodes during idle time, which barely
+  // comes while the window is minimised, and made background exports ~4× slower.
+  function canvasToJpegBytes(canvas: HTMLCanvasElement, q: number): Uint8Array {
+    const base64 = canvas.toDataURL('image/jpeg', q)
+    const binary = atob(base64.slice(base64.indexOf(',') + 1))
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    return bytes
   }
 
   const jpegQuality = quality === '1080p' ? 0.95 : 0.92
@@ -163,40 +185,32 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     const frameState = getTransitionFrameState(sceneTimeline, time)
     let transitionProgress = 0
 
-    if (frameState.kind === 'transition') {
-      if (!renderSceneFrame || frameState.transition.type === 'morph') {
-        // Morph is drawn by the editor canvas itself as a live in-between scene,
-        // so its frame is captured like a normal frame. Without scene-specific
-        // rendering other transitions also fall back to the plain frame.
-        await renderFrame(time)
-        await captureStageInto(compositeCtx)
-      } else {
-        const fromScene = project.scenes[frameState.fromSceneIndex]
-        const toScene = project.scenes[frameState.toSceneIndex]
-
-        // Hold the previous scene on its final stable frame while the entering
-        // scene advances from local time 0. This avoids jumping the entering
-        // scene forward during the transition and then resetting it at the cut.
-        await renderSceneFrame(fromScene.id, frameState.fromTime)
-        await captureStageInto(fromCtx)
-
-        await renderSceneFrame(toScene.id, frameState.toTime)
-        await captureStageInto(toCtx)
-
-        renderTransition({
-          ctx: compositeCtx,
-          width: w,
-          height: h,
-          progress: frameState.progress,
-          type: frameState.transition.type,
-          direction: frameState.transition.direction,
-          speed: frameState.transition.speed,
-          hardness: frameState.transition.hardness,
-          fromCanvas,
-          toCanvas
-        })
-        transitionProgress = frameState.progress
-      }
+    if (frameState.kind === 'transition' && frameState.transition.type !== 'morph') {
+      // The stage shows the playhead's scene; during a cut the editor also keeps the
+      // outgoing scene playing on its own stage. Both are captured at full size and
+      // blended; captions go on top, untouched by the transition.
+      await renderFrame(time)
+      const stage = getStage()
+      const subtitles = stage?.findOne('#subtitles') as Konva.Layer | undefined
+      subtitles?.hide()
+      await captureStageInto(toCtx)
+      subtitles?.show()
+      const outgoing = frameState.phase === 'cut' ? getOutgoingStage?.() ?? null : null
+      if (outgoing) await captureStageInto(fromCtx, outgoing)
+      const black = solidCanvas('#000000')
+      const main = toCanvas
+      renderTransition({
+        ctx: compositeCtx,
+        width: w,
+        height: h,
+        progress: frameState.progress,
+        transition: frameState.transition,
+        fromCanvas: frameState.phase === 'cut' ? (outgoing ? fromCanvas : main) : frameState.phase === 'intro' ? black : main,
+        toCanvas: frameState.phase === 'outro' ? black : main,
+        seed: ((frameState.toSceneIndex + 2) * 0.6180339887) % 1,
+      })
+      if (subtitles && stage) compositeCtx.drawImage(subtitles.toCanvas({ pixelRatio: 1 / stage.scaleX() }), 0, 0, w, h)
+      transitionProgress = frameState.progress
     } else {
       // Normal (non-transition) frame.
       await renderFrame(time)
@@ -204,7 +218,7 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     }
 
     const filename = `frame${String(i).padStart(6, '0')}.jpg`
-    const bytes = await canvasToJpegBytes(composite, jpegQuality)
+    const bytes = canvasToJpegBytes(composite, jpegQuality)
     await ffmpeg.writeFile(filename, bytes)
 
     const frameProgress = Math.round((i / totalFrames) * 70)
@@ -241,12 +255,12 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     '-color_trc', 'bt709',
   ]
 
-  // Scale to target resolution (720p or 1080p height, maintaining aspect ratio)
-  if (quality === '720p') {
-    ffmpegArgs.push('-vf', 'scale=-2:720,format=yuv420p')
-  } else if (h > 1080) {
-    // 4K project → clamp to 1080p
-    ffmpegArgs.push('-vf', 'scale=-2:1080,format=yuv420p')
+  // Scale so the short side is 720, or at most 1080, keeping the aspect ratio: a 4K landscape
+  // becomes 1920×1080 and a 9:16 short stays 1080×1920 (not 608×1080).
+  const shortSide = Math.min(w, h)
+  const targetSide = quality === '720p' ? 720 : Math.min(shortSide, 1080)
+  if (quality === '720p' || targetSide !== shortSide) {
+    ffmpegArgs.push('-vf', `${h > w ? `scale=${targetSide}:-2` : `scale=-2:${targetSide}`},format=yuv420p`)
   }
 
   ffmpegArgs.push(
@@ -268,10 +282,22 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     duration: number; speed: number; volume: number
     voice: number; pitch: number; bass: number; saturation: number
     fadeIn: number; fadeInVolume: number; fadeOut: number; fadeOutVolume: number
+    volumeKeys?: AudioElement['volumeKeys']
+    /** Speed curve / freeze frame: constant-speed pieces (footage seconds from startTime), played one after another. */
+    pieces?: ReturnType<typeof soundPieces>
   }[] = []
 
+  // Clip sound follows the transitions: a clip that runs into a cut keeps playing
+  // into the next scene and fades out, a clip starting with a scene that has a
+  // transition fades in, and the fade-out at the end fades the last scene's clips.
+  const incomingFade = (index: number) => {
+    const entry = sceneTimeline[index]
+    return entry && entry.transition.type !== 'morph' ? getEffectiveTransitionDuration(entry) : 0
+  }
+  const endFade = getEndTransitionDuration(sceneTimeline)
+
   let audioElapsed = 0
-  for (const scene of project.scenes) {
+  for (const [sceneIndex, scene] of project.scenes.entries()) {
     for (const el of scene.elements) {
       if (el.type === 'audio') {
         const a = el as AudioElement
@@ -291,26 +317,46 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
           fadeInVolume: a.fadeInVolume ?? 1,
           fadeOut:   a.fadeOut   ?? 0,
           fadeOutVolume: a.fadeOutVolume ?? 0,
+          volumeKeys: a.volumeKeys,
         })
       } else if (el.type === 'video') {
         const v = el as VideoElement
         if (!v.muted && (v.volume ?? 1) > 0) {
+          const rate = v.playbackRate ?? 1
+          const start = v.startTime ?? 0
+          let duration = v.duration ?? v.sourceDuration ?? 0
+          const timelineX = v.timelineX ?? 0
+          const runsToEnd = timelineX + duration >= scene.duration - 0.05
+          const fadeIn = timelineX <= 0.05 ? Math.min(incomingFade(sceneIndex), duration) : 0
+          let fadeOut = 0
+          const cut = sceneIndex < project.scenes.length - 1 ? incomingFade(sceneIndex + 1) : 0
+          if (runsToEnd && cut > 0) {
+            // Carry on into the footage after the trim point (as the picture does), fading out.
+            const left = v.loop ? cut : Math.max(0, ((v.sourceDuration ?? start + duration * rate) - (start + duration * rate)) / rate)
+            const extra = Math.min(cut, left)
+            duration += extra
+            fadeOut = Math.max(extra, Math.min(0.15, duration))
+          } else if (runsToEnd && sceneIndex === project.scenes.length - 1 && endFade > 0) {
+            fadeOut = Math.min(endFade, duration)
+          }
           audioClips.push({
             sourceKind: 'video',
             src:       v.src,
-            absStart:  audioElapsed + (v.timelineX ?? 0),
-            startTime: v.startTime ?? 0,
-            duration:  v.duration ?? v.sourceDuration ?? 0,
-            speed:     v.playbackRate ?? 1,
+            absStart:  audioElapsed + timelineX,
+            startTime: start,
+            duration,
+            speed:     rate,
             volume:    v.volume ?? 1,
             voice:     0,
             pitch:     0,
             bass:      0,
             saturation: 0,
-            fadeIn:    0,
+            fadeIn,
             fadeInVolume: 1,
-            fadeOut:   0,
+            fadeOut,
             fadeOutVolume: 0,
+            // Sound follows a speed curve with its pitch kept (time-stretched), silent through a freeze.
+            ...(v.speedCurve || v.freeze ? { pieces: soundPieces(v, duration) } : {}),
           })
         }
       }
@@ -366,13 +412,46 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
           const delayMs = Math.round(clip.absStart * 1000)
           const label   = `[aout_${suffix}_${index}]`
 
-          const filt: string[] = [
-            `atrim=start=${clip.startTime.toFixed(3)}:duration=${rawDur.toFixed(3)}`,
-            `asetpts=PTS-STARTPTS`,
-            ...buildPitchFilters(clip.pitch),
-            ...buildAtempoFilters(clip.speed),
-            ...buildAudioToneFilters(clip.voice, clip.bass, clip.saturation),
-          ]
+          let input = `[${index + 1}:a]`
+          const filt: string[] = []
+          if (clip.pieces?.length) {
+            // Each piece trimmed and time-stretched to its speed (silence for a freeze), then joined.
+            const heard = clip.pieces.filter((piece): piece is { from: number; footage: number; tempo: number } => 'footage' in piece)
+            const splits = heard.map((_, k) => `[ps_${suffix}_${index}_${k}]`)
+            if (heard.length) filterSegments.push(`[${index + 1}:a]asplit=${heard.length}${splits.join('')}`)
+            let next = 0
+            const parts = clip.pieces.map((piece, k) => {
+              const out = `[pc_${suffix}_${index}_${k}]`
+              const format = 'aformat=sample_rates=44100:channel_layouts=stereo'
+              if ('silence' in piece) {
+                filterSegments.push(`aevalsrc=0|0:d=${piece.silence.toFixed(4)}:s=44100,${format}${out}`)
+              } else {
+                // atempo returns a little less sound than asked (most when slowing down), so each piece is
+                // stretched with spare sound either side and then cut to its exact length — otherwise the
+                // shortfall adds up piece after piece and the sound drifts ahead of the picture.
+                const start = clip.startTime + piece.from
+                const pre = Math.min(SOUND_PIECE_MARGIN, start)
+                const length = piece.footage / piece.tempo
+                filterSegments.push(`${splits[next++]}atrim=start=${(start - pre).toFixed(4)}:duration=${(piece.footage + pre + SOUND_PIECE_MARGIN).toFixed(4)},asetpts=PTS-STARTPTS,${[
+                  ...buildAtempoFilters(piece.tempo),
+                  `atrim=start=${(pre / piece.tempo).toFixed(4)}:duration=${length.toFixed(4)}`, 'asetpts=PTS-STARTPTS', `apad=whole_dur=${length.toFixed(4)}`,
+                  format,
+                ].join(',')}${out}`)
+              }
+              return out
+            })
+            const joined = `[pcat_${suffix}_${index}]`
+            filterSegments.push(`${parts.join('')}concat=n=${parts.length}:v=0:a=1${joined}`)
+            input = joined
+          } else {
+            filt.push(
+              `atrim=start=${clip.startTime.toFixed(3)}:duration=${rawDur.toFixed(3)}`,
+              `asetpts=PTS-STARTPTS`,
+              ...buildPitchFilters(clip.pitch),
+              ...buildAtempoFilters(clip.speed),
+            )
+          }
+          filt.push(...buildAudioToneFilters(clip.voice, clip.bass, clip.saturation))
           const volumeFilter = buildFfmpegFadeVolumeExpression({
             duration: clip.duration,
             baseVolume: clip.volume,
@@ -382,10 +461,12 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
             fadeOutVolume: clip.fadeOutVolume,
           })
           if (volumeFilter) filt.push(volumeFilter)
+          const automation = buildFfmpegVolumeKeysFilter(clip.volumeKeys, { startTime: clip.startTime, speed: clip.speed, duration: clip.duration })
+          if (automation) filt.push(automation)
           if (delayMs > 0) filt.push(`adelay=${delayMs}:all=1`)
           filt.push(`apad=whole_dur=${totalDuration.toFixed(3)}`)
 
-          filterSegments.push(`[${index + 1}:a]${filt.join(',')}${label}`)
+          filterSegments.push(`${input}${filt.join(',')}${label}`)
           outLabels.push(label)
         })
 
