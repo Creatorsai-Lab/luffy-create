@@ -12,8 +12,10 @@
  */
 import { ImageSegmenter } from '@mediapipe/tasks-vision'
 import Konva from 'konva'
-import type { MediaKeying } from '../types/editor'
+import type { KeyingPick, MediaKeying } from '../types/editor'
 import { hexToRgb, KEYING_DEFAULTS } from '../utils/keying'
+import { cutoutGeneration, imageMask, prepareCutouts, videoMask } from './cutout/cutout'
+import { cropMask } from './cutout/maskMath'
 
 /** A rectangle of the source, in source pixels. */
 export interface SourceRect { x: number; y: number; w: number; h: number }
@@ -76,11 +78,15 @@ export function personKeyingError() {
   return segmenterError
 }
 
-/** Loads what the elements' keying needs before frames are captured (export). */
-export async function prepareKeying(elements: Iterable<{ keying?: MediaKeying }>) {
+/**
+ * Loads what the elements' keying needs before frames are captured: the quick
+ * model, and with `precise` (export) every precise cut-out of the project.
+ */
+export async function prepareKeying(elements: Iterable<{ keying?: MediaKeying }>, precise?: { onProgress?: (message: string) => void }) {
   for (const el of elements) {
     if (el.keying?.mode === 'person') {
       await loadSegmenter()
+      if (precise) await prepareCutouts(precise.onProgress)
       return
     }
   }
@@ -118,18 +124,38 @@ function personMask(source: Source, rect: SourceRect): { data: Uint8Array; w: nu
   }
 }
 
-const maskCache = new Map<string, { stamp: string; mask: { data: Uint8Array; w: number; h: number } }>()
+const maskCache = new Map<string, { stamp: string; mask: { data: Uint8Array; w: number; h: number; precise: boolean } }>()
 
 /**
- * The person mask of a frame for an element (cached per element and frame,
- * so keying and body effects share one segmentation). Null while the model
- * loads — the stage redraws when it is ready.
+ * The precise (Silueta) mask of `rect`, cut from the whole-picture mask —
+ * null while it is being made or when the model isn't downloaded.
  */
-export function personMaskFor(key: string, source: Source, rect: SourceRect, time: number) {
-  const stamp = `${time.toFixed(4)}|${rect.x.toFixed(1)},${rect.y.toFixed(1)},${rect.w.toFixed(1)},${rect.h.toFixed(1)}|${source instanceof HTMLImageElement ? source.src : ''}`
+function preciseMask(source: Source, rect: SourceRect, time: number, picks?: KeyingPick[]) {
+  const full = source instanceof HTMLImageElement ? imageMask(source, picks)
+    : source instanceof HTMLVideoElement ? videoMask(source, time, picks)
+    : null
+  if (!full) return null
+  const sw = source instanceof HTMLImageElement ? source.naturalWidth : (source as HTMLVideoElement).videoWidth
+  const sh = source instanceof HTMLImageElement ? source.naturalHeight : (source as HTMLVideoElement).videoHeight
+  const kx = full.w / sw, ky = full.h / sh
+  const cw = rect.w * kx, ch = rect.h * ky
+  const w = Math.max(16, Math.round(cw)), h = Math.max(16, Math.round(ch))
+  return { data: cropMask(full, rect.x * kx, rect.y * ky, cw, ch, w, h), w, h }
+}
+
+/**
+ * The subject mask of a frame for an element (cached per element and frame,
+ * so keying and body effects share one segmentation): the precise cut-out
+ * when it is ready, otherwise the quick MediaPipe person mask. Null while a
+ * model loads — the stage redraws when it is ready.
+ */
+export function personMaskFor(key: string, source: Source, rect: SourceRect, time: number, picks?: KeyingPick[]) {
+  const stamp = `${time.toFixed(4)}|${rect.x.toFixed(1)},${rect.y.toFixed(1)},${rect.w.toFixed(1)},${rect.h.toFixed(1)}|${source instanceof HTMLImageElement ? source.src : ''}|${cutoutGeneration()}|${picks?.length ? JSON.stringify(picks) : ''}`
   const hit = maskCache.get(key)
   if (hit?.stamp === stamp) return hit.mask
-  const mask = personMask(source, rect)
+  const precise = preciseMask(source, rect, time, picks)
+  const quick = precise ? null : personMask(source, rect)
+  const mask = precise ? { ...precise, precise: true } : quick ? { ...quick, precise: false } : null
   if (!mask) return null
   maskCache.set(key, { stamp, mask })
   if (maskCache.size > 64) maskCache.delete(maskCache.keys().next().value as string)
@@ -288,18 +314,19 @@ export function keyedFrame(elementId: string, keying: MediaKeying | undefined, s
   const scale = Math.min(1, MAX_SIDE / Math.max(rect.w, rect.h))
   const outW = Math.round(rect.w * scale)
   const outH = Math.round(rect.h * scale)
-  const stamp = `${time.toFixed(4)}|${rect.x.toFixed(1)},${rect.y.toFixed(1)},${rect.w.toFixed(1)},${rect.h.toFixed(1)}|${outW}x${outH}|${JSON.stringify(keying)}|${source instanceof HTMLImageElement ? source.src : ''}`
+  const stamp = `${time.toFixed(4)}|${rect.x.toFixed(1)},${rect.y.toFixed(1)},${rect.w.toFixed(1)},${rect.h.toFixed(1)}|${outW}x${outH}|${JSON.stringify(keying)}|${source instanceof HTMLImageElement ? source.src : ''}|${cutoutGeneration()}`
   const cached = entries.get(elementId)
   if (cached?.stamp === stamp) return cached.canvas
 
   let mask: Entry['mask'] = null
   if (keying.mode === 'person') {
-    const shared = personMaskFor(elementId, source, rect, time)
+    const shared = personMaskFor(elementId, source, rect, time, keying.picks)
     const found = shared ? { ...shared, data: new Uint8Array(shared.data) } : null
     if (!found) return null
-    // Blend with the previous frame's mask when this frame follows it, to calm flicker.
+    // The quick mask flickers: blend it with the previous frame's when this frame follows it.
+    // (Precise masks are already smoothed in time.)
     const prev = cached?.mask
-    if (prev && prev.w === found.w && prev.h === found.h && Math.abs(prev.time - time) > 0 && Math.abs(prev.time - time) < 0.1) {
+    if (!shared!.precise && prev && prev.w === found.w && prev.h === found.h && Math.abs(prev.time - time) > 0 && Math.abs(prev.time - time) < 0.1) {
       for (let i = 0; i < found.data.length; i++) found.data[i] = Math.round(found.data[i] * 0.7 + prev.data[i] * 0.3)
     }
     mask = { ...found, time }

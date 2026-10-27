@@ -90,6 +90,16 @@ Splitting a ramped clip keeps each part's piece of the curve; jump cuts and tran
 
 ---
 
+## Remove Background
+
+**Edit BG** (left menu) or the clip's **Remove background** section: **Green screen** removes a colour; **AI cut-out** keeps the subject and removes the rest — no green screen needed — then removes, blurs or colours the background.
+
+The AI cut-out runs on your computer, on the CPU, so it works on low-end machines too. A quick person cut-out works straight away. **Download** the **precise cut-out** once (44 MB) for clean edges on people, cars, products and groups: a photo takes about a second; a video is processed in the background (the panel shows how far it is), smoothed so edges don't flicker, and remembered so it is only done once. Until it is ready, the quick cut-out is shown, and export waits for the precise one.
+
+**Choose what stays**: **Keep**, then click a person or object on the canvas, keeps only what you click; **Remove** takes one out. The first time needs a one-time 45 MB download. On a video, click on any frame — the subject is followed through the clip. **Clear** starts again.
+
+---
+
 ## Effects
 
 Select the clip and click **Open Effects** (or use the **Effects** tool). 43 GPU effects in nine groups — Body (AI): neon outline, aura, spotlight and echo trail around the person; Retro & Texture; Glitch; Warp; Light; Energy (phonk, strobe, zoom pulse, shake, flash); Motion; Weather; and Colour looks. Hover to preview on your clip, click to add, stack as many as you like. Each effect has a strength, its own settings and a speed; ♪ effects can hit on the music's beat; and each can run for the whole clip or from/to a time with fades (shown as bars under the clip in the timeline). Everything appears the same in Preview and export.

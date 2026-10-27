@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, Eraser, Loader2, Pipette, Wand2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Download, Eraser, Loader2, Minus, Pipette, Plus, Sparkles, Wand2 } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import { videoRegistry } from '../../engine/videoRegistry'
 import { pauseKeying, personKeyingError, prepareKeying } from '../../engine/keying'
-import type { ImageElement, MediaKeying, VideoElement } from '../../types/editor'
-import { detectScreenColor, KEYING_DEFAULTS } from '../../utils/keying'
+import { cancelPack, installPack, packStatus, subscribeCutout, videoProgress } from '../../engine/cutout/cutout'
+import { usePickMode } from '../../engine/cutout/pickMode'
+import type { CutoutPack } from '../../types/global'
+import type { ImageElement, KeyingPick, MediaKeying, VideoElement } from '../../types/editor'
+import { detectScreenColor, KEYING_DEFAULTS, MAX_PICKS } from '../../utils/keying'
 import { clipParts, putMediaBehind } from '../../utils/keyingBackground'
 import { toFileUrl } from '../../utils/pathUtils'
 import { cn } from '../../utils/cn'
@@ -17,7 +20,7 @@ type Mode = 'off' | 'chroma' | 'person'
 const MODES: Array<{ value: Mode; label: string; hint: string }> = [
   { value: 'off', label: 'Off', hint: 'Show the clip as it is' },
   { value: 'chroma', label: 'Green screen', hint: 'Remove a colour — green or blue screen' },
-  { value: 'person', label: 'AI cut-out', hint: 'Keep the person, remove the rest — no green screen needed (on this computer)' },
+  { value: 'person', label: 'AI cut-out', hint: 'Keep the subject — people, cars, products — and remove the rest. No green screen needed (on this computer)' },
 ]
 
 type EyeDropperApi = new () => { open: () => Promise<{ sRGBHex: string }> }
@@ -44,6 +47,131 @@ export function applyKeying(element: Media, keying: MediaKeying | undefined, all
   if (keying?.mode === 'person') {
     prepareKeying([{ keying }]).catch(error => toast.error(error instanceof Error ? error.message : String(error)))
   }
+}
+
+/** Adds a keep/remove pick to the AI cut-out of an element (or every part of its clip). */
+export function addKeyingPick(element: Media, pick: KeyingPick, allParts: boolean) {
+  const keying = element.keying
+  if (keying?.mode !== 'person') return
+  const picks = keying.picks ?? []
+  if (picks.length >= MAX_PICKS) {
+    toast.info(`At most ${MAX_PICKS} picks — clear them to start again.`)
+    return
+  }
+  applyKeying(element, { ...keying, picks: [...picks, pick] }, allParts)
+}
+
+/** Re-renders when the precise cut-out's models or processing change. */
+function useCutoutState() {
+  const [, setTick] = useState(0)
+  useEffect(() => subscribeCutout(() => setTick(n => n + 1)), [])
+}
+
+const mb = (bytes: number) => `${Math.round(bytes / 1e6)} MB`
+
+/** Download state of a model pack: a button, or a progress bar with Cancel. */
+function PackDownload({ pack, label, onReady }: { pack: CutoutPack; label: string; onReady?: () => void }) {
+  const status = packStatus(pack)
+  if (!status || status.installed) return null
+  if (status.downloading || status.received != null) {
+    const pct = status.total ? Math.round(((status.received ?? 0) / status.total) * 100) : 0
+    return (
+      <div className="flex items-center gap-2">
+        <div className="h-1.5 flex-1 overflow-hidden rounded bg-editor-elevated-highlight">
+          <div className="h-full bg-editor-accent transition-[width]" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="w-8 text-right text-[10px] text-editor-text-secondary">{pct}%</span>
+        <button type="button" onClick={() => cancelPack(pack)} className="text-[10px] text-editor-text-secondary hover:text-editor-text">Cancel</button>
+      </div>
+    )
+  }
+  const download = () => {
+    installPack(pack).then(onReady).catch(error => {
+      const message = error instanceof Error ? error.message : String(error)
+      if (!/abort|cancel/i.test(message)) toast.error(`Download failed: ${message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')}`)
+    })
+  }
+  return (
+    <button type="button" onClick={download}
+      className="flex items-center justify-center gap-1.5 rounded border border-editor-accent/60 bg-editor-accent/15 px-2 py-1.5 text-[11px] text-editor-text hover:bg-editor-accent/25">
+      <Download size={12} /> {label} ({mb(status.bytes)}, once)
+    </button>
+  )
+}
+
+/** The precise cut-out (download, processing) and choosing what stays (keep / remove picks). */
+function PreciseCutout({ element, allParts }: { element: Media; allParts: boolean }) {
+  useCutoutState()
+  const pickMode = usePickMode(s => s.mode)
+  const setPickMode = usePickMode(s => s.setMode)
+  const cutout = packStatus('cutout')
+  const select = packStatus('select')
+  const picks = element.keying?.picks ?? []
+  if (!cutout) return null
+
+  if (!cutout.installed) {
+    return (
+      <div className="flex flex-col gap-1.5 rounded border border-editor-border bg-editor-elevated-highlight p-2">
+        <span className="flex items-center gap-1.5 text-[11px] font-medium text-editor-text"><Sparkles size={12} className="text-editor-accent" /> Precise cut-out</span>
+        <p className="text-[10px] leading-relaxed text-editor-text-secondary">
+          Clean edges on people, cars, products and groups, and click to choose who stays. Runs on this computer, even on low-end ones. Until then the quick person cut-out is used.
+        </p>
+        <PackDownload pack="cutout" label="Download" />
+      </div>
+    )
+  }
+
+  const progress = element.type === 'video' ? videoProgress(element.src) : null
+  const picking = pickMode?.elementId === element.id ? pickMode : null
+  const startPicking = (keep: boolean) => setPickMode(picking?.keep === keep ? null : { elementId: element.id, keep, allParts })
+  return (
+    <div className="flex flex-col gap-1.5">
+      {progress?.running && progress.total > 0 ? (
+        <div className="flex flex-col gap-1">
+          <span className="flex items-center gap-1.5 text-[10px] text-editor-text-secondary">
+            <Loader2 size={11} className="animate-spin" /> Processing the clip for the precise cut-out… {Math.round((progress.done / progress.total) * 100)}%
+          </span>
+          <div className="h-1 overflow-hidden rounded bg-editor-elevated-highlight">
+            <div className="h-full bg-editor-accent" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
+          </div>
+        </div>
+      ) : progress?.error ? (
+        <p className="text-[10px] text-amber-300">{progress.error}</p>
+      ) : (
+        <span className="flex items-center gap-1.5 text-[10px] text-emerald-300"><Check size={11} /> Precise cut-out</span>
+      )}
+
+      <span className="text-[10px] text-editor-text-secondary">Choose what stays</span>
+      {select && !select.installed ? (
+        <>
+          <p className="text-[10px] leading-relaxed text-editor-text-secondary">Click a person or object to keep only it, or to remove it — needs a small one-time download.</p>
+          <PackDownload pack="select" label="Get picking" onReady={() => setPickMode({ elementId: element.id, keep: true, allParts })} />
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-1">
+            <button type="button" onClick={() => startPicking(true)} title="Then click a person or object on the canvas: only what you keep stays"
+              className={cn('flex items-center justify-center gap-1 rounded border py-1 text-[11px]', picking?.keep ? 'border-emerald-400 bg-emerald-400/20 text-emerald-200' : 'border-editor-border text-editor-text-secondary hover:text-editor-text')}>
+              <Plus size={11} /> Keep
+            </button>
+            <button type="button" onClick={() => startPicking(false)} title="Then click a person or object on the canvas to take it out"
+              className={cn('flex items-center justify-center gap-1 rounded border py-1 text-[11px]', picking && !picking.keep ? 'border-rose-400 bg-rose-400/20 text-rose-200' : 'border-editor-border text-editor-text-secondary hover:text-editor-text')}>
+              <Minus size={11} /> Remove
+            </button>
+            <button type="button" disabled={!picks.length} onClick={() => applyKeying(element, { ...element.keying!, picks: undefined }, allParts)}
+              className="rounded border border-editor-border py-1 text-[11px] text-editor-text-secondary hover:text-editor-text disabled:opacity-40">
+              Clear{picks.length ? ` (${picks.length})` : ''}
+            </button>
+          </div>
+          {picks.length > 0 && (
+            <span className="text-[10px] text-editor-text-secondary">
+              {picks.filter(p => p.keep).length} kept, {picks.filter(p => !p.keep).length} removed{element.type === 'video' ? ' — followed through the clip' : ''}
+            </span>
+          )}
+        </>
+      )}
+    </div>
+  )
 }
 
 /** The element's picture right now: the playing video frame, or the image file. */
@@ -204,6 +332,7 @@ export function KeyingSettings({ element, allParts, showModes = true }: { elemen
             </div>
           )}
           {error && <p className="text-[11px] text-amber-300">{error}</p>}
+          <PreciseCutout element={element} allParts={allParts} />
           <Labeled label="Edge feather">
             <Slider value={pct(keying.feather, KEYING_DEFAULTS.feather)} min={0} max={100} step={1} display={`${pct(keying.feather, KEYING_DEFAULTS.feather)}%`} onChange={v => set({ feather: v / 100 })} />
           </Labeled>

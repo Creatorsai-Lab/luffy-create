@@ -47,6 +47,9 @@ import {
 } from './subtitleTranslationPack'
 import { createSubtitleTranslationService, type SubtitleTranslateRequest } from './subtitleTranslationService'
 import { createPythonRuntimeManager, readRuntimeManifest, type PythonRuntimeCatalog, type PythonRuntimeProgress } from './pythonRuntimePack'
+import { createCutoutModels, type CutoutPack, type CutoutProgress } from './cutoutModels'
+import { createCutoutService } from './cutoutService'
+import type { CutoutRequest } from './cutoutWorker'
 
 const USER_DATA   = app.getPath('userData')
 const PROJECTS_DIR = join(USER_DATA, 'projects')
@@ -455,6 +458,16 @@ const pythonRuntime = createPythonRuntimeManager({
   },
 })
 const PYTHON_RUNTIME_MISSING = 'The Python runtime is not installed yet. Download it once from the Python Sandbox window.'
+
+// Background removal: models downloaded on first use; the CPU engine ships per platform in resources/onnxruntime.
+const cutoutModels = createCutoutModels({ root: join(USER_DATA, 'models', 'cutout'), fetch: devLocalFetch('cutout') })
+const cutout = createCutoutService({
+  workerPath: join(__dirname, 'cutoutWorker.js'),
+  ortPath: is.dev ? join(process.cwd(), 'node_modules', 'onnxruntime-node') : join(process.resourcesPath, 'onnxruntime', 'node_modules', 'onnxruntime-node'),
+  modelDir: join(USER_DATA, 'models', 'cutout'),
+  cacheDir: join(USER_DATA, 'cutout-cache'),
+})
+app.on('before-quit', () => cutout.stop())
 
 const translationPacks = createTranslationPackManager({
   root: join(USER_DATA, 'translation-models'),
@@ -1029,6 +1042,24 @@ function registerIpcHandlers() {
   ipcMain.handle('shell:open-external', async (_e, url: string) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) await shell.openExternal(url)
   })
+
+  // Background removal
+  ipcMain.handle('cutout:status', () => cutoutModels.status())
+  ipcMain.handle('cutout:install', async (event, pack: CutoutPack) => {
+    if (pack !== 'cutout' && pack !== 'select') throw new Error('Unknown model')
+    const send = (progress: CutoutProgress) => {
+      if (!event.sender.isDestroyed()) event.sender.send('cutout:progress', progress)
+    }
+    await cutoutModels.install(pack, send)
+  })
+  ipcMain.handle('cutout:cancel', (_e, pack: CutoutPack) => cutoutModels.cancel(pack))
+  ipcMain.handle('cutout:run', async (_e, req: Omit<CutoutRequest, 'id'>) => {
+    const pack: CutoutPack = req.type === 'segment' ? 'cutout' : 'select'
+    if (!cutoutModels.installed(pack)) return { ok: false, error: 'The background-removal model is not downloaded yet.' }
+    return cutout.run(req as Parameters<typeof cutout.run>[0])
+  })
+  ipcMain.handle('cutout:cache-read', (_e, key: string) => cutout.cacheRead(key))
+  ipcMain.handle('cutout:cache-write', (_e, key: string, data: Uint8Array) => cutout.cacheWrite(key, data))
 
   // File system
   ipcMain.handle('fs:write-file', async (_e, path: string, data: Uint8Array) => {

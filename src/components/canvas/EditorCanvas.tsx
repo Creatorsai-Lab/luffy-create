@@ -32,6 +32,7 @@ import SubtitleOverlay from '../../subtitle/SubtitleOverlay'
 import { sceneStartTime } from '../../utils/sceneTiming'
 import { useShallow } from 'zustand/react/shallow'
 import SceneStage from './SceneStage'
+import SubjectPickOverlay from './SubjectPickOverlay'
 import { blendVolumes, captureLayers, drawBlend, type BlendState } from './transitionComposite'
 
 const IMAGE_BG_ADJUSTMENT_KEYS: (keyof ImageBg)[] = [
@@ -1096,6 +1097,8 @@ export default function EditorCanvas() {
             )}
           </Layer>
         </Stage>
+
+        <SubjectPickOverlay getStage={() => stageRef.current} />
 
         {activePanel === 'motion' && cursorCoord && (
           <div

@@ -290,6 +290,40 @@ blocks: "add a 3-4-2 neural network with a forward pass", "add a title card
   for the freeze and resumes on time; the exported freeze is silent and the
   sound lines up with the curve.
 
+### Precise background removal, built for low-end computers
+- Why: the MediaPipe selfie model (person only, 256 px) failed on hair,
+  groups and anything that isn't a person (a car lost its bonnet). Tested
+  BiRefNet (lite/full/HR-matting), IS-Net, SlimSAM, MODNet, U²-Net-p,
+  Silueta and MobileSAM on a GTX 1650 / i5-12400F, then in "weak laptop"
+  mode (CPU only, 2 threads). BiRefNet was best but needs a strong GPU (fp16
+  gives NaN on GTX 16xx; DirectML/WebGPU slower than the CPU); IS-Net used
+  2 GB RAM; SlimSAM 3.6 GB — all dropped.
+- Shipped: Silueta (44 MB, MIT via rembg) + a guided filter that snaps the
+  mask to the picture's edges (cut-out, ~0.5 s/photo on 2 CPU threads,
+  ~600 MB peak), and MobileSAM (45 MB, Apache-2.0; ONNX export MIT) for
+  click-to-keep/remove (~0.9 s once per picture, ~0.05 s per click; the
+  largest confident candidate that contains the click = "this object").
+  Both download on first use (verified size + sha256, pinned URLs) into
+  userData/models/cutout; the installer only gains the CPU ONNX Runtime
+  (resources/onnxruntime, 21 MB unpacked, ~8 MB compressed; no DirectML, no
+  other platforms; CUDA download skipped in CI).
+- Runs in an Electron utilityProcess (cutoutWorker), ≤4 threads leaving a
+  core for the editor, stopped after 2 idle minutes. Input is letterboxed:
+  stretched to a square, the model's "main subject" jumped between people
+  frame to frame in group videos.
+- Images: one whole-picture mask (≤1600 px), picks combined with
+  applyPicks. Videos: processed in the background at 15 masks/s (384 px),
+  1-2-1 smoothed in time, run-length coded, cached on disk (1 GB LRU);
+  picks on a video follow the clicked subject through the clip by region
+  overlap. Until a precise mask exists the quick MediaPipe mask is shown;
+  export waits for the precise ones (prepareCutouts).
+- Checked in the built app (hidden window, magenta background): download
+  from the panel, group of eight cut cleanly, one click keeps only the
+  yellow shirt (neighbour 100% removed), car kept with road and trees
+  removed, a 4 s group video processed in 38 s with all four people kept;
+  the export matches the editor. Packaged engine loads and runs (570 ms);
+  utilityProcess can start a script inside app.asar.
+
 ### Phase 7a–7c — Jump cuts, transcript editing, green screen / AI cut-out
 - One cut engine for both (`src/ai/smart/jumpcut.ts`, pure): pause ranges from
   loudness (`speechFromLoudness` with an automatic or set silence level,

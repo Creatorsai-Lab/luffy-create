@@ -383,8 +383,9 @@ Bring the background back
 ```
 
 A green or blue screen colour becomes transparent; "remove the background"
-of a clip (or "cut me out") keeps the person with an on-device AI cut-out,
-optionally blurring the room or filling it with a colour. Without a clip being
+of a clip (or "cut me out") keeps the subject with an on-device AI cut-out,
+optionally blurring the room or filling it with a colour. Choosing which person
+or object stays (Keep / Remove, then a click on the canvas) is done in the panel. Without a clip being
 meant, "change the background to blue" still changes the scene's background.
 A clip cut into parts (jump cuts, splits) changes in every part. Fine-tune
 both in **Edit BG** (left menu) or the clip's **Remove background** section.

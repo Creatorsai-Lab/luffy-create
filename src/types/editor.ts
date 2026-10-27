@@ -396,6 +396,18 @@ export interface MediaKeying {
   backgroundColor?: string
   /** Person: blur strength for background 'blur', 0–1 (default 0.5). */
   backgroundBlur?: number
+  /**
+   * Person (AI cut-out): clicked people or objects to keep or remove. x, y are
+   * 0–1 of the source picture; t is the video time of the frame clicked.
+   */
+  picks?: KeyingPick[]
+}
+
+export interface KeyingPick {
+  x: number
+  y: number
+  keep: boolean
+  t?: number
 }
 
 export interface ImageElement extends BaseElement, MediaEffectControls, MediaVignetteControls, MediaGrainControls {

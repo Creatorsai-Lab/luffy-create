@@ -125,8 +125,10 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
 
   // Effects: shaders compiled, music beats found, the cut-out model loaded before the first frame.
   await prepareFx(project)
-  // The AI cut-out model must be ready before the first frame is captured.
-  await prepareKeying(project.scenes.flatMap(scene => scene.elements as Array<{ keying?: MediaKeying }>))
+  // The AI cut-out must be ready before the first frame is captured — precise masks included.
+  await prepareKeying(project.scenes.flatMap(scene => scene.elements as Array<{ keying?: MediaKeying }>), {
+    onProgress: message => onProgress(2, message),
+  })
 
   onProgress(5, 'Rendering frames...')
 
@@ -253,12 +255,12 @@ export async function exportToMP4WithFFmpeg(opts: FFmpegExportOptions): Promise<
     '-color_trc', 'bt709',
   ]
 
-  // Scale to target resolution (720p or 1080p height, maintaining aspect ratio)
-  if (quality === '720p') {
-    ffmpegArgs.push('-vf', 'scale=-2:720,format=yuv420p')
-  } else if (h > 1080) {
-    // 4K project → clamp to 1080p
-    ffmpegArgs.push('-vf', 'scale=-2:1080,format=yuv420p')
+  // Scale so the short side is 720, or at most 1080, keeping the aspect ratio: a 4K landscape
+  // becomes 1920×1080 and a 9:16 short stays 1080×1920 (not 608×1080).
+  const shortSide = Math.min(w, h)
+  const targetSide = quality === '720p' ? 720 : Math.min(shortSide, 1080)
+  if (quality === '720p' || targetSide !== shortSide) {
+    ffmpegArgs.push('-vf', `${h > w ? `scale=${targetSide}:-2` : `scale=-2:${targetSide}`},format=yuv420p`)
   }
 
   ffmpegArgs.push(

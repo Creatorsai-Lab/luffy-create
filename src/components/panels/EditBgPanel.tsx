@@ -12,9 +12,9 @@ type Media = VideoElement | ImageElement
 type Action = 'remove' | 'blur' | 'color' | 'chroma' | 'restore'
 
 const ACTIONS: Array<{ id: Action; label: string; hint: string; icon: React.ReactNode }> = [
-  { id: 'remove', label: 'Remove background', hint: 'Keep the person, remove the rest (AI, on this computer)', icon: <ScanFace size={14} /> },
-  { id: 'blur', label: 'Blur background', hint: 'Keep the person sharp and blur the room — portrait look', icon: <Droplets size={14} /> },
-  { id: 'color', label: 'Colour background', hint: 'Keep the person on a solid colour', icon: <Palette size={14} /> },
+  { id: 'remove', label: 'Remove background', hint: 'Keep the subject — people, cars, products — and remove the rest (AI, on this computer)', icon: <ScanFace size={14} /> },
+  { id: 'blur', label: 'Blur background', hint: 'Keep the subject sharp and blur the background — portrait look', icon: <Droplets size={14} /> },
+  { id: 'color', label: 'Colour background', hint: 'Keep the subject on a solid colour', icon: <Palette size={14} /> },
   { id: 'chroma', label: 'Green screen', hint: 'Remove a green or blue screen colour', icon: <Eraser size={14} /> },
   { id: 'restore', label: 'Original', hint: 'Show the clip as it was', icon: <RotateCcw size={14} /> },
 ]
@@ -106,7 +106,7 @@ export default function EditBgPanel() {
               </div>
             )}
             <p className="text-[10px] leading-relaxed text-editor-text-secondary">
-              The AI cut-out runs on this computer; edges follow the person but are not pixel-perfect. Whatever is behind the clip shows through — use Put behind for an image or video.
+              The AI cut-out runs on this computer. Get the precise cut-out (a one-time download) for clean edges on people, cars and products, then use Keep / Remove to choose who stays. Whatever is behind the clip shows through — use Put behind for an image or video.
             </p>
           </div>
         )}

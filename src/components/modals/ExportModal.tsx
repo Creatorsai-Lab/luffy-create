@@ -281,8 +281,11 @@ export default function ExportModal() {
   const fps = project.fps
   const total = project.scenes.reduce((s, sc) => s + sc.duration, 0)
   const frames = Math.ceil(total * fps)
-  const exportW = quality === '720p' ? Math.round(project.width * 720 / project.height) : Math.min(project.width, 1920)
-  const exportH = quality === '720p' ? 720 : Math.min(project.height, 1080)
+  // The short side becomes 720, or at most 1080 (as the exporter scales it), rounded to even pixels.
+  const shortSide = Math.min(project.width, project.height)
+  const scale = (quality === '720p' ? 720 : Math.min(shortSide, 1080)) / shortSide
+  const exportW = Math.round(project.width * scale / 2) * 2
+  const exportH = Math.round(project.height * scale / 2) * 2
   const estimatedSizeMB = Math.round((exportW * exportH * fps * total * 0.10) / (1024 * 1024))
 
   return (

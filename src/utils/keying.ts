@@ -2,7 +2,7 @@
  * Green screen / background removal settings (MediaKeying): defaults, and
  * cleaning values that come from prompts or old projects. Pure.
  */
-import type { MediaKeying } from '../types/editor'
+import type { KeyingPick, MediaKeying } from '../types/editor'
 
 export const KEYING_DEFAULTS = {
   color: '#00b140',
@@ -33,15 +33,30 @@ export function normalizeKeying(value: Record<string, unknown>): MediaKeying | u
   }
   if (value.mode === 'person') {
     const background = value.background === 'blur' || value.background === 'color' ? value.background : 'none'
+    const picks = normalizePicks(value.picks)
     return {
       mode: 'person',
       feather: unit(value.feather, KEYING_DEFAULTS.feather),
       background,
       ...(background === 'color' && { backgroundColor: hex(value.backgroundColor, KEYING_DEFAULTS.backgroundColor) }),
       ...(background === 'blur' && { backgroundBlur: unit(value.backgroundBlur, KEYING_DEFAULTS.backgroundBlur) }),
+      ...(picks.length && { picks }),
     }
   }
   return undefined
+}
+
+/** At most this many keep/remove picks per clip. */
+export const MAX_PICKS = 12
+
+/** Valid picks (x, y inside the picture), at most MAX_PICKS. */
+export function normalizePicks(value: unknown): KeyingPick[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((p): p is KeyingPick => Boolean(p) && typeof p === 'object'
+      && typeof p.x === 'number' && typeof p.y === 'number' && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1)
+    .slice(0, MAX_PICKS)
+    .map(p => ({ x: p.x, y: p.y, keep: p.keep !== false, ...(typeof p.t === 'number' && Number.isFinite(p.t) && p.t >= 0 && { t: p.t }) }))
 }
 
 /** Hex colour → [r, g, b] in 0–1. */

@@ -70,6 +70,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        env:
+          # The background-removal engine runs on the CPU only: skip onnxruntime-node's CUDA download (Linux).
+          npm_config_onnxruntime_node_install: skip
 
       - name: Build renderer + main (electron-vite)
         run: npm run build

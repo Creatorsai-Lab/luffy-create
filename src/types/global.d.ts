@@ -37,6 +37,19 @@ export interface PythonStatus {
   stderr?: string
 }
 
+/** Background-removal model packs (see electron/main/cutoutModels.ts). */
+export type CutoutPack = 'cutout' | 'select'
+
+/** A background-removal request (see electron/main/cutoutWorker.ts). */
+export type CutoutRunRequest =
+  | { type: 'segment'; rgba: Uint8Array }
+  | { type: 'samEncode'; key: string; rgb: Uint8Array; width: number; height: number }
+  | { type: 'samDecode'; key: string; x: number; y: number; width: number; height: number }
+
+export type CutoutRunResponse =
+  | { ok: true; mask?: Uint8Array; width?: number; height?: number }
+  | { ok: false; error: string }
+
 /** The one-time Python runtime download (see electron/main/pythonRuntimePack.ts). */
 export interface PythonRuntimeStatus {
   state: 'unavailable' | 'not-installed' | 'downloading' | 'installed'
@@ -168,6 +181,15 @@ declare global {
       }
       ffmpeg: {
         getPaths: () => Promise<{ coreJs: string; coreWasm: string }>
+      }
+      cutout: {
+        status: () => Promise<Record<CutoutPack, { installed: boolean; downloading: boolean; bytes: number }>>
+        install: (pack: CutoutPack) => Promise<void>
+        cancel: (pack: CutoutPack) => Promise<void>
+        run: (request: CutoutRunRequest) => Promise<CutoutRunResponse>
+        cacheRead: (key: string) => Promise<Uint8Array | null>
+        cacheWrite: (key: string, data: Uint8Array) => Promise<void>
+        onProgress: (listener: (progress: { pack: CutoutPack; phase: 'download' | 'finished'; receivedBytes: number; totalBytes: number }) => void) => () => void
       }
       python: {
         check: () => Promise<PythonStatus>

@@ -35,8 +35,12 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
-      lib: {
-        entry: resolve('electron/main/index.ts')
+      rollupOptions: {
+        // The background-removal worker runs in its own utility process (out/main/cutoutWorker.js).
+        input: {
+          index: resolve('electron/main/index.ts'),
+          cutoutWorker: resolve('electron/main/cutoutWorker.ts'),
+        }
       }
     }
   },

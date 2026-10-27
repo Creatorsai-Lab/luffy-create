@@ -69,6 +69,19 @@ const api = {
   ffmpeg: {
     getPaths: () => ipcRenderer.invoke('ffmpeg:get-paths') as Promise<{ coreJs: string; coreWasm: string }>
   },
+  cutout: {
+    status: () => ipcRenderer.invoke('cutout:status'),
+    install: (pack: 'cutout' | 'select') => ipcRenderer.invoke('cutout:install', pack),
+    cancel: (pack: 'cutout' | 'select') => ipcRenderer.invoke('cutout:cancel', pack),
+    run: (request: Record<string, unknown>) => ipcRenderer.invoke('cutout:run', request),
+    cacheRead: (key: string) => ipcRenderer.invoke('cutout:cache-read', key),
+    cacheWrite: (key: string, data: Uint8Array) => ipcRenderer.invoke('cutout:cache-write', key, data),
+    onProgress: (listener: (progress: { pack: 'cutout' | 'select'; phase: 'download' | 'finished'; receivedBytes: number; totalBytes: number }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: Parameters<typeof listener>[0]) => listener(progress)
+      ipcRenderer.on('cutout:progress', handler)
+      return () => ipcRenderer.removeListener('cutout:progress', handler)
+    }
+  },
   python: {
     check: () => ipcRenderer.invoke('python:check'),
     setup: () => ipcRenderer.invoke('python:setup'),
