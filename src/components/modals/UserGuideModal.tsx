@@ -80,20 +80,18 @@ const SECTIONS: Section[] = [
     ),
   },
   {
-    id: 'whats-new', title: "What's New in 1.4", icon: <Rocket size={15} />,
+    id: 'whats-new', title: "What's New in 1.5", icon: <Rocket size={15} />,
     content: (
       <>
         <ul className="list-disc pl-5">
-          <LI><strong>Real Morph transition</strong> — objects that exist in both scenes glide, resize and change color into their new place. See Transitions.</LI>
-          <LI><strong>Effects</strong> for images and video — 43 stackable GPU effects (neon outline on a person, VHS, glitch, warp, light leaks, phonk on the beat, colour looks…), timed on the clip, plus <strong>speed ramps</strong> and <strong>freeze frames</strong>. See Effects and Video.</LI>
-          <LI><strong>Flash Blur and Flicker Shake</strong> transitions with direction, speed and hardness.</LI>
-          <LI><strong>Bilingual, offline captions</strong> — Hindi transcription, optional offline English↔Hindi translation and bilingual SRT export. See Captions.</LI>
-          <LI><strong>Perspective on every element</strong> except arrows, with true perspective and no seam lines.</LI>
-          <LI><strong>One-click inserts</strong> for Text, Arrow and Table, plus a <strong>Draw Arrow</strong> mode.</LI>
-          <LI><strong>New animations:</strong> Outline Reveal and Bounce Words for text, Color Pulse, and character / line / block typing for code.</LI>
-          <LI><strong>Audio stays put</strong> when you split, resize, reorder, duplicate or delete scenes, and the waveform now shows true peaks.</LI>
-          <LI><strong>Smooth cuts</strong> on split or trimmed video in the editor, Preview and export.</LI>
-          <LI>Layer ordering shortcuts and right-click commands, a redesigned rotate handle, and alphabetical menu tools.</LI>
+          <LI><strong>AI Agent: type the edit</strong> — "remove the pauses and punch in", "neon outline on me, phonk on the beat", "slow-mo start". See the plan first; <code>/undo #N</code> reverts any AI edit. See AI Agent.</LI>
+          <LI><strong>Jump cuts and edit by transcript</strong> — cut pauses, filler words and retakes, or delete words in the transcript. <strong>Auto reframe</strong> follows the face for 9:16. See Video.</LI>
+          <LI><strong>22 GPU transitions</strong> — whip pan, zoom blur, light leak, film burn, glitch, cube… with an intro from black and an ending fade. See Transitions.</LI>
+          <LI><strong>43 effects in 9 groups</strong> — neon outline on a person, VHS, glitch, warp, light leaks, phonk on the beat, colour looks — plus <strong>speed ramps</strong> and <strong>freeze frames</strong>. See Effects.</LI>
+          <LI><strong>Edit BG</strong> — remove, blur or colour the background in one click; the <strong>precise cut-out</strong> works on people, cars and products, and you can click to keep or remove a person or object.</LI>
+          <LI><strong>Add-ons</strong> — neural network, flowchart, code walkthrough, equation reveal, title card, lower third, hook/CTA. See Add-ons.</LI>
+          <LI><strong>Connectors and Group Effects</strong> — arrows that stay attached; animate items in waves.</LI>
+          <LI><strong>Content Planner</strong> for ideas and scripts, <strong>Settings</strong> with About and feedback, and 9:16 export at full 1080×1920.</LI>
         </ul>
       </>
     ),
