@@ -2,6 +2,7 @@ import { Focus, RotateCcw } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
 import type { EditorElement, PerspectiveControls } from '../../types/editor'
 import { makePerspectiveControls, makePerspectivePts, makePerspectivePtsFromControls, type PerspectivePts } from '../../engine/perspectiveUtils'
+import { scalePtsY, textBoxHeight } from '../../utils/textMeasure'
 import { elementsBox, groupPerspectivePts, selectedWholeGroup, toGroupPerspective } from '../../utils/groups'
 import { PanelHeader, Row, Slider } from './TextPanel'
 import { useShallow } from 'zustand/react/shallow'
@@ -42,10 +43,14 @@ export default function PerspectivePanel() {
       set: (pts, controls) => setGroupPerspective(group.id, pts ? toGroupPerspective(pts, box, controls) : null),
     }
   } else if (single) {
+    // A text's quad covers all its lines: its real (wrapped) height, saved with the corners.
+    const height = single.type === 'text' ? textBoxHeight(single) : single.height
+    const stale = Math.abs(height - single.height) > 0.5 && single.height > 0
     target = {
-      name: single.name, width: single.width, height: single.height,
-      pts: single.perspectivePts, controls: single.perspectiveControls,
-      set: (pts, controls) => updateElement(single.id, { perspectivePts: pts, perspectiveControls: controls } as Partial<EditorElement>),
+      name: single.name, width: single.width, height,
+      pts: single.perspectivePts && stale ? scalePtsY(single.perspectivePts, height / single.height) : single.perspectivePts,
+      controls: single.perspectiveControls,
+      set: (pts, controls) => updateElement(single.id, { perspectivePts: pts, perspectiveControls: controls, ...(stale && { height }) } as Partial<EditorElement>),
     }
   }
   const el = target

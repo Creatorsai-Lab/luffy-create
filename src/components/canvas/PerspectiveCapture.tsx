@@ -3,6 +3,7 @@ import { Group, Shape } from 'react-konva'
 import type Konva from 'konva'
 import type { EditorElement } from '../../types/editor'
 import { drawPerspectiveWarp, perspectiveHitFunc, type PerspectivePts } from '../../engine/perspectiveUtils'
+import { scalePtsY } from '../../utils/textMeasure'
 
 // Perspective for any element type, with its exact normal styling.
 //
@@ -41,8 +42,17 @@ export default function PerspectiveCapture({ el, konvaProps, children }: {
         sceneFunc={ctx => {
           const raw = (ctx as unknown as { _context: CanvasRenderingContext2D })._context
           const source = sourceRef.current
-          const captured = source && captureNode(source, el.width, el.height, raw)
-          if (captured) drawPerspectiveWarp(raw, captured.canvas, pts, el.width, el.height, captured.rect)
+          if (!source) return
+          // A text taller than its stored box (lines added in an older project):
+          // stretch the quad over all of it rather than cutting lines off.
+          let h = el.height, quad = pts
+          if (el.type === 'text') {
+            const text = source.findOne('Text') as Konva.Text | undefined
+            const bottom = text ? text.y() + text.height() : 0
+            if (bottom > h + 0.5 && h > 0) { quad = scalePtsY(pts, bottom / h); h = bottom }
+          }
+          const captured = captureNode(source, el.width, h, raw)
+          if (captured) drawPerspectiveWarp(raw, captured.canvas, quad, el.width, h, captured.rect)
         }}
       />
     </>

@@ -19,6 +19,7 @@ import { getBlock } from '../blocks/registry'
 import { toast } from '../components/ui/Toast'
 import { LOOP_ANIMATION_TYPES } from '../utils/animationTypes'
 import { sceneAtTime, sceneStartTimes } from '../utils/sceneTiming'
+import { measureTextHeight, scalePtsY, TEXT_LAYOUT_KEYS } from '../utils/textMeasure'
 
 interface EditorState {
   project:           Project | null
@@ -634,6 +635,15 @@ export const useEditorStore = create<EditorState & EditorActions>()(
           const el = sc.elements.find(e => e.id === id)
           if (!el) continue
           Object.assign(el, patch)
+          // A text's box follows its wrapped content (more lines → taller), so
+          // perspective, wipes and rotation cover every line.
+          if (el.type === 'text' && !('height' in patch) && TEXT_LAYOUT_KEYS.some(k => k in patch)) {
+            const h = measureTextHeight(el)
+            if (h && Math.abs(h - el.height) > 0.5) {
+              if (el.perspectivePts && el.height > 0) el.perspectivePts = scalePtsY(el.perspectivePts, h / el.height)
+              el.height = h
+            }
+          }
           if (el.type === 'arrow') {
             // Attached ends stay on their element when the arrow is moved or
             // resized; only free ends take the new position. Release an end in

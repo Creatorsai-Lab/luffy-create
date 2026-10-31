@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useEditorStore } from '../../store/editorStore'
 import { FONT_FAMILIES } from '../../types/editor'
 import type { TextElement, TextFillMode, FontWeight, AlignType, AnimationType, EasingType, SlideDir, ElementAnimation, TextEffectType } from '../../types/editor'
-import { AlignLeft, AlignCenter, AlignRight, Italic, Underline, Type, Plus, Trash2 } from 'lucide-react'
+import { AlignLeft, AlignCenter, AlignRight, Italic, Underline, Type, Plus, Trash2, RotateCcw, RotateCw } from 'lucide-react'
+import { normalizeRotation, rotateAboutCenter } from '../../utils/rotateAboutCenter'
+import { textBoxHeight } from '../../utils/textMeasure'
 import { cn } from '../../utils/cn'
 import { makeAnimation, makeCenteredText } from '../../utils/defaults'
 import { InnerShadowControls } from './BoxShadowControls'
@@ -75,6 +77,13 @@ export default function TextPanel() {
 
   function upd(patch: Partial<TextElement>) {
     if (el) updateElement(el.id, patch)
+  }
+
+  /** Turns the text about its centre (as the canvas rotate handle does). */
+  function rotate(degrees: number) {
+    if (!el) return
+    const box = { x: el.x, y: el.y, rotation: el.rotation, width: el.width * (el.stretchX ?? 1), height: textBoxHeight(el) * (el.stretchY ?? 1) }
+    updateElement(el.id, rotateAboutCenter(box, degrees))
   }
 
   function toggleEffect(effect: TextEffectType) {
@@ -177,16 +186,8 @@ export default function TextPanel() {
                   <Row label="Color 1">
                     <ColorInput value={el.gradientColor1 ?? el.color} onChange={v => upd({ gradientColor1: v })} />
                   </Row>
-                  <Row label="Color 1 Opacity">
-                    <Slider value={Math.round((el.gradientOpacity1 ?? 1) * 100)} min={0} max={100} step={1}
-                      onChange={v => upd({ gradientOpacity1: v / 100 })} display={`${Math.round((el.gradientOpacity1 ?? 1) * 100)}%`} />
-                  </Row>
                   <Row label="Color 2">
                     <ColorInput value={el.gradientColor2 ?? '#8b5cf6'} onChange={v => upd({ gradientColor2: v })} />
-                  </Row>
-                  <Row label="Color 2 Opacity">
-                    <Slider value={Math.round((el.gradientOpacity2 ?? 1) * 100)} min={0} max={100} step={1}
-                      onChange={v => upd({ gradientOpacity2: v / 100 })} display={`${Math.round((el.gradientOpacity2 ?? 1) * 100)}%`} />
                   </Row>
                   <Row label="Third Color">
                     <button
@@ -202,15 +203,9 @@ export default function TextPanel() {
                     </button>
                   </Row>
                   {el.gradientUseColor3 && (
-                    <>
-                      <Row label="Color 3">
-                        <ColorInput value={el.gradientColor3 ?? '#22d3ee'} onChange={v => upd({ gradientColor3: v })} />
-                      </Row>
-                      <Row label="Color 3 Opacity">
-                        <Slider value={Math.round((el.gradientOpacity3 ?? 1) * 100)} min={0} max={100} step={1}
-                          onChange={v => upd({ gradientOpacity3: v / 100 })} display={`${Math.round((el.gradientOpacity3 ?? 1) * 100)}%`} />
-                      </Row>
-                    </>
+                    <Row label="Color 3">
+                      <ColorInput value={el.gradientColor3 ?? '#22d3ee'} onChange={v => upd({ gradientColor3: v })} />
+                    </Row>
                   )}
                 </>
               )}
@@ -356,6 +351,30 @@ export default function TextPanel() {
                   )
                 })}
               </div>
+            </div>
+
+            {/* ── Rotation ──────────────────────────────────────────── */}
+            <div className="border-t border-editor-border px-3 py-2">
+              <span className="text-xs font-medium text-editor-text block mb-2">Rotation</span>
+              <div className="flex items-center gap-1.5">
+                <div className="flex-1">
+                  <Slider value={Math.round(normalizeRotation(el.rotation))} min={-180} max={180} step={1}
+                    display={`${Math.round(normalizeRotation(el.rotation))}°`} onChange={v => rotate(v)} />
+                </div>
+                <button type="button" title="Turn 90° left" onClick={() => rotate(el.rotation - 90)}
+                  className="rounded border border-editor-border p-1 text-editor-text-secondary hover:text-editor-text"><RotateCcw size={12} /></button>
+                <button type="button" title="Turn 90° right" onClick={() => rotate(el.rotation + 90)}
+                  className="rounded border border-editor-border p-1 text-editor-text-secondary hover:text-editor-text"><RotateCw size={12} /></button>
+                <button type="button" title="Straighten (0°)" onClick={() => rotate(0)} disabled={!el.rotation}
+                  className="rounded border border-editor-border px-1.5 py-0.5 text-[10px] text-editor-text-secondary hover:text-editor-text disabled:opacity-40">0°</button>
+              </div>
+            </div>
+
+            {/* ── Text transparency ─────────────────────────────────── */}
+            <div className="border-t border-editor-border px-3 py-2" title="See-through letters — fill, outline and glow. The background box stays as it is (Opacity fades everything).">
+              <span className="text-xs font-medium text-editor-text block mb-2">Text transparency</span>
+              <Slider value={Math.round((1 - (el.textOpacity ?? 1)) * 100)} min={0} max={100} step={1}
+                onChange={v => upd({ textOpacity: 1 - v / 100 })} display={`${Math.round((1 - (el.textOpacity ?? 1)) * 100)}%`} />
             </div>
 
             {/* ── Animations ────────────────────────────────────────── */}

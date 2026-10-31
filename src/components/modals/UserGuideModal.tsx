@@ -124,7 +124,7 @@ const SECTIONS: Section[] = [
           ['Shapes', 'Rectangle, circle, oval, polygons, star, diamond, heart, speech bubbles, 3D cube/cone, hand-drawn and sketch boxes.'],
           ['Subtitle', 'Automatic captions, caption styles and translation.'],
           ['Table', 'Click to add a table in the scene center; edit rows, columns, cells, colors, borders, header.'],
-          ['Text', 'Click to add a text box in the scene center; “+ Add Text” in its panel adds more. Fonts, gradient fill, stroke, shadow, background box, Glow and Hollow effects.'],
+          ['Text', 'Click to add a text box in the scene center; “+ Add Text” in its panel adds more. Fonts (including Mangal for Hindi), gradient fill, stroke, shadow, background box, Glow and Hollow effects, Rotation (turns about the centre; ↺ / ↻ 90°, 0° straightens) and Text transparency (see-through letters; the background box stays).'],
           ['Transitions', 'Choose how the current scene enters from the previous one.'],
           ['User Guide', 'This guide — available even before a project is open.'],
           ['Video', 'Upload MP4/WebM/MOV; trim, speed ramps, freeze frames, volume, loop, crop, effects.'],

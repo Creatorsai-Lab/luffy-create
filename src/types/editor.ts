@@ -252,10 +252,9 @@ export interface TextElement extends BaseElement {
   gradientColor1?: string
   gradientColor2?: string
   gradientColor3?: string
-  gradientOpacity1?: number
-  gradientOpacity2?: number
-  gradientOpacity3?: number
   gradientUseColor3?: boolean
+  /** How solid the letters are, 0–1 (default 1): fill, outline and glow — not the background box. */
+  textOpacity?: number
   align: AlignType
   lineHeight: number
   letterSpacing: number
@@ -910,6 +909,7 @@ export const FONT_FAMILIES = [
   'Indie Flower',
   'Inter',
   'Kalam',
+  'Mangal',
   'Montserrat',
   'Noto Serif',
   'Pacifico',

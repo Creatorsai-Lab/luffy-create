@@ -58,6 +58,7 @@ const CANVAS_FONTS: Array<{ family: string; weights: string[] }> = [
   { family: 'Indie Flower',       weights: ['400'] },
   { family: 'Inter',              weights: ['100', '400', '600', '700'] },
   { family: 'Kalam',              weights: ['400', '700'] },
+  { family: 'Mangal',             weights: ['400', '700'] }, // the system font (src/index.css)
   { family: 'Montserrat',         weights: ['400', '700'] },
   { family: 'Noto Serif',         weights: ['400', '700'] },
   { family: 'Pacifico',           weights: ['400'] },

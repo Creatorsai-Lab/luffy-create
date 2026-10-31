@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Text, Group, Shape, Rect } from 'react-konva'
-import type Konva from 'konva'
+import Konva from 'konva'
 import type { TextElement, SlideDir } from '../../../types/editor'
 import { loadFont } from '../../../utils/fontLoader'
 import {
@@ -11,6 +11,23 @@ import { hasInnerShadow, innerShadowOrDefault } from '../../../engine/boxShadow'
 import { textFillProps } from '../../../engine/textFill'
 import { fontWeightToCssValue, fontWeightToKonvaStyle } from '../../../utils/fontWeight'
 import { resolveTextEffectProps } from '../../../utils/textEffects'
+import { setTextMeasurer } from '../../../utils/textMeasure'
+
+// The store measures texts with the same wrapping as the canvas (see utils/textMeasure).
+let measureNode: Konva.Text | null = null
+setTextMeasurer(el => {
+  measureNode ??= new Konva.Text({ wrap: 'word', padding: 0 })
+  measureNode.setAttrs({
+    text: el.content || ' ',
+    width: el.width,
+    fontSize: el.fontSize,
+    fontFamily: el.fontFamily,
+    fontStyle: [el.italic ? 'italic' : '', fontWeightToKonvaStyle(el.fontWeight)].join(' ').trim() || 'normal',
+    lineHeight: el.lineHeight,
+    letterSpacing: el.letterSpacing,
+  })
+  return measureNode.height()
+})
 
 interface Props {
   el: TextElement
@@ -97,6 +114,7 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
   })()
 
   const effectProps = resolveTextEffectProps(el, effectiveColor)
+  const letterOpacity = Math.max(0, Math.min(1, el.textOpacity ?? 1))
 
   const textStyleProps = {
     width: el.width,
@@ -111,6 +129,8 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
     perfectDrawEnabled: false,
     ...(textColor ? { fill: effectiveColor } : textFillProps({ ...el, color: effectiveColor }, el.width)),
     ...effectProps,
+    // Text transparency: the letters (fill, outline, glow), not the background box.
+    opacity: letterOpacity,
   }
   const innerShadow = innerShadowOrDefault(el.innerShadow)
   const innerOffset = {
@@ -160,7 +180,7 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
             x={word.x}
             y={y}
             width={wordWidth}
-            opacity={Math.min(1, local * 1.4)}
+            opacity={Math.min(1, local * 1.4) * letterOpacity}
             align="left"
             wrap="none"
           />
@@ -208,7 +228,7 @@ export default function TextKonva({ el, konvaProps, textProgress, textMode, wipe
       strokeWidth: outlineRevealStrokeWidth(el.fontSize),
       strokeEnabled: true,
       shadowEnabled: false,
-      opacity: 0.55,
+      opacity: 0.55 * letterOpacity,
     }
 
     return (

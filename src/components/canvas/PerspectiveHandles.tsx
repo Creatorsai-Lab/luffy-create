@@ -3,6 +3,7 @@ import { Group, Circle, Line } from 'react-konva'
 import type Konva from 'konva'
 import type { EditorElement } from '../../types/editor'
 import { makePerspectivePts, type PerspectivePts } from '../../engine/perspectiveUtils'
+import { scalePtsY, textBoxHeight } from '../../utils/textMeasure'
 import { useEditorStore } from '../../store/editorStore'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -14,9 +15,13 @@ type EdgeKey   = 'tc' | 'rc' | 'bc' | 'lc'
 export default function PerspectiveHandles({ el }: { el: EditorElement }) {
   const { updateElement } = useEditorStore(useShallow(s => ({ updateElement: s.updateElement })))
   if (el.type === 'arrow' || el.type === 'audio') return null
+  // A text's quad covers all its lines: its real (wrapped) height, saved with the corners.
+  const height = el.type === 'text' ? textBoxHeight(el) : el.height
+  const stale = Math.abs(height - el.height) > 0.5 && el.height > 0
+  const pts = el.perspectivePts && stale ? scalePtsY(el.perspectivePts, height / el.height) : el.perspectivePts
   return (
-    <QuadHandles x={el.x} y={el.y} rotation={el.rotation} width={el.width} height={el.height} pts={el.perspectivePts}
-      onChange={pts => updateElement(el.id, { perspectivePts: pts, perspectiveControls: undefined } as Partial<EditorElement>)} />
+    <QuadHandles x={el.x} y={el.y} rotation={el.rotation} width={el.width} height={height} pts={pts}
+      onChange={next => updateElement(el.id, { perspectivePts: next, perspectiveControls: undefined, ...(stale && { height }) } as Partial<EditorElement>)} />
   )
 }
 

@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mangal (Hindi / Devanagari). It is Windows' own font and can't be shipped with
+   the app, so "Mangal" points at the installed one — and, where it isn't
+   installed, at the system's Devanagari font (Nirmala UI on Windows, Kohinoor /
+   Devanagari Sangam on macOS, Noto / Lohit on Linux). Nothing is downloaded. */
+@font-face {
+  font-family: 'Mangal';
+  font-weight: 400;
+  src: local('Mangal'), local('Nirmala UI'), local('NirmalaUI'), local('Kohinoor Devanagari'), local('KohinoorDevanagari-Regular'),
+    local('Devanagari Sangam MN'), local('Noto Sans Devanagari'), local('NotoSansDevanagari-Regular'), local('Lohit Devanagari');
+}
+@font-face {
+  font-family: 'Mangal';
+  font-weight: 700;
+  src: local('Mangal Bold'), local('Mangal-Bold'), local('Nirmala UI Bold'), local('NirmalaUI-Bold'), local('Kohinoor Devanagari Bold'),
+    local('KohinoorDevanagari-Bold'), local('Devanagari Sangam MN Bold'), local('Noto Sans Devanagari Bold'), local('NotoSansDevanagari-Bold'), local('Lohit Devanagari');
+}
+
 @font-face {
   font-family: 'Computer Modern Roman';
   src: url('../node_modules/mathjax-full/es5/output/chtml/fonts/woff-v2/MathJax_Main-Regular.woff') format('woff');

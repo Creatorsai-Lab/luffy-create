@@ -1,17 +1,11 @@
 import type { TextElement } from '../types/editor'
-import { withOpacity } from './shapeFill'
 
 export function textFillProps(el: TextElement, width: number) {
   if ((el.fillMode ?? 'solid') !== 'linearGradient') return { fill: el.color }
   const { start, end } = linearPoints(width, Math.max(1, el.height || el.fontSize * el.lineHeight), 135)
-  const stops: Array<number | string> = [
-    0,
-    withOpacity(el.gradientColor1 ?? el.color, el.gradientOpacity1 ?? 1),
-  ]
-  if (el.gradientUseColor3) {
-    stops.push(0.5, withOpacity(el.gradientColor3 ?? '#22d3ee', el.gradientOpacity3 ?? 1))
-  }
-  stops.push(1, withOpacity(el.gradientColor2 ?? '#8b5cf6', el.gradientOpacity2 ?? 1))
+  const stops: Array<number | string> = [0, el.gradientColor1 ?? el.color]
+  if (el.gradientUseColor3) stops.push(0.5, el.gradientColor3 ?? '#22d3ee')
+  stops.push(1, el.gradientColor2 ?? '#8b5cf6')
   return {
     fill: undefined,
     fillLinearGradientStartPoint: start,
